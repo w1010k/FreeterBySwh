@@ -123,11 +123,11 @@ if (!app.requestSingleInstanceLock()) {
     const ipcMainEventValidator = createIpcMainEventValidator(channelPrefix, hostFreeterApp);
     const ipcMain = createIpcMain(ipcMainEventValidator);
 
-    const appDataStorage = await createFileDataStorage('string', join(app.getPath('appData'), 'freeter2', 'freeter-data'));
+    const appDataStorage = await createFileDataStorage('string', join(app.getPath('appData'), 'freeter-swh', 'freeter-data'));
     const getTextFromAppDataStorageUseCase = createGetTextFromAppDataStorageUseCase({ appDataStorage });
     const setTextInAppDataStorageUseCase = createSetTextInAppDataStorageUseCase({ appDataStorage });
 
-    const getWidgetDataStoragePath = (id: string) => join(app.getPath('appData'), 'freeter2', 'freeter-data', 'widgets', id);
+    const getWidgetDataStoragePath = (id: string) => join(app.getPath('appData'), 'freeter-swh', 'freeter-data', 'widgets', id);
     const widgetDataStorageManager = createObjectManager(
       (id) => createFileDataStorage('string', getWidgetDataStoragePath(id)),
       (fromId, toId) => copyFileDataStorage(getWidgetDataStoragePath(fromId), getWidgetDataStoragePath(toId))
