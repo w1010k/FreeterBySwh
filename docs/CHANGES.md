@@ -251,15 +251,81 @@ B에서 편집 → 3s debounce → dataStorage.setText IPC → main이 파일 wr
 4. **memSaver로 위젯이 영구 마운트**: 워크플로 전환으로 자연스러운 remount를 기대할 수 없음. → broadcast + CustomEvent 필수
 5. **Self-echo**: 같은 window의 위젯들은 webContents.id가 같아 sender 구분 불가. → 타이핑 중인 textarea는 `document.activeElement` 체크로 스킵
 
+### 키 삭제
+
+설정 드롭다운 옆에 **"Delete key"** 버튼(선택된 키가 있을 때만). 삭제 시:
+
+1. OS 확인 다이얼로그 — 영향받는 위젯 개수 표시
+2. `shared/<widgetType>/<keyId>/` 폴더 내용 clear (공유 콘텐츠 제거)
+3. 해당 키를 쓰던 모든 위젯의 **자체 storage도 clear** — 이전 로컬 데이터 복원 방지, 위젯이 빈 상태로 돌아감 (사용자 의도: "키 삭제하면 노트도 사라져")
+4. 각 위젯의 `settings.sharedKeyId = null` 리셋
+5. state에서 `SharedDataKey` 엔티티 removeOne
+
+구현: `src/renderer/application/useCases/sharedDataKey/deleteSharedDataKey.ts` 단일 use case. `settingsApi.sharedDataKey.delete(keyId)`로 호출.
+
 ### 제한 사항
 
-- **Manage Shared Data Keys 다이얼로그 부재**: 현재 키 삭제/이름 변경 UI 없음 (키 생성은 설정 드롭다운에서 가능). 향후 추가 예정.
-- **TodoList 미적용**: Note에만 적용. 패턴 확립됐으므로 TodoList로 확장은 기계적 작업 — 향후 세션에서.
 - **콘텐츠 비어있음 사전 체크 없음**: 당초 Q1 결정은 "비어있어야 공유 허용"이었으나, settings UI에서 위젯 데이터 dry-read가 까다로워 `moreInfo` 경고 문구로 대체. 사용자가 공유 키 지정 시 위젯의 visible 콘텐츠는 선택한 키의 내용으로 교체됨 (local 데이터는 widget 폴더에 그대로 남아, 공유 해제 시 복원됨).
+- **독립적 키 관리 다이얼로그 부재**: 키 생성·삭제 모두 위젯 설정에서 인라인으로 처리. 전체 키 목록을 한눈에 보는 별도 "Manage Shared Data Keys" 화면은 없음. 키가 많아지면 필요해질 수 있음.
 
-**수정 파일 요약**:
-- 신규 9개: `common/base/sharedStorageId.ts`, `main/application/useCases/sharedDataStorage/{clear,delete,getKeys,getText,setText}.ts` (5), `main/controllers/sharedDataStorage.ts`, `renderer/base/sharedDataKey.ts`, `renderer/infra/dataStorage/sharedDataStorage.ts`
-- 수정 12개: `common/ipc/channels.ts`, `main/index.ts`, `renderer/init.ts`, `renderer/base/widget.ts`, `renderer/base/widgetApi.ts`, `renderer/base/state/{entities,shared}.ts`, `renderer/base/state/actions/entity.ts`, `renderer/application/useCases/widget/getWidgetApi.ts`, `renderer/application/useCases/widgetSettings/getWidgetSettingsApi.ts`, `renderer/widgets/appModules.ts`, `renderer/widgets/note/{index.ts,settings.tsx,widget.tsx}`
+---
+
+## 9. TodoList 자동 프로젝트 동기화
+
+**TodoList는 설정 없이 프로젝트 단위로 자동 동기화**. 같은 프로젝트 내 모든 TodoList 위젯이 단일 데이터 버킷을 공유. 사용자가 키를 지정할 필요 없음.
+
+### 동작
+
+| 위젯 위치 | 스코프 | 결과 |
+|---|---|---|
+| 프로젝트 P1의 워크플로 여러 개 | `P1` | 모두 같은 목록 공유 |
+| 프로젝트 P2의 워크플로 | `P2` | P1과 독립 |
+| Shelf (탑 바) | `app` | 쉘프 내에서만 공유 (앱 전역) |
+| 위젯을 프로젝트 간 이동 | 스코프 변경 | 자동 remount → 새 스코프의 데이터 로드 |
+
+저장 경로: `<appData>/freeter-swh/freeter-data/shared/to-do-list/<projectId>/todo` (또는 `.../shared/to-do-list/app/todo`).
+
+### Note 공유 키와의 차이
+
+| | Note | TodoList |
+|---|---|---|
+| 공유 방식 | 사용자가 명시적으로 키 생성/선택 | 자동 (설정 없음) |
+| 스코프 단위 | 임의 (키 이름 자유) | 프로젝트 또는 `app` |
+| UX | 세밀한 제어 | 단순함 (무조건 동기화) |
+
+Note의 유연성과 TodoList의 단순성 둘 다 취할 수 있도록 독립 설계. 공유 infra는 재사용.
+
+### 구현
+
+- `getWidgetApi.ts`에 `findWidgetProjectId(state, widgetId)` 헬퍼 추가. `project.workflowIds → workflow.layout.items`를 순회해서 위젯을 포함한 프로젝트 찾기.
+- `dataStorage.getStorage()` 분기 확장: `widget.type === 'to-do-list'`이면 공유 키 지정 없이도 shared storage로 라우팅 (key = projectId 또는 `app`).
+- TodoList widget에 outer `WidgetComp` 래퍼 추가 — `<ToDoInner key={scope} />`로 스코프 변경 시 remount 유도.
+- debounce를 **3초 → 500ms**로 단축. 이산 동작(체크박스 토글, 항목 추가/삭제)은 키 입력 burst가 아니라서 짧아도 부담 없음.
+
+**수정 파일**: `src/renderer/application/useCases/widget/getWidgetApi.ts`, `src/renderer/widgets/to-do-list/widget.tsx`. TodoList는 `settings.tsx`, `index.ts` 모두 건드릴 필요 없음.
+
+---
+
+## 10. 공유 구독 패턴 추상화 — `useSharedDataChangedEffect`
+
+Note와 TodoList 두 위젯이 동일 구조의 브로드캐스트 리스너를 갖고 있던 걸 재사용 가능한 훅으로 분리.
+
+```ts
+useSharedDataChangedEffect(widgetType, scope, shouldSkip, reload);
+// 예: Note
+useSharedDataChangedEffect('note', settings.sharedKeyId, () => document.activeElement === ref.current, loadNote);
+// 예: TodoList
+useSharedDataChangedEffect('to-do-list', scopeForEnv(env), () => activeItemEditorState !== null, loadData);
+```
+
+설계 포인트:
+- `shouldSkip`/`reload`를 `useRef`로 보관해서 subscribe useEffect가 편집 상태 변경마다 재실행되지 않음
+- `scope`가 nullish면 자동 구독 스킵 (Note에 키 없을 때)
+- 이벤트 이름 상수 `SHARED_DATA_CHANGED_EVENT`는 `src/renderer/base/sharedDataEvents.ts`로 중앙화 — dispatch(init.ts)와 listen(훅) 양쪽에서 같은 상수 참조
+
+**효과**: 각 위젯의 live-sync 코드가 21줄에서 6줄로. 새 위젯이 공유 기능을 붙일 때 한 줄이면 끝.
+
+**수정 파일**: 신규 `src/renderer/base/sharedDataEvents.ts`, `src/renderer/widgets/sharedDataSync.ts`. 수정 `renderer/init.ts`, `renderer/widgets/note/widget.tsx`, `renderer/widgets/to-do-list/widget.tsx`.
 
 ---
 
