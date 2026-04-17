@@ -35,11 +35,12 @@
     border: 1px solid var(--freeter-topBarBorder);
     box-sizing: border-box;
     white-space: nowrap;
-    min-width: 120px;
-    height: 62px;
+    min-width: 96px;
+    // = .top-bar-section height + 2 (shelf overlaps topBar's 1px top/bottom borders via top:-1/bottom:-1)
+    height: 50px;
     padding: 0 12px;
     font-size: 16px;
-    line-height: 60px;
+    line-height: 48px;
     text-align: center;
     cursor: pointer;
   }
@@ -47,7 +48,8 @@
     display: block;
     z-index: 1;
     position: fixed;
-    top: 58px;
+    // = .top-bar-section height - 2 (overlap for seamless hover)
+    top: 46px;
     border: 1px solid var(--freeter-shelfWidgetBoxBorder);
     background-color: var(--freeter-shelfWidgetBoxBackground);
     box-shadow: 0 4px 8px 0 var(--freeter-shelfWidgetBoxShadow);
