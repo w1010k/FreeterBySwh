@@ -856,7 +856,15 @@ describe('<Widget />', () => {
     });
 
     expect(getWidgetApiUseCase).toHaveBeenCalledTimes(1);
-    expect(getWidgetApiUseCase).toHaveBeenCalledWith(widgetId, false, expect.any(Function), expect.any(Function), expect.any(Function), expect.any(Function), testRequiresApi);
+    expect(getWidgetApiUseCase).toHaveBeenCalledWith(
+      widgetId,
+      false,
+      expect.any(Function),
+      expect.any(Function),
+      expect.any(Function),
+      expect.any(Function),
+      testRequiresApi
+    );
     expect(screen.queryByText(getWidgetApiUseCaseRes)).toBeInTheDocument();
   })
 

@@ -51,7 +51,9 @@ function SettingsEditorComp({settings, settingsApi, sharedState}: SettingsEditor
 
   const onCreateConfirm = () => {
     const trimmed = newKeyName.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      return;
+    }
     const id = settingsApi.sharedDataKey.create(noteWidgetType, trimmed);
     updateSettings({ ...settings, sharedKeyId: id });
     setIsCreating(false);
@@ -65,7 +67,9 @@ function SettingsEditorComp({settings, settingsApi, sharedState}: SettingsEditor
 
   const onDeleteSelected = () => {
     const id = settings.sharedKeyId;
-    if (!id) return;
+    if (!id) {
+      return;
+    }
     settingsApi.sharedDataKey.delete(id);
   };
 

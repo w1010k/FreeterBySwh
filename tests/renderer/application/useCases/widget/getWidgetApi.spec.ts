@@ -138,7 +138,15 @@ describe('getWidgetApiUseCase()', () => {
     const exposeApiHandler = jest.fn();
     const setDynamicTitleHandler = jest.fn();
 
-    const widgetApi = getWidgetApiUseCase(widgetId, false, updateWidgetActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler, setDynamicTitleHandler, []);
+    const widgetApi = getWidgetApiUseCase(
+      widgetId,
+      false,
+      updateWidgetActionBarHandler,
+      setContextMenuFactoryHandler,
+      exposeApiHandler,
+      setDynamicTitleHandler,
+      []
+    );
 
     widgetApi.setContextMenuFactory(testVal as unknown as WidgetContextMenuFactory);
     expect(setContextMenuFactoryHandler).toHaveBeenCalledTimes(1);
@@ -167,7 +175,15 @@ describe('getWidgetApiUseCase()', () => {
     const exposeApiHandler = jest.fn();
     const setDynamicTitleHandler = jest.fn();
 
-    const widgetApi = getWidgetApiUseCase(widgetId, true, updateWidgetActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler, setDynamicTitleHandler, []);
+    const widgetApi = getWidgetApiUseCase(
+      widgetId,
+      true,
+      updateWidgetActionBarHandler,
+      setContextMenuFactoryHandler,
+      exposeApiHandler,
+      setDynamicTitleHandler,
+      []
+    );
 
     widgetApi.setContextMenuFactory(testVal as unknown as WidgetContextMenuFactory);
     expect(setContextMenuFactoryHandler).not.toHaveBeenCalled();
