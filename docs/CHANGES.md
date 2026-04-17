@@ -17,10 +17,17 @@
 | `package.json` `name` | `freeter` | `freeter-swh` |
 | 사용자 데이터 폴더 | `<appData>/freeter/freeter-data` | `<appData>/freeter-swh/freeter-data` |
 | 윈도우 타이틀 (HTML) | `Freeter` | `Freeter-SWH` |
+| 시스템 트레이 툴팁 | `Freeter` | `Freeter-SWH` |
+| 다이얼로그 타이틀 | `Freeter` | `Freeter-SWH` |
+| Electron 윈도우 `title` (메인·팝업) | `Freeter` | `Freeter-SWH` |
+| macOS 앱 메뉴 라벨 | `Freeter` | `Freeter-SWH` |
+| About 모달 (타이틀·앱 이름 헤딩) | `Freeter` / `About Freeter` | `Freeter-SWH` / `About Freeter-SWH` |
 
-**왜**: 원본 앱을 덮어쓰거나 설정을 공유하지 않도록. `appId`가 달라서 `app.requestSingleInstanceLock()`도 자동 분리됨.
+**왜**: 원본 앱을 덮어쓰거나 설정을 공유하지 않도록. `appId`가 달라서 `app.requestSingleInstanceLock()`도 자동 분리됨. 트레이·윈도우·메뉴에 원본 이름이 남아있으면 두 앱 동시 실행 시 어느 쪽이 내 포크인지 구분 불가 → OS 표면에 드러나는 아이덴티티 라벨 일괄 교체.
 
-**수정 파일**: `electron-builder.config.js`, `package.json`, `src/main/index.ts`, `webpack.renderer.config.js`
+**그대로 둔 곳** (프로덕트 설명 문구): `applicationSettings` / `workflowSettings` / `projectManagerSettings`의 `moreInfo` 문자열("Freeter frees up memory..."), About 모달 본문의 스폰서십 설명. 이건 오픈소스 프로젝트 자체를 서술하는 산문이라 `Freeter-SWH`로 치환하면 오히려 어색 (이 포크 자체가 별도 프로젝트가 아니라 upstream의 파생이라는 맥락 유지).
+
+**수정 파일**: `electron-builder.config.js`, `package.json`, `src/main/index.ts`, `webpack.renderer.config.js`, `src/main/infra/trayProvider/trayProvider.ts`, `src/main/infra/dialogProvider/dialogProvider.ts`, `src/main/infra/browserWindow/browserWindow.ts`, `src/renderer/application/useCases/appMenu/initAppMenu.ts`, `src/renderer/ui/components/about/about.tsx`
 
 남은 브랜딩 TODO: 아이콘(`resources/{win32,darwin,linux}/`), 기본 글로벌 단축키(원본 Freeter와 동시 실행 시 `Ctrl/Cmd+Shift+F` 충돌).
 

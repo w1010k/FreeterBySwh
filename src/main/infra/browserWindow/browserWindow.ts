@@ -58,7 +58,7 @@ export function createRendererWindow(
       }
     ),
     icon,
-    title: 'Freeter',
+    title: 'Freeter-SWH',
     minWidth,
     minHeight,
     webPreferences: {
@@ -178,7 +178,7 @@ export function createRendererWindow(
         minimizable: false,
         icon,
         parent: win,
-        title: 'Freeter',
+        title: 'Freeter-SWH',
         webPreferences: {
           session: wc.session
         }

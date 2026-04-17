@@ -78,7 +78,7 @@ export function createInitAppMenuUseCase({
   };
 
   const itemAbout: MenuItem = {
-    label: 'About Freeter',
+    label: 'About Freeter-SWH',
     doAction: async () => openAboutUseCase()
   }
 
@@ -92,7 +92,7 @@ export function createInitAppMenuUseCase({
   }
 
   const menuApp: MenuItem = {
-    label: 'Freeter',
+    label: 'Freeter-SWH',
     submenu: [
       itemAbout,
       itemSeparator,

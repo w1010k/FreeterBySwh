@@ -28,13 +28,13 @@ export function createAboutComponent({
         buttons={[
           {id: 'close', caption: 'Close', primary: true, onClick: onCloseClick},
         ]}
-        title="About Freeter"
+        title="About Freeter-SWH"
       >
         <div className={styles['about-left']}>
           <div className={styles['app-logo']}>
             <SvgIcon svg={logo150Svg} className={styles['app-logo-svg']}></SvgIcon>
           </div>
-          <div className={styles['app-name']}>Freeter</div>
+          <div className={styles['app-name']}>Freeter-SWH</div>
           <div className={styles['app-about']}>
             <span><b>Version:</b> {aboutInfo.productInfo.version}</span>
             <span><b>Date:</b> {aboutInfo.productInfo.builtAt}</span>

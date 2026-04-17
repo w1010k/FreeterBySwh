@@ -6,7 +6,7 @@
 import Electron from 'electron';
 import { DialogProvider } from '@/application/interfaces/dialogProvider';
 
-const title = 'Freeter';
+const title = 'Freeter-SWH';
 
 export function createDialogProvider(): DialogProvider {
   return {
