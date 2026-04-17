@@ -390,6 +390,42 @@ useSharedDataChangedEffect('to-do-list', scopeForEnv(env), () => activeItemEdito
 
 ---
 
+## 13. Webpage 위젯 — 새 탭은 기본 브라우저, 팝업은 계속 내부 (#3 재정립)
+
+#3은 `target="_blank"` / `window.open(url)`까지 현재 webview로 눌러넣어서 "이건 새 창에서 보고 싶었는데"라는 기대를 깼음. 사용자가 원한 건 **일반 브라우저 감각**:
+
+| 링크 종류 | 실제 브라우저 | 이 포크 (이전, #3) | 이 포크 (현재) |
+|---|---|---|---|
+| 일반 `<a href>` / JS 리다이렉트 / 폼 전송 / back-forward | 현재 탭 이동 | 현재 webview 이동 | **현재 webview 이동** (변화 없음) |
+| `<a target="_blank">` / 중간클릭 / Ctrl·Cmd+클릭 | 새 탭 | 현재 webview 이동 | **기본 브라우저로 전송** |
+| `window.open(url)` (features 없음) | 새 탭 | 현재 webview 이동 | **기본 브라우저로 전송** |
+| `window.open(url, '', 'popup,width=...')` 또는 disposition `new-window` | 별도 팝업 창 | Freeter 내부 팝업 | **Freeter 내부 팝업** (변화 없음) |
+
+### 갈림길의 이유
+
+Chromium이 `setWindowOpenHandler` 콜백에 `disposition`과 `features`를 실어서 넘겨줌. 새 탭 성격(`foreground-tab`/`background-tab`, features 비어있음)은 외부 브라우저로, 진짜 팝업 성격(`new-window` 또는 features에 `popup`/`width`/`height`)은 내부로 라우팅.
+
+**왜 팝업은 내부 유지?**  
+OAuth / 로그인 플로우는 `window.opener.postMessage({token: ...})`로 원래 창에 결과를 돌려줘야 함. opener 참조는 같은 Electron 프로세스 안에서만 유효. 팝업도 외부 브라우저로 밀면 통신 단절 → 로그인 실패. #3이 이걸 일부러 내부로 뒀던 이유는 유효했음.
+
+**왜 새 탭은 외부?**  
+`target="_blank"` / 중간클릭은 사용자가 "이 위젯 밖에서 보고 싶다"는 신호. 현재 webview 위에 덮어씌우면 위젯 내비게이션 히스토리도 꼬이고 의도와도 안 맞음.
+
+### 같은 프레임 이동과의 구분이 왜 공짜인가
+
+같은 프레임 안에서 URL이 바뀌는 경우(일반 링크 클릭, `location.href=...`, 폼 submit, back/forward)는 Chromium이 `will-navigate` 경로로 보내고 `setWindowOpenHandler`를 부르지 않음. 새 창/새 탭을 열려는 의도만 이 핸들러로 넘어옴 → 호스트 측에서 별도 감지 로직(preload 주입, 클릭 핸들러 등) 불필요.
+
+### 까다로웠던 포인트
+
+- 초기 구현(이 섹션의 첫 버전)은 "전부 외부 브라우저로" 밀어버렸는데 — OAuth 팝업이 같이 깨져서 되돌림. `rePopupFeatures`와 `BrowserWindowConstructorOptions` 분기는 다시 살아남.
+- 처음엔 webview에 preload 주입해 `<a>` 클릭을 가로챌 생각이었는데 과했음. Chromium이 같은 창 이동과 새 창/새 탭 요청을 이미 분리해서 주기 때문에 `setWindowOpenHandler` 한 곳에서 처리 가능.
+- `shell.openExternal`엔 `sanitizeUrl`을 통과시킨 URL만 넘김. javascript:/file: 등 이상한 프로토콜이 페이지에서 `window.open`으로 흘러들어올 때 방어.
+- #3과의 유일한 실질적 차이는 "새 탭성 요청을 현재 webview에 덮어씌우지 않고 외부로 보낸다"는 한 줄. 팝업 처리 로직(BrowserWindow 생성 옵션 등)은 그대로.
+
+**수정 파일**: `src/main/infra/browserWindow/browserWindow.ts`
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

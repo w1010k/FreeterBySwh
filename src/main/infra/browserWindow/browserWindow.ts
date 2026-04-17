@@ -3,11 +3,12 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { BrowserWindowConstructorOptions, BrowserWindow as ElectronBrowserWindow, app, screen, webContents } from 'electron';
+import { BrowserWindowConstructorOptions, BrowserWindow as ElectronBrowserWindow, app, screen, shell, webContents } from 'electron';
 import { BrowserWindow } from '@/application/interfaces/browserWindow'
 import { GetWindowStateUseCase } from '@/application/useCases/browserWindow/getWindowState';
 import { SetWindowStateUseCase } from '@/application/useCases/browserWindow/setWindowState';
 import { ipcSwitchWorkflowByOffsetChannel } from '@common/ipc/channels';
+import { sanitizeUrl } from '@common/helpers/sanitizeUrl';
 
 const minWidth = 1200;
 const minHeight = 600;
@@ -127,14 +128,17 @@ export function createRendererWindow(
     }
   })
 
-  // Handle new-window requests from <webview>:
-  //   - "new tab" intents (`<a target="_blank">`, `window.open(url)` without popup
-  //     features) → navigate the current webview, so the widget behaves like a
-  //     single-tab browser instead of spawning a Freeter popup for every link.
-  //   - real popups (`window.open(url, '', 'width=X,height=Y')`, disposition
-  //     'new-window') → open as an in-app BrowserWindow. OAuth/login flows rely
-  //     on `window.opener` to communicate results back, which only works when
-  //     the popup lives in the same Electron process as its opener.
+  // Split new-window requests from <webview> into two branches:
+  //   - "new tab" intents (`<a target="_blank">`, plain `window.open(url)`,
+  //     middle-click, Ctrl/Cmd+click) → send to the user's default browser so
+  //     Freeter doesn't swallow links meant to "escape" the widget.
+  //   - real popups (`window.open(url, '', 'popup,width=X,height=Y')`,
+  //     disposition 'new-window') → keep as an in-app BrowserWindow. OAuth
+  //     / login flows rely on `window.opener.postMessage(...)` to return the
+  //     result to the opener, which only works when both live in the same
+  //     Electron process.
+  // Same-frame navigation (regular link clicks, JS redirects, form submits,
+  // back/forward) bypasses this handler entirely and stays in the widget.
   // Menu accelerators (e.g. Ctrl+Tab for workflow switching) don't reach the
   // host window when a <webview> has keyboard focus — the webview's guest page
   // consumes the key first. Mirror the Ctrl+Tab / Ctrl+Shift+Tab shortcuts at
@@ -155,7 +159,10 @@ export function createRendererWindow(
     wc.setWindowOpenHandler(({ url, disposition, features }) => {
       const isRealPopup = disposition === 'new-window' || rePopupFeatures.test(features);
       if (!isRealPopup) {
-        wc.loadURL(url);
+        const sanitUrl = sanitizeUrl(url);
+        if (sanitUrl) {
+          shell.openExternal(sanitUrl);
+        }
         return { action: 'deny' };
       }
       const { height, width, x, y } = win.getBounds();
