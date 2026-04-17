@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { BrowserWindow as ElectronBrowserWindow, app, shell } from 'electron';
+import { BrowserWindow as ElectronBrowserWindow, app, shell, webContents } from 'electron';
 import { BrowserWindow } from '@/application/interfaces/browserWindow'
 import { GetWindowStateUseCase } from '@/application/useCases/browserWindow/getWindowState';
 import { SetWindowStateUseCase } from '@/application/useCases/browserWindow/setWindowState';
@@ -124,14 +124,65 @@ export function createRendererWindow(
     }
   })
 
-  // Open links that try to open a new window (target="_blank" / window.open)
-  // in the OS default browser instead of a Freeter popup window.
+  // Behave like a single-tab browser inside the widget:
+  //   - `<a target="_blank">` / "new tab" intents → navigate the current webview
+  //   - real popups (`window.open` with size/popup features, disposition 'new-window') → OS browser
   win.webContents.on('did-attach-webview', (_, wc) => {
-    wc.setWindowOpenHandler(({ url }) => {
-      shell.openExternal(url);
+    wc.setWindowOpenHandler(({ url, disposition, features }) => {
+      const isRealPopup = disposition === 'new-window' || /\bpopup\b/i.test(features);
+      if (isRealPopup) {
+        shell.openExternal(url);
+      } else {
+        wc.loadURL(url);
+      }
       return { action: 'deny' };
     })
   })
+
+  // Route mouse back/forward buttons to a <webview>'s navigation history.
+  // Side-button presses don't change focus, so we look for the focused webview
+  // first, and fall back to the only webview when there is exactly one.
+  const navigateFocusedWebview = (dir: 'back' | 'forward') => {
+    const webviews = webContents.getAllWebContents()
+      .filter(wc => wc.getType() === 'webview' && !wc.isDestroyed());
+    const target = webviews.find(wc => wc.isFocused())
+      ?? (webviews.length === 1 ? webviews[0] : undefined);
+    if (!target) {
+      return;
+    }
+    const nav = target.navigationHistory;
+    if (dir === 'back' && nav.canGoBack()) {
+      nav.goBack();
+    } else if (dir === 'forward' && nav.canGoForward()) {
+      nav.goForward();
+    }
+  };
+
+  // Covers Linux XF86Back/Forward and well-behaved Windows setups that deliver
+  // WM_APPCOMMAND (APPCOMMAND_BROWSER_BACKWARD/FORWARD).
+  win.on('app-command', (_e, cmd) => {
+    if (cmd === 'browser-backward') {
+      navigateFocusedWebview('back');
+    } else if (cmd === 'browser-forward') {
+      navigateFocusedWebview('forward');
+    }
+  });
+
+  // Many Windows mouse drivers don't translate X1/X2 side buttons into
+  // WM_APPCOMMAND, so hook the raw WM_XBUTTONUP message as a fallback.
+  if (process.platform === 'win32') {
+    const WM_XBUTTONUP = 0x020C;
+    const XBUTTON1 = 1; // back
+    const XBUTTON2 = 2; // forward
+    win.hookWindowMessage(WM_XBUTTONUP, (wParam) => {
+      const whichButton = wParam.readUInt16LE(2); // HIWORD of wParam
+      if (whichButton === XBUTTON1) {
+        navigateFocusedWebview('back');
+      } else if (whichButton === XBUTTON2) {
+        navigateFocusedWebview('forward');
+      }
+    });
+  }
 
   // and load the index.html of the app.
   win.loadURL(url);
