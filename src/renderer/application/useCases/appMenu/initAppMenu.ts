@@ -18,6 +18,7 @@ import { EditTogglePos, ProjectSwitcherPos } from '@/base/state/ui';
 import { ToggleTopBarUseCase } from '@/application/useCases/toggleTopBar';
 import { SetProjectSwitcherPositionUseCase } from '@/application/useCases/projectSwitcher/setProjectSwitcherPosition';
 import { SetEditTogglePositionUseCase } from '@/application/useCases/setEditTogglePosition';
+import { SwitchWorkflowByOffsetUseCase } from '@/application/useCases/workflowSwitcher/switchWorkflowByOffset';
 
 const urlDownload = 'https://freeter.io/v2/download';
 const urlTwitter = 'https://twitter.com/FreeterApp';
@@ -39,6 +40,7 @@ type Deps = {
   openAboutUseCase: OpenAboutUseCase;
   openProjectManagerUseCase: OpenProjectManagerUseCase;
   openAppManagerUseCase: OpenAppManagerUseCase;
+  switchWorkflowByOffsetUseCase: SwitchWorkflowByOffsetUseCase;
 }
 
 
@@ -56,6 +58,7 @@ export function createInitAppMenuUseCase({
   openAboutUseCase,
   openProjectManagerUseCase,
   openAppManagerUseCase,
+  switchWorkflowByOffsetUseCase,
 }: Deps) {
   const { isMac, isDevMode } = processProvider.getProcessInfo();
 
@@ -67,6 +70,11 @@ export function createInitAppMenuUseCase({
     accelerator: 'CmdOrCtrl+,',
     doAction: async () => openApplicationSettingsUseCase(),
     label: 'Settings'
+  };
+
+  const itemOpenDataFolder: MenuItem = {
+    doAction: async () => { await shellProvider.openAppDataDir(); },
+    label: 'Open Data Folder'
   };
 
   const itemAbout: MenuItem = {
@@ -89,6 +97,7 @@ export function createInitAppMenuUseCase({
       itemAbout,
       itemSeparator,
       itemSettings,
+      itemOpenDataFolder,
       itemSeparator,
       itemCheckUpdates,
       itemSeparator,
@@ -104,6 +113,7 @@ export function createInitAppMenuUseCase({
     label: '&File',
     submenu: [
       itemSettings,
+      itemOpenDataFolder,
       itemSeparator,
       itemQuit
     ]
@@ -219,6 +229,17 @@ export function createInitAppMenuUseCase({
             ]
           },
         ]
+      },
+      itemSeparator,
+      {
+        accelerator: 'CmdOrCtrl+Tab',
+        label: 'Next Workflow',
+        doAction: async () => switchWorkflowByOffsetUseCase(1)
+      },
+      {
+        accelerator: 'CmdOrCtrl+Shift+Tab',
+        label: 'Previous Workflow',
+        doAction: async () => switchWorkflowByOffsetUseCase(-1)
       },
       itemSeparator,
       {

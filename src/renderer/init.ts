@@ -27,6 +27,7 @@ import { createWorkflowSwitcherComponent, createWorkflowSwitcherViewModelHook } 
 import { createProjectSwitcherComponent, createProjectSwitcherViewModelHook } from '@/ui/components/projectSwitcher';
 import { createSwitchProjectUseCase } from '@/application/useCases/projectSwitcher/switchProject';
 import { createSwitchWorkflowUseCase } from '@/application/useCases/workflowSwitcher/switchWorkflow';
+import { createSwitchWorkflowByOffsetUseCase } from '@/application/useCases/workflowSwitcher/switchWorkflowByOffset';
 import { createDragOverWorkflowSwitcherUseCase } from '@/application/useCases/dragDrop/dragOverWorkflowSwitcher';
 import { createDragWorkflowFromWorkflowSwitcherUseCase } from '@/application/useCases/dragDrop/dragWorkflowFromWorkflowSwitcher';
 import { createDropOnWorkflowSwitcherUseCase } from '@/application/useCases/dragDrop/dropOnWorkflowSwitcher';
@@ -145,6 +146,8 @@ import { createSetProjectSwitcherPositionUseCase } from '@/application/useCases/
 import { createSetEditTogglePositionUseCase } from '@/application/useCases/setEditTogglePosition';
 import { createGetWidgetsInCurrentWorkflowUseCase } from '@/application/useCases/widget/widgetApiWidgets/getWidgetsInCurrentWorkflow';
 import { createSetExposedApiUseCase } from '@/application/useCases/widget/setExposedApi';
+import { electronIpcRenderer } from '@/infra/mainApi/mainApi';
+import { ipcSwitchWorkflowByOffsetChannel } from '@common/ipc/channels';
 
 function prepareDataStorageForRenderer(dataStorage: DataStorage): DataStorageRenderer {
   return setTextOnlyIfChanged(withJson(dataStorage));
@@ -212,6 +215,10 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
   const switchWorkflowUseCase = createSwitchWorkflowUseCase({
     ...deps,
     deactivateWorkflowUseCase
+  });
+  const switchWorkflowByOffsetUseCase = createSwitchWorkflowByOffsetUseCase({
+    ...deps,
+    switchWorkflowUseCase
   });
   const addWorkflowUseCase = createAddWorkflowUseCase({
     ...deps,
@@ -344,7 +351,8 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     openApplicationSettingsUseCase,
     openAboutUseCase,
     openAppManagerUseCase,
-    openProjectManagerUseCase
+    openProjectManagerUseCase,
+    switchWorkflowByOffsetUseCase
   });
 
   const browserWindow = createBrowserWindowProvider();
@@ -458,6 +466,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     resizeLayoutItemEndUseCase,
     switchProjectUseCase,
     switchWorkflowUseCase,
+    switchWorkflowByOffsetUseCase,
     addWorkflowUseCase,
     renameWorkflowUseCase,
     openWorkflowSettingsUseCase,
@@ -673,13 +682,22 @@ export async function init() {
   const store = createStore();
   const useCases = await createUseCases(store);
 
-  const { initAppMenuUseCase, initMainShortcutUseCase, initTrayMenuUseCase, initMemSaverUseCase } = useCases;
+  const { initAppMenuUseCase, initMainShortcutUseCase, initTrayMenuUseCase, initMemSaverUseCase, switchWorkflowByOffsetUseCase } = useCases;
   store.appStoreReady.then(_ => {
     initMainShortcutUseCase();
     initAppMenuUseCase();
     initTrayMenuUseCase();
     initMemSaverUseCase();
   })
+
+  // Ctrl+Tab / Ctrl+Shift+Tab while a <webview> has focus: the menu accelerator
+  // can't reach the host window because the webview consumes the key, so the
+  // main process forwards the intent over IPC.
+  electronIpcRenderer.on(ipcSwitchWorkflowByOffsetChannel, (offset) => {
+    if (typeof offset === 'number') {
+      switchWorkflowByOffsetUseCase(offset);
+    }
+  });
 
   const stateHooks = createUiHooks(store, useCases);
   const { App } = createUI(stateHooks, useCases);

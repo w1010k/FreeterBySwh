@@ -68,6 +68,14 @@ export const ipcShellOpenPathChannel = makeIpcChannelName('shell-open-path');
 export type IpcShellOpenPathArgs = [path: string];
 export type IpcShellOpenPathRes = string;
 
+export const ipcShellOpenAppDataDirChannel = makeIpcChannelName('shell-open-app-data-dir');
+export type IpcShellOpenAppDataDirArgs = [];
+export type IpcShellOpenAppDataDirRes = string;
+
+export const ipcSwitchWorkflowByOffsetChannel = makeIpcChannelName('switch-workflow-by-offset');
+export type IpcSwitchWorkflowByOffsetArgs = [offset: number];
+export type IpcSwitchWorkflowByOffsetRes = void;
+
 export const ipcWriteBookmarkIntoClipboardChannel = makeIpcChannelName('write-bookmark-into-clipboard');
 export type IpcWriteBookmarkIntoClipboardArgs = [title: string, url: string];
 export type IpcWriteBookmarkIntoClipboardRes = void;

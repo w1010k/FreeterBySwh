@@ -36,6 +36,7 @@ async function setup(initState: AppState, opts?: {
   const openAboutUseCase = jest.fn();
   const openAppManagerUseCase = jest.fn();
   const openProjectManagerUseCase = jest.fn();
+  const switchWorkflowByOffsetUseCase = jest.fn();
   const initAppMenuUseCase = createInitAppMenuUseCase({
     appStore,
     appMenu: appMenuProviderMock,
@@ -50,6 +51,7 @@ async function setup(initState: AppState, opts?: {
     openAboutUseCase,
     openAppManagerUseCase,
     openProjectManagerUseCase,
+    switchWorkflowByOffsetUseCase,
   });
   return {
     appStore,

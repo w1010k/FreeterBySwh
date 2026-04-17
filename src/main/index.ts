@@ -69,6 +69,7 @@ import { createChildProcessProvider } from '@/infra/childProcessProvider/childPr
 import { createOpenPathUseCase } from '@/application/useCases/shell/openPath';
 import { createCopyWidgetDataStorageUseCase } from '@/application/useCases/widgetDataStorage/copyWidgetDataStorage';
 import { createOpenAppUseCase } from '@/application/useCases/shell/openApp';
+import { createOpenAppDataDirUseCase } from '@/application/useCases/shell/openAppDataDir';
 
 let appWindow: BrowserWindow | null = null; // ref to the app window
 
@@ -96,23 +97,23 @@ if (!app.requestSingleInstanceLock()) {
 
   registerAppFileProtocol(isDevMode);
 
-  // Some keypoints for the user-agent spoofing.
-  // 1. User agent cannot be modified on per website basis, as it will cause
-  //    failed verifications on captcha-less web challenge services (which
-  //    require the same UA for both the webpage and web worker services)
-  //    This is the highest priority as there are many websites depending
-  //    on the web challenge.
-  // 2. If it will be needed in the future to add some flexibility in the
-  //    UA control, then it might be done by changing UA on per-session basis,
-  //    in that case both the webpage and the web worker will share the same UA.
-  // 3. 'Electron' in the user agent causes "unsupported browser" error on some websites.
-  // 4. 'Electron' removal causes issues on some websites (such as google's ones).
-  //    For such websites we have to add exceptions and use the original UA.
-  // 5. Currently the original UA for the excepted websites is set on per-website
-  //    basis. This might break someday (see point 1), in that case consider
-  //    implementing the UA change on per-session basis (see point 2).
+  // Rebuild userAgentFallback as a plain Chrome UA. The default Electron UA
+  // includes the app name token (e.g. `Freeter-SWH/...`) which many sites treat
+  // as "unknown browser" and refuse to grant a persistent session.
+  //
+  // `uaOriginal` is captured before the overwrite because a handful of sites
+  // (Google Apps, see `reUrlsRequiringOriginalUA` in browserWindow.ts) need the
+  // raw Electron UA to work correctly.
   const uaOriginal = app.userAgentFallback;
-  app.userAgentFallback = app.userAgentFallback.replace(/[Ee]lectron.*?\s/g, '');
+  const chromeMajor = process.versions.chrome.split('.')[0];
+  const platformSlug = process.platform === 'darwin'
+    ? 'Macintosh; Intel Mac OS X 10_15_7'
+    : process.platform === 'linux'
+      ? 'X11; Linux x86_64'
+      : 'Windows NT 10.0; Win64; x64';
+  app.userAgentFallback =
+    `Mozilla/5.0 (${platformSlug}) AppleWebKit/537.36 (KHTML, like Gecko) `
+    + `Chrome/${chromeMajor}.0.0.0 Safari/537.36`;
 
   app.on('will-quit', () => {
     // Unregister global shortcuts
@@ -123,11 +124,12 @@ if (!app.requestSingleInstanceLock()) {
     const ipcMainEventValidator = createIpcMainEventValidator(channelPrefix, hostFreeterApp);
     const ipcMain = createIpcMain(ipcMainEventValidator);
 
-    const appDataStorage = await createFileDataStorage('string', join(app.getPath('appData'), 'freeter-swh', 'freeter-data'));
+    const appDataDir = join(app.getPath('appData'), 'freeter-swh', 'freeter-data');
+    const appDataStorage = await createFileDataStorage('string', appDataDir);
     const getTextFromAppDataStorageUseCase = createGetTextFromAppDataStorageUseCase({ appDataStorage });
     const setTextInAppDataStorageUseCase = createSetTextInAppDataStorageUseCase({ appDataStorage });
 
-    const getWidgetDataStoragePath = (id: string) => join(app.getPath('appData'), 'freeter-swh', 'freeter-data', 'widgets', id);
+    const getWidgetDataStoragePath = (id: string) => join(appDataDir, 'widgets', id);
     const widgetDataStorageManager = createObjectManager(
       (id) => createFileDataStorage('string', getWidgetDataStoragePath(id)),
       (fromId, toId) => copyFileDataStorage(getWidgetDataStoragePath(fromId), getWidgetDataStoragePath(toId))
@@ -149,6 +151,7 @@ if (!app.requestSingleInstanceLock()) {
     const shellProvider = createShellProvider();
     const openExternalUrlUseCase = createOpenExternalUrlUseCase({ shellProvider });
     const openPathUseCase = createOpenPathUseCase({ shellProvider })
+    const openAppDataDirUseCase = createOpenAppDataDirUseCase({ shellProvider, appDataDir })
 
     const getProcessInfoUseCase = createGetProcessInfoUseCase({ processProvider });
     const { isLinux } = await getProcessInfoUseCase();
@@ -189,7 +192,7 @@ if (!app.requestSingleInstanceLock()) {
       }),
       ...createContextMenuControllers({ popupContextMenuUseCase }),
       ...createClipboardControllers({ writeBookmarkIntoClipboardUseCase, writeTextIntoClipboardUseCase }),
-      ...createShellControllers({ openExternalUrlUseCase, openPathUseCase, openAppUseCase }),
+      ...createShellControllers({ openExternalUrlUseCase, openPathUseCase, openAppUseCase, openAppDataDirUseCase }),
       ...createProcessControllers({ getProcessInfoUseCase }),
       ...createDialogControllers({
         showMessageBoxUseCase: dialogShowMessageBoxUseCase,

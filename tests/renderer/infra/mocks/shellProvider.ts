@@ -9,6 +9,7 @@ const shellProvider: ShellProvider = {
   openApp: jest.fn(),
   openExternal: jest.fn(),
   openPath: jest.fn(),
+  openAppDataDir: jest.fn(),
 }
 
 export const mockShellProvider = (props: Partial<ShellProvider>) => ({ ...shellProvider, ...props });

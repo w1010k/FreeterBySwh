@@ -3,10 +3,11 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { BrowserWindow as ElectronBrowserWindow, app, shell, webContents } from 'electron';
+import { BrowserWindowConstructorOptions, BrowserWindow as ElectronBrowserWindow, app, screen, webContents } from 'electron';
 import { BrowserWindow } from '@/application/interfaces/browserWindow'
 import { GetWindowStateUseCase } from '@/application/useCases/browserWindow/getWindowState';
 import { SetWindowStateUseCase } from '@/application/useCases/browserWindow/setWindowState';
+import { ipcSwitchWorkflowByOffsetChannel } from '@common/ipc/channels';
 
 const minWidth = 1200;
 const minHeight = 600;
@@ -20,6 +21,8 @@ const defaultWinParams = {
 const reUrlsRequiringOriginalUA: RegExp[] = [
   /^https?:\/\/(?:[a-z0-9-_]*\.)+google.com\/?/i // Google Apps
 ]
+
+const rePopupFeatures = /\bpopup\b/i;
 
 /**
  * BrowserWindow factory
@@ -124,30 +127,93 @@ export function createRendererWindow(
     }
   })
 
-  // Behave like a single-tab browser inside the widget:
-  //   - `<a target="_blank">` / "new tab" intents → navigate the current webview
-  //   - real popups (`window.open` with size/popup features, disposition 'new-window') → OS browser
+  // Handle new-window requests from <webview>:
+  //   - "new tab" intents (`<a target="_blank">`, `window.open(url)` without popup
+  //     features) → navigate the current webview, so the widget behaves like a
+  //     single-tab browser instead of spawning a Freeter popup for every link.
+  //   - real popups (`window.open(url, '', 'width=X,height=Y')`, disposition
+  //     'new-window') → open as an in-app BrowserWindow. OAuth/login flows rely
+  //     on `window.opener` to communicate results back, which only works when
+  //     the popup lives in the same Electron process as its opener.
+  // Menu accelerators (e.g. Ctrl+Tab for workflow switching) don't reach the
+  // host window when a <webview> has keyboard focus — the webview's guest page
+  // consumes the key first. Mirror the Ctrl+Tab / Ctrl+Shift+Tab shortcuts at
+  // the webview level so workflow switching keeps working while the user is
+  // interacting with a webpage widget.
   win.webContents.on('did-attach-webview', (_, wc) => {
-    wc.setWindowOpenHandler(({ url, disposition, features }) => {
-      const isRealPopup = disposition === 'new-window' || /\bpopup\b/i.test(features);
-      if (isRealPopup) {
-        shell.openExternal(url);
-      } else {
-        wc.loadURL(url);
+    wc.on('before-input-event', (event, input) => {
+      if (input.type !== 'keyDown' || input.key !== 'Tab') {
+        return;
       }
-      return { action: 'deny' };
+      if (!input.control || input.alt || input.meta) {
+        return;
+      }
+      event.preventDefault();
+      win.webContents.send(ipcSwitchWorkflowByOffsetChannel, input.shift ? -1 : 1);
+    });
+
+    wc.setWindowOpenHandler(({ url, disposition, features }) => {
+      const isRealPopup = disposition === 'new-window' || rePopupFeatures.test(features);
+      if (!isRealPopup) {
+        wc.loadURL(url);
+        return { action: 'deny' };
+      }
+      const { height, width, x, y } = win.getBounds();
+      const newW = width - 200;
+      const newH = height - 150;
+      const newX = x + Math.round((width - newW) / 2);
+      const newY = y + Math.round((height - newH) / 2);
+      const browserWinOpts: BrowserWindowConstructorOptions = {
+        width: newW,
+        height: newH,
+        x: newX,
+        y: newY,
+        minimizable: false,
+        icon,
+        parent: win,
+        title: 'Freeter',
+        webPreferences: {
+          session: wc.session
+        }
+      };
+      return {
+        action: 'allow',
+        outlivesOpener: false,
+        overrideBrowserWindowOptions: browserWinOpts
+      };
     })
   })
 
-  // Route mouse back/forward buttons to a <webview>'s navigation history.
-  // Side-button presses don't change focus, so we look for the focused webview
-  // first, and fall back to the only webview when there is exactly one.
-  const navigateFocusedWebview = (dir: 'back' | 'forward') => {
-    const webviews = webContents.getAllWebContents()
-      .filter(wc => wc.getType() === 'webview' && !wc.isDestroyed());
-    const target = webviews.find(wc => wc.isFocused())
-      ?? (webviews.length === 1 ? webviews[0] : undefined);
-    if (!target) {
+  // Route mouse back/forward buttons to the <webview> directly under the cursor.
+  // We can't rely on `isFocused()` because keyboard focus often stays on a
+  // previously-clicked webview even after the user switches widgets, and side-
+  // button presses themselves don't move focus. The cursor position matches
+  // user intent more reliably.
+  const navigateWebviewUnderCursor = async (dir: 'back' | 'forward') => {
+    const cursor = screen.getCursorScreenPoint();
+    const bounds = win.getContentBounds();
+    const localX = cursor.x - bounds.x;
+    const localY = cursor.y - bounds.y;
+    if (localX < 0 || localY < 0 || localX >= bounds.width || localY >= bounds.height) {
+      return;
+    }
+    let webContentsId: unknown;
+    try {
+      webContentsId = await win.webContents.executeJavaScript(
+        `(() => { const el = document.elementFromPoint(${localX}, ${localY});
+          const wv = el && el.closest ? el.closest('webview') : null;
+          return wv ? wv.getWebContentsId() : null; })()`
+      );
+    } catch {
+      // Renderer may be reloading or the window is closing; navigation is a
+      // best-effort user action, so silently skip rather than crash main.
+      return;
+    }
+    if (typeof webContentsId !== 'number') {
+      return;
+    }
+    const target = webContents.fromId(webContentsId);
+    if (!target || target.isDestroyed() || target.getType() !== 'webview') {
       return;
     }
     const nav = target.navigationHistory;
@@ -162,9 +228,9 @@ export function createRendererWindow(
   // WM_APPCOMMAND (APPCOMMAND_BROWSER_BACKWARD/FORWARD).
   win.on('app-command', (_e, cmd) => {
     if (cmd === 'browser-backward') {
-      navigateFocusedWebview('back');
+      navigateWebviewUnderCursor('back');
     } else if (cmd === 'browser-forward') {
-      navigateFocusedWebview('forward');
+      navigateWebviewUnderCursor('forward');
     }
   });
 
@@ -177,9 +243,9 @@ export function createRendererWindow(
     win.hookWindowMessage(WM_XBUTTONUP, (wParam) => {
       const whichButton = wParam.readUInt16LE(2); // HIWORD of wParam
       if (whichButton === XBUTTON1) {
-        navigateFocusedWebview('back');
+        navigateWebviewUnderCursor('back');
       } else if (whichButton === XBUTTON2) {
-        navigateFocusedWebview('forward');
+        navigateWebviewUnderCursor('forward');
       }
     });
   }
