@@ -76,9 +76,20 @@ Widgets are the user-visible units placed into workflows.
 - Shared fixtures/builders live in `tests/utils/` (aliased as `@utils/*`). Prefer these over ad-hoc object literals.
 - Colocate `*.spec.ts` next to the code under test; surface-specific helpers go in `tests/<surface>/`.
 
+## Verification
+
+- When fixing a bug, verify the fix is safe across ALL call sites (grep for usages).
+- For UI library upgrades (e.g., Ant Design v6), confirm compatibility before claiming done.
+
 ## Style notes enforced by ESLint
 
 Single quotes, `max-len: 160`, `eqeqeq`, `curly`, `consistent-return`, `no-var`, `arrow-body-style: as-needed`, unused args must start with `_`. Run `yarn lint:<surface>:fix` before committing.
+
+## Code Style
+
+- Primary language: TypeScript (use strict typing, avoid `any`).
+- Maintain CHANGES.md discipline: append a concise entry for every user-visible change (see "Change log maintenance" below).
+- Keep scope minimal — implement only what's asked, don't expand features unilaterally.
 
 ## Change log maintenance
 
