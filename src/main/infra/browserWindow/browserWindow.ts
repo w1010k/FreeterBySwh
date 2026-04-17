@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { BrowserWindowConstructorOptions, BrowserWindow as ElectronBrowserWindow, app } from 'electron';
+import { BrowserWindow as ElectronBrowserWindow, app, shell } from 'electron';
 import { BrowserWindow } from '@/application/interfaces/browserWindow'
 import { GetWindowStateUseCase } from '@/application/useCases/browserWindow/getWindowState';
 import { SetWindowStateUseCase } from '@/application/useCases/browserWindow/setWindowState';
@@ -124,32 +124,12 @@ export function createRendererWindow(
     }
   })
 
-  // enable new windows in webview
+  // Open links that try to open a new window (target="_blank" / window.open)
+  // in the OS default browser instead of a Freeter popup window.
   win.webContents.on('did-attach-webview', (_, wc) => {
-    wc.setWindowOpenHandler((_details) => {
-      const { height, width, x, y } = win.getBounds();
-      const newW = width - 200;
-      const newH = height - 150;
-      const newX = x + Math.round((width - newW) / 2)
-      const newY = y + Math.round((height - newH) / 2)
-      const browserWinOpts: BrowserWindowConstructorOptions = {
-        width: newW,
-        height: newH,
-        x: newX,
-        y: newY,
-        minimizable: false,
-        icon,
-        parent: win,
-        title: 'Freeter',
-        webPreferences: {
-          session: wc.session
-        }
-      }
-      return {
-        action: 'allow',
-        outlivesOpener: false,
-        overrideBrowserWindowOptions: browserWinOpts
-      }
+    wc.setWindowOpenHandler(({ url }) => {
+      shell.openExternal(url);
+      return { action: 'deny' };
     })
   })
 
