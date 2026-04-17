@@ -220,6 +220,12 @@ export interface UiState {
   projectSwitcher: ProjectSwitcherState;
   shelf: ShelfState;
   worktable: WorktableState;
+  /**
+   * Runtime-only title overrides keyed by widget id. Widgets may publish a
+   * derived title (e.g. the webpage widget uses the current page title) via
+   * widgetApi.setDynamicTitle. Not persisted and cleared on widget delete.
+   */
+  widgetDynamicTitles: Record<EntityId, string>;
 }
 
 export function createUiState(): UiState {
@@ -292,6 +298,7 @@ export function createUiState(): UiState {
     shelf: {
       widgetList: []
     },
-    worktable: {}
+    worktable: {},
+    widgetDynamicTitles: {}
   }
 }

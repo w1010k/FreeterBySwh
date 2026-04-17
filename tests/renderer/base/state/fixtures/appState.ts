@@ -63,7 +63,8 @@ const appState: AppState = {
     shelf: {
       widgetList: []
     },
-    worktable: {}
+    worktable: {},
+    widgetDynamicTitles: {}
   }
 };
 

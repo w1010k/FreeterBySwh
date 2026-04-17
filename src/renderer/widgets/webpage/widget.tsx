@@ -43,7 +43,7 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
     }
   }, [onRequireRestart, partition, reqRestartIfChanged])
 
-  const {updateActionBar, setContextMenuFactory, exposeApi} = widgetApi;
+  const {updateActionBar, setContextMenuFactory, exposeApi, setDynamicTitle} = widgetApi;
   const webviewRef = useRef<Electron.WebviewTag>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [webviewIsReady, setWebviewIsReady] = useState(false);
@@ -140,6 +140,18 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
       evt.contextData = e.params;
       webviewEl.dispatchEvent(evt);
     }
+    // Keep the widget header in sync with the current page so the webpage
+    // widget can show something meaningful even when the user hasn't named it
+    // explicitly. `coreSettings.name` still wins when set. Both the title and
+    // the URL are surfaced because users often want to see the address itself.
+    const publishTitle = () => {
+      const curUrl = webviewEl.getURL ? webviewEl.getURL() : '';
+      const curTitle = webviewEl.getTitle ? webviewEl.getTitle() : '';
+      const parts = [curTitle, curUrl].filter(s => s && s.trim() !== '');
+      setDynamicTitle(parts.length > 0 ? parts.join(' — ') : null);
+    }
+    const handlePageTitleUpdated = () => publishTitle();
+    const handleDidNavigateForTitle = () => publishTitle();
     // const handleDidFailLoad = (e: DidFailLoadEvent) => {
     //   console.log(e.errorDescription);
     // };
@@ -149,6 +161,9 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
     webviewEl.addEventListener('did-stop-loading', handleDidStopLoading);
     // webviewEl.addEventListener('did-fail-load', handleDidFailLoad);
     webviewEl.addEventListener('context-menu', handleContextMenu)
+    webviewEl.addEventListener('page-title-updated', handlePageTitleUpdated);
+    webviewEl.addEventListener('did-navigate', handleDidNavigateForTitle);
+    webviewEl.addEventListener('did-navigate-in-page', handleDidNavigateForTitle);
 
     return () => {
       // Remove event listeners
@@ -156,8 +171,14 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
       webviewEl.removeEventListener('did-stop-loading', handleDidStopLoading);
       // webviewEl.removeEventListener('did-fail-load', handleDidFailLoad);
       webviewEl.removeEventListener('context-menu', handleContextMenu)
+      webviewEl.removeEventListener('page-title-updated', handlePageTitleUpdated);
+      webviewEl.removeEventListener('did-navigate', handleDidNavigateForTitle);
+      webviewEl.removeEventListener('did-navigate-in-page', handleDidNavigateForTitle);
+      // Clear the override so a fresh mount (e.g. after a required restart)
+      // doesn't briefly show a stale title.
+      setDynamicTitle(null);
     };
-  }, []);
+  }, [setDynamicTitle]);
 
   useEffect(() => {
     injectCSSInDOM(injectedCSS, false);
@@ -245,9 +266,10 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
 
   useEffect(()=> {
     if(!url) {
-      const {updateActionBar, setContextMenuFactory} = props.widgetApi;
+      const {updateActionBar, setContextMenuFactory, setDynamicTitle} = props.widgetApi;
       setContextMenuFactory(createContextMenuFactory(null, props.widgetApi, url, 0, false, () => undefined));
       updateActionBar(createActionBarItems(null, props.widgetApi, url, 0, false, () => undefined));
+      setDynamicTitle(null);
     }
   }, [props.widgetApi, url]);
 

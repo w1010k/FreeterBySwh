@@ -8,7 +8,7 @@ import { ProcessProvider } from '@/application/interfaces/processProvider';
 import { ShellProvider } from '@/application/interfaces/shellProvider';
 import { DataStorageRenderer } from '@/application/interfaces/dataStorage';
 import { EntityId } from '@/base/entity';
-import { WidgetApiExposeApiHandler, WidgetApiModuleName, WidgetApiSetContextMenuFactoryHandler, WidgetApiUpdateActionBarHandler, createWidgetApiFactory } from '@/base/widgetApi';
+import { WidgetApiExposeApiHandler, WidgetApiModuleName, WidgetApiSetContextMenuFactoryHandler, WidgetApiSetDynamicTitleHandler, WidgetApiUpdateActionBarHandler, createWidgetApiFactory } from '@/base/widgetApi';
 import { ObjectManager } from '@common/base/objectManager';
 import { TerminalProvider } from '@/application/interfaces/terminalProvider';
 import { GetWidgetsInCurrentWorkflowUseCase } from '@/application/useCases/widget/widgetApiWidgets/getWidgetsInCurrentWorkflow';
@@ -63,7 +63,7 @@ function _createWidgetApiFactory({
   getWidgetsInCurrentWorkflowUseCase,
 }: Deps, forPreview: boolean) {
   return createWidgetApiFactory(
-    (_widgetId, updateActionBarHandler, setWidgetContextMenuFactoryHandler, exposeApiHandler) => ({
+    (_widgetId, updateActionBarHandler, setWidgetContextMenuFactoryHandler, exposeApiHandler, setDynamicTitleHandler) => ({
       updateActionBar: !forPreview ? (actionBarItems) => {
         updateActionBarHandler(actionBarItems);
       } : () => undefined,
@@ -72,6 +72,9 @@ function _createWidgetApiFactory({
       } : () => undefined,
       exposeApi: !forPreview ? (api) => {
         exposeApiHandler(api)
+      } : () => undefined,
+      setDynamicTitle: !forPreview ? (title) => {
+        setDynamicTitleHandler(title);
       } : () => undefined,
     }),
     {
@@ -140,11 +143,12 @@ export function createGetWidgetApiUseCase(deps: Deps) {
     updateActionBarHandler: WidgetApiUpdateActionBarHandler,
     setContextMenuFactoryHandler: WidgetApiSetContextMenuFactoryHandler,
     exposeApiHandler: WidgetApiExposeApiHandler,
+    setDynamicTitleHandler: WidgetApiSetDynamicTitleHandler,
     requiredModules: WidgetApiModuleName[]
   ) {
     return forPreview
-      ? widgetApiPreviewFactory(widgetId, updateActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler, requiredModules)
-      : widgetApiFactory(widgetId, updateActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler, requiredModules);
+      ? widgetApiPreviewFactory(widgetId, updateActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler, setDynamicTitleHandler, requiredModules)
+      : widgetApiFactory(widgetId, updateActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler, setDynamicTitleHandler, requiredModules);
   }
 
   return getWidgetApiUseCase;

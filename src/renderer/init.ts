@@ -149,6 +149,7 @@ import { createSetProjectSwitcherPositionUseCase } from '@/application/useCases/
 import { createSetEditTogglePositionUseCase } from '@/application/useCases/setEditTogglePosition';
 import { createGetWidgetsInCurrentWorkflowUseCase } from '@/application/useCases/widget/widgetApiWidgets/getWidgetsInCurrentWorkflow';
 import { createSetExposedApiUseCase } from '@/application/useCases/widget/setExposedApi';
+import { createSetWidgetDynamicTitleUseCase } from '@/application/useCases/widget/setWidgetDynamicTitle';
 import { electronIpcRenderer } from '@/infra/mainApi/mainApi';
 import { ipcSharedDataChangedChannel, ipcSwitchWorkflowByOffsetChannel } from '@common/ipc/channels';
 import { SHARED_DATA_CHANGED_EVENT, SharedDataChangedEventDetail } from '@/base/sharedDataEvents';
@@ -463,6 +464,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
   const dropOnWorkflowSwitcherUseCase = createDropOnWorkflowSwitcherUseCase(deps);
 
   const setExposedApiUseCase = createSetExposedApiUseCase(deps);
+  const setWidgetDynamicTitleUseCase = createSetWidgetDynamicTitleUseCase(deps);
 
   return {
     dragWidgetFromWorktableLayoutUseCase,
@@ -558,7 +560,8 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     deactivateWorkflowUseCase,
     initMemSaverUseCase,
 
-    setExposedApiUseCase
+    setExposedApiUseCase,
+    setWidgetDynamicTitleUseCase
   }
 }
 

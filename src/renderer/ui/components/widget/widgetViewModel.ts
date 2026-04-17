@@ -20,6 +20,7 @@ import { CopyWidgetUseCase } from '@/application/useCases/widget/copyWidget';
 import { ShowContextMenuUseCase } from '@/application/useCases/contextMenu/showContextMenu';
 import { createSharedState } from '@/base/state/shared';
 import { SetExposedApiUseCase } from '@/application/useCases/widget/setExposedApi';
+import { SetWidgetDynamicTitleUseCase } from '@/application/useCases/widget/setWidgetDynamicTitle';
 
 type Deps = {
   useAppState: UseAppState;
@@ -30,6 +31,7 @@ type Deps = {
   deleteWidgetUseCase: DeleteWidgetUseCase;
   copyWidgetUseCase: CopyWidgetUseCase;
   setExposedApiUseCase: SetExposedApiUseCase;
+  setWidgetDynamicTitleUseCase: SetWidgetDynamicTitleUseCase;
 }
 
 export interface WidgetProps {
@@ -59,6 +61,7 @@ export function createWidgetViewModelHook({
   deleteWidgetUseCase,
   copyWidgetUseCase,
   setExposedApiUseCase,
+  setWidgetDynamicTitleUseCase,
 }: Deps) {
   function showMoreActions(
     id: EntityId,
@@ -153,6 +156,7 @@ export function createWidgetViewModelHook({
 
     const widgetType = useAppState.useWithStrictEq(state => entityStateActions.widgetTypes.getOne(state, widget.type));
     const sharedState = useAppState(state => createSharedState(state, widgetType?.requiresState || []));
+    const dynamicTitle = useAppState(state => state.ui.widgetDynamicTitles[widget.id]);
     const WidgetComp = useWidgetTypeComp(widgetType, 'widgetComp');
     const widgetApi = useMemo(() => getWidgetApiUseCase(
       widget.id,
@@ -160,10 +164,13 @@ export function createWidgetViewModelHook({
       (items) => setActionBarItemsViewMode([...items, ...createActionBarCommonItemsViewMode(widgetType?.maximizable || false, maximizeAction)]),
       (factory: WidgetContextMenuFactory | undefined) => setContextMenuFactoryViewMode(() => factory),
       (api) => setExposedApiUseCase(widget.id, api),
+      (title) => setWidgetDynamicTitleUseCase(widget.id, title),
       widgetType?.requiresApi || []
     ), [env.isPreview, maximizeAction, widget.id, widgetType?.maximizable, widgetType?.requiresApi])
 
-    const widgetName = getWidgetDisplayName(widget, widgetType);
+    const coreName = widget.coreSettings.name;
+    const baseName = getWidgetDisplayName(widget, widgetType);
+    const widgetName = coreName !== '' ? coreName : (dynamicTitle || baseName);
 
     const actionBarItems: ActionBarItems = useMemo(
       () => editMode

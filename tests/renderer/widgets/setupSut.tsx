@@ -99,6 +99,7 @@ export function setupWidgetSut<T>(reactComp: ReactComponent<WidgetReactComponent
     updateActionBar: mockWidgetApi.updateActionBar || jest.fn(),
     setContextMenuFactory: mockWidgetApi.setContextMenuFactory || jest.fn(),
     exposeApi: mockWidgetApi.exposeApi || jest.fn(),
+    setDynamicTitle: mockWidgetApi.setDynamicTitle || jest.fn(),
     clipboard: {
       writeBookmark: jest.fn(),
       writeText: jest.fn(),

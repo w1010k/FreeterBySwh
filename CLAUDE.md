@@ -79,3 +79,16 @@ Widgets are the user-visible units placed into workflows.
 ## Style notes enforced by ESLint
 
 Single quotes, `max-len: 160`, `eqeqeq`, `curly`, `consistent-return`, `no-var`, `arrow-body-style: as-needed`, unused args must start with `_`. Run `yarn lint:<surface>:fix` before committing.
+
+## Change log maintenance
+
+This fork tracks user-visible changes (features, behavior shifts, UX-affecting refactors) in `docs/CHANGES.md` — it's the single source of truth for "what differs from upstream".
+
+**When a feature addition or behavior change completes**, append a new numbered section to `docs/CHANGES.md` before reporting the task done. Follow the existing style:
+
+- Header: `## N. <짧은 제목>` — continue the running number from the last entry.
+- Lead with user-visible behavior (what changed, when it kicks in), then architecture, then "까다로웠던 포인트" (non-obvious pitfalls worth remembering), then `**수정 파일**` list (신규 / 수정 / 테스트 분리).
+- Write in Korean, matching the surrounding narrative tone. Tables are fine where they clarify. Explain *why*, not just *what*.
+- Skip this only for pure bug fixes, refactors with no behavior change, or trivial cleanups. When in doubt, add an entry — it's easier to skim later than to reconstruct.
+
+Small tweaks to an existing entry's feature (e.g. format adjustments, follow-up fixes) can be merged into that section rather than creating a new one.

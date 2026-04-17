@@ -35,6 +35,8 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  user-select: text;
+  cursor: text;
 }
 .widget-header-action-bar {
   visibility: hidden;

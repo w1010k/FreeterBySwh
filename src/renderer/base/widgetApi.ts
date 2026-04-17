@@ -13,6 +13,12 @@ interface WidgetApiCommon {
   readonly updateActionBar: (actionBarItems: ActionBarItems) => void;
   readonly setContextMenuFactory: (factory: WidgetContextMenuFactory) => void;
   readonly exposeApi: <T extends object>(api: T) => void; // exposes api for consumption by other widgets via WidgetAPI.widgets
+  /**
+   * Publish a runtime title for this widget. Shown in the widget header only
+   * when the user hasn't set a name in widget core settings. Pass `null` to
+   * clear.
+   */
+  readonly setDynamicTitle: (title: string | null) => void;
 }
 
 // Widget things available for use by other widgets via WidgetAPI.widgets
@@ -58,11 +64,13 @@ export interface WidgetApi extends WidgetApiCommon, WidgetApiModules { }
 export type WidgetApiUpdateActionBarHandler = (actionBarItems: ActionBarItems) => void;
 export type WidgetApiSetContextMenuFactoryHandler = (factory: WidgetContextMenuFactory) => void;
 export type WidgetApiExposeApiHandler = (api: object) => void;
+export type WidgetApiSetDynamicTitleHandler = (title: string | null) => void;
 export type WidgetApiCommonFactory = (
   widgetId: EntityId,
   updateActionBarHandler: WidgetApiUpdateActionBarHandler,
   setContextMenuFactoryHandler: WidgetApiSetContextMenuFactoryHandler,
-  exposeApiHandler: WidgetApiExposeApiHandler
+  exposeApiHandler: WidgetApiExposeApiHandler,
+  setDynamicTitleHandler: WidgetApiSetDynamicTitleHandler
 ) => WidgetApiCommon;
 type WidgetApiModuleFactory<N extends WidgetApiModuleName> = (widgetId: EntityId) => WidgetApiModules[N];
 export type WidgetApiModuleFactories = {
@@ -74,6 +82,7 @@ export type WidgetApiFactory = (
   updateActionBarHandler: WidgetApiUpdateActionBarHandler,
   setContextMenuFactoryHandler: WidgetApiSetContextMenuFactoryHandler,
   exposeApiHandler: WidgetApiExposeApiHandler,
+  setDynamicTitleHandler: WidgetApiSetDynamicTitleHandler,
   availableModules: WidgetApiModuleName[]
 ) => WidgetApi;
 
@@ -83,9 +92,10 @@ export function createWidgetApiFactory(commonFactory: WidgetApiCommonFactory, mo
     updateActionBarHandler: WidgetApiUpdateActionBarHandler,
     setContextMenuFactoryHandler: WidgetApiSetContextMenuFactoryHandler,
     exposeApiHandler: WidgetApiExposeApiHandler,
+    setDynamicTitleHandler: WidgetApiSetDynamicTitleHandler,
     availableModules: WidgetApiModuleName[]
   ) => ({
-    ...commonFactory(widgetId, updateActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler),
+    ...commonFactory(widgetId, updateActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler, setDynamicTitleHandler),
     ...Object.fromEntries(availableModules.map(featName => ([featName, moduleFactories[featName](widgetId)])))
   } as WidgetApi);
 }

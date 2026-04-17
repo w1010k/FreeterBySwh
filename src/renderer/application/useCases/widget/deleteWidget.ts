@@ -15,6 +15,28 @@ type Deps = {
   appStore: AppStore;
   dialog: DialogProvider;
 }
+
+function omitKeys<T>(rec: Record<EntityId, T>, keys: ReadonlyArray<EntityId>): Record<EntityId, T> {
+  if (keys.length < 1) {
+    return rec;
+  }
+  let hit = false;
+  for (const k of keys) {
+    if (k in rec) {
+      hit = true;
+      break;
+    }
+  }
+  if (!hit) {
+    return rec;
+  }
+  const next: Record<EntityId, T> = { ...rec };
+  for (const k of keys) {
+    delete next[k];
+  }
+  return next;
+}
+
 export function createDeleteWidgetUseCase({
   appStore,
   dialog,
@@ -47,7 +69,8 @@ export function createDeleteWidgetUseCase({
               shelf: {
                 ...state.ui.shelf,
                 widgetList: newList
-              }
+              },
+              widgetDynamicTitles: omitKeys(state.ui.widgetDynamicTitles, delIds)
             }
           })
           break;
@@ -70,6 +93,10 @@ export function createDeleteWidgetUseCase({
                 }
               })
             },
+            ui: {
+              ...state.ui,
+              widgetDynamicTitles: omitKeys(state.ui.widgetDynamicTitles, delIds)
+            }
           })
           break;
         }

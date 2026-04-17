@@ -101,17 +101,20 @@ describe('getWidgetApiUseCase()', () => {
       updateActionBar: expect.any(Function),
       setContextMenuFactory: expect.any(Function),
       exposeApi: expect.any(Function),
+      setDynamicTitle: expect.any(Function),
     }],
     [['clipboard'], {
       updateActionBar: expect.any(Function),
       setContextMenuFactory: expect.any(Function),
       exposeApi: expect.any(Function),
+      setDynamicTitle: expect.any(Function),
       clipboard: expect.any(Object)
     }],
     [['dataStorage', 'shell'], {
       updateActionBar: expect.any(Function),
       setContextMenuFactory: expect.any(Function),
       exposeApi: expect.any(Function),
+      setDynamicTitle: expect.any(Function),
       dataStorage: expect.any(Object),
       shell: expect.any(Object)
     }],
@@ -120,7 +123,7 @@ describe('getWidgetApiUseCase()', () => {
       getWidgetApiUseCase
     } = await setup()
 
-    const widgetApi = getWidgetApiUseCase('WIDGET-ID', false, () => undefined, () => undefined, () => undefined, requiredModules);
+    const widgetApi = getWidgetApiUseCase('WIDGET-ID', false, () => undefined, () => undefined, () => undefined, () => undefined, requiredModules);
 
     expect(widgetApi).toEqual(expectWidgetApi);
   })
@@ -133,8 +136,9 @@ describe('getWidgetApiUseCase()', () => {
     const updateWidgetActionBarHandler = jest.fn();
     const setContextMenuFactoryHandler = jest.fn();
     const exposeApiHandler = jest.fn();
+    const setDynamicTitleHandler = jest.fn();
 
-    const widgetApi = getWidgetApiUseCase(widgetId, false, updateWidgetActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler, []);
+    const widgetApi = getWidgetApiUseCase(widgetId, false, updateWidgetActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler, setDynamicTitleHandler, []);
 
     widgetApi.setContextMenuFactory(testVal as unknown as WidgetContextMenuFactory);
     expect(setContextMenuFactoryHandler).toHaveBeenCalledTimes(1);
@@ -147,6 +151,10 @@ describe('getWidgetApiUseCase()', () => {
     widgetApi.exposeApi(testVal as unknown as object);
     expect(exposeApiHandler).toHaveBeenCalledTimes(1);
     expect(exposeApiHandler).toHaveBeenCalledWith(testVal);
+
+    widgetApi.setDynamicTitle(testVal);
+    expect(setDynamicTitleHandler).toHaveBeenCalledTimes(1);
+    expect(setDynamicTitleHandler).toHaveBeenCalledWith(testVal);
   })
 
   it('should correctly setup common properties, when forPreview is true', async () => {
@@ -157,8 +165,9 @@ describe('getWidgetApiUseCase()', () => {
     const updateWidgetActionBarHandler = jest.fn();
     const setContextMenuFactoryHandler = jest.fn();
     const exposeApiHandler = jest.fn();
+    const setDynamicTitleHandler = jest.fn();
 
-    const widgetApi = getWidgetApiUseCase(widgetId, true, updateWidgetActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler, []);
+    const widgetApi = getWidgetApiUseCase(widgetId, true, updateWidgetActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler, setDynamicTitleHandler, []);
 
     widgetApi.setContextMenuFactory(testVal as unknown as WidgetContextMenuFactory);
     expect(setContextMenuFactoryHandler).not.toHaveBeenCalled();
@@ -168,6 +177,9 @@ describe('getWidgetApiUseCase()', () => {
 
     widgetApi.exposeApi(testVal as unknown as object);
     expect(exposeApiHandler).not.toHaveBeenCalled();
+
+    widgetApi.setDynamicTitle(testVal);
+    expect(setDynamicTitleHandler).not.toHaveBeenCalled();
   })
 
   it('should correctly setup clipboard module', async () => {
@@ -176,7 +188,7 @@ describe('getWidgetApiUseCase()', () => {
       clipboardProvider
     } = await setup()
 
-    const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, ['clipboard']);
+    const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, () => undefined, ['clipboard']);
 
     widgetApi.clipboard.writeBookmark('title', 'url');
     expect(clipboardProvider.writeBookmark).toHaveBeenCalledTimes(1);
@@ -193,7 +205,7 @@ describe('getWidgetApiUseCase()', () => {
       widgetDataStorageManager
     } = await setup()
     const testVal = 'TEST-VALUE';
-    const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, ['dataStorage']);
+    const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, () => undefined, ['dataStorage']);
     const widgetDataStorage = await widgetDataStorageManager.getObject(widgetId);
 
     await widgetApi.dataStorage.clear();
@@ -220,7 +232,7 @@ describe('getWidgetApiUseCase()', () => {
       processProvider
     } = await setup()
 
-    const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, ['process']);
+    const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, () => undefined, ['process']);
 
     const processInfo = { some: 'info' } as unknown as ProcessInfo;
     processProvider.getProcessInfo.mockReturnValue(processInfo)
@@ -235,7 +247,7 @@ describe('getWidgetApiUseCase()', () => {
       shellProvider
     } = await setup()
 
-    const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, ['shell']);
+    const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, () => undefined, ['shell']);
 
     widgetApi.shell.openApp('app/path', ['arg1', 'arg2']);
     expect(shellProvider.openApp).toHaveBeenCalledTimes(1);
@@ -256,7 +268,7 @@ describe('getWidgetApiUseCase()', () => {
       terminalProvider
     } = await setup()
 
-    const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, ['terminal']);
+    const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, () => undefined, ['terminal']);
 
     widgetApi.terminal.execCmdLines(['cmd1', 'cmd2'], 'cwd');
     expect(terminalProvider.execCmdLines).toHaveBeenCalledTimes(1);
@@ -269,7 +281,7 @@ describe('getWidgetApiUseCase()', () => {
       getWidgetsInCurrentWorkflowUseCase
     } = await setup()
 
-    const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, ['widgets']);
+    const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, () => undefined, ['widgets']);
 
     widgetApi.widgets.getWidgetsInCurrentWorkflow('widget-type');
     expect(getWidgetsInCurrentWorkflowUseCase).toHaveBeenCalledTimes(1);

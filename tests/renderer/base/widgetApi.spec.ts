@@ -27,12 +27,13 @@ describe('WidgetApi', () => {
       const updateActionBarHandler = () => undefined;
       const setContextMenuFactoryHandler = () => undefined;
       const exposeApiHandler = () => undefined;
+      const setDynamicTitleHandler = () => undefined;
       const widgetApiFactory = callCreateWidgetApiFactory({ commonFactory });
 
-      widgetApiFactory(testId, updateActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler, []);
+      widgetApiFactory(testId, updateActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler, setDynamicTitleHandler, []);
 
       expect(commonFactory).toHaveBeenCalledTimes(1);
-      expect(commonFactory).toHaveBeenCalledWith(testId, updateActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler);
+      expect(commonFactory).toHaveBeenCalledWith(testId, updateActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler, setDynamicTitleHandler);
     })
     it('should put props returned by commonFactory into WidgetApi', () => {
       const testProps = {
@@ -41,7 +42,7 @@ describe('WidgetApi', () => {
       };
       const widgetApiFactory = callCreateWidgetApiFactory({ commonFactory: () => testProps });
 
-      const gotRes = widgetApiFactory('', () => undefined, () => undefined, () => undefined, []);
+      const gotRes = widgetApiFactory('', () => undefined, () => undefined, () => undefined, () => undefined, []);
 
       expect(gotRes).toMatchObject(testProps);
     })
@@ -50,7 +51,7 @@ describe('WidgetApi', () => {
       const moduleName: WidgetApiModuleName = 'clipboard';
       const widgetApiFactory = callCreateWidgetApiFactory({ moduleFactories: { [moduleName]: moduleFactory } });
 
-      widgetApiFactory(testId, () => undefined, () => undefined, () => undefined, [moduleName]);
+      widgetApiFactory(testId, () => undefined, () => undefined, () => undefined, () => undefined, [moduleName]);
 
       expect(moduleFactory).toHaveBeenCalledTimes(1);
       expect(moduleFactory).toHaveBeenCalledWith(testId);
@@ -63,7 +64,7 @@ describe('WidgetApi', () => {
       const moduleName: WidgetApiModuleName = 'clipboard';
       const widgetApiFactory = callCreateWidgetApiFactory({ moduleFactories: { [moduleName]: () => testProps } });
 
-      const gotRes = widgetApiFactory('', () => undefined, () => undefined, () => undefined, [moduleName]);
+      const gotRes = widgetApiFactory('', () => undefined, () => undefined, () => undefined, () => undefined, [moduleName]);
 
       expect(gotRes).toMatchObject({
         [moduleName]: testProps
@@ -93,7 +94,7 @@ describe('WidgetApi', () => {
         }
       });
 
-      const gotRes = widgetApiFactory('', () => undefined, () => undefined, () => undefined, [moduleName2, moduleName3]);
+      const gotRes = widgetApiFactory('', () => undefined, () => undefined, () => undefined, () => undefined, [moduleName2, moduleName3]);
 
       expect(gotRes).toMatchObject({
         [moduleName2]: testProps2,

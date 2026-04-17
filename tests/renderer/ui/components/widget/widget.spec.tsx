@@ -48,6 +48,7 @@ async function setup({
   const copyWidgetUseCase = jest.fn();
   const showContextMenuUseCase = jest.fn();
   const setExposedApiUseCase = jest.fn();
+  const setWidgetDynamicTitleUseCase = jest.fn();
   const getWidgetApiUseCase = mocks?.getWidgetApiUseCase || (
     (
       _widgetId: string,
@@ -59,7 +60,8 @@ async function setup({
       const widgetApi: Partial<WidgetApi> = {
         updateActionBar: (actionBarItems) => act(() => updateActionBarHandler(actionBarItems)),
         setContextMenuFactory: (factory) => act(() => setContextMenuFactoryHandler(factory)),
-        exposeApi: (api) => act(()=>exposeApiHandler(api))
+        exposeApi: (api) => act(()=>exposeApiHandler(api)),
+        setDynamicTitle: () => undefined
       }
       return widgetApi as WidgetApi;
     }
@@ -74,6 +76,7 @@ async function setup({
     copyWidgetUseCase,
     showContextMenuUseCase,
     setExposedApiUseCase,
+    setWidgetDynamicTitleUseCase,
   })
   const Widget = createWidgetComponent({
     useWidgetViewModel
@@ -853,7 +856,7 @@ describe('<Widget />', () => {
     });
 
     expect(getWidgetApiUseCase).toHaveBeenCalledTimes(1);
-    expect(getWidgetApiUseCase).toHaveBeenCalledWith(widgetId, false, expect.any(Function), expect.any(Function), expect.any(Function), testRequiresApi);
+    expect(getWidgetApiUseCase).toHaveBeenCalledWith(widgetId, false, expect.any(Function), expect.any(Function), expect.any(Function), expect.any(Function), testRequiresApi);
     expect(screen.queryByText(getWidgetApiUseCaseRes)).toBeInTheDocument();
   })
 

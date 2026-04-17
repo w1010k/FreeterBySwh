@@ -329,6 +329,67 @@ useSharedDataChangedEffect('to-do-list', scopeForEnv(env), () => activeItemEdito
 
 ---
 
+## 11. Webpage 위젯 — 동적 타이틀 (페이지 제목 + URL)
+
+웹페이지 위젯의 헤더 타이틀을 사용자가 설정에서 직접 입력하지 않아도 현재 페이지의 제목·URL로 자동 표시.
+
+### 동작
+
+| 조건 | 헤더 표시 |
+|---|---|
+| 사용자가 `coreSettings.name` 지정 | 그 이름 그대로 (우선권 유지) |
+| 미지정 + 페이지 로드됨 | `<페이지 제목> — <URL>` |
+| 미지정 + 제목/URL 한쪽만 있음 | 있는 값 하나 |
+| 미지정 + URL 비설정(초기 상태) | 위젯 타입 기본 이름 (`Webpage`) |
+
+포맷은 em-dash(` — `) 구분. URL 자체가 사용자 원래 의도였고, 제목만으로는 어떤 사이트인지 식별이 애매한 경우가 많아 둘 다 표시.
+
+### 아키텍처 — widgetApi 공통 메서드 추가
+
+새 공통 메서드 `widgetApi.setDynamicTitle(title: string | null)`. 위젯이 런타임에 자기 헤더 타이틀을 덮어쓸 수 있음. webpage 외의 위젯도 재사용 가능(예: file-opener가 현재 디렉터리 표시 등).
+
+| 레이어 | 변경 |
+|---|---|
+| **Base** (`base/widgetApi.ts`) | `WidgetApiCommon.setDynamicTitle` + `WidgetApiSetDynamicTitleHandler` 타입 |
+| **Use case** (`useCases/widget/setWidgetDynamicTitle.ts` 신규) | 정규화(빈 문자열→null) + 동일 값 재기록 방지로 불필요한 리렌더 차단 |
+| **State** (`base/state/ui.ts`, `state/app.ts`) | `ui.widgetDynamicTitles: Record<EntityId, string>` — **비영속**. `createPersistentAppState`에서 destructure로 제외 |
+| **View model** (`ui/components/widget/widgetViewModel.ts`) | 표시 우선순위: `coreSettings.name` → `dynamicTitle` → `type.name` |
+| **Webpage widget** (`widgets/webpage/widget.tsx`) | `page-title-updated` + `did-navigate` + `did-navigate-in-page` 3개 이벤트에서 `webview.getTitle() + getURL()` 조합해 publish |
+| **Cleanup** (`useCases/widget/deleteWidget.ts`) | 위젯 삭제 시 `widgetDynamicTitles`에서 해당 엔트리 제거 (메모리 누수 방지) |
+
+### 까다로웠던 포인트
+
+1. **SPA 내부 네비게이션**: `page-title-updated`만 구독하면 SPA가 URL만 바꾸고 `<title>`을 갱신 안 할 때 URL 부분이 stale. → `did-navigate-in-page`도 붙여 `getURL()` 재조회.
+2. **webview 재시작 시 잔상**: `requireRestart`(injectedJS/userAgent 변경)로 webview 재생성될 때 이전 타이틀이 store에 남아있으면 잠깐 노출됨. → cleanup에서 `setDynamicTitle(null)` 호출.
+3. **persist/runtime 분리**: dynamic title을 ui 슬라이스에 두되 disk에 쓰이면 삭제된 위젯의 dead key가 누적되므로 `createPersistentAppState`에서 명시적 destructure 제외. `fixtureAppState`와 `createUiState` 양쪽에 필드 기본값 `{}` 추가.
+4. **사용자 이름 우선순위**: `coreSettings.name`이 명시적으로 설정된 경우 자동값이 덮어쓰지 않도록 뷰모델에서 `coreSettings.name !== ''` 체크 선행. 빈 문자열이면 dynamic title fallback.
+5. **프리뷰 모드**: `getWidgetApiUseCase`의 `forPreview` 분기에서는 `setDynamicTitle`도 no-op 처리 (기존 `updateActionBar`/`setContextMenuFactory`/`exposeApi`와 동일 패턴).
+
+**수정 파일**:
+- 신규: `src/renderer/application/useCases/widget/setWidgetDynamicTitle.ts`
+- 수정: `src/renderer/base/widgetApi.ts`, `src/renderer/base/state/ui.ts`, `src/renderer/base/state/app.ts`, `src/renderer/application/useCases/widget/getWidgetApi.ts`, `src/renderer/application/useCases/widget/deleteWidget.ts`, `src/renderer/ui/components/widget/widgetViewModel.ts`, `src/renderer/widgets/webpage/widget.tsx`, `src/renderer/init.ts`
+- 테스트 업데이트: `tests/renderer/base/widgetApi.spec.ts`, `tests/renderer/application/useCases/widget/getWidgetApi.spec.ts`, `tests/renderer/ui/components/widget/widget.spec.tsx`, `tests/renderer/widgets/setupSut.tsx`, `tests/renderer/base/state/fixtures/appState.ts` (시그니처 변경 반영 + `setDynamicTitle` 모킹)
+
+---
+
+## 12. 위젯 헤더 텍스트 선택·복사 허용
+
+위젯 헤더 타이틀(`.widget-header-name`)을 마우스로 드래그해서 블록 선택·복사 가능하게.
+
+### 원인
+
+`src/renderer/ui/components/app/globals.scss`의 `body { user-select: none; }` — 드래그/리사이즈 중 실수로 텍스트가 블록 선택되는 걸 막는 Electron UI 관용. 이걸 전역 유지하되 헤더만 예외 처리.
+
+### 변경
+
+`widget.module.scss`의 `.widget-header-name`에 `user-select: text; cursor: text;` 추가. 뷰 모드에선 깔끔하게 선택 가능. 편집 모드에선 `WidgetLayoutItem`이 `draggable={true}`라 드래그가 우선이라 자연스럽게 선택이 안 됨 (브라우저 기본 동작, 별도 처리 불필요).
+
+스코프를 헤더로 한정 — 위젯 바디(commander 출력, timer 표시 등)는 위젯마다 상황이 달라 별건으로 남겨둠.
+
+**수정 파일**: `src/renderer/ui/components/widget/widget.module.scss`
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)
