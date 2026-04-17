@@ -151,6 +151,7 @@ import { createGetWidgetsInCurrentWorkflowUseCase } from '@/application/useCases
 import { createSetExposedApiUseCase } from '@/application/useCases/widget/setExposedApi';
 import { electronIpcRenderer } from '@/infra/mainApi/mainApi';
 import { ipcSharedDataChangedChannel, ipcSwitchWorkflowByOffsetChannel } from '@common/ipc/channels';
+import { SHARED_DATA_CHANGED_EVENT, SharedDataChangedEventDetail } from '@/base/sharedDataEvents';
 
 function prepareDataStorageForRenderer(dataStorage: DataStorage): DataStorageRenderer {
   return setTextOnlyIfChanged(withJson(dataStorage));
@@ -725,9 +726,8 @@ export async function init() {
   // wiring. `detail` carries `{ widgetType, sharedKeyId }`.
   electronIpcRenderer.on(ipcSharedDataChangedChannel, (widgetType, sharedKeyId) => {
     if (typeof widgetType === 'string' && typeof sharedKeyId === 'string') {
-      window.dispatchEvent(new CustomEvent('freeter:shared-data-changed', {
-        detail: { widgetType, sharedKeyId }
-      }));
+      const detail: SharedDataChangedEventDetail = { widgetType, sharedKeyId };
+      window.dispatchEvent(new CustomEvent(SHARED_DATA_CHANGED_EVENT, { detail }));
     }
   });
 

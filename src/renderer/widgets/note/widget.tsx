@@ -11,8 +11,10 @@ import { ChangeEventHandler, useCallback, useEffect, useMemo, useRef, useState }
 import { createContextMenuFactory, textAreaContextId } from '@/widgets/note/contextMenu';
 import { createActionBarItems } from '@/widgets/note/actionBar';
 import { Editor } from 'tiny-markdown-editor';
+import { useSharedDataChangedEffect } from '@/widgets/sharedDataSync';
 
 const keyNote = 'note';
+const noteWidgetType = 'note';
 
 function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
   const {updateActionBar, setContextMenuFactory, dataStorage} = widgetApi;
@@ -51,31 +53,15 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
     loadNote();
   }, [loadNote])
 
-  // Live sync: when another widget sharing the same key writes to storage,
-  // main broadcasts a `freeter:shared-data-changed` event. Reload from storage
-  // unless the user is currently typing here (so we don't clobber unsaved
-  // keystrokes — their own save is already in flight via the debounce).
-  useEffect(() => {
-    const sharedKeyId = settings.sharedKeyId;
-    if (!sharedKeyId) {
-      return undefined;
-    }
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<{ widgetType: string; sharedKeyId: string }>).detail;
-      if (!detail || detail.widgetType !== 'note' || detail.sharedKeyId !== sharedKeyId) {
-        return;
-      }
-      // Skip reload when the user is currently typing in this textarea —
-      // their own debounced save will propagate here as a broadcast echo and
-      // reloading would blow away in-progress keystrokes.
-      if (document.activeElement === textAreaRef.current) {
-        return;
-      }
-      loadNote();
-    };
-    window.addEventListener('freeter:shared-data-changed', handler);
-    return () => window.removeEventListener('freeter:shared-data-changed', handler);
-  }, [settings.sharedKeyId, loadNote]);
+  // Live sync via shared storage; skip reload while the user is typing in
+  // this textarea, since their own debounced save echoes back as a broadcast
+  // and we don't want to clobber unsaved keystrokes.
+  useSharedDataChangedEffect(
+    noteWidgetType,
+    settings.sharedKeyId,
+    () => document.activeElement === textAreaRef.current,
+    loadNote
+  );
 
   useEffect(() => {
     if (textAreaRef.current) {

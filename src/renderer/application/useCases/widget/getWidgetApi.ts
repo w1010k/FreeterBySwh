@@ -15,6 +15,32 @@ import { GetWidgetsInCurrentWorkflowUseCase } from '@/application/useCases/widge
 import { AppStore } from '@/application/interfaces/store';
 import { resolveWidgetSharedKeyId } from '@/base/widget';
 import { sharedStorageId } from '@common/base/sharedStorageId';
+import { AppState } from '@/base/state/app';
+
+const todoListWidgetType = 'to-do-list';
+const appScope = 'app';
+
+/**
+ * Find the project id that owns the widget by walking project → workflow →
+ * layout. Returns `null` if the widget lives on the shelf (app-wide) or
+ * isn't referenced by any workflow.
+ */
+function findWidgetProjectId(state: AppState, widgetId: EntityId): string | null {
+  const { projects, workflows } = state.entities;
+  for (const projectId of Object.keys(projects)) {
+    const project = projects[projectId];
+    if (!project) {
+      continue;
+    }
+    for (const workflowId of project.workflowIds) {
+      const workflow = workflows[workflowId];
+      if (workflow && workflow.layout.some(item => item.widgetId === widgetId)) {
+        return projectId;
+      }
+    }
+  }
+  return null;
+}
 
 interface Deps {
   appStore: AppStore;
@@ -58,10 +84,21 @@ function _createWidgetApiFactory({
         // (e.g. toggling a shared key on/off) is picked up without having to
         // rebuild the widget's cached widgetApi object.
         const getStorage = () => {
-          const widget = appStore.get().entities.widgets[widgetId];
-          const sharedKey = widget ? resolveWidgetSharedKeyId(widget) : null;
+          const state = appStore.get();
+          const widget = state.entities.widgets[widgetId];
+          if (!widget) {
+            return widgetDataStorageManager.getObject(widgetId);
+          }
+          const sharedKey = resolveWidgetSharedKeyId(widget);
           if (sharedKey) {
-            return sharedDataStorageManager.getObject(sharedStorageId(widget!.type, sharedKey));
+            return sharedDataStorageManager.getObject(sharedStorageId(widget.type, sharedKey));
+          }
+          // To-do-list is always project-wide-synced without any setting: all
+          // todo widgets in the same project (or 'app' scope for shelf) share
+          // a single data bucket.
+          if (widget.type === todoListWidgetType) {
+            const scope = findWidgetProjectId(state, widgetId) ?? appScope;
+            return sharedDataStorageManager.getObject(sharedStorageId(todoListWidgetType, scope));
           }
           return widgetDataStorageManager.getObject(widgetId);
         };

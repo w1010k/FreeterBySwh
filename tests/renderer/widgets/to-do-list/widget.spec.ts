@@ -149,7 +149,7 @@ describe('To-Do List Widget', () => {
     expect(within(itemsAfterUpd[2]).getByRole('checkbox', { name: 'Task 3' })).toBeChecked();
   })
 
-  it('should update the state in DataStorage when there are changes, after a 3 sec delay', async () => {
+  it('should update the state in DataStorage when there are changes, after the save debounce', async () => {
     const testState: ToDoListState = {
       items: [
         { id: 1, isDone: false, text: 'Task 1' },
@@ -178,17 +178,17 @@ describe('To-Do List Widget', () => {
 
     await user.click(checkboxes[0]);
 
-    act(() => jest.advanceTimersByTime(1000));
+    act(() => jest.advanceTimersByTime(200));
     expect(setJson).toBeCalledTimes(0);
 
     await user.click(checkboxes[1]);
 
-    act(() => jest.advanceTimersByTime(2000));
+    act(() => jest.advanceTimersByTime(300));
     expect(setJson).toBeCalledTimes(0);
 
     await user.click(checkboxes[2]);
 
-    act(() => jest.advanceTimersByTime(3000));
+    act(() => jest.advanceTimersByTime(500));
     expect(setJson).toBeCalledTimes(1);
     expect(setJson).toBeCalledWith('todo', {
       ...testState,

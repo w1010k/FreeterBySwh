@@ -14,10 +14,16 @@ import clsx from 'clsx';
 import { addItem, deleteItem, editItem, markComplete, markIncomplete } from '@/widgets/to-do-list/actions';
 import { ActiveItemEditorState, ToDoListItem, ToDoListState, maxTextLength } from '@/widgets/to-do-list/state';
 import { focusItemInput, scrollToItemInput, selectAllInItemInput } from '@/widgets/to-do-list/dom';
+import { useSharedDataChangedEffect } from '@/widgets/sharedDataSync';
 
 const dataKey = 'todo';
+const todoListWidgetType = 'to-do-list';
 
-function WidgetComp({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
+function scopeForEnv(env: WidgetReactComponentProps<Settings>['env']): string {
+  return env.area === 'workflow' ? env.projectId : 'app';
+}
+
+function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Settings>) {
   const addItemTopInputRef = useRef<HTMLInputElement>(null);
   const addItemBottomInputRef = useRef<HTMLInputElement>(null);
   const editItemInputRef = useRef<HTMLInputElement>(null);
@@ -36,7 +42,10 @@ function WidgetComp({widgetApi, settings}: WidgetReactComponentProps<Settings>) 
 
   const getToDoList = useCallback(() => toDoList, [toDoList]);
 
-  const saveData = useMemo(() => debounce((data: ToDoListState) => dataStorage.setJson(dataKey, data), 3000), [dataStorage]);
+  // Shorter debounce than typical text widgets: to-do actions (checkbox toggle,
+  // item add/delete/reorder) are discrete operations where a fast propagation
+  // matters more than coalescing a stream of keystrokes.
+  const saveData = useMemo(() => debounce((data: ToDoListState) => dataStorage.setJson(dataKey, data), 500), [dataStorage]);
 
   const loadData = useCallback(async function () {
     const loadedData = await dataStorage.getJson(dataKey) as ToDoListState|undefined;
@@ -61,6 +70,16 @@ function WidgetComp({widgetApi, settings}: WidgetReactComponentProps<Settings>) 
       loadData();
     }
   }, [isLoaded, loadData])
+
+  // Live sync: all to-do-list widgets in this project (or 'app' scope for
+  // shelf) auto-share data. Skip reload while the user is mid-edit — their
+  // own debounced save echoes back as a broadcast.
+  useSharedDataChangedEffect(
+    todoListWidgetType,
+    scopeForEnv(env),
+    () => activeItemEditorState !== null,
+    loadData
+  );
 
   const setToDoListAndSave = useCallback((toDoList: ToDoListState)=>{
     setToDoList(toDoList);
@@ -269,6 +288,13 @@ function WidgetComp({widgetApi, settings}: WidgetReactComponentProps<Settings>) 
       </div>
     : <>Loading To-Do List...</>
   )
+}
+
+function WidgetComp(props: WidgetReactComponentProps<Settings>) {
+  // Remount when the implicit sync scope changes (widget moved between
+  // projects, or between shelf and a workflow) so the initial load reads
+  // from the new storage bucket.
+  return <ToDoInner key={scopeForEnv(props.env)} {...props} />;
 }
 
 export const widgetComp: ReactComponent<WidgetReactComponentProps<Settings>> = {
