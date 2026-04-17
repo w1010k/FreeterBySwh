@@ -125,6 +125,7 @@ function createActions<K extends keyof EntitiesState>(key: K) {
 
 export const entityStateActions = {
   projects: createActions('projects'),
+  sharedDataKeys: createActions('sharedDataKeys'),
   widgetTypes: createActions('widgetTypes'),
   widgets: createActions('widgets'),
   workflows: createActions('workflows')

@@ -70,6 +70,13 @@ import { createOpenPathUseCase } from '@/application/useCases/shell/openPath';
 import { createCopyWidgetDataStorageUseCase } from '@/application/useCases/widgetDataStorage/copyWidgetDataStorage';
 import { createOpenAppUseCase } from '@/application/useCases/shell/openApp';
 import { createOpenAppDataDirUseCase } from '@/application/useCases/shell/openAppDataDir';
+import { parseSharedStorageId } from '@common/base/sharedStorageId';
+import { createGetTextFromSharedDataStorageUseCase } from '@/application/useCases/sharedDataStorage/getTextFromSharedDataStorage';
+import { createSetTextInSharedDataStorageUseCase } from '@/application/useCases/sharedDataStorage/setTextInSharedDataStorage';
+import { createDeleteInSharedDataStorageUseCase } from '@/application/useCases/sharedDataStorage/deleteInSharedDataStorage';
+import { createClearSharedDataStorageUseCase } from '@/application/useCases/sharedDataStorage/clearSharedDataStorage';
+import { createGetKeysFromSharedDataStorageUseCase } from '@/application/useCases/sharedDataStorage/getKeysFromSharedDataStorage';
+import { createSharedDataStorageControllers } from '@/controllers/sharedDataStorage';
 
 let appWindow: BrowserWindow | null = null; // ref to the app window
 
@@ -141,6 +148,23 @@ if (!app.requestSingleInstanceLock()) {
     const getKeysFromWidgetDataStorageUseCase = createGetKeysFromWidgetDataStorageUseCase({ widgetDataStorageManager });
     const copyWidgetDataStorageUseCase = createCopyWidgetDataStorageUseCase({ widgetDataStorageManager });
 
+    // Shared storage lives under `shared/<widgetType>/<sharedKeyId>/` so
+    // namespaces are isolated per widget type; ids are composed by
+    // `sharedStorageId` and split back here.
+    const getSharedDataStoragePath = (id: string) => {
+      const { widgetType, sharedKeyId } = parseSharedStorageId(id);
+      return join(appDataDir, 'shared', widgetType, sharedKeyId);
+    };
+    const sharedDataStorageManager = createObjectManager(
+      (id) => createFileDataStorage('string', getSharedDataStoragePath(id)),
+      (fromId, toId) => copyFileDataStorage(getSharedDataStoragePath(fromId), getSharedDataStoragePath(toId))
+    );
+    const getTextFromSharedDataStorageUseCase = createGetTextFromSharedDataStorageUseCase({ sharedDataStorageManager });
+    const setTextInSharedDataStorageUseCase = createSetTextInSharedDataStorageUseCase({ sharedDataStorageManager });
+    const deleteInSharedDataStorageUseCase = createDeleteInSharedDataStorageUseCase({ sharedDataStorageManager });
+    const clearSharedDataStorageUseCase = createClearSharedDataStorageUseCase({ sharedDataStorageManager });
+    const getKeysFromSharedDataStorageUseCase = createGetKeysFromSharedDataStorageUseCase({ sharedDataStorageManager });
+
     const contextMenuProvider = createContextMenuProvider();
     const popupContextMenuUseCase = createPopupContextMenuUseCase({ contextMenuProvider });
 
@@ -204,7 +228,14 @@ if (!app.requestSingleInstanceLock()) {
       ...createGlobalShortcutControllers({ setMainShortcutUseCase }),
       ...createTrayMenuControllers({ setTrayMenuUseCase }),
       ...createBrowserWindowControllers({ showBrowserWindowUseCase }),
-      ...createTerminalControllers({ execCmdLinesInTerminalUseCase })
+      ...createTerminalControllers({ execCmdLinesInTerminalUseCase }),
+      ...createSharedDataStorageControllers({
+        getTextFromSharedDataStorageUseCase,
+        setTextInSharedDataStorageUseCase,
+        deleteInSharedDataStorageUseCase,
+        clearSharedDataStorageUseCase,
+        getKeysFromSharedDataStorageUseCase,
+      })
     ])
 
     const [windowStore] = createWindowStore({

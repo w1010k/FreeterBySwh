@@ -21,6 +21,9 @@ function setupSut<T>(
     apps: {
       appIds: [],
       apps: {}
+    },
+    sharedDataKeys: {
+      sharedDataKeys: {}
     }
   }
 
@@ -65,6 +68,11 @@ export function setupSettingsSut<T>(reactComp: ReactComponent<SettingsEditorReac
             showOpenFileDialog: jest.fn(),
             showAppManager: jest.fn(),
             ...mockSettingsApi.dialog
+          },
+          sharedDataKey: {
+            create: jest.fn(() => 'KEY-ID'),
+            delete: jest.fn(async () => undefined),
+            ...mockSettingsApi.sharedDataKey
           }
         }}
         sharedState={sharedState}

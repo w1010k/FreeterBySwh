@@ -52,6 +52,31 @@ export const ipcCopyWidgetDataStorageChannel = makeIpcChannelName('copt-widget-d
 export type IpcCopyWidgetDataStorageArgs = [srcWidgetId: string, toWidgetId: string];
 export type IpcCopyWidgetDataStorageRes = boolean;
 
+export const ipcSharedDataGetTextChannel = makeIpcChannelName('shared-data-get-text');
+export type IpcSharedDataGetTextArgs = [widgetType: string, sharedKeyId: string, key: string];
+export type IpcSharedDataGetTextRes = string | undefined;
+
+export const ipcSharedDataSetTextChannel = makeIpcChannelName('shared-data-set-text');
+export type IpcSharedDataSetTextArgs = [widgetType: string, sharedKeyId: string, key: string, text: string];
+export type IpcSharedDataSetTextRes = void;
+
+export const ipcSharedDataDeleteChannel = makeIpcChannelName('shared-data-delete');
+export type IpcSharedDataDeleteArgs = [widgetType: string, sharedKeyId: string, key: string];
+export type IpcSharedDataDeleteRes = void;
+
+export const ipcSharedDataClearChannel = makeIpcChannelName('shared-data-clear');
+export type IpcSharedDataClearArgs = [widgetType: string, sharedKeyId: string];
+export type IpcSharedDataClearRes = void;
+
+export const ipcSharedDataGetKeysChannel = makeIpcChannelName('shared-data-get-keys');
+export type IpcSharedDataGetKeysArgs = [widgetType: string, sharedKeyId: string];
+export type IpcSharedDataGetKeysRes = string[];
+
+/** main → renderer notification fired after any successful write to a shared
+ *  data bucket, so widgets subscribing to the same key can reload. */
+export const ipcSharedDataChangedChannel = makeIpcChannelName('shared-data-changed');
+export type IpcSharedDataChangedArgs = [widgetType: string, sharedKeyId: string];
+
 export const ipcPopupOsContextMenuChannel = makeIpcChannelName('popup-os-context-menu');
 export type IpcPopupOsContextMenuArgs = [menuItems: MenuItemsIpc];
 export type IpcPopupOsContextMenuRes = number | undefined;

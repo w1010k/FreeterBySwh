@@ -7,6 +7,7 @@ import { App } from '@/base/app';
 import { createEntityCollection, EntityCollection, setManyInEntityCollection } from '@/base/entityCollection';
 import { mapIdListToEntityList } from '@/base/entityList';
 import { Project } from '@/base/project';
+import { SharedDataKey } from '@/base/sharedDataKey';
 import { Widget, WidgetSettings } from '@/base/widget';
 import { WidgetType } from '@/base/widgetType';
 import { Workflow } from '@/base/workflow';
@@ -14,6 +15,7 @@ import { Workflow } from '@/base/workflow';
 export interface EntitiesState {
   apps: EntityCollection<App>;
   projects: EntityCollection<Project>;
+  sharedDataKeys: EntityCollection<SharedDataKey>;
   widgets: EntityCollection<Widget>;
   widgetTypes: EntityCollection<WidgetType<WidgetSettings>>;
   workflows: EntityCollection<Workflow>;
@@ -23,6 +25,7 @@ export function createEntitiesState(): EntitiesState {
   return {
     apps: createEntityCollection(),
     projects: createEntityCollection(),
+    sharedDataKeys: createEntityCollection(),
     widgets: createEntityCollection(),
     widgetTypes: createEntityCollection(),
     workflows: createEntityCollection()

@@ -9,6 +9,7 @@ export function fixtureSettings(settings: Partial<Settings>): Settings {
   return {
     spellCheck: true,
     markdown: true,
+    sharedKeyId: null,
     ...settings
   }
 }

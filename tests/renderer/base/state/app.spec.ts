@@ -114,6 +114,7 @@ describe('AppState', () => {
         entities: {
           apps: state.entities.apps,
           projects: state.entities.projects,
+          sharedDataKeys: state.entities.sharedDataKeys,
           widgets: {
             [persistentWidgetA.id]: persistentWidgetA
           },
@@ -160,6 +161,7 @@ describe('AppState', () => {
         entities: {
           apps: fixtureAppBInColl(),
           projects: fixtureProjectBInColl(),
+          sharedDataKeys: {},
           widgets: {
             [persistentWidgetA.id]: persistentWidgetA
           },

@@ -25,10 +25,15 @@ async function setup(initState: AppState) {
 
   const openAppManagerUseCase = jest.fn();
 
+  const idGenerator = jest.fn(() => 'NEW-KEY-ID');
+  const deleteSharedDataKeyUseCase = jest.fn(async () => undefined);
+
   const getWidgetSettingsApiUseCase = createGetWidgetSettingsApiUseCase({
     appStore,
     dialogProvider,
-    openAppManagerUseCase
+    openAppManagerUseCase,
+    idGenerator,
+    deleteSharedDataKeyUseCase
   });
   return {
     appStore,

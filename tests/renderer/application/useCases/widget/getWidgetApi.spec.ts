@@ -14,10 +14,12 @@ import { WidgetApi, WidgetApiModuleName } from '@/base/widgetApi';
 import { ObjectManager, createObjectManager } from '@common/base/objectManager';
 import { ProcessInfo } from '@common/base/process';
 import { mockShellProvider } from '@tests/infra/mocks/shellProvider';
+import { fixtureAppStore } from '@tests/data/fixtures/appStore';
+import { fixtureAppState } from '@tests/base/state/fixtures/appState';
 
 const widgetId = 'WIDGET-ID';
 
-function setup() {
+async function setup() {
   const clipboardProvider: jest.MockedObject<ClipboardProvider> = {
     writeBookmark: jest.fn(),
     writeText: jest.fn(),
@@ -45,26 +47,47 @@ function setup() {
     async () => true
   )
 
+  const sharedDataStorage: jest.MockedObject<DataStorageRenderer> = {
+    clear: jest.fn(),
+    getKeys: jest.fn(),
+    getText: jest.fn(),
+    deleteItem: jest.fn(),
+    setText: jest.fn(),
+    getJson: jest.fn(),
+    setJson: jest.fn()
+  };
+  const sharedDataStorageManager: ObjectManager<jest.MockedObject<DataStorageRenderer>> = createObjectManager(
+    async () => sharedDataStorage,
+    async () => true
+  )
+
   const terminalProvider: jest.MockedObject<TerminalProvider> = {
     execCmdLines: jest.fn()
   }
 
   const getWidgetsInCurrentWorkflowUseCase = jest.fn();
 
+  const [appStore] = await fixtureAppStore(fixtureAppState({}));
+
   const getWidgetApiUseCase = createGetWidgetApiUseCase({
+    appStore,
     clipboardProvider,
     processProvider,
     shellProvider,
     widgetDataStorageManager,
+    sharedDataStorageManager,
     terminalProvider,
     getWidgetsInCurrentWorkflowUseCase,
   });
   return {
+    appStore,
     clipboardProvider,
     processProvider,
     shellProvider,
     widgetDataStorage,
     widgetDataStorageManager,
+    sharedDataStorage,
+    sharedDataStorageManager,
     terminalProvider,
     getWidgetsInCurrentWorkflowUseCase,
 
@@ -92,20 +115,20 @@ describe('getWidgetApiUseCase()', () => {
       dataStorage: expect.any(Object),
       shell: expect.any(Object)
     }],
-  ])('should correctly add common properties and required modules to WidgetApi, when requiredModules = %j', (requiredModules, expectWidgetApi) => {
+  ])('should correctly add common properties and required modules to WidgetApi, when requiredModules = %j', async (requiredModules, expectWidgetApi) => {
     const {
       getWidgetApiUseCase
-    } = setup()
+    } = await setup()
 
     const widgetApi = getWidgetApiUseCase('WIDGET-ID', false, () => undefined, () => undefined, () => undefined, requiredModules);
 
     expect(widgetApi).toEqual(expectWidgetApi);
   })
 
-  it('should correctly setup common properties, when forPreview is false', () => {
+  it('should correctly setup common properties, when forPreview is false', async () => {
     const {
       getWidgetApiUseCase,
-    } = setup()
+    } = await setup()
     const testVal = 'TEST-VALUE';
     const updateWidgetActionBarHandler = jest.fn();
     const setContextMenuFactoryHandler = jest.fn();
@@ -126,10 +149,10 @@ describe('getWidgetApiUseCase()', () => {
     expect(exposeApiHandler).toHaveBeenCalledWith(testVal);
   })
 
-  it('should correctly setup common properties, when forPreview is true', () => {
+  it('should correctly setup common properties, when forPreview is true', async () => {
     const {
       getWidgetApiUseCase,
-    } = setup()
+    } = await setup()
     const testVal = 'TEST-VALUE';
     const updateWidgetActionBarHandler = jest.fn();
     const setContextMenuFactoryHandler = jest.fn();
@@ -147,11 +170,11 @@ describe('getWidgetApiUseCase()', () => {
     expect(exposeApiHandler).not.toHaveBeenCalled();
   })
 
-  it('should correctly setup clipboard module', () => {
+  it('should correctly setup clipboard module', async () => {
     const {
       getWidgetApiUseCase,
       clipboardProvider
-    } = setup()
+    } = await setup()
 
     const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, ['clipboard']);
 
@@ -168,7 +191,7 @@ describe('getWidgetApiUseCase()', () => {
     const {
       getWidgetApiUseCase,
       widgetDataStorageManager
-    } = setup()
+    } = await setup()
     const testVal = 'TEST-VALUE';
     const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, ['dataStorage']);
     const widgetDataStorage = await widgetDataStorageManager.getObject(widgetId);
@@ -191,11 +214,11 @@ describe('getWidgetApiUseCase()', () => {
     expect(widgetDataStorage.setText).toHaveBeenCalledWith('key', 'value');
   })
 
-  it('should correctly setup process module', () => {
+  it('should correctly setup process module', async () => {
     const {
       getWidgetApiUseCase,
       processProvider
-    } = setup()
+    } = await setup()
 
     const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, ['process']);
 
@@ -206,11 +229,11 @@ describe('getWidgetApiUseCase()', () => {
     expect(processProvider.getProcessInfo).toHaveBeenCalledWith();
   })
 
-  it('should correctly setup shell module', () => {
+  it('should correctly setup shell module', async () => {
     const {
       getWidgetApiUseCase,
       shellProvider
-    } = setup()
+    } = await setup()
 
     const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, ['shell']);
 
@@ -227,11 +250,11 @@ describe('getWidgetApiUseCase()', () => {
     expect(shellProvider.openPath).toHaveBeenCalledWith('some/file/path');
   })
 
-  it('should correctly setup terminal module', () => {
+  it('should correctly setup terminal module', async () => {
     const {
       getWidgetApiUseCase,
       terminalProvider
-    } = setup()
+    } = await setup()
 
     const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, ['terminal']);
 
@@ -240,11 +263,11 @@ describe('getWidgetApiUseCase()', () => {
     expect(terminalProvider.execCmdLines).toHaveBeenCalledWith(['cmd1', 'cmd2'], 'cwd');
   })
 
-  it('should correctly setup widgets module', () => {
+  it('should correctly setup widgets module', async () => {
     const {
       getWidgetApiUseCase,
       getWidgetsInCurrentWorkflowUseCase
-    } = setup()
+    } = await setup()
 
     const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, ['widgets']);
 

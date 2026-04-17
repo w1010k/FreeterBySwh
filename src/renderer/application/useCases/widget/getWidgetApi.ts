@@ -12,20 +12,27 @@ import { WidgetApiExposeApiHandler, WidgetApiModuleName, WidgetApiSetContextMenu
 import { ObjectManager } from '@common/base/objectManager';
 import { TerminalProvider } from '@/application/interfaces/terminalProvider';
 import { GetWidgetsInCurrentWorkflowUseCase } from '@/application/useCases/widget/widgetApiWidgets/getWidgetsInCurrentWorkflow';
+import { AppStore } from '@/application/interfaces/store';
+import { resolveWidgetSharedKeyId } from '@/base/widget';
+import { sharedStorageId } from '@common/base/sharedStorageId';
 
 interface Deps {
+  appStore: AppStore;
   clipboardProvider: ClipboardProvider;
   widgetDataStorageManager: ObjectManager<DataStorageRenderer>;
+  sharedDataStorageManager: ObjectManager<DataStorageRenderer>;
   processProvider: ProcessProvider;
   shellProvider: ShellProvider;
   terminalProvider: TerminalProvider;
   getWidgetsInCurrentWorkflowUseCase: GetWidgetsInCurrentWorkflowUseCase;
 }
 function _createWidgetApiFactory({
+  appStore,
   clipboardProvider,
   processProvider,
   shellProvider,
   widgetDataStorageManager,
+  sharedDataStorageManager,
   terminalProvider,
   getWidgetsInCurrentWorkflowUseCase,
 }: Deps, forPreview: boolean) {
@@ -47,15 +54,25 @@ function _createWidgetApiFactory({
         writeText: (text) => clipboardProvider.writeText(text)
       }),
       dataStorage: (widgetId) => {
-        const widgetDataStorage = widgetDataStorageManager.getObject(widgetId);
+        // Resolve the storage lazily on every call so a settings change
+        // (e.g. toggling a shared key on/off) is picked up without having to
+        // rebuild the widget's cached widgetApi object.
+        const getStorage = () => {
+          const widget = appStore.get().entities.widgets[widgetId];
+          const sharedKey = widget ? resolveWidgetSharedKeyId(widget) : null;
+          if (sharedKey) {
+            return sharedDataStorageManager.getObject(sharedStorageId(widget!.type, sharedKey));
+          }
+          return widgetDataStorageManager.getObject(widgetId);
+        };
         return {
-          clear: async () => (await widgetDataStorage).clear(),
-          getJson: async (key) => (await widgetDataStorage).getJson(key),
-          getText: async (key) => (await widgetDataStorage).getText(key),
-          remove: async (key) => (await widgetDataStorage).deleteItem(key),
-          setJson: async (key, value) => (await widgetDataStorage).setJson(key, value),
-          setText: async (key, value) => (await widgetDataStorage).setText(key, value),
-          getKeys: async () => (await widgetDataStorage).getKeys()
+          clear: async () => (await getStorage()).clear(),
+          getJson: async (key) => (await getStorage()).getJson(key),
+          getText: async (key) => (await getStorage()).getText(key),
+          remove: async (key) => (await getStorage()).deleteItem(key),
+          setJson: async (key, value) => (await getStorage()).setJson(key, value),
+          setText: async (key, value) => (await getStorage()).setText(key, value),
+          getKeys: async () => (await getStorage()).getKeys()
         }
       },
       process: () => ({

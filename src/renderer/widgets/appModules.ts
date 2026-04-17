@@ -24,6 +24,7 @@ export type { SettingActionsProps, SettingBlockProps, SettingRowProps } from '@/
 export { browse14Svg, delete14Svg, manage14Svg } from '@/ui/assets/images/appIcons';
 
 export { mapIdListToEntityList } from '@/base/entityList';
+export { getEntitiesArrayFromEntityCollection } from '@/base/entityCollection';
 export { addItemToList, moveItemInList, removeItemFromList } from '@/base/list';
 export { ActionBar } from '@/ui/components/basic/actionBar';
 export { Button } from '@/ui/components/basic/button';

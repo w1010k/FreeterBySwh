@@ -204,6 +204,65 @@ Mozilla/5.0 (<platform>) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/<major>.0
 
 ---
 
+## 8. Note 위젯 공유 데이터 키 (cross-workflow sync)
+
+여러 워크플로에 있는 Note 위젯들이 선택적으로 **같은 내용을 공유**할 수 있음. 한 쪽에서 수정하면 같은 키를 쓰는 다른 모든 위젯에 실시간 반영.
+
+### 사용 흐름
+
+1. Note 위젯 설정 → "Shared Data" 섹션 드롭다운에서 "+ Create new key…" 선택
+2. 인라인으로 키 이름 입력 (예: `Shopping list`) → Create
+3. 다른 워크플로의 Note 위젯 설정에서 같은 키 선택 → 동일 내용 표시
+4. 한 쪽에서 수정 (3초 debounce) → 다른 쪽에 자동 반영
+
+### 저장 위치
+
+- 공유 키 지정 시: `<appData>/freeter-swh/freeter-data/shared/<widgetType>/<keyId>/`
+- 지정 안 한 경우(기본): 기존대로 위젯별 `<appData>/.../widgets/<widgetId>/`
+
+### 아키텍처
+
+| 레이어 | 역할 |
+|---|---|
+| **Common** (`src/common/base/sharedStorageId.ts`, `ipc/channels.ts`) | 합성 ID `"<widgetType>:<keyId>"` 생성/파싱 헬퍼 + 6개 IPC 채널 (get/set/delete/clear/getKeys + 변경 broadcast) |
+| **Main** (`application/useCases/sharedDataStorage/*`, `controllers/sharedDataStorage.ts`, `index.ts`) | `sharedDataStorageManager` (createObjectManager) + 5개 use case + 컨트롤러. write 성공 시 모든 BrowserWindow에 `ipcSharedDataChangedChannel` broadcast |
+| **Renderer infra** (`infra/dataStorage/sharedDataStorage.ts`) | IPC 래퍼 |
+| **State** (`base/sharedDataKey.ts`, `state/entities.ts`, `state/shared.ts`, `state/actions/entity.ts`) | `SharedDataKey` 엔티티 + `entityStateActions.sharedDataKeys` + `SharedState.sharedDataKeys` 슬라이스 |
+| **Widget API** (`base/widgetApi.ts`, `useCases/widget/getWidgetApi.ts`) | `dataStorage` getter가 위젯 설정의 `sharedKeyId` 여부에 따라 shared vs widget-local 스토리지를 매 호출마다 lazy하게 선택 |
+| **Settings API** (`useCases/widgetSettings/getWidgetSettingsApi.ts`) | `sharedDataKey.create(widgetType, name)` → id 생성 + state addOne |
+| **Note 위젯** (`widgets/note/{settings.tsx, widget.tsx, index.ts}`) | 설정 UI (드롭다운 + 인라인 input), CustomEvent 구독, `requiresState: ['sharedDataKeys']` |
+
+### 실시간 동기화 흐름
+
+```
+B에서 편집 → 3s debounce → dataStorage.setText IPC → main이 파일 write
+  → main이 BrowserWindow.getAllWindows()에 broadcast
+  → renderer init.ts가 IPC 받음 → window CustomEvent 'freeter:shared-data-changed'
+  → A의 NoteInner가 리스너로 받음
+    → 포커스가 자기 textarea에 있으면 skip (사용자 타이핑 보호)
+    → 아니면 loadNote() → getText IPC → textarea.value 갱신
+```
+
+### 까다로웠던 포인트 (구현 시 만난 함정)
+
+1. **widgetApi memoize의 함정**: `widgetApi.dataStorage`는 `widget.id`에 memoize돼서, sharedKeyId 변경해도 참조는 같음. → `getStorage()`를 lazy closure로 만들어 매 호출마다 state에서 현재 sharedKeyId 확인
+2. **Uncontrolled textarea**: `defaultValue`는 mount 시에만 반영되므로 리로드 시 화면이 안 바뀜. → `textAreaRef.current.value`를 직접 씀
+3. **sharedKeyId 전환 시 초기 로드**: 기존 위젯이 이미 마운트된 상태에서 sharedKeyId만 바꾸면 useEffect가 안 타서 이전 데이터가 남음. → `<NoteInner key={sharedKeyId ?? '__self__'}>` 래퍼로 강제 remount
+4. **memSaver로 위젯이 영구 마운트**: 워크플로 전환으로 자연스러운 remount를 기대할 수 없음. → broadcast + CustomEvent 필수
+5. **Self-echo**: 같은 window의 위젯들은 webContents.id가 같아 sender 구분 불가. → 타이핑 중인 textarea는 `document.activeElement` 체크로 스킵
+
+### 제한 사항
+
+- **Manage Shared Data Keys 다이얼로그 부재**: 현재 키 삭제/이름 변경 UI 없음 (키 생성은 설정 드롭다운에서 가능). 향후 추가 예정.
+- **TodoList 미적용**: Note에만 적용. 패턴 확립됐으므로 TodoList로 확장은 기계적 작업 — 향후 세션에서.
+- **콘텐츠 비어있음 사전 체크 없음**: 당초 Q1 결정은 "비어있어야 공유 허용"이었으나, settings UI에서 위젯 데이터 dry-read가 까다로워 `moreInfo` 경고 문구로 대체. 사용자가 공유 키 지정 시 위젯의 visible 콘텐츠는 선택한 키의 내용으로 교체됨 (local 데이터는 widget 폴더에 그대로 남아, 공유 해제 시 복원됨).
+
+**수정 파일 요약**:
+- 신규 9개: `common/base/sharedStorageId.ts`, `main/application/useCases/sharedDataStorage/{clear,delete,getKeys,getText,setText}.ts` (5), `main/controllers/sharedDataStorage.ts`, `renderer/base/sharedDataKey.ts`, `renderer/infra/dataStorage/sharedDataStorage.ts`
+- 수정 12개: `common/ipc/channels.ts`, `main/index.ts`, `renderer/init.ts`, `renderer/base/widget.ts`, `renderer/base/widgetApi.ts`, `renderer/base/state/{entities,shared}.ts`, `renderer/base/state/actions/entity.ts`, `renderer/application/useCases/widget/getWidgetApi.ts`, `renderer/application/useCases/widgetSettings/getWidgetSettingsApi.ts`, `renderer/widgets/appModules.ts`, `renderer/widgets/note/{index.ts,settings.tsx,widget.tsx}`
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

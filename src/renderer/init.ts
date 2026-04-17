@@ -61,6 +61,9 @@ import { setTextOnlyIfChanged } from '@common/infra/dataStorage/setTextOnlyIfCha
 import { withJson } from '@common/infra/dataStorage/withJson';
 import { createObjectManager } from '@common/base/objectManager';
 import { copyWidgetDataStorage, createWidgetDataStorage } from '@/infra/dataStorage/widgetDataStorage';
+import { createSharedDataStorage } from '@/infra/dataStorage/sharedDataStorage';
+import { parseSharedStorageId } from '@common/base/sharedStorageId';
+import { createDeleteSharedDataKeyUseCase } from '@/application/useCases/sharedDataKey/deleteSharedDataKey';
 import { createWorktableViewModelHook } from '@/ui/components/worktable/worktableViewModel';
 import { createAppViewModelHook } from '@/ui/components/app/appViewModel';
 import { createUpdateWidgetCoreSettingsUseCase } from '@/application/useCases/widgetSettings/updateWidgetCoreSettings';
@@ -147,7 +150,7 @@ import { createSetEditTogglePositionUseCase } from '@/application/useCases/setEd
 import { createGetWidgetsInCurrentWorkflowUseCase } from '@/application/useCases/widget/widgetApiWidgets/getWidgetsInCurrentWorkflow';
 import { createSetExposedApiUseCase } from '@/application/useCases/widget/setExposedApi';
 import { electronIpcRenderer } from '@/infra/mainApi/mainApi';
-import { ipcSwitchWorkflowByOffsetChannel } from '@common/ipc/channels';
+import { ipcSharedDataChangedChannel, ipcSwitchWorkflowByOffsetChannel } from '@common/ipc/channels';
 
 function prepareDataStorageForRenderer(dataStorage: DataStorage): DataStorageRenderer {
   return setTextOnlyIfChanged(withJson(dataStorage));
@@ -188,11 +191,8 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
   const openWidgetSettingsUseCase = createOpenWidgetSettingsUseCase(deps);
   const closeWidgetSettingsUseCase = createCloseWidgetSettingsUseCase(deps);
   const saveWidgetSettingsUseCase = createSaveWidgetSettingsUseCase(deps);
-  const getWidgetSettingsApiUseCase = createGetWidgetSettingsApiUseCase({
-    ...deps,
-    dialogProvider: osDialogProvider,
-    openAppManagerUseCase
-  });
+  // `getWidgetSettingsApiUseCase` depends on the shared-data-key delete use
+  // case which needs the storage managers; both are created further below.
   const updateWidgetCoreSettingsUseCase = createUpdateWidgetCoreSettingsUseCase(deps);
 
   const resizeLayoutItemUseCase = createResizeLayoutItemUseCase(deps);
@@ -264,12 +264,33 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     async widgetId => prepareDataStorageForRenderer(createWidgetDataStorage(widgetId)),
     copyWidgetDataStorage
   )
+  const sharedDataStorageManager = createObjectManager(
+    async id => {
+      const { widgetType, sharedKeyId } = parseSharedStorageId(id);
+      return prepareDataStorageForRenderer(createSharedDataStorage(widgetType, sharedKeyId));
+    },
+    async () => false
+  )
+  const deleteSharedDataKeyUseCase = createDeleteSharedDataKeyUseCase({
+    ...deps,
+    dialog: osDialogProvider,
+    sharedDataStorageManager,
+    widgetDataStorageManager,
+  });
+  const getWidgetSettingsApiUseCase = createGetWidgetSettingsApiUseCase({
+    ...deps,
+    dialogProvider: osDialogProvider,
+    openAppManagerUseCase,
+    deleteSharedDataKeyUseCase,
+  });
   const terminalProvider = createTerminalProvider();
   const getWidgetApiUseCase = createGetWidgetApiUseCase({
+    appStore: store.appStore,
     clipboardProvider,
     processProvider,
     shellProvider,
     widgetDataStorageManager,
+    sharedDataStorageManager,
     terminalProvider,
     getWidgetsInCurrentWorkflowUseCase,
   })
@@ -696,6 +717,17 @@ export async function init() {
   electronIpcRenderer.on(ipcSwitchWorkflowByOffsetChannel, (offset) => {
     if (typeof offset === 'number') {
       switchWorkflowByOffsetUseCase(offset);
+    }
+  });
+
+  // Shared-data change notifications are re-emitted as a DOM CustomEvent so
+  // individual widget components can subscribe without needing their own IPC
+  // wiring. `detail` carries `{ widgetType, sharedKeyId }`.
+  electronIpcRenderer.on(ipcSharedDataChangedChannel, (widgetType, sharedKeyId) => {
+    if (typeof widgetType === 'string' && typeof sharedKeyId === 'string') {
+      window.dispatchEvent(new CustomEvent('freeter:shared-data-changed', {
+        detail: { widgetType, sharedKeyId }
+      }));
     }
   });
 

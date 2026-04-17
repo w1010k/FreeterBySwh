@@ -97,4 +97,12 @@ export interface WidgetSettingsApi<TSettings> {
     showOpenFileDialog: (cfg: OpenFileDialogConfig) => Promise<OpenDialogResult>;
     showOpenDirDialog: (cfg: OpenDirDialogConfig) => Promise<OpenDialogResult>;
   }
+  readonly sharedDataKey: {
+    /** Register a new shared data key for the given widget type. Returns the
+     *  newly created key's id so callers can immediately assign it. */
+    create: (widgetType: string, name: string) => EntityId;
+    /** Delete a shared data key, wiping its content and clearing any widget
+     *  that was using it. Shows a confirmation dialog; no-op if user cancels. */
+    delete: (keyId: EntityId) => Promise<void>;
+  }
 }

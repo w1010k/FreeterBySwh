@@ -6,20 +6,26 @@
 import { WidgetSettingsApi } from '@/base/widgetApi';
 import { AppStore } from '@/application/interfaces/store';
 import { DialogProvider } from '@/application/interfaces/dialogProvider';
-import { modalScreensStateActions } from '@/base/state/actions';
+import { entityStateActions, modalScreensStateActions } from '@/base/state/actions';
 import { WidgetSettings } from '@/base/widget';
 import { OpenAppManagerUseCase } from '@/application/useCases/appManager/openAppManager';
+import { IdGenerator } from '@/application/interfaces/idGenerator';
+import { DeleteSharedDataKeyUseCase } from '@/application/useCases/sharedDataKey/deleteSharedDataKey';
 
 interface Deps {
   appStore: AppStore;
   dialogProvider: DialogProvider;
   openAppManagerUseCase: OpenAppManagerUseCase;
+  idGenerator: IdGenerator;
+  deleteSharedDataKeyUseCase: DeleteSharedDataKeyUseCase;
 }
 
 export function createGetWidgetSettingsApiUseCase({
   appStore,
   dialogProvider,
   openAppManagerUseCase,
+  idGenerator,
+  deleteSharedDataKeyUseCase,
 }: Deps) {
   function getWidgetSettingsApiUseCase() {
     const settingsApi: WidgetSettingsApi<WidgetSettings> = {
@@ -46,6 +52,19 @@ export function createGetWidgetSettingsApiUseCase({
         showAppManager: () => openAppManagerUseCase(),
         showOpenDirDialog: cfg => dialogProvider.showOpenDirDialog(cfg),
         showOpenFileDialog: cfg => dialogProvider.showOpenFileDialog(cfg),
+      },
+      sharedDataKey: {
+        create: (widgetType, name) => {
+          const id = idGenerator();
+          const state = appStore.get();
+          appStore.set(entityStateActions.sharedDataKeys.addOne(state, {
+            id,
+            widgetType,
+            name,
+          }));
+          return id;
+        },
+        delete: (keyId) => deleteSharedDataKeyUseCase(keyId),
       }
     }
     return settingsApi;

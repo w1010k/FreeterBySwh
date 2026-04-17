@@ -14,7 +14,7 @@ import { Editor } from 'tiny-markdown-editor';
 
 const keyNote = 'note';
 
-function WidgetComp({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
+function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
   const {updateActionBar, setContextMenuFactory, dataStorage} = widgetApi;
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const loadedNote = useRef('');
@@ -34,7 +34,11 @@ function WidgetComp({widgetApi, settings}: WidgetReactComponentProps<Settings>) 
   }, [saveNote])
 
   const loadNote = useCallback(async function () {
-    loadedNote.current = await dataStorage.getText(keyNote) || '';
+    const next = await dataStorage.getText(keyNote) || '';
+    loadedNote.current = next;
+    if (textAreaRef.current && textAreaRef.current.value !== next) {
+      textAreaRef.current.value = next;
+    }
     setIsLoaded(true);
   }, [dataStorage]);
 
@@ -46,6 +50,32 @@ function WidgetComp({widgetApi, settings}: WidgetReactComponentProps<Settings>) 
   useEffect(() => {
     loadNote();
   }, [loadNote])
+
+  // Live sync: when another widget sharing the same key writes to storage,
+  // main broadcasts a `freeter:shared-data-changed` event. Reload from storage
+  // unless the user is currently typing here (so we don't clobber unsaved
+  // keystrokes — their own save is already in flight via the debounce).
+  useEffect(() => {
+    const sharedKeyId = settings.sharedKeyId;
+    if (!sharedKeyId) {
+      return undefined;
+    }
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ widgetType: string; sharedKeyId: string }>).detail;
+      if (!detail || detail.widgetType !== 'note' || detail.sharedKeyId !== sharedKeyId) {
+        return;
+      }
+      // Skip reload when the user is currently typing in this textarea —
+      // their own debounced save will propagate here as a broadcast echo and
+      // reloading would blow away in-progress keystrokes.
+      if (document.activeElement === textAreaRef.current) {
+        return;
+      }
+      loadNote();
+    };
+    window.addEventListener('freeter:shared-data-changed', handler);
+    return () => window.removeEventListener('freeter:shared-data-changed', handler);
+  }, [settings.sharedKeyId, loadNote]);
 
   useEffect(() => {
     if (textAreaRef.current) {
@@ -76,6 +106,13 @@ function WidgetComp({widgetApi, settings}: WidgetReactComponentProps<Settings>) 
       ></textarea>
     : <>Loading Note...</>
   )
+}
+
+function WidgetComp(props: WidgetReactComponentProps<Settings>) {
+  // Remount the inner component when the shared key changes so the `useEffect`
+  // that loads from `dataStorage` runs against the new storage; the memoized
+  // widgetApi keeps the same reference and won't otherwise trigger a reload.
+  return <NoteInner key={props.settings.sharedKeyId ?? '__self__'} {...props} />;
 }
 
 export const widgetComp: ReactComponent<WidgetReactComponentProps<Settings>> = {

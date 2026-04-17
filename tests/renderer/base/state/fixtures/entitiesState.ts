@@ -16,6 +16,7 @@ import { fixtureAppA, fixtureAppB, fixtureAppC, fixtureAppD } from '@tests/base/
 const entitiesState: EntitiesState = {
   apps: {},
   projects: {},
+  sharedDataKeys: {},
   widgets: {},
   widgetTypes: {},
   workflows: {}

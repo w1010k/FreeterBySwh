@@ -103,3 +103,13 @@ export function getWidgetDisplayName(widget?: Widget, type?: WidgetType): string
   }
   return '';
 }
+
+/**
+ * Returns the shared-data key id the widget opts into, or `null` when the
+ * widget uses its own per-instance storage. Widget types that support shared
+ * data include `sharedKeyId?: string | null` in their settings.
+ */
+export function resolveWidgetSharedKeyId(widget: Widget): EntityId | null {
+  const val = (widget.settings as { sharedKeyId?: unknown }).sharedKeyId;
+  return typeof val === 'string' && val.length > 0 ? val : null;
+}

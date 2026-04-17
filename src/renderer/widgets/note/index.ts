@@ -21,7 +21,8 @@ const widgetType: WidgetType<Settings> = {
   createSettingsState,
   settingsEditorComp,
   widgetComp,
-  requiresApi: ['clipboard', 'dataStorage']
+  requiresApi: ['clipboard', 'dataStorage'],
+  requiresState: ['sharedDataKeys']
 }
 
 export default widgetType;

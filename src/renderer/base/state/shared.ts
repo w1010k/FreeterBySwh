@@ -12,6 +12,9 @@ export interface SharedState {
     apps: EntitiesState['apps'];
     appIds: UiState['apps']['appIds'];
   };
+  readonly sharedDataKeys: {
+    sharedDataKeys: EntitiesState['sharedDataKeys'];
+  };
 }
 
 export type SharedStateSliceName = keyof SharedState;
@@ -25,7 +28,10 @@ const sharedStateSliceFactories: SharedStateSliceFactories = {
   apps: appState => ({
     appIds: appState.ui.apps.appIds,
     apps: appState.entities.apps
-  })
+  }),
+  sharedDataKeys: appState => ({
+    sharedDataKeys: appState.entities.sharedDataKeys,
+  }),
 }
 
 export function createSharedState(appState: AppState, availableSlices: SharedStateSliceName[]): SharedState {
