@@ -8,8 +8,6 @@ import { AddItemToWidgetListSubCase } from '@/application/useCases/shelf/subs/ad
 import { CreateWidgetSubCase } from '@/application/useCases/widget/subs/createWidget';
 import { EntityId } from '@/base/entity';
 import { addOneToEntityCollection, getOneFromEntityCollection } from '@/base/entityCollection';
-import { getAllWidgetNamesFromWidgetList } from '@/base/state/actions/usedNames';
-import { generateWidgetName } from '@/base/widget';
 
 type Deps = {
   appStore: AppStore;
@@ -29,10 +27,7 @@ export function createAddWidgetToShelfUseCase({
     }
     const { widgetList } = state.ui.shelf;
 
-    const newWidget = createWidgetSubCase(
-      widgetType,
-      generateWidgetName(widgetType.name, getAllWidgetNamesFromWidgetList(state.entities.widgets, widgetList))
-    )
+    const newWidget = createWidgetSubCase(widgetType, '')
     const newWidgetList = addItemToWidgetListSubCase(newWidget.id, widgetList, toPosListItemId)
 
     appStore.set({

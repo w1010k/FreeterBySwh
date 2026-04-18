@@ -12,7 +12,6 @@ import { dragDropStateActions, entityStateActions } from '@/base/state/actions';
 import { CloneWidgetToWidgetListSubCase } from '@/application/useCases/shelf/subs/cloneWidgetToWidgetList';
 import { addOneToEntityCollection, getOneFromEntityCollection } from '@/base/entityCollection';
 import { CreateWidgetSubCase } from '@/application/useCases/widget/subs/createWidget';
-import { generateWidgetName } from '@/base/widget';
 import { AddItemToWidgetListSubCase } from '@/application/useCases/shelf/subs/addItemToWidgetList';
 import { getAllWidgetNamesFromWidgetList } from '@/base/state/actions/usedNames';
 
@@ -39,10 +38,7 @@ export function createDropOnTopBarListUseCase({
         if (draggingFrom.palette.widgetTypeId) {
           const widgetType = getOneFromEntityCollection(state.entities.widgetTypes, draggingFrom.palette.widgetTypeId);
           if (widgetType) {
-            const newWidget = createWidgetSubCase(
-              widgetType,
-              generateWidgetName(widgetType.name, getAllWidgetNamesFromWidgetList(state.entities.widgets, widgetList))
-            )
+            const newWidget = createWidgetSubCase(widgetType, '')
             const newWidgetList = addItemToWidgetListSubCase(newWidget.id, widgetList, targetListItemId)
 
             state = {

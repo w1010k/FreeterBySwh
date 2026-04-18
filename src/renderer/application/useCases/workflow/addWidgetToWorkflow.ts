@@ -8,8 +8,6 @@ import { CreateWidgetSubCase } from '@/application/useCases/widget/subs/createWi
 import { AddItemToWidgetLayoutSubCase } from '@/application/useCases/workflow/subs/addItemToWidgetLayout';
 import { EntityId } from '@/base/entity';
 import { addOneToEntityCollection, getOneFromEntityCollection, updateOneInEntityCollection } from '@/base/entityCollection';
-import { getAllWidgetNamesFromWidgetLayout } from '@/base/state/actions/usedNames';
-import { generateWidgetName } from '@/base/widget';
 import { WidgetLayoutItemWH, WidgetLayoutItemXY } from '@/base/widgetLayout';
 
 type Deps = {
@@ -34,10 +32,7 @@ export function createAddWidgetToWorkflowUseCase({
       return;
     }
 
-    const newWidget = createWidgetSubCase(
-      widgetType,
-      generateWidgetName(widgetType.name, getAllWidgetNamesFromWidgetLayout(state.entities.widgets, toWorkflow.layout))
-    )
+    const newWidget = createWidgetSubCase(widgetType, '')
     const newWidgetLayout = addItemToWidgetLayoutSubCase(
       newWidget.id,
       toWorkflow.layout,

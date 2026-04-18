@@ -585,7 +585,7 @@ describe('await dropOnTopBarListUseCase()', () => {
               type: draggingTypeId,
               settings: newSettingsState,
               coreSettings: fixtureWidgetCoreSettingsA({
-                name: initState.entities.widgetTypes[draggingTypeId]!.name + ' 1'
+                name: ''
               })
             }
           }

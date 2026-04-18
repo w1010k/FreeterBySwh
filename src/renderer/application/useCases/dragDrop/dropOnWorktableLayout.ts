@@ -13,7 +13,6 @@ import { addOneToEntityCollection, getOneFromEntityCollection, updateOneInEntity
 import { CloneWidgetToWidgetLayoutSubCase } from '@/application/useCases/workflow/subs/cloneWidgetToWidgetLayout';
 import { CreateWidgetSubCase } from '@/application/useCases/widget/subs/createWidget';
 import { AddItemToWidgetLayoutSubCase } from '@/application/useCases/workflow/subs/addItemToWidgetLayout';
-import { generateWidgetName } from '@/base/widget';
 import { getAllWidgetNamesFromWidgetLayout } from '@/base/state/actions/usedNames';
 
 type Deps = {
@@ -41,10 +40,7 @@ export function createDropOnWorktableLayoutUseCase({
           if (widgetType) {
             const toWorkflow = getOneFromEntityCollection(state.entities.workflows, toWorkflowId);
             if (toWorkflow) {
-              const newWidget = createWidgetSubCase(
-                widgetType,
-                generateWidgetName(widgetType.name, getAllWidgetNamesFromWidgetLayout(state.entities.widgets, toWorkflow.layout))
-              )
+              const newWidget = createWidgetSubCase(widgetType, '')
               const newWidgetLayout = addItemToWidgetLayoutSubCase(
                 newWidget.id,
                 toWorkflow.layout,

@@ -317,7 +317,7 @@ describe('await dropOnWorktableLayoutUseCase()', () => {
               type: draggingType,
               settings: newSettingsState,
               coreSettings: expect.objectContaining({
-                name: initState.entities.widgetTypes[draggingType]!.name + ' 1'
+                name: ''
               })
             }
           },
