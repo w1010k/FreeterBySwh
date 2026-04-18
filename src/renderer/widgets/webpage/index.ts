@@ -14,7 +14,7 @@ const widgetType: WidgetType<Settings> = {
   name: 'Webpage',
   minSize: {
     w: 2,
-    h: 2
+    h: 1
   },
   description: 'The Webpage widget allows you to make most frequently used web applications and webpages easily accessible by embedding them into workflow tabs.',
   maximizable: true,

@@ -14,7 +14,7 @@ const widgetType: WidgetType<Settings> = {
   name: 'To-Do List',
   minSize: {
     w: 2,
-    h: 2
+    h: 1
   },
   description: 'The To-Do List widget allows yout to quickly organize tasks with simple to-do lists.',
   createSettingsState,
