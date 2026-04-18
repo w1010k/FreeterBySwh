@@ -77,6 +77,10 @@ import { createDeleteInSharedDataStorageUseCase } from '@/application/useCases/s
 import { createClearSharedDataStorageUseCase } from '@/application/useCases/sharedDataStorage/clearSharedDataStorage';
 import { createGetKeysFromSharedDataStorageUseCase } from '@/application/useCases/sharedDataStorage/getKeysFromSharedDataStorage';
 import { createSharedDataStorageControllers } from '@/controllers/sharedDataStorage';
+import { createIconProvider } from '@/infra/iconProvider/iconProvider';
+import { createGetFileIconUseCase } from '@/application/useCases/icon/getFileIcon';
+import { createGetFaviconUseCase } from '@/application/useCases/icon/getFavicon';
+import { createIconControllers } from '@/controllers/icon';
 
 let appWindow: BrowserWindow | null = null; // ref to the app window
 
@@ -204,6 +208,10 @@ if (!app.requestSingleInstanceLock()) {
 
     const openAppUseCase = createOpenAppUseCase({ childProcessProvider, processProvider })
 
+    const iconProvider = createIconProvider();
+    const getFileIconUseCase = createGetFileIconUseCase({ iconProvider });
+    const getFaviconUseCase = createGetFaviconUseCase({ iconProvider });
+
     registerControllers(ipcMain, [
       ...createAppDataStorageControllers({ getTextFromAppDataStorageUseCase, setTextInAppDataStorageUseCase }),
       ...createWidgetDataStorageControllers({
@@ -235,7 +243,8 @@ if (!app.requestSingleInstanceLock()) {
         deleteInSharedDataStorageUseCase,
         clearSharedDataStorageUseCase,
         getKeysFromSharedDataStorageUseCase,
-      })
+      }),
+      ...createIconControllers({ getFileIconUseCase, getFaviconUseCase })
     ])
 
     const [windowStore] = createWindowStore({

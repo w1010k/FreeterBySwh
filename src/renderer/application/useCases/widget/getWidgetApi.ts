@@ -6,6 +6,7 @@
 import { ClipboardProvider } from '@/application/interfaces/clipboardProvider';
 import { ProcessProvider } from '@/application/interfaces/processProvider';
 import { ShellProvider } from '@/application/interfaces/shellProvider';
+import { IconProvider } from '@/application/interfaces/iconProvider';
 import { DataStorageRenderer } from '@/application/interfaces/dataStorage';
 import { EntityId } from '@/base/entity';
 import { WidgetApiExposeApiHandler, WidgetApiModuleName, WidgetApiSetContextMenuFactoryHandler, WidgetApiSetDynamicTitleHandler, WidgetApiUpdateActionBarHandler, createWidgetApiFactory } from '@/base/widgetApi';
@@ -49,6 +50,7 @@ interface Deps {
   sharedDataStorageManager: ObjectManager<DataStorageRenderer>;
   processProvider: ProcessProvider;
   shellProvider: ShellProvider;
+  iconProvider: IconProvider;
   terminalProvider: TerminalProvider;
   getWidgetsInCurrentWorkflowUseCase: GetWidgetsInCurrentWorkflowUseCase;
 }
@@ -57,6 +59,7 @@ function _createWidgetApiFactory({
   clipboardProvider,
   processProvider,
   shellProvider,
+  iconProvider,
   widgetDataStorageManager,
   sharedDataStorageManager,
   terminalProvider,
@@ -117,6 +120,10 @@ function _createWidgetApiFactory({
       },
       process: () => ({
         getProcessInfo: () => processProvider.getProcessInfo()
+      }),
+      icon: () => ({
+        getFileIcon: (path, bypassCache) => iconProvider.getFileIcon(path, bypassCache),
+        getFavicon: (url, bypassCache) => iconProvider.getFavicon(url, bypassCache)
       }),
       shell: () => ({
         openApp: (appPath, args) => shellProvider.openApp(appPath, args),

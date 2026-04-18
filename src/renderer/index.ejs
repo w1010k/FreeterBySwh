@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8"/>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src *; media-src 'self'; frame-src 'self'; object-src 'self'; script-src 'self'<% if (htmlWebpackPlugin.options.env === 'development') { %> 'unsafe-eval'<% } %><% if (htmlWebpackPlugin.options.env_REACT_DEVTOOLS === 'enabled') { %> http://localhost:8097/<% } %>; style-src 'self' 'unsafe-inline'; connect-src 'self' <% if (htmlWebpackPlugin.options.env_REACT_DEVTOOLS === 'enabled') { %> ws://localhost:8097/<% } %>; font-src 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src * data:; media-src 'self'; frame-src 'self'; object-src 'self'; script-src 'self'<% if (htmlWebpackPlugin.options.env === 'development') { %> 'unsafe-eval'<% } %><% if (htmlWebpackPlugin.options.env_REACT_DEVTOOLS === 'enabled') { %> http://localhost:8097/<% } %>; style-src 'self' 'unsafe-inline'; connect-src 'self' <% if (htmlWebpackPlugin.options.env_REACT_DEVTOOLS === 'enabled') { %> ws://localhost:8097/<% } %>; font-src 'self';">
     <title><%= htmlWebpackPlugin.options.title %></title>
 
     <% if (htmlWebpackPlugin.options.env_REACT_DEVTOOLS === 'enabled') { %>

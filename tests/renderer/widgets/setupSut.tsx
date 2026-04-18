@@ -119,6 +119,11 @@ export function setupWidgetSut<T>(reactComp: ReactComponent<WidgetReactComponent
       getProcessInfo: jest.fn(()=>fixtureProcessInfoLinux({browser: {name: 'Chrome', ver: '1.2.3'}, os: {name: 'linux', ver: '5.6.7'}})),
       ...mockWidgetApi.process
     },
+    icon: {
+      getFileIcon: jest.fn(async () => null),
+      getFavicon: jest.fn(async () => null),
+      ...mockWidgetApi.icon
+    },
     shell: {
       openApp: jest.fn(),
       openExternalUrl: jest.fn(),

@@ -9,15 +9,17 @@ import { openFileSvg, openFolderSvg } from '@/widgets/file-opener/icons';
 import * as styles from './widget.module.scss';
 import { SettingsType, settingsTypeNamesCapital } from '@/widgets/file-opener/settingsType';
 import { useCallback } from 'react';
+import { useDynamicIcon } from '@/widgets/useDynamicIcon';
 
 function WidgetComp({settings, widgetApi, sharedState}: WidgetReactComponentProps<Settings>) {
-  const { shell } = widgetApi;
+  const { shell, icon } = widgetApi;
   const { files, folders, type, openIn } = settings;
   const {apps} = sharedState.apps;
   const openInApp = openIn !== '' ? apps[openIn] : undefined;
 
   const paths = (type === SettingsType.Folder ? folders : files).filter(path=>path!=='');
-  const iconSvg = type === SettingsType.Folder ? openFolderSvg : openFileSvg;
+  const fallbackIconSvg = type === SettingsType.Folder ? openFolderSvg : openFileSvg;
+  const { icon: osIcon, retryIfMissing } = useDynamicIcon(icon.getFileIcon, paths[0] ?? '');
 
   const onBtnClick: React.MouseEventHandler<HTMLButtonElement> = useCallback(_ => {
     if (openInApp) {
@@ -26,12 +28,14 @@ function WidgetComp({settings, widgetApi, sharedState}: WidgetReactComponentProp
     } else {
       paths.forEach(path => shell.openPath(path))
     }
-  }, [openInApp, paths, shell])
+    retryIfMissing();
+  }, [openInApp, paths, shell, retryIfMissing])
 
   return paths.length>0
     ? <Button
         onClick={onBtnClick}
-        iconSvg={iconSvg}
+        iconSvg={fallbackIconSvg}
+        iconImgSrc={osIcon ?? undefined}
         title={`Open ${settingsTypeNamesCapital[settings.type]}${paths.length>1 ? 's' : ''}`}
         size='Fill'
       />

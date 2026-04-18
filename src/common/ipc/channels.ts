@@ -160,3 +160,11 @@ export type IpcShowBrowserWindowRes = void;
 export const ipcExecCmdLinesInTerminalChannel = makeIpcChannelName('exec-cmd-lines-in-terminal');
 export type IpcExecCmdLinesInTerminalArgs = [cmdLines: ReadonlyArray<string>, cwd?: string];
 export type IpcExecCmdLinesInTerminalRes = void;
+
+export const ipcGetFileIconChannel = makeIpcChannelName('get-file-icon');
+export type IpcGetFileIconArgs = [path: string, bypassCache?: boolean];
+export type IpcGetFileIconRes = string | null;
+
+export const ipcGetFaviconChannel = makeIpcChannelName('get-favicon');
+export type IpcGetFaviconArgs = [url: string, bypassCache?: boolean];
+export type IpcGetFaviconRes = string | null;

@@ -44,6 +44,22 @@ interface WidgetApiModules {
   readonly process: {
     getProcessInfo: () => ProcessInfo;
   };
+  readonly icon: {
+    /**
+     * Resolve the OS-native icon for a file or folder path. Returns a data
+     * URI or `null` when the icon can't be resolved. Set `bypassCache=true`
+     * on user-initiated actions (e.g. a button click) to force a retry even
+     * if a previous attempt was cached as failed.
+     */
+    getFileIcon: (path: string, bypassCache?: boolean) => Promise<string | null>;
+    /**
+     * Resolve a site's favicon. First tries `<origin>/favicon.ico`; on miss,
+     * parses the origin's HTML `<link rel="icon|apple-touch-icon|shortcut icon">`
+     * tags and tries each candidate. Results (positive or null) are cached
+     * for the session — pass `bypassCache=true` to force a fresh attempt.
+     */
+    getFavicon: (url: string, bypassCache?: boolean) => Promise<string | null>;
+  };
   readonly shell: {
     openApp: (appPath: string, args?: string[]) => Promise<void>;
     openExternalUrl: (url: string) => Promise<void>;

@@ -584,6 +584,84 @@ const wPx = 300;  // unchanged
 
 ---
 
+## 21. Link/File Opener 위젯 — 콘텐츠 기반 자동 아이콘
+
+Link Opener / File Opener 버튼을 여러 개 놔두면 전부 똑같은 기본 아이콘이라 "이게 어느 링크·파일이더라" 구분이 안 되는 문제. 설정된 대상(URL · 파일 경로)을 기준으로 **런타임에 자동으로 의미 있는 아이콘**을 뽑아서 버튼에 표시.
+
+### 동작
+
+| 위젯 | 아이콘 소스 | 실패/없음 시 |
+|---|---|---|
+| Link Opener | ① `<origin>/favicon.ico` 직접 페치 → ② 실패 시 `<origin>/` HTML에서 `<link rel="icon\|apple-touch-icon\|shortcut icon">` 파싱 후 우선순위 순 페치 | 기존 "외부 링크" SVG |
+| File Opener | 첫 경로에 대한 `Electron.app.getFileIcon()` (OS 네이티브) | 기존 파일/폴더 SVG |
+
+사용자 설정은 없음 — URL·경로만 바꿔도 자연히 아이콘이 바뀜. "URL이 비어 있으면" 같은 미설정 상태에서는 원래 안내 문구가 그대로 뜨므로 기존 UX와 충돌 없음.
+
+### 아키텍처 — 새 `icon` widget capability
+
+`widgetApi.icon.{getFileIcon, getFavicon}` 모듈을 신규로 추가. file-opener·link-opener 모두 `requiresApi: ['shell', 'icon']`로 선언.
+
+| 레이어 | 변경 |
+|---|---|
+| **Common** (`common/ipc/channels.ts`) | `ipcGetFileIconChannel` / `ipcGetFaviconChannel` 채널·타입 쌍 추가 |
+| **Main infra** (`main/infra/iconProvider/iconProvider.ts` 신규) | `Electron.app.getFileIcon(path, {size:'normal'}).toDataURL()` + favicon용 `fetch('<origin>/favicon.ico')`. 응답 크기 상한(256KB), 타임아웃(4s), 리다이렉트 횟수 제한(3), 매직 바이트로 MIME 추정 (PNG/JPEG/GIF/WebP/ICO/SVG) |
+| **Main use case** (`main/application/useCases/icon/{getFileIcon,getFavicon}.ts` 신규) | 입력 검증(empty, url sanitize) 후 provider 위임. 전 경로 try/catch로 예외 삼켜 null 반환 |
+| **Main controller** (`main/controllers/icon.ts` 신규) | 두 채널을 use case로 연결 |
+| **Renderer infra** (`renderer/infra/iconProvider/iconProvider.ts` 신규) | `electronIpcRenderer.invoke`로 main에 위임 |
+| **Renderer base** (`base/widgetApi.ts`) | `WidgetApiModules.icon` 추가 → `WidgetApiModuleName` 유니온 자동 확장 |
+| **Renderer use case** (`useCases/widget/getWidgetApi.ts`) | `icon` 모듈 팩토리 + `iconProvider` Deps 추가 |
+| **UI 컴포넌트** (`ui/components/basic/button/button.tsx`) | `iconImgSrc?: string` prop 추가. 있으면 `<SvgIcon>` 대신 `<img>` 렌더. `object-fit: contain`으로 비율 유지, `size='Fill'` 규칙(최대 48×48) 그대로 재사용 |
+| **Widgets** (`widgets/link-opener/widget.tsx`, `widgets/file-opener/widget.tsx`) | 첫 URL/경로를 `iconKey`로 삼아 `useEffect`에서 1회 페치, 결과 state에 저장. `Button`에는 `iconSvg`(기본값) + `iconImgSrc`(동적) 둘 다 전달 — Button이 imgSrc 유무로 자동 분기 |
+
+### 성능 · 안전성 포인트
+
+1. **캐시 정책 (main 측, 세션 스코프)**: 파일 아이콘/favicon 둘 다 평범한 `Map<key, string | null>` 하나씩. 성공이든 실패든 결과를 프로세스 생존 동안 그대로 기억. 같은 링크/파일 여러 개 놔도 Electron/network 호출은 path·origin 당 최대 1회. 디스크 영속화·LRU 캡·negative TTL 같은 건 **의도적으로 없음** — 단순함이 우선이고, 앱 재시작 비용은 실사용상 미미. ([지표 근거] 데스크톱 런처 성격상 유니크 origin이 수십 개 수준이라 Map이 커져 문제 된 적 없음.)
+2. **"유저 클릭 = 재시도" 정책**: 실패가 영구 캐시된다는 건 뒤집어 말하면 **네트워크가 일시적으로 불안정했을 때 영영 기본 SVG에 갇힐 수 있다**는 뜻. 그래서 위젯 버튼을 실제로 클릭했을 때 `bypassCache: true`로 백그라운드 재시도를 같이 건다 — 성공하면 아이콘이 교체되고, 실패하면 원래대로. Fire-and-forget이라 open 동작을 블록하지 않음. "자동으로 N분마다 재시도"보다 유저 의도가 실제로 있는 순간에만 비용 지불하는 쪽이 예측 가능.
+3. **in-flight dedup**: 동시에 같은 키로 두 위젯이 요청하면 하나의 Promise 공유 (`inflight<...>` Map). 렌더 초기에 위젯 여러 개가 한꺼번에 깨어나도 스파이크 방지.
+3. **사이즈/타임아웃 상한**: favicon은 `content-length`와 누적 수신량 둘 다 체크해서 악성/거대 응답 차단. 4초 타임아웃(AbortController).
+4. **MIME 검증**: content-type만 믿지 않고 첫 바이트 매직넘버로도 이미지 여부 판정. 비-이미지 응답은 버리고 null 반환.
+5. **http/https 한정**: `new URL(...)` 로 파싱 후 protocol 화이트리스트. data:/ftp:/javascript: 등 차단.
+6. **실패 시 앱 안 죽게**: 모든 경로에 try/catch → 최악의 경우 null만 돌아오고 위젯은 기존 SVG 그대로 표시. 사용자 시점에서는 "약간 늦게 예쁜 아이콘이 생기거나, 영영 생기지 않거나" 둘 중 하나.
+
+### 까다로웠던 포인트
+
+1. **`<use href={svg}>` vs `<img src={dataUri}>`**: 기존 `SvgIcon`은 webpack svg-sprite-loader가 생성한 레퍼런스를 `<use>`로 참조. data URI(raster base64)는 이 경로로 못 들어감. Button 레벨에서 두 렌더 모드를 분기하는 쪽이, 위젯이 Button을 우회해 자체 `<button><img></button>`를 쓰는 쪽보다 재사용성 ↑.
+2. **`Fill` 사이즈 규칙 그대로 적용**: 기존 SCSS가 `.button-icon { width: 100%; height: 100%; max-*: 48px }` 를 이미 가지고 있어서 `<img>`에도 같은 클래스 붙이면 크기는 자동. 단 `object-fit: contain` 한 줄만 추가해서 raster 아이콘이 정사각형이 아닐 때 비율 유지.
+3. **HTML `<link>` 파싱 폴백 (초기 릴리스 직후 추가)**: 초기 구현은 `<origin>/favicon.ico` 직접 페치만 했음. 실제 사용 중 Notion/makelapo/hometax.go.kr/logo.ideachefs.com 등에서 아이콘 안 뜨는 케이스 발견. 이유는 (a) SPA/정적 사이트가 `/favicon.ico`를 루트에 안 두고 `<link rel="icon" href="/favicon-32x32.png">`로만 선언하거나, (b) WAF/UA 게이팅으로 Node 기본 UA(`node/undici`)를 차단해 HTML 에러 페이지를 돌려주는 경우. 두 경로로 해결:
+   - **Chrome UA 헤더 추가**: 모든 fetch에 `Electron.app.userAgentFallback`(이미 `main/index.ts:121`에서 Chrome UA로 세팅됨) 또는 하드코딩 fallback을 `User-Agent`로 실어 보냄. WAF 우회 + 일반적인 익명 fetch 호환성.
+   - **HTML 파싱 2차 폴백**: `/favicon.ico`가 null을 리턴하면 `<origin>/` HTML을 받아 첫 64KB 안의 `<link>` 태그를 regex로 스캔. `<head>`는 거의 항상 앞쪽 수십 KB에 들어있어서 전체 파싱 불필요. 후보 우선순위: **apple-touch-icon > icon > shortcut icon**, 같은 rel 내에선 `sizes` 값이 큰 순. `apple-touch-icon`(보통 180+)이 Fill 버튼(최대 48×48)에 다운스케일됐을 때 16×16 classic icon 업스케일보다 훨씬 선명해서 기본 선호.
+4. **SVG magic-byte 오탐 수정**: 초기 구현은 `bytes[0]===0x3c && (bytes[1]===0x3f || bytes[1]===0x73)`로 `<?` 또는 `<s`만 체크. HTML 에러 페이지가 `<script>` / `<style>`로 시작하면 **SVG로 오판**됐음. 규칙을 "첫 512바이트 안에서 `/<svg\b[^>]*>/i` 매치"로 교체. 이게 HTML 폴백과 맞물리면 중요한데, 잘못 태깅된 HTML이 `image/svg+xml`로 캐시돼 렌더 시 깨진 그림이 나오는 걸 방지.
+5. **Third-party 아이콘 서비스 미사용**: Google s2/favicons 같은 서비스가 편하지만 모든 URL을 외부에 보내는 구조라 프라이버시 리스크. 데스크톱 런처 성격 상 대상 origin에 직접 HTTP 요청만 보내는 쪽이 깔끔.
+6. **path/URL key 로 refetch 타이밍 동기화**: 설정 편집 중에는 `paths`/`urls`가 계속 바뀌므로 `useEffect` dep을 `paths[0]`·`urls[0]` 한 개로 좁혀서 불필요한 재호출 최소화. type(File↔Folder) 전환도 dep에 포함해야 같은 경로라도 아이콘 재조회됨 (단, 실제로는 경로 자체가 바뀌는 케이스가 더 많음).
+7. **CSP `img-src`에 `data:` 추가 필요**: 렌더러 `index.ejs`의 CSP가 원본 그대로 `img-src *`였음. 스펙상 `*`는 http/https/ws/wss/self 계열만 매치하고 `data:` 스킴은 **명시적으로 선언해야** 허용됨. 처음 구현 직후 `"Loading the image '<URL>' violates ... img-src *"` 경고가 떴고 `img-src * data:;`로 고쳐서 해결. 다른 스킴(blob:, filesystem:)은 이 기능엔 불필요해서 추가 안 함.
+
+### 수정 파일
+
+- **신규**
+  - `src/main/application/interfaces/iconProvider.ts`
+  - `src/main/infra/iconProvider/iconProvider.ts`
+  - `src/main/application/useCases/icon/getFileIcon.ts`
+  - `src/main/application/useCases/icon/getFavicon.ts`
+  - `src/main/controllers/icon.ts`
+  - `src/renderer/application/interfaces/iconProvider.ts`
+  - `src/renderer/infra/iconProvider/iconProvider.ts`
+- **수정**
+  - `src/renderer/index.ejs` (CSP `img-src *` → `img-src * data:`)
+  - `src/common/ipc/channels.ts` (IPC 채널/타입 2종 추가)
+  - `src/main/index.ts` (provider/usecase/controller 조립)
+  - `src/renderer/init.ts` (iconProvider 주입)
+  - `src/renderer/base/widgetApi.ts` (WidgetApiModules.icon 추가)
+  - `src/renderer/application/useCases/widget/getWidgetApi.ts` (icon 모듈 팩토리 + Deps)
+  - `src/renderer/ui/components/basic/button/button.tsx` / `button.module.scss` (`iconImgSrc` prop + `object-fit`)
+  - `src/renderer/widgets/link-opener/index.ts`, `widget.tsx`
+  - `src/renderer/widgets/file-opener/index.ts`, `widget.tsx`
+- **테스트**
+  - 신규: `tests/main/application/useCases/icon/getFileIcon.spec.ts`, `getFavicon.spec.ts`, `tests/main/controllers/icon.spec.ts`, `tests/renderer/infra/iconProvider/iconProvider.spec.ts`
+  - 신규 mock: `tests/main/infra/mocks/iconProvider.ts`, `tests/renderer/infra/mocks/iconProvider.ts`
+  - 수정: `tests/renderer/application/useCases/widget/getWidgetApi.spec.ts` (icon 모듈 케이스), `tests/renderer/widgets/setupSut.tsx` (widgetApi mock에 icon 추가)
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

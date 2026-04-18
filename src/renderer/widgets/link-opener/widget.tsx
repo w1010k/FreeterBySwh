@@ -7,16 +7,25 @@ import { Button, ReactComponent, WidgetReactComponentProps } from '@/widgets/app
 import { Settings } from './settings';
 import { openLinkSvg } from '@/widgets/link-opener/icons';
 import * as styles from './widget.module.scss';
+import { useCallback } from 'react';
+import { useDynamicIcon } from '@/widgets/useDynamicIcon';
 
 function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) {
-  const { shell } = widgetApi;
+  const { shell, icon } = widgetApi;
 
   const urls = settings.urls.filter(url=>url!=='');
+  const { icon: favicon, retryIfMissing } = useDynamicIcon(icon.getFavicon, urls[0] ?? '');
+
+  const onClick = useCallback(() => {
+    urls.forEach(url => shell.openExternalUrl(url));
+    retryIfMissing();
+  }, [urls, shell, retryIfMissing]);
 
   return urls.length>0
     ? <Button
-        onClick={_ => urls.forEach(url => shell.openExternalUrl(url))}
+        onClick={onClick}
         iconSvg={openLinkSvg}
+        iconImgSrc={favicon ?? undefined}
         title={`Open Link${urls.length>1 ? 's' : ''}`}
         size='Fill'
       />

@@ -14,6 +14,7 @@ import { WidgetApi, WidgetApiModuleName } from '@/base/widgetApi';
 import { ObjectManager, createObjectManager } from '@common/base/objectManager';
 import { ProcessInfo } from '@common/base/process';
 import { mockShellProvider } from '@tests/infra/mocks/shellProvider';
+import { mockIconProvider } from '@tests/infra/mocks/iconProvider';
 import { fixtureAppStore } from '@tests/data/fixtures/appStore';
 import { fixtureAppState } from '@tests/base/state/fixtures/appState';
 
@@ -31,6 +32,10 @@ async function setup() {
     openApp: jest.fn(),
     openExternal: jest.fn(),
     openPath: jest.fn()
+  });
+  const iconProvider = mockIconProvider({
+    getFileIcon: jest.fn(),
+    getFavicon: jest.fn()
   });
 
   const widgetDataStorage: jest.MockedObject<DataStorageRenderer> = {
@@ -74,6 +79,7 @@ async function setup() {
     clipboardProvider,
     processProvider,
     shellProvider,
+    iconProvider,
     widgetDataStorageManager,
     sharedDataStorageManager,
     terminalProvider,
@@ -84,6 +90,7 @@ async function setup() {
     clipboardProvider,
     processProvider,
     shellProvider,
+    iconProvider,
     widgetDataStorage,
     widgetDataStorageManager,
     sharedDataStorage,
@@ -117,6 +124,13 @@ describe('getWidgetApiUseCase()', () => {
       setDynamicTitle: expect.any(Function),
       dataStorage: expect.any(Object),
       shell: expect.any(Object)
+    }],
+    [['icon'], {
+      updateActionBar: expect.any(Function),
+      setContextMenuFactory: expect.any(Function),
+      exposeApi: expect.any(Function),
+      setDynamicTitle: expect.any(Function),
+      icon: expect.any(Object)
     }],
   ])('should correctly add common properties and required modules to WidgetApi, when requiredModules = %j', async (requiredModules, expectWidgetApi) => {
     const {
@@ -276,6 +290,27 @@ describe('getWidgetApiUseCase()', () => {
     widgetApi.shell.openPath('some/file/path');
     expect(shellProvider.openPath).toHaveBeenCalledTimes(1);
     expect(shellProvider.openPath).toHaveBeenCalledWith('some/file/path');
+  })
+
+  it('should correctly setup icon module', async () => {
+    const {
+      getWidgetApiUseCase,
+      iconProvider
+    } = await setup()
+
+    const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, () => undefined, ['icon']);
+
+    widgetApi.icon.getFileIcon('/some/path');
+    expect(iconProvider.getFileIcon).toHaveBeenLastCalledWith('/some/path', undefined);
+
+    widgetApi.icon.getFileIcon('/some/path', true);
+    expect(iconProvider.getFileIcon).toHaveBeenLastCalledWith('/some/path', true);
+
+    widgetApi.icon.getFavicon('https://example.com');
+    expect(iconProvider.getFavicon).toHaveBeenLastCalledWith('https://example.com', undefined);
+
+    widgetApi.icon.getFavicon('https://example.com', true);
+    expect(iconProvider.getFavicon).toHaveBeenLastCalledWith('https://example.com', true);
   })
 
   it('should correctly setup terminal module', async () => {

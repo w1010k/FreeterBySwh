@@ -10,6 +10,12 @@ import clsx from 'clsx';
 export interface ButtonProps extends Omit<React.DetailedHTMLProps<React.ButtonHTMLAttributes<HTMLButtonElement>, HTMLButtonElement>, 'aria-pressed'> {
   size?: 'S' | 'M' | 'L' | 'Fill';
   iconSvg?: string;
+  /**
+   * Raster icon source (data URI or URL). Takes precedence over `iconSvg`
+   * when both are set — used for dynamic content-derived icons (OS file
+   * icon, favicon). Falls through to `iconSvg` when absent.
+   */
+  iconImgSrc?: string;
   caption?: string;
   pressed?: boolean | undefined;
   primary?: boolean | undefined;
@@ -18,6 +24,7 @@ export interface ButtonProps extends Omit<React.DetailedHTMLProps<React.ButtonHT
 export const Button = ({
   caption,
   iconSvg,
+  iconImgSrc,
   size = 'M',
   pressed,
   primary,
@@ -25,25 +32,30 @@ export const Button = ({
   title,
   'aria-label': ariaLabel,
   ...restProps
-}: ButtonProps) => (
-  <button
-    className={clsx(
-      styles['button'],
-      size === 'L' && styles['size-l'],
-      size === 'M' && styles['size-m'],
-      size === 'S' && styles['size-s'],
-      size === 'Fill' && styles['size-fill'],
-      primary && styles['primary'],
-      !iconSvg && caption && styles['only-caption'],
-      iconSvg && !caption && styles['only-icon'],
-      className
-    )}
-    aria-pressed={pressed}
-    title={title || caption}
-    aria-label={ariaLabel || title || caption}
-    {...restProps}
-  >
-    {iconSvg && <SvgIcon svg={iconSvg} className={styles['button-icon']}></SvgIcon>}
-    {caption && <span>{caption}</span>}
-  </button>
-)
+}: ButtonProps) => {
+  const hasIcon = !!iconImgSrc || !!iconSvg;
+  return (
+    <button
+      className={clsx(
+        styles['button'],
+        size === 'L' && styles['size-l'],
+        size === 'M' && styles['size-m'],
+        size === 'S' && styles['size-s'],
+        size === 'Fill' && styles['size-fill'],
+        primary && styles['primary'],
+        !hasIcon && caption && styles['only-caption'],
+        hasIcon && !caption && styles['only-icon'],
+        className
+      )}
+      aria-pressed={pressed}
+      title={title || caption}
+      aria-label={ariaLabel || title || caption}
+      {...restProps}
+    >
+      {iconImgSrc
+        ? <img src={iconImgSrc} alt='' className={styles['button-icon']} draggable={false} />
+        : iconSvg && <SvgIcon svg={iconSvg} className={styles['button-icon']}></SvgIcon>}
+      {caption && <span>{caption}</span>}
+    </button>
+  );
+}
