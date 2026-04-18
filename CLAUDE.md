@@ -101,7 +101,7 @@ This fork tracks user-visible changes (features, behavior shifts, UX-affecting r
 
 Append a new numbered section. Follow the existing style:
 
-- Header: `## N. <짧은 제목>` — continue the running number from the last entry.
+- Header: `## N. <짧은 제목> *(YYYY-MM-DD)*` — continue the running number from the last entry. Date is the first-introduction date (commit that brought the feature in); follow-up tweaks don't update it.
 - Lead with user-visible behavior (what changed, when it kicks in), then architecture, then "까다로웠던 포인트" (non-obvious pitfalls worth remembering), then `**수정 파일**` list (신규 / 수정 / 테스트 분리).
 - Write in Korean, matching the surrounding narrative tone. Tables are fine where they clarify. Explain *why*, not just *what*.
 - Skip this only for pure bug fixes, refactors with no behavior change, or trivial cleanups. When in doubt, add an entry — it's easier to skim later than to reconstruct.
@@ -110,4 +110,4 @@ Small tweaks to an existing entry's feature (e.g. format adjustments, follow-up 
 
 ### `README.md` — one-liner in "이 포크에서 추가한 기능"
 
-Append a single numbered line that matches the CHANGES.md section number 1:1. Keep it to one sentence that lands the user-visible value. If you merged into an existing CHANGES.md entry (follow-up tweak), also update that entry's line in README.md instead of adding a new one. If the change is purely internal (like a refactor that still got a CHANGES.md entry for tracking), mark it "(내부 리팩토링)" so readers can skim past.
+Append a single numbered line that matches the CHANGES.md section number 1:1. Keep it to one sentence that lands the user-visible value, ending with ` *(YYYY-MM-DD)*` to mirror the CHANGES.md date. If you merged into an existing CHANGES.md entry (follow-up tweak), also update that entry's line in README.md instead of adding a new one (don't bump the date). If the change is purely internal (like a refactor that still got a CHANGES.md entry for tracking), mark it "(내부 리팩토링)" so readers can skim past.
