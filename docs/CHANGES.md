@@ -662,6 +662,67 @@ Link Opener / File Opener 버튼을 여러 개 놔두면 전부 똑같은 기본
 
 ---
 
+## 22. Link/File Opener 동적 타이틀
+
+#16에서 새 위젯의 기본 이름을 공란으로 바꾸고 나서 헤더는 위젯 타입 이름(`Link Opener` / `File Opener`)만 노출됨. #21에서 아이콘은 콘텐츠 기반으로 구분되게 했지만 헤더 텍스트는 여전히 같아서, 여러 개 놓으면 이름만으론 어느 링크·어느 경로인지 알 수 없음. #11이 Webpage에 이미 깔아둔 `widgetApi.setDynamicTitle` 인프라를 그대로 재사용해서 헤더도 첫 URL·첫 경로 기준으로 자동 표시.
+
+### 동작
+
+| 위젯 | 사용자가 이름 지정 | 이름이 공란일 때 |
+|---|---|---|
+| Link Opener | 그 이름 | 첫 URL의 `host` (예: `github.com`) |
+| File Opener | 그 이름 | 첫 경로의 basename (예: `report.pdf`) |
+
+여러 개면 `"(+N)"` 접미사. `github.com (+2)` / `report.pdf (+2)` 처럼 개수가 숨지 않게 노출. 사용자 이름이 있으면 뷰모델(`widgetViewModel.ts`)의 `coreName !== ''` 우선 규칙으로 양보 — #11과 동일한 정책.
+
+### 구현
+
+두 위젯 모두 `useEffect`로 `setDynamicTitle` 호출, unmount·설정 변경 시 `null` 리셋:
+
+- **Link Opener** (`widgets/link-opener/widget.tsx`): 첫 URL을 `sanitizeUrl` → `new URL(...)` → `.host` 파싱. 파싱 실패 시(예: `":"`) 원문 그대로 노출해서 디버깅 단서는 남김.
+- **File Opener** (`widgets/file-opener/widget.tsx`): `split(/[/\\]/)`로 Windows·POSIX 구분자 모두 처리한 뒤 마지막 non-empty 세그먼트를 basename으로. 트레일링 슬래시(`/home/me/Documents/` → `Documents`)도 자연 처리.
+
+활성 타입(`type`)이 Folder인데 `folders`가 비어 있으면 `files`에 값이 있어도 `null` 반환 — 화면에 안 보이는 쪽 값이 헤더로 새어나가지 않게.
+
+### 까다로웠던 포인트
+
+- `useEffect`의 dep을 `settings.urls` / `[files, folders, type]`로 좁혀서 불필요한 재호출 최소화. 내부에서 다시 filter하는 게 dep을 필터링된 배열로 두는 것보다 가볍고 안전(배열 identity가 렌더마다 달라지면 매번 useEffect 돌음).
+- 두 위젯 모두 `requiresApi: ['shell', 'icon']`만 선언돼 있어서 `setDynamicTitle`은 `WidgetApiCommon`에 속해 별도 capability 추가가 필요 없음. 이미 깔아둔 인프라의 효용이 바로 나옴.
+
+**수정 파일**: `src/renderer/widgets/link-opener/widget.tsx`, `src/renderer/widgets/file-opener/widget.tsx`
+
+**테스트 업데이트**: `tests/renderer/widgets/link-opener/widget.spec.ts` (+4), `tests/renderer/widgets/file-opener/widget.spec.ts` (+4) — 단일/다중/파싱 실패/공란 케이스.
+
+---
+
+## 23. Webpage 위젯 액션바에 Copy URL 버튼 추가
+
+기존에는 Webpage 위젯에서 현재 URL을 복사하려면 위젯 본문 우클릭 → "Copy current address" 컨텍스트 메뉴를 거쳐야 했음(`actions.ts`에 `copyCurrentAddress`와 라벨 상수는 원본부터 있었지만 액션바에는 노출 안 돼 있었음). 타이틀바 우측 액션바에 버튼 하나 추가해서 **한 번 클릭**으로 복사 가능하게.
+
+### 배치
+
+```
+HOME · BACK · FORWARD · RELOAD(·AUTO-RELOAD) · [COPY-URL] · OPEN-IN-BROWSER
+```
+
+`OPEN-IN-BROWSER` 바로 왼쪽. 둘 다 "현재 URL"을 대상으로 하는 동작이라 묶어두는 게 자연스럽고, 왼쪽 내비게이션 그룹과 시각적으로도 분리됨.
+
+### 구현
+
+1. 신규 아이콘 `src/renderer/widgets/webpage/icons/copy-url.svg` — 14×14 viewBox, `fill:currentColor`, `fill-rule:nonzero`. 두 개의 고리가 교차하는 체인-링크 형태(두 원 + 안쪽 구멍 각각, CW 외곽·CCW 내곽으로 감아서 nonzero 규칙으로 구멍 효과). **대각선 `/` 방향**으로 45° 기울여 배치(`<g transform="rotate(-45)">` 래핑). 노션·구글 독스 등에서 "링크 복사"에 쓰는 관용 아이콘이라 한눈에 "URL 복사"로 읽힘. "복사(두 문서 겹침)" 대신 "링크"를 택한 이유: 이 버튼 바로 오른쪽 `OPEN-IN-BROWSER`도 화살표 아이콘이라 URL 의미 계열끼리 모이는 쪽이 시각적으로 일관됨. 외곽 반경 3.1 / 내곽 반경 1.2로 팔 두께 1.9 — 이웃하는 `home` / `reload` / `open-in-browser` 아이콘의 "솔리드한 채움" 질감에 맞도록 얇지 않게 잡음(초기 Material 기반 렌더는 팔 두께 1.1이라 이웃 대비 희미했음).
+2. `icons/index.ts`에 `copyUrlSvg` 재-export.
+3. `actionBar.ts`의 `createActionBarItems`에 `id: 'COPY-URL'` 아이템 삽입 — `doAction`은 기존 `copyCurrentAddress(elWebview, widgetApi)` 재사용. 이미 Webpage 위젯의 `requiresApi`에 `clipboard`가 들어있어서 capability 추가 불필요.
+
+### 까다로웠던 포인트
+
+- 특별히 없음. 기존 액션/라벨/capability가 전부 갖춰져 있었고, 액션바 아이템 배열에 한 줄 끼워넣는 수준. 아이콘 하나만 새로 그리면 끝나는 작업이었던 게 "이미 인프라가 잘 깔려있구나" 확인.
+
+**수정 파일**:
+- 신규: `src/renderer/widgets/webpage/icons/copy-url.svg`
+- 수정: `src/renderer/widgets/webpage/icons/index.ts`, `src/renderer/widgets/webpage/actionBar.ts`
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

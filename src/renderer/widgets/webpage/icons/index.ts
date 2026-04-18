@@ -4,6 +4,7 @@
  */
 
 import backSvg from './back.svg';
+import copyUrlSvg from './copy-url.svg';
 import forwardSvg from './forward.svg';
 import homeSvg from './home.svg';
 import openInBrowserSvg from './open-in-browser.svg';
@@ -14,6 +15,7 @@ import widgetSvg from './widget.svg';
 
 export {
   backSvg,
+  copyUrlSvg,
   forwardSvg,
   homeSvg,
   openInBrowserSvg,

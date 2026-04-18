@@ -7,14 +7,36 @@ import { Button, ReactComponent, WidgetReactComponentProps } from '@/widgets/app
 import { Settings } from './settings';
 import { openLinkSvg } from '@/widgets/link-opener/icons';
 import * as styles from './widget.module.scss';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useDynamicIcon } from '@/widgets/useDynamicIcon';
+import { sanitizeUrl } from '@common/helpers/sanitizeUrl';
+
+function hostFromUrl(raw: string): string {
+  try {
+    const u = new URL(sanitizeUrl(raw));
+    return u.host || raw;
+  } catch {
+    return raw;
+  }
+}
 
 function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) {
-  const { shell, icon } = widgetApi;
+  const { shell, icon, setDynamicTitle } = widgetApi;
 
-  const urls = settings.urls.filter(url=>url!=='');
+  const urls = useMemo(() => settings.urls.filter(url => url !== ''), [settings.urls]);
   const { icon: favicon, retryIfMissing } = useDynamicIcon(icon.getFavicon, urls[0] ?? '');
+
+  useEffect(() => {
+    const first = urls[0];
+    if (!first) {
+      setDynamicTitle(null);
+      return undefined;
+    }
+    const base = hostFromUrl(first);
+    const label = urls.length > 1 ? `${base} (+${urls.length - 1})` : base;
+    setDynamicTitle(label);
+    return () => setDynamicTitle(null);
+  }, [urls, setDynamicTitle]);
 
   const onClick = useCallback(() => {
     urls.forEach(url => shell.openExternalUrl(url));

@@ -80,6 +80,64 @@ describe('File Opener Widget', () => {
     expect(screen.getByRole('button', { name: /open folders/i })).toBeInTheDocument();
   })
 
+  describe('dynamic title', () => {
+    it('should publish the basename of the first file as dynamic title, when type=file', () => {
+      const setDynamicTitle = jest.fn();
+      setupSut(
+        fixtureSettings({ type: SettingsType.File, files: ['C:\\Users\\me\\report.pdf', ''], folders: [] }),
+        { mockWidgetApi: { setDynamicTitle } }
+      );
+
+      expect(setDynamicTitle).toHaveBeenLastCalledWith('report.pdf');
+    })
+
+    it('should publish the basename of the first folder as dynamic title, when type=folder', () => {
+      const setDynamicTitle = jest.fn();
+      setupSut(
+        fixtureSettings({ type: SettingsType.Folder, files: [], folders: ['/home/me/Documents/', ''] }),
+        { mockWidgetApi: { setDynamicTitle } }
+      );
+
+      expect(setDynamicTitle).toHaveBeenLastCalledWith('Documents');
+    })
+
+    it('should append "(+N)" when multiple paths are set', () => {
+      const setDynamicTitle = jest.fn();
+      setupSut(
+        fixtureSettings({ type: SettingsType.File, files: ['a.txt', 'b.txt', 'c.txt'], folders: [] }),
+        { mockWidgetApi: { setDynamicTitle } }
+      );
+
+      expect(setDynamicTitle).toHaveBeenLastCalledWith('a.txt (+2)');
+    })
+
+    it('should clear the dynamic title when no path is set for the active type', () => {
+      const setDynamicTitle = jest.fn();
+      setupSut(
+        fixtureSettings({ type: SettingsType.File, files: ['', ''], folders: ['not-empty'] }),
+        { mockWidgetApi: { setDynamicTitle } }
+      );
+
+      expect(setDynamicTitle).toHaveBeenLastCalledWith(null);
+    })
+
+    it('should update the dynamic title when paths or type change', () => {
+      const setDynamicTitle = jest.fn();
+      const { setSettings } = setupSut(
+        fixtureSettings({ type: SettingsType.File, files: ['a.txt'], folders: ['only-folder'] }),
+        { mockWidgetApi: { setDynamicTitle } }
+      );
+
+      expect(setDynamicTitle).toHaveBeenLastCalledWith('a.txt');
+
+      setSettings(fixtureSettings({ type: SettingsType.File, files: ['b.txt'], folders: ['only-folder'] }));
+      expect(setDynamicTitle).toHaveBeenLastCalledWith('b.txt');
+
+      setSettings(fixtureSettings({ type: SettingsType.Folder, files: ['b.txt'], folders: ['only-folder'] }));
+      expect(setDynamicTitle).toHaveBeenLastCalledWith('only-folder');
+    })
+  })
+
   it('should call openPath for each non-empty files item with right params on the open button click, when type=file and openIn is empty', async () => {
     const openPath = jest.fn();
     const { userEvent } = setupSut(

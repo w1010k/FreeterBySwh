@@ -8,18 +8,38 @@ import { Settings } from './settings';
 import { openFileSvg, openFolderSvg } from '@/widgets/file-opener/icons';
 import * as styles from './widget.module.scss';
 import { SettingsType, settingsTypeNamesCapital } from '@/widgets/file-opener/settingsType';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useDynamicIcon } from '@/widgets/useDynamicIcon';
 
+function basenameOf(path: string): string {
+  const segments = path.split(/[/\\]/).filter(s => s !== '');
+  return segments.length > 0 ? segments[segments.length - 1] : path;
+}
+
 function WidgetComp({settings, widgetApi, sharedState}: WidgetReactComponentProps<Settings>) {
-  const { shell, icon } = widgetApi;
+  const { shell, icon, setDynamicTitle } = widgetApi;
   const { files, folders, type, openIn } = settings;
   const {apps} = sharedState.apps;
   const openInApp = openIn !== '' ? apps[openIn] : undefined;
 
-  const paths = (type === SettingsType.Folder ? folders : files).filter(path=>path!=='');
+  const paths = useMemo(
+    () => (type === SettingsType.Folder ? folders : files).filter(path => path !== ''),
+    [type, folders, files]
+  );
   const fallbackIconSvg = type === SettingsType.Folder ? openFolderSvg : openFileSvg;
   const { icon: osIcon, retryIfMissing } = useDynamicIcon(icon.getFileIcon, paths[0] ?? '');
+
+  useEffect(() => {
+    const first = paths[0];
+    if (!first) {
+      setDynamicTitle(null);
+      return undefined;
+    }
+    const base = basenameOf(first);
+    const label = paths.length > 1 ? `${base} (+${paths.length - 1})` : base;
+    setDynamicTitle(label);
+    return () => setDynamicTitle(null);
+  }, [paths, setDynamicTitle]);
 
   const onBtnClick: React.MouseEventHandler<HTMLButtonElement> = useCallback(_ => {
     if (openInApp) {

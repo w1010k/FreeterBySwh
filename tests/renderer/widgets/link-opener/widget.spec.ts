@@ -42,6 +42,57 @@ describe('Link Opener Widget', () => {
     expect(screen.getByRole('button', { name: /open links/i })).toBeInTheDocument();
   })
 
+  describe('dynamic title', () => {
+    it('should publish the host of the first URL as dynamic title', () => {
+      const setDynamicTitle = jest.fn();
+      setupSut(fixtureSettings({ urls: ['https://github.com/anthropics/claude-code'] }), {
+        mockWidgetApi: { setDynamicTitle }
+      });
+
+      expect(setDynamicTitle).toHaveBeenLastCalledWith('github.com');
+    })
+
+    it('should append "(+N)" when multiple URLs are set', () => {
+      const setDynamicTitle = jest.fn();
+      setupSut(fixtureSettings({ urls: ['https://github.com', 'https://example.com', 'https://foo.bar'] }), {
+        mockWidgetApi: { setDynamicTitle }
+      });
+
+      expect(setDynamicTitle).toHaveBeenLastCalledWith('github.com (+2)');
+    })
+
+    it('should clear the dynamic title when no URL is set', () => {
+      const setDynamicTitle = jest.fn();
+      setupSut(fixtureSettings({ urls: ['', ''] }), {
+        mockWidgetApi: { setDynamicTitle }
+      });
+
+      expect(setDynamicTitle).toHaveBeenLastCalledWith(null);
+    })
+
+    it('should fall back to the raw string when the URL is not parsable', () => {
+      const setDynamicTitle = jest.fn();
+      setupSut(fixtureSettings({ urls: [':'] }), {
+        mockWidgetApi: { setDynamicTitle }
+      });
+
+      expect(setDynamicTitle).toHaveBeenLastCalledWith(':');
+    })
+
+    it('should update the dynamic title when urls change', () => {
+      const setDynamicTitle = jest.fn();
+      const { setSettings } = setupSut(fixtureSettings({ urls: ['https://github.com'] }), {
+        mockWidgetApi: { setDynamicTitle }
+      });
+
+      expect(setDynamicTitle).toHaveBeenLastCalledWith('github.com');
+
+      setSettings(fixtureSettings({ urls: ['https://example.com', 'https://other.io'] }));
+
+      expect(setDynamicTitle).toHaveBeenLastCalledWith('example.com (+1)');
+    })
+  })
+
   it('should call openExternalUrl for each non-empty urls item with right params, when clicking the open button', async () => {
     const openExternalUrl = jest.fn();
     const { userEvent } = setupSut(

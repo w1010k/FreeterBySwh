@@ -4,8 +4,8 @@
  */
 
 import { ActionBarItem, ActionBarItems } from '@/base/actionBar';
-import { canGoBack, canGoForward, canGoHome, canReload, goBack, goForward, goHome, labelAutoReloadStart, labelAutoReloadStop, labelGoBack, labelGoForward, labelGoHome, labelOpenInBrowser, labelReload, openCurrentInBrowser, reload } from './actions';
-import { backSvg, forwardSvg, homeSvg, openInBrowserSvg, reloadSvg, reloadStartSvg, reloadStopSvg } from './icons';
+import { canGoBack, canGoForward, canGoHome, canReload, copyCurrentAddress, goBack, goForward, goHome, labelAutoReloadStart, labelAutoReloadStop, labelCopyCurrentAddress, labelGoBack, labelGoForward, labelGoHome, labelOpenInBrowser, labelReload, openCurrentInBrowser, reload } from './actions';
+import { backSvg, copyUrlSvg, forwardSvg, homeSvg, openInBrowserSvg, reloadSvg, reloadStartSvg, reloadStopSvg } from './icons';
 import { WidgetApi } from '@/base/widgetApi';
 
 export function createActionBarItems(
@@ -62,6 +62,13 @@ export function createActionBarItems(
       doAction: async () => goForward(elWebview)
     },
     ...reloadItems,
+    {
+      enabled: true,
+      icon: copyUrlSvg,
+      id: 'COPY-URL',
+      title: labelCopyCurrentAddress,
+      doAction: async () => copyCurrentAddress(elWebview, widgetApi)
+    },
     {
       enabled: true,
       icon: openInBrowserSvg,
