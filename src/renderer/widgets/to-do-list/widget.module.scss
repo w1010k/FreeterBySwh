@@ -16,23 +16,22 @@ $item-height: 32px;
   width: 100%;
 }
 .todo-list-item {
-  white-space: nowrap;
   position: relative;
   label, input[type="checkbox"] {
     cursor: pointer;
   }
   label {
-    height: $item-height;
-    line-height: $item-height;
-    padding: 0 6px;
+    min-height: $item-height;
+    line-height: 1.4;
+    padding: 6px;
     display: flex;
     align-items: center;
     width: 100%;
     box-sizing: border-box;
     > span:last-child {
-      text-overflow: ellipsis;
-      overflow: hidden;
-      white-space: pre;
+      white-space: pre-wrap;
+      overflow-wrap: break-word;
+      min-width: 0;
     }
   }
   &.is-done:not(.is-editor) {
