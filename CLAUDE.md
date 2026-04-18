@@ -93,9 +93,13 @@ Single quotes, `max-len: 160`, `eqeqeq`, `curly`, `consistent-return`, `no-var`,
 
 ## Change log maintenance
 
-This fork tracks user-visible changes (features, behavior shifts, UX-affecting refactors) in `docs/CHANGES.md` — it's the single source of truth for "what differs from upstream".
+This fork tracks user-visible changes (features, behavior shifts, UX-affecting refactors) in `docs/CHANGES.md` — it's the single source of truth for "what differs from upstream". `README.md` carries a **one-liner mirror** of the same list so visitors see the fork's value at a glance.
 
-**When a feature addition or behavior change completes**, append a new numbered section to `docs/CHANGES.md` before reporting the task done. Follow the existing style:
+**When a feature addition or behavior change completes**, update **both** files before reporting the task done:
+
+### `docs/CHANGES.md` — full entry
+
+Append a new numbered section. Follow the existing style:
 
 - Header: `## N. <짧은 제목>` — continue the running number from the last entry.
 - Lead with user-visible behavior (what changed, when it kicks in), then architecture, then "까다로웠던 포인트" (non-obvious pitfalls worth remembering), then `**수정 파일**` list (신규 / 수정 / 테스트 분리).
@@ -103,3 +107,7 @@ This fork tracks user-visible changes (features, behavior shifts, UX-affecting r
 - Skip this only for pure bug fixes, refactors with no behavior change, or trivial cleanups. When in doubt, add an entry — it's easier to skim later than to reconstruct.
 
 Small tweaks to an existing entry's feature (e.g. format adjustments, follow-up fixes) can be merged into that section rather than creating a new one.
+
+### `README.md` — one-liner in "이 포크에서 추가한 기능"
+
+Append a single numbered line that matches the CHANGES.md section number 1:1. Keep it to one sentence that lands the user-visible value. If you merged into an existing CHANGES.md entry (follow-up tweak), also update that entry's line in README.md instead of adding a new one. If the change is purely internal (like a refactor that still got a CHANGES.md entry for tracking), mark it "(내부 리팩토링)" so readers can skim past.
