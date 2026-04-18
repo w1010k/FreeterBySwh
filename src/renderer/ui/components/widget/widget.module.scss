@@ -35,6 +35,11 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+// Selectable header only for Webpage widget — its dynamic title carries the
+// current URL/page title, which users often want to copy. Other widget types
+// revert to body's user-select:none (standard Electron chrome behavior).
+.widget[data-widget-type="webpage"] .widget-header-name {
   user-select: text;
   cursor: text;
 }

@@ -47,6 +47,7 @@ export function createWidgetComponent({
 
     return <div
       className={clsx(styles.widget, dontShowActionBar && styles['dont-show-action-bar'])}
+      data-widget-type={widget.type}
       onContextMenu={onContextMenuHandler}
     >
       <div className={styles['widget-header']}>

@@ -379,21 +379,31 @@ useSharedDataChangedEffect('to-do-list', scopeForEnv(env), () => activeItemEdito
 
 ---
 
-## 12. 위젯 헤더 텍스트 선택·복사 허용
+## 12. Webpage 위젯 헤더 텍스트 선택·복사 허용
 
-위젯 헤더 타이틀(`.widget-header-name`)을 마우스로 드래그해서 블록 선택·복사 가능하게.
+Webpage 위젯의 동적 타이틀(페이지 제목 + URL)을 마우스로 드래그해서 블록 선택·복사 가능하게. 다른 위젯 타입은 원본 Electron UI 관용(`body { user-select: none }`)을 그대로 유지.
 
 ### 원인
 
-`src/renderer/ui/components/app/globals.scss`의 `body { user-select: none; }` — 드래그/리사이즈 중 실수로 텍스트가 블록 선택되는 걸 막는 Electron UI 관용. 이걸 전역 유지하되 헤더만 예외 처리.
+`src/renderer/ui/components/app/globals.scss`의 `body { user-select: none; }` — 드래그/리사이즈 중 실수로 텍스트가 블록 선택되는 걸 막는 Electron UI 관용. Webpage 위젯만 예외 처리하고 나머지는 원본 동작 유지.
 
 ### 변경
 
-`widget.module.scss`의 `.widget-header-name`에 `user-select: text; cursor: text;` 추가. 뷰 모드에선 깔끔하게 선택 가능. 편집 모드에선 `WidgetLayoutItem`이 `draggable={true}`라 드래그가 우선이라 자연스럽게 선택이 안 됨 (브라우저 기본 동작, 별도 처리 불필요).
+1. 공용 `widget.tsx`의 최상위 `.widget` div에 `data-widget-type={widget.type}` 속성 추가 — 위젯 타입을 DOM에 노출 (기존 `data-widget-context` 패턴과 일관).
+2. `widget.module.scss`에서 `.widget[data-widget-type="webpage"] .widget-header-name`에만 `user-select: text; cursor: text;` 적용. 기본 `.widget-header-name` 규칙에서는 제거.
 
-스코프를 헤더로 한정 — 위젯 바디(commander 출력, timer 표시 등)는 위젯마다 상황이 달라 별건으로 남겨둠.
+뷰 모드에선 깔끔하게 선택 가능. 편집 모드에선 `WidgetLayoutItem`이 `draggable={true}`라 드래그가 우선이라 자연스럽게 선택이 안 됨 (브라우저 기본 동작, 별도 처리 불필요).
 
-**수정 파일**: `src/renderer/ui/components/widget/widget.module.scss`
+### 왜 Webpage만?
+
+다른 위젯(Note, TodoList, Timer 등)의 헤더 타이틀은 사용자가 직접 입력한 이름이라 복사할 일이 드묾. Webpage는 **동적 타이틀**(#11)로 현재 페이지 주소/제목을 자동으로 노출해서 "이 URL 복사" 같은 요구가 잦음. 범위를 좁혀서 원본의 UI 관용을 최대한 유지.
+
+### 까다로웠던 포인트
+
+- `.widget-header-name`은 공용 `widget.tsx`에서 렌더되는 DOM이라 각 위젯 타입의 개별 SCSS로는 스타일 접근 불가. 공용 SCSS에서 속성 선택자로 좁히는 게 유일한 깔끔한 방법.
+- CSS 모듈 빌드 후에도 `[data-widget-type="webpage"]`는 속성 선택자라 해시되지 않음 — 의도대로 매칭됨.
+
+**수정 파일**: `src/renderer/ui/components/widget/widget.module.scss`, `src/renderer/ui/components/widget/widget.tsx`
 
 ---
 
