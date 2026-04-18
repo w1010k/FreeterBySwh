@@ -4,8 +4,8 @@
  */
 
 import { ActionBarItem, ActionBarItems } from '@/base/actionBar';
-import { canGoBack, canGoForward, canGoHome, canReload, copyCurrentAddress, goBack, goForward, goHome, labelAutoReloadStart, labelAutoReloadStop, labelCopyCurrentAddress, labelGoBack, labelGoForward, labelGoHome, labelOpenInBrowser, labelReload, openCurrentInBrowser, reload } from './actions';
-import { backSvg, copyUrlSvg, forwardSvg, homeSvg, openInBrowserSvg, reloadSvg, reloadStartSvg, reloadStopSvg } from './icons';
+import { canGoBack, canGoForward, canGoHome, canReload, copyCurrentAddress, goBack, goForward, goHome, labelAutoReloadStart, labelAutoReloadStop, labelCopyCurrentAddress, labelGoBack, labelGoForward, labelGoHome, labelOpenInBrowser, labelReload, labelZoomIn, labelZoomOut, openCurrentInBrowser, reload, zoomReset, zoomStepIn, zoomStepOut } from './actions';
+import { backSvg, copyUrlSvg, forwardSvg, homeSvg, openInBrowserSvg, reloadSvg, reloadStartSvg, reloadStopSvg, zoomInSvg, zoomOutSvg } from './icons';
 import { WidgetApi } from '@/base/widgetApi';
 
 export function createActionBarItems(
@@ -26,7 +26,14 @@ export function createActionBarItems(
       icon: reloadSvg,
       id: 'RELOAD',
       title: labelReload,
-      doAction: async () => reload(elWebview)
+      // Manual reload from the action bar also resets zoom to 100%, so a
+      // quick reload doubles as "start fresh". Auto-reload interval and the
+      // context menu's Reload keep their zoom level on purpose: the former
+      // would be annoying mid-session, the latter is the "surgical" path.
+      doAction: async () => {
+        zoomReset(elWebview);
+        reload(elWebview);
+      }
     }
   ];
   if (autoReload > 0) {
@@ -62,6 +69,20 @@ export function createActionBarItems(
       doAction: async () => goForward(elWebview)
     },
     ...reloadItems,
+    {
+      enabled: true,
+      icon: zoomOutSvg,
+      id: 'ZOOM-OUT',
+      title: labelZoomOut,
+      doAction: async () => zoomStepOut(elWebview)
+    },
+    {
+      enabled: true,
+      icon: zoomInSvg,
+      id: 'ZOOM-IN',
+      title: labelZoomIn,
+      doAction: async () => zoomStepIn(elWebview)
+    },
     {
       enabled: true,
       icon: copyUrlSvg,

@@ -17,6 +17,8 @@ export const labelOpenInBrowser = 'Open in web browser';
 export const labelSaveAs = 'Save as...';
 export const labelCopyCurrentAddress = 'Copy current address';
 export const labelZoom = 'Zoom';
+export const labelZoomIn = 'Zoom in';
+export const labelZoomOut = 'Zoom out';
 export const labelPrintPage = 'Print...';
 export const labelOpenLinkInBrowser = 'Open link in web browser';
 export const labelSaveLinkAs = 'Save link as...';
@@ -88,6 +90,39 @@ export function goHome(elWebview: Electron.WebviewTag, homeUrl: string) {
 
 export function zoomPage(elWebview: Electron.WebviewTag, zoomFactor: number) {
   elWebview.setZoomFactor(zoomFactor);
+}
+
+// Chrome-like zoom ladder; kept in sync with the context menu's preset list.
+// Using an epsilon guards against floating-point jitter when the current factor
+// is compared against a ladder value the user just picked from the menu.
+export const zoomLevels = [0.25, 0.33, 0.5, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5] as const;
+const ZOOM_EPS = 0.001;
+
+export function zoomStepIn(elWebview: Electron.WebviewTag) {
+  const current = elWebview.getZoomFactor();
+  const next = zoomLevels.find(l => l > current + ZOOM_EPS);
+  if (next !== undefined) {
+    elWebview.setZoomFactor(next);
+  }
+}
+
+export function zoomStepOut(elWebview: Electron.WebviewTag) {
+  const current = elWebview.getZoomFactor();
+  let prev: number | undefined;
+  for (const l of zoomLevels) {
+    if (l < current - ZOOM_EPS) {
+      prev = l;
+    } else {
+      break;
+    }
+  }
+  if (prev !== undefined) {
+    elWebview.setZoomFactor(prev);
+  }
+}
+
+export function zoomReset(elWebview: Electron.WebviewTag) {
+  elWebview.setZoomFactor(1);
 }
 
 export function openCurrentInBrowser(elWebview: Electron.WebviewTag, widgetApi: WidgetApi) {

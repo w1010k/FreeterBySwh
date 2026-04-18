@@ -101,6 +101,11 @@ export const ipcSwitchWorkflowByOffsetChannel = makeIpcChannelName('switch-workf
 export type IpcSwitchWorkflowByOffsetArgs = [offset: number];
 export type IpcSwitchWorkflowByOffsetRes = void;
 
+export type IpcZoomWebpageDirection = 'in' | 'out' | 'reset';
+export const ipcZoomWebpageChannel = makeIpcChannelName('zoom-webpage');
+export type IpcZoomWebpageArgs = [webContentsId: number, direction: IpcZoomWebpageDirection];
+export type IpcZoomWebpageRes = void;
+
 export const ipcWriteBookmarkIntoClipboardChannel = makeIpcChannelName('write-bookmark-into-clipboard');
 export type IpcWriteBookmarkIntoClipboardArgs = [title: string, url: string];
 export type IpcWriteBookmarkIntoClipboardRes = void;

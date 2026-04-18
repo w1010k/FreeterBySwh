@@ -12,6 +12,8 @@ import reloadSvg from './reload.svg';
 import reloadStartSvg from './reload-start.svg';
 import reloadStopSvg from './reload-stop.svg';
 import widgetSvg from './widget.svg';
+import zoomInSvg from './zoom-in.svg';
+import zoomOutSvg from './zoom-out.svg';
 
 export {
   backSvg,
@@ -22,5 +24,7 @@ export {
   reloadSvg,
   reloadStartSvg,
   reloadStopSvg,
-  widgetSvg
+  widgetSvg,
+  zoomInSvg,
+  zoomOutSvg
 }

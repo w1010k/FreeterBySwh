@@ -13,8 +13,29 @@ import { sanitizeUrl } from '@common/helpers/sanitizeUrl';
 import { createContextMenuFactory } from '@/widgets/webpage/contextMenu';
 import { ContextMenuEvent as ElectronContextMenuEvent } from 'electron';
 import { createPartition } from '@/widgets/webpage/partition';
-import { reload } from '@/widgets/webpage/actions';
+import { reload, zoomReset, zoomStepIn, zoomStepOut } from '@/widgets/webpage/actions';
 import { WebpageExposedApi } from '@/widgets/interfaces';
+import { WEBPAGE_ZOOM_EVENT, WebpageZoomEventDetail } from '@/widgets/webpage/zoomEvents';
+
+// Injected into each webview on dom-ready. Intercepts Ctrl/Cmd + wheel before
+// the guest page sees it (`capture: true, passive: false` — passive must be
+// false so preventDefault() actually works), then signals the host via a
+// magic-prefixed console.log that the host listens for through the webview
+// tag's `console-message` event. This round-trip is needed because the guest
+// runs in a separate process and has no default IPC channel back to the host;
+// using `console-message` avoids adding a webview preload bundle just for this.
+const ZOOM_WHEEL_MARKER = '__FREETER_WEBPAGE_ZOOM_WHEEL__';
+const zoomWheelInjectionJs = `
+(function() {
+  if (window.__freeterWebpageZoomHooked) { return; }
+  window.__freeterWebpageZoomHooked = true;
+  window.addEventListener('wheel', function(e) {
+    if (!e.ctrlKey && !e.metaKey) { return; }
+    e.preventDefault();
+    console.log('${ZOOM_WHEEL_MARKER}', e.deltaY);
+  }, { passive: false, capture: true });
+})();
+`;
 
 interface WebviewProps extends WidgetReactComponentProps<Settings> {
   /**
@@ -200,6 +221,9 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
       if (injectedJS) {
         webviewEl.executeJavaScript(injectedJS);
       }
+      // Intercept Ctrl+wheel to zoom the page; see `zoomWheelInjectionJs`
+      // for the rationale on using console.log as the signalling channel.
+      webviewEl.executeJavaScript(zoomWheelInjectionJs).catch(() => undefined);
       // webviewEl.classList.add('is-bg-visible');
     }
     const handleDidFinishLoad = () => {
@@ -214,6 +238,21 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
     const handleDidNavigateInPage = () => {
       refreshActions();
     }
+    const handleConsoleMessage = (e: Electron.ConsoleMessageEvent) => {
+      if (!e.message || !e.message.startsWith(ZOOM_WHEEL_MARKER)) {
+        return;
+      }
+      const rest = e.message.slice(ZOOM_WHEEL_MARKER.length).trim();
+      const deltaY = Number(rest);
+      if (!Number.isFinite(deltaY) || deltaY === 0) {
+        return;
+      }
+      if (deltaY < 0) {
+        zoomStepIn(webviewEl);
+      } else {
+        zoomStepOut(webviewEl);
+      }
+    }
 
     // Add event listeners
     webviewEl.addEventListener('dom-ready', handleDomReady);
@@ -221,6 +260,7 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
     webviewEl.addEventListener('did-frame-navigate', handleDidFrameNavigate);
     webviewEl.addEventListener('did-navigate-in-page', handleDidNavigateInPage);
     webviewEl.addEventListener('did-finish-load', handleDidFinishLoad);
+    webviewEl.addEventListener('console-message', handleConsoleMessage);
 
     return () => {
       // Remove event listeners
@@ -229,8 +269,43 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
       webviewEl.removeEventListener('did-frame-navigate', handleDidFrameNavigate);
       webviewEl.removeEventListener('did-navigate-in-page', handleDidNavigateInPage);
       webviewEl.removeEventListener('did-finish-load', handleDidFinishLoad);
+      webviewEl.removeEventListener('console-message', handleConsoleMessage);
           };
   }, [injectCSSInDOM, injectedCSS, injectedJS, refreshActions]);
+
+  // Keyboard zoom (CmdOrCtrl + = / - / 0) is routed from the main process
+  // through `init.ts` as a window CustomEvent; we match our own
+  // webContentsId to only react when the active webview is ours.
+  useEffect(() => {
+    if (!webviewIsReady) {
+      return undefined;
+    }
+    const webviewEl = webviewRef.current;
+    if (!webviewEl) {
+      return undefined;
+    }
+    let myId: number | null = null;
+    try {
+      myId = webviewEl.getWebContentsId();
+    } catch {
+      return undefined;
+    }
+    const onZoom = (e: Event) => {
+      const detail = (e as CustomEvent<WebpageZoomEventDetail>).detail;
+      if (!detail || detail.webContentsId !== myId) {
+        return;
+      }
+      if (detail.direction === 'in') {
+        zoomStepIn(webviewEl);
+      } else if (detail.direction === 'out') {
+        zoomStepOut(webviewEl);
+      } else {
+        zoomReset(webviewEl);
+      }
+    };
+    window.addEventListener(WEBPAGE_ZOOM_EVENT, onZoom);
+    return () => window.removeEventListener(WEBPAGE_ZOOM_EVENT, onZoom);
+  }, [webviewIsReady]);
 
   useEffect(() => {
     if (autoReload>0 && !autoReloadStopped) {

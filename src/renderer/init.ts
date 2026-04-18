@@ -152,7 +152,8 @@ import { createGetWidgetsInCurrentWorkflowUseCase } from '@/application/useCases
 import { createSetExposedApiUseCase } from '@/application/useCases/widget/setExposedApi';
 import { createSetWidgetDynamicTitleUseCase } from '@/application/useCases/widget/setWidgetDynamicTitle';
 import { electronIpcRenderer } from '@/infra/mainApi/mainApi';
-import { ipcSharedDataChangedChannel, ipcSwitchWorkflowByOffsetChannel } from '@common/ipc/channels';
+import { ipcSharedDataChangedChannel, ipcSwitchWorkflowByOffsetChannel, ipcZoomWebpageChannel } from '@common/ipc/channels';
+import { WEBPAGE_ZOOM_EVENT, WebpageZoomEventDetail } from '@/widgets/webpage/zoomEvents';
 import { SHARED_DATA_CHANGED_EVENT, SharedDataChangedEventDetail } from '@/base/sharedDataEvents';
 
 function prepareDataStorageForRenderer(dataStorage: DataStorage): DataStorageRenderer {
@@ -724,6 +725,18 @@ export async function init() {
   electronIpcRenderer.on(ipcSwitchWorkflowByOffsetChannel, (offset) => {
     if (typeof offset === 'number') {
       switchWorkflowByOffsetUseCase(offset);
+    }
+  });
+
+  // CmdOrCtrl+=/+/-/0 while a webpage widget's <webview> has focus arrives
+  // here after being intercepted in the main process. Re-emit as a window
+  // CustomEvent so the specific webview (matched by webContentsId) can
+  // respond in-place.
+  electronIpcRenderer.on(ipcZoomWebpageChannel, (webContentsId, direction) => {
+    if (typeof webContentsId === 'number'
+      && (direction === 'in' || direction === 'out' || direction === 'reset')) {
+      const detail: WebpageZoomEventDetail = { webContentsId, direction };
+      window.dispatchEvent(new CustomEvent(WEBPAGE_ZOOM_EVENT, { detail }));
     }
   });
 

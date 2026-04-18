@@ -7,7 +7,7 @@ import { BrowserWindowConstructorOptions, BrowserWindow as ElectronBrowserWindow
 import { BrowserWindow } from '@/application/interfaces/browserWindow'
 import { GetWindowStateUseCase } from '@/application/useCases/browserWindow/getWindowState';
 import { SetWindowStateUseCase } from '@/application/useCases/browserWindow/setWindowState';
-import { ipcSwitchWorkflowByOffsetChannel } from '@common/ipc/channels';
+import { IpcZoomWebpageDirection, ipcSwitchWorkflowByOffsetChannel, ipcZoomWebpageChannel } from '@common/ipc/channels';
 import { sanitizeUrl } from '@common/helpers/sanitizeUrl';
 
 const minWidth = 1200;
@@ -146,14 +146,39 @@ export function createRendererWindow(
   // interacting with a webpage widget.
   win.webContents.on('did-attach-webview', (_, wc) => {
     wc.on('before-input-event', (event, input) => {
-      if (input.type !== 'keyDown' || input.key !== 'Tab') {
+      if (input.type !== 'keyDown') {
         return;
       }
-      if (!input.control || input.alt || input.meta) {
+      // Ctrl+Tab / Ctrl+Shift+Tab — workflow switching (Ctrl only, not Cmd
+      // to keep macOS Cmd+Tab as the OS app switcher).
+      if (input.key === 'Tab' && input.control && !input.alt && !input.meta) {
+        event.preventDefault();
+        win.webContents.send(ipcSwitchWorkflowByOffsetChannel, input.shift ? -1 : 1);
         return;
       }
-      event.preventDefault();
-      win.webContents.send(ipcSwitchWorkflowByOffsetChannel, input.shift ? -1 : 1);
+      // CmdOrCtrl+Shift+= (`+`) / CmdOrCtrl+- / CmdOrCtrl+0 — page zoom on
+      // the widget's own webview. Only `+` is accepted for "zoom in" (Shift
+      // is always pressed): Chromium's `before-input-event` doesn't reliably
+      // deliver the bare `=` key to the host (observed on Windows with some
+      // keyboard layouts / IMEs), so binding the shiftless `=` was silently
+      // broken. Requiring Shift matches Chrome's `Cmd+Shift+=` accelerator
+      // and is the form the user confirmed works in practice.
+      const primaryMod = input.control || input.meta;
+      if (!primaryMod || input.alt) {
+        return;
+      }
+      let direction: IpcZoomWebpageDirection | null = null;
+      if (input.key === '+') {
+        direction = 'in';
+      } else if (input.key === '-') {
+        direction = 'out';
+      } else if (input.key === '0') {
+        direction = 'reset';
+      }
+      if (direction) {
+        event.preventDefault();
+        win.webContents.send(ipcZoomWebpageChannel, wc.id, direction);
+      }
     });
 
     wc.setWindowOpenHandler(({ url, disposition, features }) => {

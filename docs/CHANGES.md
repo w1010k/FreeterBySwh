@@ -725,6 +725,82 @@ HOME · BACK · FORWARD · RELOAD(·AUTO-RELOAD) · [COPY-URL] · OPEN-IN-BROWSE
 
 ---
 
+## 24. Webpage 위젯 — 확대/축소 단축키 + 액션바 버튼 *(2026-04-18)*
+
+Webpage 위젯에서 페이지 확대·축소를 단축키와 액션바 버튼으로 즉시 조작. 기존 컨텍스트 메뉴의 Zoom 서브메뉴(#8의 `zoomPage`)는 우클릭 + 값 선택이 필요해서 일상 사용엔 번거로움.
+
+### 인터페이스
+
+| 입력 | 동작 |
+|---|---|
+| `CmdOrCtrl+Shift+=` (`+`) / 숫자패드 `+` | 다음 프리셋으로 확대 |
+| `CmdOrCtrl+-` | 이전 프리셋으로 축소 |
+| `CmdOrCtrl+0` | 100% 리셋 |
+| `CmdOrCtrl + 휠 위로` | 확대 한 단계 |
+| `CmdOrCtrl + 휠 아래로` | 축소 한 단계 |
+| 액션바 **+** / **−** 버튼 (돋보기 아이콘) | 확대 / 축소 한 단계 |
+
+프리셋 사다리(기존 컨텍스트 메뉴와 동일): `25 / 33 / 50 / 75 / 80 / 90 / 100 / 110 / 125 / 150 / 175 / 200 / 250 / 300 / 400 / 500 %`.
+
+액션바 순서: `HOME · BACK · FORWARD · RELOAD · **ZOOM-OUT · ZOOM-IN** · COPY-URL · OPEN-IN-BROWSER`. 네비게이션 그룹 바로 다음, URL 그룹 바로 앞 — 뷰 조작(확대)을 중간에 두는 구성. 아이콘은 표준 돋보기(annulus + 대각선 손잡이) 안에 `−` / `+` 심볼을 삽입해 의미가 즉시 전달되도록.
+
+### 액션바 RELOAD는 zoom도 100%로 리셋
+
+사용자 요청으로 추가 — 액션바 **RELOAD 버튼 클릭 시 `setZoomFactor(1)` 선행 후 reload**. "새로고침 = 일반 상태로 시작" UX 기대에 부합. 적용 범위는 **의도적으로 좁게**:
+
+| 경로 | zoom reset 동반? |
+|---|---|
+| 액션바 RELOAD 버튼 | ✅ |
+| 컨텍스트 메뉴 "Reload" / "Hard reload" | ❌ (정밀 작업용, 현재 줌 유지) |
+| auto-reload 주기 타이머 | ❌ (백그라운드 반복이라 중간에 줌 리셋하면 성가심) |
+| `CmdOrCtrl+R` 등 외부 단축키 | ❌ (이 프로젝트엔 바인딩 없음) |
+
+Chrome/Firefox 관용에 비해선 살짝 비표준(일반 브라우저는 reload가 zoom 유지). 하지만 Freeter webpage 위젯은 특정 페이지에 임시로 줌하는 용도가 많아서 "F5 = 다 원래대로"가 더 자연스러운 workflow라는 판단.
+
+**상태는 현재 webview 세션에만 유효** — 새로고침은 유지되지만 userAgent 변경 등으로 webview가 재생성되면 100%로 초기화. 기존 컨텍스트 메뉴 동작과 일관. 설정 저장·복원은 별도 범위.
+
+### 아키텍처
+
+세 개 경로를 한 헬퍼 트리오(`zoomStepIn` / `zoomStepOut` / `zoomReset`, `actions.ts`)로 수렴. 둘 다 기존 인프라를 확장 재사용했고 신규 preload 번들은 필요 없었음.
+
+| 입력 | 경로 | 이유 |
+|---|---|---|
+| Keyboard | main `before-input-event` → 신규 IPC `ipcZoomWebpageChannel` (wc.id 동반) → renderer `init.ts`가 `CustomEvent('freeter:webpage-zoom')` 발행 → webpage `widget.tsx`가 자기 `getWebContentsId()` 매치 시 헬퍼 호출 | #6 Ctrl+Tab과 동일 패턴. `before-input-event`는 키보드만 지원하고 preventable이라 guest 페이지가 `+/-`를 소비하기 전에 가로챌 수 있음 |
+| Wheel | `dom-ready`에 webview 안으로 짧은 JS 인젝션 (`executeJavaScript`) → Ctrl/Cmd+휠을 capturing 리스너로 `preventDefault` 후 `console.log('__FREETER_WEBPAGE_ZOOM_WHEEL__', deltaY)` → 호스트의 `webview.on('console-message')`에서 magic prefix 매치하여 헬퍼 호출 | `before-input-event`는 wheel 지원 안 함. preload 번들 추가 없이 guest→host 신호를 보내는 가장 가벼운 방법이 console-message 통로. 매직 prefix가 길고 유니크해서 일반 로그와 충돌 없음 |
+| 액션바 버튼 | 기존 actionBar 구조 재사용 — `ActionBarItem.doAction`에서 바로 `zoomStepIn/Out(elWebview)` 호출 | 가장 직관적 경로. IPC·이벤트 없이 renderer 내 동기 호출로 끝남 |
+
+### 신규/변경 코드
+
+| 파일 | 역할 |
+|---|---|
+| `src/renderer/widgets/webpage/actions.ts` | `zoomLevels` 상수 + `zoomStepIn` / `zoomStepOut` / `zoomReset` 헬퍼 (epsilon 0.001로 FP 드리프트 방어) |
+| `src/common/ipc/channels.ts` | `ipcZoomWebpageChannel` + `IpcZoomWebpageDirection` 타입 |
+| `src/main/infra/browserWindow/browserWindow.ts` | 기존 Tab 핸들러에 zoom 분기 추가. `=`와 `+` 둘 다 "확대"로 매치 (키보드 종류 무관) |
+| `src/renderer/init.ts` | IPC 수신 → `CustomEvent` 발행. 기존 `ipcSharedDataChangedChannel` 라우팅 바로 위에 배치 |
+| `src/renderer/widgets/webpage/zoomEvents.ts`(신규) | 이벤트 이름/detail 타입 중앙화 (dispatch측 init.ts와 listen측 widget.tsx 양쪽 참조) |
+| `src/renderer/widgets/webpage/widget.tsx` | `dom-ready`에서 zoom-wheel 인젝션 + `console-message` 리스너 + zoom CustomEvent 리스너. webContentsId 매치로 다른 webpage 위젯의 포커스와 충돌 방지 |
+
+### 까다로웠던 포인트
+
+1. **capture + passive:false**: wheel 가로챌 때 `{ capture: true, passive: false }` 필수. 기본 passive true로 붙이면 `preventDefault()` 무시되어 Chromium이 그대로 guest 스크롤로 처리. capture 없으면 guest 페이지의 내부 wheel 핸들러(Google Docs 등)가 먼저 소비.
+2. **`=` 키는 `before-input-event`에 안 오는 경우 있음**: 초기 구현은 `input.key === '=' || input.key === '+'` 둘 다 매치했으나, Windows + 특정 키보드 레이아웃/IME 조합에서 Shift 없는 `Ctrl+=`가 호스트로 안 들어오는 걸 실사용 중 발견. 원인은 Chromium/Electron이 해당 키를 호스트 프로세스로 전달하기 전 단계에서 소비하는 걸로 추정(메뉴 accelerator는 아님 — 앱 메뉴엔 zoom 관련 바인딩 없음). 확실히 동작하는 경로만 남기려고 `input.key === '+'` 만 매치(Shift 필수). Chrome의 `Cmd+Shift+=` accelerator와도 일치. 숫자패드 `+` 역시 shift 없이 `+`로 들어와 자동 커버.
+3. **webContentsId 매칭 타이밍**: `webview.getWebContentsId()`는 attach 이전에 호출하면 예외. `webviewIsReady`(dom-ready 이후 `true`)로 가드한 뒤 try/catch까지 이중 방어. 매 렌더가 아니라 ready 한 번만 id 읽고 클로저에 보관.
+4. **매직 prefix 파싱 방어**: `console.log('__FREETER...', deltaY)`는 `"__FREETER... <number>"` 포맷으로 합성되지만 어떤 사이트가 동일 문자열로 로그 찍는 경우에 대비. prefix 매치 후 `Number(...)` + `Number.isFinite` 검증, `deltaY === 0`은 무시(수동 호출 방어).
+5. **guest 페이지 오류로 인젝션 실패 무시**: `executeJavaScript(...).catch(() => undefined)` — 일부 사이트가 strict CSP 또는 이상한 상태에서 throw하더라도 위젯 전체가 깨지지 않도록. 그래도 키보드 경로는 계속 작동.
+6. **Cmd+Tab은 건드리지 않음**: 기존 Ctrl-only Tab 핸들러는 `!input.meta` 가드 그대로 유지. zoom 쪽만 `input.control || input.meta` 허용 — macOS에서 Cmd+= / Cmd+-가 표준이고, Cmd+Tab은 OS 앱 스위처라 침범하면 안 됨.
+
+### 제한 사항
+
+- Ctrl+휠의 console.log pollution — 사용자가 직접 DevTools 열어 webview 내부 디버깅 시 magic prefix 메시지가 섞임. 빈도는 휠 이벤트당 1회라 미미하지만 미관상 아쉬움. 없애려면 webview 전용 preload 번들을 추가해 `ipcRenderer.sendToHost`로 바꾸면 되는데, 빌드·설정 배선 비용이 큼. 필요해지면 후속 이슈로.
+- 웹사이트의 자체 Ctrl+휠 핸들러(예: 지도·CAD) — capture 단계에서 먼저 소비하므로 해당 사이트 기능이 안 먹힘. 지금은 webpage 위젯 공통이지만 만약 트러블이 잦으면 도메인별 예외 리스트로 끌 수 있음.
+
+### 수정 파일
+
+- **신규**: `src/renderer/widgets/webpage/zoomEvents.ts`, `src/renderer/widgets/webpage/icons/zoom-in.svg`, `src/renderer/widgets/webpage/icons/zoom-out.svg`, `tests/renderer/widgets/webpage/actions.spec.ts`
+- **수정**: `src/renderer/widgets/webpage/actions.ts` (헬퍼 + labelZoomIn/Out), `src/renderer/widgets/webpage/actionBar.ts` (ZOOM-OUT/ZOOM-IN 항목), `src/renderer/widgets/webpage/icons/index.ts` (zoomIn/OutSvg export), `src/common/ipc/channels.ts`, `src/main/infra/browserWindow/browserWindow.ts`, `src/renderer/init.ts`, `src/renderer/widgets/webpage/widget.tsx`, `tests/renderer/widgets/webpage/actionBar.spec.ts` (zoom 버튼 케이스 +2)
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)
