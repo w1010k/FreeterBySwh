@@ -1,12 +1,12 @@
 {
   "name": "freeter-swh",
-  "version": "2.7.1-beta",
+  "version": "2.7.2-swh.1",
   "main": "main.js",
   "homepage": "https://freeter.io/",
-  "repository": "https://github.com/FreeterApp/Freeter.git",
-  "author": "Alex Kaul",
+  "repository": "https://github.com/w1010k/FreeterBySwh.git",
+  "author": "Alex Kaul (original), swh (fork maintainer)",
   "license": "GPL-3.0-or-later",
-  "description": "Organizer For Those Who Do",
+  "description": "Organizer For Those Who Do (SWH fork)",
   "scripts": {
     "dev": "cross-env REACT_DEVTOOLS=enabled yarn run dev:react-devtools",
     "dev:react-devtools": "concurrently \"react-devtools\" \"yarn run dev:no-react-devtools\"",
