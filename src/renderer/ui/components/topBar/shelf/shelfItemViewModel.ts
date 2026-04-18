@@ -78,7 +78,7 @@ export function useShelfItemViewModel(shelfItemEl: HTMLLIElement | null, props: 
 
   const windowSize = useWindowSize();
   const itemWidgetElRectStyle = useMemo(() => {
-    const hPx = 300;
+    const hPx = 150;
     const wPx = 300;
 
     let xPx = itemElRect.xPx;
