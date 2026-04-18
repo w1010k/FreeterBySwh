@@ -13,8 +13,8 @@ const widgetType: WidgetType<Settings> = {
   icon: widgetSvg,
   name: 'Note',
   minSize: {
-    w: 2,
-    h: 2
+    w: 1,
+    h: 1
   },
   description: 'The Note widget allows you to write quick notes, such as thoughts, ideas or another important information you  need to keep in front of you.',
   maximizable: true,
