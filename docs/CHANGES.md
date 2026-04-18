@@ -22,14 +22,17 @@
 | Electron 윈도우 `title` (메인·팝업) | `Freeter` | `Freeter-SWH` |
 | macOS 앱 메뉴 라벨 | `Freeter` | `Freeter-SWH` |
 | About 모달 (타이틀·앱 이름 헤딩) | `Freeter` / `About Freeter` | `Freeter-SWH` / `About Freeter-SWH` |
+| About 모달 본문 | upstream 홍보 + Sponsors & Backers (영문) | "포크 정보"(한글) + "원본 Freeter 후원자" 리스트는 원본 기여 인정 차원에서 유지 |
 
 **왜**: 원본 앱을 덮어쓰거나 설정을 공유하지 않도록. `appId`가 달라서 `app.requestSingleInstanceLock()`도 자동 분리됨. 트레이·윈도우·메뉴에 원본 이름이 남아있으면 두 앱 동시 실행 시 어느 쪽이 내 포크인지 구분 불가 → OS 표면에 드러나는 아이덴티티 라벨 일괄 교체.
 
-**그대로 둔 곳** (프로덕트 설명 문구): `applicationSettings` / `workflowSettings` / `projectManagerSettings`의 `moreInfo` 문자열("Freeter frees up memory..."), About 모달 본문의 스폰서십 설명. 이건 오픈소스 프로젝트 자체를 서술하는 산문이라 `Freeter-SWH`로 치환하면 오히려 어색 (이 포크 자체가 별도 프로젝트가 아니라 upstream의 파생이라는 맥락 유지).
+**그대로 둔 곳** (프로덕트 설명 문구): `applicationSettings` / `workflowSettings` / `projectManagerSettings`의 `moreInfo` 문자열("Freeter frees up memory..."). 이건 오픈소스 프로젝트 자체를 서술하는 산문이라 `Freeter-SWH`로 치환하면 오히려 어색 (이 포크 자체가 별도 프로젝트가 아니라 upstream의 파생이라는 맥락 유지).
+
+About 모달 본문은 후속 작업으로 **한글 "포크 정보"로 재작성** — 이 앱이 swh의 개인 포크임을 밝히고, 원본 Freeter 후원자 섹션은 "원본 Freeter 후원자"로 리프레이밍해 upstream 기여에 대한 attribution은 유지.
 
 **수정 파일**: `electron-builder.config.js`, `package.json`, `src/main/index.ts`, `webpack.renderer.config.js`, `src/main/infra/trayProvider/trayProvider.ts`, `src/main/infra/dialogProvider/dialogProvider.ts`, `src/main/infra/browserWindow/browserWindow.ts`, `src/renderer/application/useCases/appMenu/initAppMenu.ts`, `src/renderer/ui/components/about/about.tsx`
 
-남은 브랜딩 TODO: 아이콘(`resources/{win32,darwin,linux}/`), 기본 글로벌 단축키(원본 Freeter와 동시 실행 시 `Ctrl/Cmd+Shift+F` 충돌).
+남은 브랜딩 TODO: 아이콘(`resources/{win32,darwin,linux}/`). (기본 글로벌 단축키 충돌은 #20에서 해결)
 
 ---
 
@@ -566,6 +569,18 @@ const wPx = 300;  // unchanged
 사용자 설정은 아직 없음 — 필요해지면 셸프 위젯별 설정이나 전역 설정으로 노출 가능. 지금은 상수만 조정.
 
 **수정 파일**: `src/renderer/ui/components/topBar/shelf/shelfItemViewModel.ts`
+
+---
+
+## 20. 기본 글로벌 단축키 변경 (`Ctrl/Cmd+Shift+F` → `Ctrl/Cmd+Shift+Space`)
+
+원본 Freeter의 기본 hotkey가 `Ctrl/Cmd+Shift+F`인데 이 포크도 같은 값이라 **두 앱 동시 실행 시 OS 레벨에서 하나만 등록**되는 문제. `CmdOrCtrl+Shift+Space`로 변경.
+
+- 선택지(`getMainHotkeyOptions`)에는 이미 `Ctrl+Shift+Space`가 포함돼 있어서 UI 추가 작업 없음. 기본값(`createUiState().appConfig.mainHotkey`)만 교체.
+- **기존 사용자에게는 영향 없음** — 저장된 설정이 우선이라 이미 원하는 단축키를 설정해뒀다면 그대로 유지. 최초 실행 시에만 새 기본값 적용.
+- 원본을 그대로 쓰고 싶으면 Settings에서 수동으로 고르면 됨.
+
+**수정 파일**: `src/renderer/base/state/ui.ts` (`createUiState()` 내 `mainHotkey`)
 
 ---
 

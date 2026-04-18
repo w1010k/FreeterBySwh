@@ -43,11 +43,17 @@ export function createAboutComponent({
           </div>
         </div>
         <div className={styles['about-right']}>
-          <h2>{'Sponsors & Backers'}</h2>
+          <h2>포크 정보</h2>
           <p>
-            {`Freeter is a free and open-source software with its ongoing development made possible entirely
-              by the support of these awesome sponsors & backers. If you'd like to join them, please consider `}
-            <a href='#' onClick={onSponsorshipClick}>{'sponsoring Freeter\'s development'}</a>.
+            이 앱은 <b>swh</b>가 개인적으로 포크·유지관리하는 <b>Freeter-SWH</b>입니다. 원본 Freeter(Alex Kaul)의 기반 위에
+            사용성과 커스터마이징을 꾸준히 다듬고 있어요. 포크에서 추가·변경된 내역은 저장소의 <code>docs/CHANGES.md</code>
+            또는 <code>README.md</code>에 정리되어 있습니다.
+          </p>
+
+          <h3>원본 Freeter 후원자</h3>
+          <p>
+            이 코드의 기반이 된 원본 Freeter는 아래 후원자 분들의 지원으로 개발·유지되어 왔습니다. 원본 프로젝트를
+            응원하고 싶다면 <a href='#' onClick={onSponsorshipClick}>이 링크</a>에서 후원할 수 있습니다.
           </p>
 
           {

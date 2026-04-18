@@ -236,7 +236,7 @@ export function createUiState(): UiState {
     topBar: false,
     editTogglePos: EditTogglePos.TabBarRight,
     appConfig: {
-      mainHotkey: 'CmdOrCtrl+Shift+F',
+      mainHotkey: 'CmdOrCtrl+Shift+Space',
       memSaver: {
         activateWorkflowsOnProjectSwitch: true,
         workflowInactiveAfter: -1
