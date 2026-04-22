@@ -801,7 +801,7 @@ Chrome/Firefox 관용에 비해선 살짝 비표준(일반 브라우저는 reloa
 
 ---
 
-## 25. Webpage 위젯 — 키보드 단축키: Open in Browser · 뒤로/앞으로 *(2026-04-21)*
+## 25. Webpage 위젯 — 키보드 단축키: Open in Browser · 뒤로/앞으로 *(2026-04-22)*
 
 Webpage 위젯에 **포커스가 있을 때** 반응하는 키보드 단축키 세 개 추가. 모두 webview 내부 guest 페이지로 이벤트가 가기 전에 가로채므로 지연 없이 즉시 동작.
 
