@@ -1,6 +1,6 @@
 {
   "name": "freeter-swh",
-  "version": "2.7.2-swh.1",
+  "version": "2.7.3-swh.1",
   "main": "main.js",
   "homepage": "https://freeter.io/",
   "repository": "https://github.com/w1010k/FreeterBySwh.git",
