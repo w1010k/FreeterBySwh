@@ -25,6 +25,15 @@ const reUrlsRequiringOriginalUA: RegExp[] = [
 
 const rePopupFeatures = /\bpopup\b/i;
 
+function navigateHistory(target: Electron.WebContents, dir: 'back' | 'forward') {
+  const nav = target.navigationHistory;
+  if (dir === 'back' && nav.canGoBack()) {
+    nav.goBack();
+  } else if (dir === 'forward' && nav.canGoForward()) {
+    nav.goForward();
+  }
+}
+
 /**
  * BrowserWindow factory
  *
@@ -156,6 +165,23 @@ export function createRendererWindow(
         win.webContents.send(ipcSwitchWorkflowByOffsetChannel, input.shift ? -1 : 1);
         return;
       }
+      // Alt+Left / Alt+Right — history back/forward on the widget's webview.
+      // Chromium's default Alt+Arrow → history mapping inside embedded
+      // <webview> is inconsistent (OS / page focus dependent), so we bind it
+      // explicitly. Handled entirely in main — the widget's own `did-navigate`
+      // listener refreshes its action bar when the history moves.
+      if (input.alt && !input.control && !input.meta && !input.shift) {
+        if (input.key === 'ArrowLeft') {
+          event.preventDefault();
+          navigateHistory(wc, 'back');
+          return;
+        }
+        if (input.key === 'ArrowRight') {
+          event.preventDefault();
+          navigateHistory(wc, 'forward');
+          return;
+        }
+      }
       // CmdOrCtrl+Shift+= (`+`) / CmdOrCtrl+- / CmdOrCtrl+0 — page zoom on
       // the widget's own webview. Only `+` is accepted for "zoom in" (Shift
       // is always pressed): Chromium's `before-input-event` doesn't reliably
@@ -165,6 +191,21 @@ export function createRendererWindow(
       // and is the form the user confirmed works in practice.
       const primaryMod = input.control || input.meta;
       if (!primaryMod || input.alt) {
+        return;
+      }
+      // CmdOrCtrl+T — open the widget's current page in the system's default
+      // browser. Handled in main (no IPC) since it only needs the URL and
+      // `shell.openExternal`. Productivity apps (Notion/Slack/Docs) leave
+      // Ctrl+T unbound because real browsers own it for "new tab", so
+      // hijacking it here doesn't stomp on in-page shortcuts. Use `.code`
+      // instead of `.key` so Caps Lock / non-QWERTY layouts still match.
+      if (input.code === 'KeyT' && !input.shift) {
+        event.preventDefault();
+        const currentUrl = wc.getURL();
+        const safeUrl = currentUrl ? sanitizeUrl(currentUrl) : '';
+        if (safeUrl) {
+          shell.openExternal(safeUrl);
+        }
         return;
       }
       let direction: IpcZoomWebpageDirection | null = null;
@@ -248,12 +289,7 @@ export function createRendererWindow(
     if (!target || target.isDestroyed() || target.getType() !== 'webview') {
       return;
     }
-    const nav = target.navigationHistory;
-    if (dir === 'back' && nav.canGoBack()) {
-      nav.goBack();
-    } else if (dir === 'forward' && nav.canGoForward()) {
-      nav.goForward();
-    }
+    navigateHistory(target, dir);
   };
 
   // Covers Linux XF86Back/Forward and well-behaved Windows setups that deliver

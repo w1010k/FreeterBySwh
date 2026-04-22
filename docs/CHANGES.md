@@ -801,6 +801,55 @@ Chrome/Firefox 관용에 비해선 살짝 비표준(일반 브라우저는 reloa
 
 ---
 
+## 25. Webpage 위젯 — 키보드 단축키: Open in Browser · 뒤로/앞으로 *(2026-04-21)*
+
+Webpage 위젯에 **포커스가 있을 때** 반응하는 키보드 단축키 세 개 추가. 모두 webview 내부 guest 페이지로 이벤트가 가기 전에 가로채므로 지연 없이 즉시 동작.
+
+### 인터페이스
+
+| 입력 | 동작 |
+|---|---|
+| `CmdOrCtrl+T` | 현재 페이지 URL을 **시스템 기본 브라우저**로 열기 (액션바 "Open in Browser"와 동일) |
+| `Alt+←` | 히스토리 **뒤로** (`canGoBack()`일 때만) |
+| `Alt+→` | 히스토리 **앞으로** (`canGoForward()`일 때만) |
+
+기존 입력 경로 — 액션바 버튼(BACK/FORWARD/OPEN-IN-BROWSER) + 컨텍스트 메뉴 + 마우스 X1/X2 버튼(#4) — 은 그대로 병존.
+
+### 왜 이 키 조합?
+
+- **`Ctrl+T`**: 브라우저의 "새 탭" 니모닉을 차용 — 이 위젯에서 "URL을 진짜 브라우저로 넘긴다"는 의미가 자연스럽게 연결. `Ctrl+B`(Browser) 같은 단일 글자 후보도 있었으나 Notion/Slack/Google Docs 등에서 **굵게(bold) 단축키**와 겹쳐서 기각. 생산성 앱들은 반대로 `Ctrl+T`는 기본 바인딩을 비워 두기 때문에(브라우저가 새 탭으로 이미 점유) 하이재킹 비용이 사실상 없음.
+- **`Alt+←/→`**: Chrome/Firefox/Edge/Safari의 공통 관용. 별도 학습 없음.
+
+### 아키텍처
+
+셋 다 **main 프로세스 내부 처리**로 완료 — IPC 없음. 기존 `wc.on('before-input-event', ...)` 블록(#6 Ctrl+Tab, #24 zoom용)에 분기 추가.
+
+| 단축키 | main에서 직접 할 수 있는 이유 |
+|---|---|
+| `Ctrl+T` | `wc.getURL()`로 URL 얻고 `shell.openExternal(sanitizeUrl(url))` 호출 — renderer 상태 불필요 |
+| `Alt+←` | `wc.navigationHistory.canGoBack()` + `goBack()`. widget.tsx의 `did-navigate` 리스너가 자동으로 `refreshActions()` 돌려 액션바 활성 상태 갱신 |
+| `Alt+→` | 위와 동일(forward 방향) |
+
+반면 #24 zoom은 DOM API(`webviewEl.setZoomFactor`)가 필요해서 main→IPC→renderer→CustomEvent→widget 경로를 돌아야 했음. 이번 세 기능은 Electron의 `WebContents` API만으로 완결되어 경로가 훨씬 짧음.
+
+### 까다로웠던 포인트
+
+1. **`input.code === 'KeyT'` vs `input.key === 't'`**: Caps Lock이 켜져 있거나 비-QWERTY 레이아웃에서 `input.key`는 't'/'T'가 뒤집히거나 엉뚱한 문자가 올 수 있음. `.code`는 물리 키 기준이라 레이아웃·Caps Lock 무관하게 항상 `KeyT`. 기존 `+/-/0` zoom 키는 `.key`를 그대로 사용 중이지만 — 문자 입력 영향을 받는 건 letter 키뿐이라 거기만 `.code`로 전환.
+2. **Alt 단독 분기의 위치**: 기존 핸들러는 `primaryMod = ctrl || meta`를 체크한 뒤 Alt면 즉시 리턴하는 구조(zoom이 Alt 섞이면 안 되기 때문). Alt+←/→ 처리는 그 `primaryMod` 가드 **앞**에 놓아야 Alt-only 조합이 흘러들어옴. Ctrl/Meta/Shift가 함께 눌린 Alt 조합은 의도적으로 무시(브라우저 탭 이동 같은 다른 관용과 혼선 방지).
+3. **`wc`가 guest webview의 webContents**: 이 콜백 안의 `wc`는 `did-attach-webview`로 넘어온 **웹뷰 자체의** webContents (호스트 윈도우가 아님). 그래서 `wc.getURL()`은 현재 웹뷰가 로드한 URL을, `wc.navigationHistory`는 그 웹뷰의 히스토리를 가리킴 — 정확히 우리가 원하는 것.
+4. **URL sanitize는 유지**: `openCurrentInBrowser`(actions.ts)가 sanitize 없이 바로 `openExternalUrl`을 호출하는 반면, 이 경로는 `sanitizeUrl` 통과 후 빈 문자열이면 no-op. guest가 `javascript:` 같은 비정상 URL 상태일 때 방어.
+
+### 제한 사항
+
+- 실제 브라우저처럼 `Ctrl+Shift+T`(닫은 탭 복구)나 `Ctrl+W`(탭 닫기) 같은 "탭 관리" 관용은 이 위젯에 의미가 없어 바인딩 없음.
+- 현재 포커스된 webpage 위젯 하나에만 반응 — 포커스 없는 웹뷰엔 `before-input-event`가 발화하지 않으므로 의도대로.
+
+### 수정 파일
+
+- **수정**: `src/main/infra/browserWindow/browserWindow.ts`
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)
