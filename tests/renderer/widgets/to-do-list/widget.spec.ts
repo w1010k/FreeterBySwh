@@ -9,8 +9,14 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import { fixtureSettings } from '@tests/widgets/to-do-list/fixtures';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { ToDoListState } from '@/widgets/to-do-list/state';
+import { resetTodoListStore } from '@/widgets/to-do-list/todoStore';
+import { WidgetEnv } from '@/widgets/appModules';
 
 jest.useFakeTimers();
+
+beforeEach(() => {
+  resetTodoListStore();
+});
 
 function setupToDoListWidgetSut(settings: Settings, optional?: SetupWidgetSutOptional) {
   return setupWidgetSut(widgetComp, settings, optional);
@@ -201,5 +207,124 @@ describe('To-Do List Widget', () => {
   })
 
   // TODO: more tests needed for the rest features
+})
+
+describe('To-Do List Widget — cross-widget sync within a scope', () => {
+  function setupTwoWidgets(opts: {
+    widgetA: { widgetId: string; env: WidgetEnv; getJson: jest.Mock; setJson?: jest.Mock };
+    widgetB: { widgetId: string; env: WidgetEnv; getJson: jest.Mock; setJson?: jest.Mock };
+    settings?: Settings;
+  }) {
+    const settings = opts.settings ?? fixtureSettings({ doneToBottom: false });
+    const a = setupToDoListWidgetSut(settings, {
+      widgetId: opts.widgetA.widgetId,
+      env: opts.widgetA.env,
+      mockWidgetApi: { dataStorage: { getJson: opts.widgetA.getJson, setJson: opts.widgetA.setJson ?? jest.fn() } },
+    });
+    setupToDoListWidgetSut(settings, {
+      widgetId: opts.widgetB.widgetId,
+      env: opts.widgetB.env,
+      mockWidgetApi: { dataStorage: { getJson: opts.widgetB.getJson, setJson: opts.widgetB.setJson ?? jest.fn() } },
+    });
+    return a.userEvent.setup({ delay: null });
+  }
+
+  it('propagates a checkbox toggle to a sibling widget in the same scope', async () => {
+    const testState: ToDoListState = {
+      items: [{ id: 1, isDone: false, text: 'Task 1' }],
+      nextItemId: 99,
+    };
+    const user = setupTwoWidgets({
+      widgetA: {
+        widgetId: 'WIDGET-A',
+        env: { area: 'workflow', projectId: 'P1', workflowId: 'W1' },
+        getJson: jest.fn().mockResolvedValue(testState),
+      },
+      widgetB: {
+        widgetId: 'WIDGET-B',
+        env: { area: 'workflow', projectId: 'P1', workflowId: 'W2' },
+        getJson: jest.fn().mockResolvedValue(testState),
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('list')).toHaveLength(2);
+    });
+
+    const before = screen.getAllByRole('checkbox', { name: 'Task 1' });
+    expect(before).toHaveLength(2);
+    expect(before[0]).not.toBeChecked();
+    expect(before[1]).not.toBeChecked();
+
+    await user.click(before[0]);
+
+    const after = screen.getAllByRole('checkbox', { name: 'Task 1' });
+    expect(after[0]).toBeChecked();
+    expect(after[1]).toBeChecked();
+  });
+
+  it('does not propagate to a widget in a different scope', async () => {
+    const testState: ToDoListState = {
+      items: [{ id: 1, isDone: false, text: 'Task 1' }],
+      nextItemId: 99,
+    };
+    const user = setupTwoWidgets({
+      widgetA: {
+        widgetId: 'WIDGET-A',
+        env: { area: 'workflow', projectId: 'P1', workflowId: 'W1' },
+        getJson: jest.fn().mockResolvedValue(testState),
+      },
+      widgetB: {
+        widgetId: 'WIDGET-B',
+        env: { area: 'workflow', projectId: 'P2', workflowId: 'W2' },
+        getJson: jest.fn().mockResolvedValue(testState),
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('list')).toHaveLength(2);
+    });
+
+    const before = screen.getAllByRole('checkbox', { name: 'Task 1' });
+    expect(before).toHaveLength(2);
+
+    await user.click(before[0]);
+
+    const after = screen.getAllByRole('checkbox', { name: 'Task 1' });
+    expect(after[0]).toBeChecked();
+    expect(after[1]).not.toBeChecked();
+  });
+
+  it('skips redundant disk reads when a sibling has already hydrated the store', async () => {
+    const testState: ToDoListState = {
+      items: [{ id: 1, isDone: false, text: 'Task 1' }],
+      nextItemId: 99,
+    };
+    // Mount widget A first, let it finish hydrating, then mount widget B.
+    const getJsonA = jest.fn().mockResolvedValue(testState);
+    setupToDoListWidgetSut(fixtureSettings({}), {
+      widgetId: 'WIDGET-A',
+      env: { area: 'workflow', projectId: 'P1', workflowId: 'W1' },
+      mockWidgetApi: { dataStorage: { getJson: getJsonA } },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('list')).toBeInTheDocument();
+    });
+
+    const getJsonB = jest.fn().mockResolvedValue(testState);
+    setupToDoListWidgetSut(fixtureSettings({}), {
+      widgetId: 'WIDGET-B',
+      env: { area: 'workflow', projectId: 'P1', workflowId: 'W2' },
+      mockWidgetApi: { dataStorage: { getJson: getJsonB } },
+    });
+
+    // Widget B sees populated store — renders the list immediately on its
+    // first render without going to disk.
+    await waitFor(() => {
+      expect(screen.getAllByRole('list')).toHaveLength(2);
+    });
+    expect(getJsonB).not.toHaveBeenCalled();
+  });
 })
 

@@ -3,102 +3,92 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { debounce } from '@/widgets/helpers';
 import { ActionBar, ActionBarItems, ReactComponent, WidgetReactComponentProps, delete14Svg, moveItemInList } from '@/widgets/appModules';
 import * as styles from './widget.module.scss';
 import { Settings } from './settings';
-import { DragEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DragEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { createContextMenuFactory } from '@/widgets/to-do-list/contextMenu';
 import { createActionBarItems } from '@/widgets/to-do-list/actionBar';
 import clsx from 'clsx';
 import { addItem, deleteItem, editItem, markComplete, markIncomplete } from '@/widgets/to-do-list/actions';
-import { ActiveItemEditorState, ToDoListItem, ToDoListState, maxTextLength } from '@/widgets/to-do-list/state';
+import { ActiveItemEditorState, ToDoListState, maxTextLength, sanitizeLoadedToDoListState } from '@/widgets/to-do-list/state';
 import { focusItemInput, scrollToItemInput, selectAllInItemInput } from '@/widgets/to-do-list/dom';
-import { useSharedDataChangedEffect } from '@/widgets/sharedDataSync';
+import { getOrCreateTodoListSaver, getTodoListState, setTodoListState, useTodoListState } from '@/widgets/to-do-list/todoStore';
 
 const dataKey = 'todo';
-const todoListWidgetType = 'to-do-list';
 
 function scopeForEnv(env: WidgetReactComponentProps<Settings>['env']): string {
   return env.area === 'workflow' ? env.projectId : 'app';
 }
 
 function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Settings>) {
+  const scope = scopeForEnv(env);
   const addItemTopInputRef = useRef<HTMLInputElement>(null);
   const addItemBottomInputRef = useRef<HTMLInputElement>(null);
   const editItemInputRef = useRef<HTMLInputElement>(null);
   const {updateActionBar, setContextMenuFactory, dataStorage} = widgetApi;
-  const [isLoaded, setIsLoaded] = useState(false);
+  // Shared in-memory store — sibling widgets in the same scope subscribe to
+  // the same map entry, so any setState() reaches them synchronously without
+  // an IPC roundtrip. Disk persistence still happens via debounced setJson.
+  const { state: toDoList, setState: setStoreToDoList } = useTodoListState(scope);
   const [activeItemEditorState, setActiveItemEditorState] = useState<ActiveItemEditorState>(null);
-  const [toDoList, setToDoList] = useState<ToDoListState>({
-    items: [],
-    nextItemId: 1
-  });
   const [dragState, setDragState] = useState<{
     draggingItemId: number | null;
     draggingOverItemId: number | null;
   } | null>(null);
 
 
-  const getToDoList = useCallback(() => toDoList, [toDoList]);
+  // Safe under the contract that getToDoList is only invoked from handlers
+  // mounted under the `toDoList ?` JSX gate or from effects that early-out
+  // when toDoList is undefined.
+  const getToDoList = useCallback(() => toDoList!, [toDoList]);
 
   // Shorter debounce than typical text widgets: to-do actions (checkbox toggle,
   // item add/delete/reorder) are discrete operations where a fast propagation
-  // matters more than coalescing a stream of keystrokes.
-  const saveData = useMemo(() => debounce((data: ToDoListState) => dataStorage.setJson(dataKey, data), 500), [dataStorage]);
+  // matters more than coalescing a stream of keystrokes. The saver is per-scope
+  // (not per-widget), so two siblings editing in quick succession produce one
+  // disk write of the latest state instead of two races. The returned saver has
+  // stable identity per scope, so no `useMemo` is needed.
+  const saveData = getOrCreateTodoListSaver(scope, (data) => dataStorage.setJson(dataKey, data));
 
-  const loadData = useCallback(async function () {
-    const loadedData = await dataStorage.getJson(dataKey) as ToDoListState|undefined;
-    if (typeof loadedData === 'object' && loadedData && Array.isArray(loadedData.items) && typeof loadedData.nextItemId === 'number') {
-      const sanitizedData: ToDoListState = {
-        items: loadedData.items.map(({id, text, isDone }) => {
-          if(typeof id === 'number' && typeof text === 'string' && typeof isDone === 'boolean') {
-            return { id, text, isDone }
-          } else {
-            return undefined;
-          }
-        }).filter(item => item) as ToDoListItem[],
-        nextItemId: loadedData.nextItemId
+  // Hydrate the store from disk on the first widget mount per scope. Once
+  // any widget has populated the store, later mounts skip the read — they
+  // pick up state straight from the store.
+  useEffect(() => {
+    if (toDoList !== undefined) {
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      const loaded = await dataStorage.getJson(dataKey);
+      if (cancelled || getTodoListState(scope) !== undefined) {
+        return;
       }
-      setToDoList(sanitizedData);
-    }
-    setIsLoaded(true);
-  }, [dataStorage]);
+      setTodoListState(scope, sanitizeLoadedToDoListState(loaded));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [scope, dataStorage, toDoList]);
+
+  const setToDoListAndSave = useCallback((next: ToDoListState) => {
+    setStoreToDoList(next);
+    saveData(next);
+  }, [saveData, setStoreToDoList])
 
   useEffect(() => {
-    if(!isLoaded) {
-      loadData();
-    }
-  }, [isLoaded, loadData])
-
-  // Live sync: all to-do-list widgets in this project (or 'app' scope for
-  // shelf) auto-share data. Skip reload while the user is mid-edit — their
-  // own debounced save echoes back as a broadcast.
-  useSharedDataChangedEffect(
-    todoListWidgetType,
-    scopeForEnv(env),
-    () => activeItemEditorState !== null,
-    loadData
-  );
-
-  const setToDoListAndSave = useCallback((toDoList: ToDoListState)=>{
-    setToDoList(toDoList);
-    saveData(toDoList);
-  }, [saveData])
-
-  useEffect(() => {
-    if (isLoaded) {
+    if (toDoList) {
       updateActionBar(createActionBarItems(getToDoList, setToDoListAndSave, setActiveItemEditorState));
     }
-  }, [getToDoList, isLoaded, setToDoListAndSave, updateActionBar]);
+  }, [getToDoList, toDoList, setToDoListAndSave, updateActionBar]);
 
   useEffect(() => {
-    if (isLoaded) {
+    if (toDoList) {
       setContextMenuFactory(
         createContextMenuFactory(settings, getToDoList, setToDoListAndSave, setActiveItemEditorState)
         );
     }
-  }, [getToDoList, isLoaded, setContextMenuFactory, setToDoListAndSave, settings]);
+  }, [getToDoList, toDoList, setContextMenuFactory, setToDoListAndSave, settings]);
 
   useEffect(() => {
     if (activeItemEditorState!==null) {
@@ -202,21 +192,22 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
   }, [dragState])
 
   const itemDropHandler = useCallback((_evt: DragEvent<HTMLElement>, itemId: number) => {
-    if (dragState?.draggingItemId) {
-      const { draggingItemId } = dragState;
-      const sourceIdx = toDoList.items.findIndex(item => item.id === draggingItemId);
-      const targetIdx = toDoList.items.findIndex(item => item.id === itemId);
-      if (sourceIdx !== -1 && targetIdx !== -1) {
-        setToDoListAndSave({
-          ...toDoList,
-          items: moveItemInList(toDoList.items, sourceIdx, targetIdx)
-        })
-      }
+    if (!toDoList || !dragState?.draggingItemId) {
+      return;
+    }
+    const { draggingItemId } = dragState;
+    const sourceIdx = toDoList.items.findIndex(item => item.id === draggingItemId);
+    const targetIdx = toDoList.items.findIndex(item => item.id === itemId);
+    if (sourceIdx !== -1 && targetIdx !== -1) {
+      setToDoListAndSave({
+        ...toDoList,
+        items: moveItemInList(toDoList.items, sourceIdx, targetIdx)
+      })
     }
   }, [dragState, toDoList, setToDoListAndSave])
 
   return (
-    isLoaded
+    toDoList
     ? <div className={styles['todo-list-viewport']} data-widget-context="">
         {activeItemEditorState?.id==='add-top' && <input
           type="text"

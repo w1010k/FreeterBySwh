@@ -850,6 +850,64 @@ Webpage 위젯에 **포커스가 있을 때** 반응하는 키보드 단축키 �
 
 ---
 
+## 26. TodoList 라이브 동기화 단순화 — IPC 체인 → in-memory store *(2026-05-10)*
+
+#9 자동 프로젝트 동기화의 **라이브 업데이트 경로**(IPC broadcast → window CustomEvent → useEffect listener → loadData → 또 IPC getText → setState)에서 형제 위젯 동기화가 silent하게 끊기는 사례 발생. 같은 프로젝트 내 다른 워크플로의 todo 위젯이 같은 세션 동안에는 변경을 따라가지 않고, 앱 재시작 후에야 디스크에서 새 데이터를 읽음. 디스크 수준 공유는 정상이라 IPC roundtrip 어딘가에서 알림이 유실됨.
+
+해결: 라이브 동기화를 **renderer 안에서만 동작하는 in-memory pub/sub**로 교체. 디스크 영속화는 그대로 IPC 사용.
+
+### 동작
+
+| 시나리오 | 변경 후 동작 |
+|---|---|
+| 같은 스코프(프로젝트 또는 `app`)의 형제 위젯들이 mount된 상태 | 한 위젯이 `setStoreToDoList()`를 호출하면 동일 스코프의 모든 구독자가 동기 호출되어 즉시 같은 상태로 리렌더 |
+| 한 위젯이 unmount(memSaver) → 다른 위젯이 변경 | store의 in-memory state는 그대로 유지. 나중에 unmount된 위젯이 remount되면 store에서 즉시 최신값 픽업 (디스크 read 생략) |
+| 앱 재시작 | store는 비어 있음 → 첫 mount가 디스크에서 읽어 store hydrate. 이후는 위와 동일 |
+| 위젯이 다른 프로젝트로 이동 (스코프 변경) | outer `<ToDoInner key={scope} />`가 remount → 새 스코프의 store entry 구독, 비어 있으면 디스크 read |
+
+저장 경로(`<appData>/freeter-swh/freeter-data/shared/to-do-list/<scope>/todo`)와 라우팅 로직(`getWidgetApi.ts`의 to-do-list 분기)은 변경 없음.
+
+### 비교
+
+| | Before (#9, #10) | After (#26) |
+|---|---|---|
+| 라이브 sync 단계 수 | 7~8단계 | 1단계 (모듈 변수 set + 구독자 호출) |
+| 의존하는 인프라 | `ipcSharedDataChangedChannel`, main의 `broadcastChanged`, `init.ts` 재emit, `window` CustomEvent, `useSharedDataChangedEffect` | 모듈 스코프 `Map` + `Set<Listener>` |
+| 동기화 범위 | 모든 BrowserWindow (이론상 cross-window) | 단일 renderer 안 |
+| 디스크 read 횟수 | 변경마다 1회 (broadcast 받은 모든 위젯이 reload) | 첫 mount 1회 (이후는 store에서) |
+| 실패 모드 | 어느 한 단계라도 끊기면 silent | 모듈 import 안 되면 즉시 크래시. 끊길 곳 없음 |
+
+Cross-window 동기화 범위는 줄었으나 Freeter는 트레이 외 단일 메인 윈도우라 사실상 영향 없음.
+
+### Note 위젯과의 차이
+
+Note 위젯의 `sharedKeyId` 기반 동기화(#8)는 그대로 IPC broadcast + `useSharedDataChangedEffect`을 사용. todo만 별도 store로 분기한 이유:
+
+- Note는 사용자가 명시적으로 키를 만들어 옵트인 — 키 단위로 다양한 조합이 가능해서 일반화된 broadcast가 더 적합
+- TodoList는 프로젝트 단위 자동 — 스코프가 한정적이라 in-memory Map이 깔끔하게 fit
+- 한 메커니즘이 깨졌을 때 다른 위젯에 영향 안 가도록 격리
+
+### 까다로웠던 포인트
+
+1. **테스트 격리**: `states`가 모듈 스코프 `Map`이라 같은 spec 파일 안에서 테스트 간에 상태가 leak. `resetTodoListStore()` 헬퍼를 export하고 `beforeEach`에서 호출해서 각 테스트가 빈 store로 시작하게 함.
+2. **초기 디스크 load의 race**: 같은 스코프 위젯 두 개가 거의 동시에 mount되면 둘 다 `getJson` 호출. 먼저 끝난 쪽이 store hydrate → 두 번째 await가 풀렸을 때는 이미 다른 위젯이 사용자 입력으로 store를 갱신했을 수 있음. await 직후 `getTodoListState(scope) !== undefined` 한 번 더 체크해서 stale disk 데이터가 사용자 변경을 덮어쓰지 않게 가드.
+3. **TypeScript narrowing**: `toDoList`가 `ToDoListState | undefined`로 바뀌어서 JSX 분기를 `isLoaded ?` → `toDoList ?`로 바꿔야 narrowing이 들어옴. 드래그 drop 핸들러는 deps에 `toDoList` 있어 자동 narrowing이 안 되니 함수 시작에 `if (!toDoList) return;` 추가.
+4. **outer key wrapper 유지**: `<ToDoInner key={scope} />`는 이론상 hook이 scope deps로 처리할 수 있어 제거 가능하지만 — `activeItemEditorState`/`dragState` 같은 컴포넌트 로컬 상태가 스코프 전환 시 같이 리셋되어야 자연스러워서 그대로 둠.
+5. **`useSyncExternalStore` 채택 + setState 메모이제이션** (셀프 리뷰에서 잡힘): 초기 구현은 `useState + useEffect + 수동 setLocal` 패턴이었는데 hook이 매 렌더마다 새 `setState` arrow를 반환해서 `setToDoListAndSave`(deps: setState)도 매 렌더 새로 생성됨 → `updateActionBar` / `setContextMenuFactory` effect가 매 렌더 재실행되어 IPC 트래픽 증가. React 18+의 `useSyncExternalStore`로 교체하고 `setState`도 `useCallback([scope])`로 안정화. concurrent rendering 환경에서 tearing도 자동 방지됨.
+6. **per-widget → per-scope 디바운스** (`/simplify` 효율성 리뷰에서 잡힘): `useMemo(() => debounce(..., 500))`는 위젯 인스턴스마다 자기 타이머를 만들기 때문에 같은 스코프 형제 위젯 두 개가 빠르게 토글하면 **각자 500ms 후에 setJson을 1번씩 호출**해 같은 공유 버킷에 디스크 쓰기가 2회 발생. `todoStore.getTodoListSaver(scope, doSave)`로 hoist해서 한 스코프 내 모든 토글이 같은 타이머를 reset → idle 500ms 후 단 1회 write. 최종 디스크 상태는 어느 쪽이든 동일하지만 I/O 횟수 절반으로.
+
+### 수정 파일
+
+- **신규**: `src/renderer/widgets/to-do-list/todoStore.ts` (`useSyncExternalStore` 기반 store + hook + per-scope debounced saver + 테스트용 reset)
+- **수정**: `src/renderer/widgets/to-do-list/widget.tsx` (`useSharedDataChangedEffect` 제거 → `useTodoListState` 사용, 초기 disk load만 useEffect에서 처리, sanitize 로직은 `state.ts`로 추출)
+- **수정**: `src/renderer/widgets/to-do-list/state.ts` (`sanitizeLoadedToDoListState(raw): ToDoListState` 추가 — 위젯 useEffect 안의 30줄 inline 검증/매핑을 순수 함수로 분리)
+- **테스트**: `tests/renderer/widgets/to-do-list/widget.spec.ts` (`beforeEach`에 `resetTodoListStore()` + 형제 sync 시나리오 3개: 같은 스코프 전파 / 다른 스코프 격리 / 두 번째 mount 시 디스크 read skip)
+- **테스트(신규)**: `tests/renderer/widgets/to-do-list/state.spec.ts` (`sanitizeLoadedToDoListState` 단위 테스트 5개 — non-object/잘못된 shape/items 안 항목 검증/extra prop 제거)
+
+기존 `useSharedDataChangedEffect` 훅과 `init.ts`의 IPC 재emit, main의 `broadcastChanged`는 Note 위젯에서 계속 사용 중이라 손대지 않음.
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)
