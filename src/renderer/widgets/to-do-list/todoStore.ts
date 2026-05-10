@@ -13,6 +13,8 @@ const states = new Map<string, ToDoListState>();
 const listeners = new Map<string, Set<Listener>>();
 const savers = new Map<string, DebouncedFunc<[ToDoListState]>>();
 
+/** Non-hook accessor — use only outside React (e.g. inside async IIFEs that
+ *  need a fresh post-await race check). Inside components, use `useTodoListState`. */
 export function getTodoListState(scope: string): ToDoListState | undefined {
   return states.get(scope);
 }
