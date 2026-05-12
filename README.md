@@ -74,6 +74,7 @@ Freeter는 자유 소프트웨어이며, [라이선스][license] 조건에 따�
 24. Webpage 위젯 확대/축소 — `CmdOrCtrl+Shift+=` / `CmdOrCtrl+-` / `CmdOrCtrl+0`, `CmdOrCtrl+마우스 휠`로 단계적 zoom + 액션바 **돋보기 +/− 버튼**. 기존 컨텍스트 메뉴 프리셋과 동일한 사다리 사용. *(2026-04-18)*
 25. Webpage 위젯 키보드 단축키 — `CmdOrCtrl+T`로 현재 페이지를 시스템 기본 브라우저로 열기, `Alt+←` / `Alt+→`로 히스토리 뒤로/앞으로. *(2026-04-22)*
 26. TodoList 라이브 동기화 안정화 — 같은 프로젝트 내 형제 todo 위젯의 즉시 반영이 silent하게 끊기던 IPC 체인을 renderer 내부 단일 store로 단순화 (내부 리팩토링). *(2026-05-10)*
+27. Webpage 위젯 `Alt+Home` 단축키 — 위젯에 포커스가 있을 때 시작 페이지(`settings.url`)로 즉시 이동. 액션바 "Go to start page" 버튼과 동일 동작. *(2026-05-12)*
 
 부가적으로 OS 노출 라벨(트레이 툴팁, 윈도우 타이틀, 앱 메뉴, About 모달 등)도 **Freeter-SWH**로 일괄 교체해서 원본과 혼동되지 않게 했습니다.
 

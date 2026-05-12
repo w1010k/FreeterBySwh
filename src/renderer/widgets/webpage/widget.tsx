@@ -13,9 +13,10 @@ import { sanitizeUrl } from '@common/helpers/sanitizeUrl';
 import { createContextMenuFactory } from '@/widgets/webpage/contextMenu';
 import { ContextMenuEvent as ElectronContextMenuEvent } from 'electron';
 import { createPartition } from '@/widgets/webpage/partition';
-import { reload, zoomReset, zoomStepIn, zoomStepOut } from '@/widgets/webpage/actions';
+import { canGoHome, goHome, reload, zoomReset, zoomStepIn, zoomStepOut } from '@/widgets/webpage/actions';
 import { WebpageExposedApi } from '@/widgets/interfaces';
 import { WEBPAGE_ZOOM_EVENT, WebpageZoomEventDetail } from '@/widgets/webpage/zoomEvents';
+import { WEBPAGE_GO_HOME_EVENT, WebpageGoHomeEventDetail } from '@/widgets/webpage/homeEvents';
 
 // Injected into each webview on dom-ready. Intercepts Ctrl/Cmd + wheel before
 // the guest page sees it (`capture: true, passive: false` — passive must be
@@ -306,6 +307,36 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
     window.addEventListener(WEBPAGE_ZOOM_EVENT, onZoom);
     return () => window.removeEventListener(WEBPAGE_ZOOM_EVENT, onZoom);
   }, [webviewIsReady]);
+
+  // Alt+Home routed from main → init.ts; match the action bar's "Go to start
+  // page" by skipping when we're already on the home URL (canGoHome guards
+  // unnecessary reloads), mirroring the disabled-button behavior.
+  useEffect(() => {
+    if (!webviewIsReady) {
+      return undefined;
+    }
+    const webviewEl = webviewRef.current;
+    if (!webviewEl) {
+      return undefined;
+    }
+    let myId: number | null = null;
+    try {
+      myId = webviewEl.getWebContentsId();
+    } catch {
+      return undefined;
+    }
+    const onGoHome = (e: Event) => {
+      const detail = (e as CustomEvent<WebpageGoHomeEventDetail>).detail;
+      if (!detail || detail.webContentsId !== myId) {
+        return;
+      }
+      if (canGoHome(webviewEl, url)) {
+        goHome(webviewEl, url);
+      }
+    };
+    window.addEventListener(WEBPAGE_GO_HOME_EVENT, onGoHome);
+    return () => window.removeEventListener(WEBPAGE_GO_HOME_EVENT, onGoHome);
+  }, [webviewIsReady, url]);
 
   useEffect(() => {
     if (autoReload>0 && !autoReloadStopped) {

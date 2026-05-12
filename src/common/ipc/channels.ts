@@ -106,6 +106,10 @@ export const ipcZoomWebpageChannel = makeIpcChannelName('zoom-webpage');
 export type IpcZoomWebpageArgs = [webContentsId: number, direction: IpcZoomWebpageDirection];
 export type IpcZoomWebpageRes = void;
 
+export const ipcGoHomeWebpageChannel = makeIpcChannelName('go-home-webpage');
+export type IpcGoHomeWebpageArgs = [webContentsId: number];
+export type IpcGoHomeWebpageRes = void;
+
 export const ipcWriteBookmarkIntoClipboardChannel = makeIpcChannelName('write-bookmark-into-clipboard');
 export type IpcWriteBookmarkIntoClipboardArgs = [title: string, url: string];
 export type IpcWriteBookmarkIntoClipboardRes = void;

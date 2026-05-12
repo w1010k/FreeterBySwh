@@ -152,8 +152,9 @@ import { createGetWidgetsInCurrentWorkflowUseCase } from '@/application/useCases
 import { createSetExposedApiUseCase } from '@/application/useCases/widget/setExposedApi';
 import { createSetWidgetDynamicTitleUseCase } from '@/application/useCases/widget/setWidgetDynamicTitle';
 import { electronIpcRenderer } from '@/infra/mainApi/mainApi';
-import { ipcSharedDataChangedChannel, ipcSwitchWorkflowByOffsetChannel, ipcZoomWebpageChannel } from '@common/ipc/channels';
+import { ipcGoHomeWebpageChannel, ipcSharedDataChangedChannel, ipcSwitchWorkflowByOffsetChannel, ipcZoomWebpageChannel } from '@common/ipc/channels';
 import { WEBPAGE_ZOOM_EVENT, WebpageZoomEventDetail } from '@/widgets/webpage/zoomEvents';
+import { WEBPAGE_GO_HOME_EVENT, WebpageGoHomeEventDetail } from '@/widgets/webpage/homeEvents';
 import { SHARED_DATA_CHANGED_EVENT, SharedDataChangedEventDetail } from '@/base/sharedDataEvents';
 
 function prepareDataStorageForRenderer(dataStorage: DataStorage): DataStorageRenderer {
@@ -737,6 +738,16 @@ export async function init() {
       && (direction === 'in' || direction === 'out' || direction === 'reset')) {
       const detail: WebpageZoomEventDetail = { webContentsId, direction };
       window.dispatchEvent(new CustomEvent(WEBPAGE_ZOOM_EVENT, { detail }));
+    }
+  });
+
+  // Alt+Home while a webpage widget's <webview> has focus — re-emit as a
+  // window CustomEvent so the matching webview can load its start page URL
+  // (the URL itself lives in renderer-side widget settings).
+  electronIpcRenderer.on(ipcGoHomeWebpageChannel, (webContentsId) => {
+    if (typeof webContentsId === 'number') {
+      const detail: WebpageGoHomeEventDetail = { webContentsId };
+      window.dispatchEvent(new CustomEvent(WEBPAGE_GO_HOME_EVENT, { detail }));
     }
   });
 

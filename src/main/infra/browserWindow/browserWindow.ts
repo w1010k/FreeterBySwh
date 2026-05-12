@@ -7,7 +7,7 @@ import { BrowserWindowConstructorOptions, BrowserWindow as ElectronBrowserWindow
 import { BrowserWindow } from '@/application/interfaces/browserWindow'
 import { GetWindowStateUseCase } from '@/application/useCases/browserWindow/getWindowState';
 import { SetWindowStateUseCase } from '@/application/useCases/browserWindow/setWindowState';
-import { IpcZoomWebpageDirection, ipcSwitchWorkflowByOffsetChannel, ipcZoomWebpageChannel } from '@common/ipc/channels';
+import { IpcZoomWebpageDirection, ipcGoHomeWebpageChannel, ipcSwitchWorkflowByOffsetChannel, ipcZoomWebpageChannel } from '@common/ipc/channels';
 import { sanitizeUrl } from '@common/helpers/sanitizeUrl';
 
 const minWidth = 1200;
@@ -170,6 +170,9 @@ export function createRendererWindow(
       // <webview> is inconsistent (OS / page focus dependent), so we bind it
       // explicitly. Handled entirely in main — the widget's own `did-navigate`
       // listener refreshes its action bar when the history moves.
+      // Alt+Home — go to the widget's start page. The home URL lives in
+      // renderer-side widget settings, so main signals over IPC and the
+      // matching webview (by webContentsId) calls loadURL with its own URL.
       if (input.alt && !input.control && !input.meta && !input.shift) {
         if (input.key === 'ArrowLeft') {
           event.preventDefault();
@@ -179,6 +182,11 @@ export function createRendererWindow(
         if (input.key === 'ArrowRight') {
           event.preventDefault();
           navigateHistory(wc, 'forward');
+          return;
+        }
+        if (input.key === 'Home') {
+          event.preventDefault();
+          win.webContents.send(ipcGoHomeWebpageChannel, wc.id);
           return;
         }
       }

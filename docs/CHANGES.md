@@ -908,6 +908,51 @@ Note 위젯의 `sharedKeyId` 기반 동기화(#8)는 그대로 IPC broadcast + `
 
 ---
 
+## 27. Webpage 위젯 — `Alt+Home` 단축키: 시작 페이지로 이동 *(2026-05-12)*
+
+Webpage 위젯에 포커스가 있을 때 `Alt+Home`을 누르면 액션바의 "Go to start page" 버튼과 동일한 동작 — 위젯 설정의 시작 URL로 이동.
+
+### 인터페이스
+
+| 입력 | 동작 |
+|---|---|
+| `Alt+Home` | 시작 페이지(`settings.url`)로 이동. 이미 시작 페이지에 있으면 no-op (`canGoHome` 검사) |
+
+액션바 버튼 / 컨텍스트 메뉴 항목 라벨(`Go to start page`)은 그대로 — #25(`Alt+←/→`, `Ctrl+T`) 등 기존 단축키 시리즈도 라벨에 키 조합을 노출하지 않는 컨벤션을 따랐기 때문.
+
+### 왜 이 키 조합?
+
+- Firefox/Chrome의 "홈페이지로 이동" 관용(`Alt+Home`)과 정확히 일치 — 학습 비용 없음.
+- `Ctrl+Home`은 브라우저들이 "페이지 맨 위로 스크롤"에 쓰는 표준 동작이라 충돌. webview 안에서 스크롤 기대하는 사용자를 혼란시킬 수 있어 기각.
+- `Home` 단독은 입력 필드 커서 이동·스크롤과 강하게 겹쳐 기각.
+
+### 아키텍처
+
+#24 zoom과 동일한 경로: **main `before-input-event` → IPC → `init.ts`에서 `window` CustomEvent로 재emit → widget이 자기 `webContentsId`만 매칭해서 처리**. 시작 URL이 renderer-side widget settings에 있어서 main이 직접 `loadURL`을 호출할 수 없기 때문에 IPC 우회가 필요.
+
+| 단계 | 위치 |
+|---|---|
+| 키 가로채기 | `src/main/infra/browserWindow/browserWindow.ts` — 기존 Alt+←/→ 분기 옆에 Alt+Home 추가 (`!ctrl && !meta && !shift` 가드 동일) |
+| IPC 채널 | `ipcGoHomeWebpageChannel(webContentsId)` — `src/common/ipc/channels.ts` |
+| 채널 → CustomEvent | `src/renderer/init.ts` |
+| CustomEvent 핸들러 | `src/renderer/widgets/webpage/widget.tsx` — `webviewEl.getWebContentsId()`와 매칭, `canGoHome` 통과 시 `goHome(webviewEl, url)` |
+
+### 까다로웠던 포인트
+
+1. **`canGoHome` 게이트**: 액션바 버튼은 이미 시작 페이지에 있을 때 disabled 상태로 보이므로, 단축키도 같은 조건일 때 no-op이어야 일관됨. `goHome`은 단순 `loadURL`이라 같은 URL이어도 페이지를 새로 로드해버림 → 의도치 않은 reload 방지를 위해 `canGoHome(webviewEl, url)` 검사 후에만 실행.
+2. **#25(Alt+←/→) 분기와의 공존**: 기존 Alt-only 가드 블록(`!control && !meta && !shift`)에 `'Home'` 분기 한 줄만 추가. zoom 가드(`primaryMod = ctrl || meta; if (!primaryMod || alt) return;`) **앞**에 위치해서 Alt 단독 조합이 흘러들어옴.
+3. **재사용된 webContentsId 매칭 패턴**: #24 zoom과 동일하게 widget useEffect에서 `getWebContentsId()`를 캐시해 detail.webContentsId와 비교 — 같은 페이지에 여러 webpage 위젯이 있어도 키 누른 webview에만 반응.
+
+### 수정 파일
+
+- **수정**: `src/common/ipc/channels.ts` (`ipcGoHomeWebpageChannel` 채널 추가)
+- **수정**: `src/main/infra/browserWindow/browserWindow.ts` (Alt+Home 분기)
+- **수정**: `src/renderer/init.ts` (IPC → CustomEvent 재emit)
+- **수정**: `src/renderer/widgets/webpage/widget.tsx` (CustomEvent 리스너 + `goHome` 실행)
+- **신규**: `src/renderer/widgets/webpage/homeEvents.ts` (`WEBPAGE_GO_HOME_EVENT` 상수 + 디테일 타입)
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)
