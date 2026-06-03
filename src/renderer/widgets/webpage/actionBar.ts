@@ -20,12 +20,21 @@ export function createActionBarItems(
     return []
   }
 
+  // Append the bound keyboard shortcut to each button's hover tooltip so the
+  // action bar doubles as a shortcut cheat-sheet. Only buttons that actually
+  // have a binding get a hint (Reload / Copy / Auto-reload have none). The
+  // modifier follows the OS: Cmd on macOS, Ctrl elsewhere. Arrows match what
+  // browsers show.
+  const { isMac } = widgetApi.process.getProcessInfo();
+  const mod = isMac ? 'Cmd' : 'Ctrl';
+  const withKeys = (label: string, keys: string) => `${label} (${keys})`;
+
   let reloadItems: ActionBarItem[] = [
     {
       enabled: canReload(),
       icon: reloadSvg,
       id: 'RELOAD',
-      title: labelReload,
+      title: withKeys(labelReload, `F5 · ${mod}+R`),
       // Manual reload from the action bar also resets zoom to 100%, so a
       // quick reload doubles as "start fresh". Auto-reload interval and the
       // context menu's Reload keep their zoom level on purpose: the former
@@ -51,21 +60,21 @@ export function createActionBarItems(
       enabled: canGoHome(elWebview, homeUrl),
       icon: homeSvg,
       id: 'HOME',
-      title: labelGoHome,
+      title: withKeys(labelGoHome, 'Alt+Home'),
       doAction: async () => goHome(elWebview, homeUrl)
     },
     {
       enabled: canGoBack(elWebview),
       icon: backSvg,
       id: 'BACK',
-      title: labelGoBack,
+      title: withKeys(labelGoBack, 'Alt+←'),
       doAction: async () => goBack(elWebview)
     },
     {
       enabled: canGoForward(elWebview),
       icon: forwardSvg,
       id: 'FORWARD',
-      title: labelGoForward,
+      title: withKeys(labelGoForward, 'Alt+→'),
       doAction: async () => goForward(elWebview)
     },
     ...reloadItems,
@@ -73,14 +82,14 @@ export function createActionBarItems(
       enabled: true,
       icon: zoomOutSvg,
       id: 'ZOOM-OUT',
-      title: labelZoomOut,
+      title: withKeys(labelZoomOut, `${mod}+-`),
       doAction: async () => zoomStepOut(elWebview)
     },
     {
       enabled: true,
       icon: zoomInSvg,
       id: 'ZOOM-IN',
-      title: labelZoomIn,
+      title: withKeys(labelZoomIn, `${mod}++`),
       doAction: async () => zoomStepIn(elWebview)
     },
     {
@@ -94,7 +103,7 @@ export function createActionBarItems(
       enabled: true,
       icon: openInBrowserSvg,
       id: 'OPEN-IN-BROWSER',
-      title: labelOpenInBrowser,
+      title: withKeys(labelOpenInBrowser, `${mod}+T`),
       doAction: async () => openCurrentInBrowser(elWebview, widgetApi)
     }
   ];

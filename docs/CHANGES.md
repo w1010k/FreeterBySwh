@@ -953,6 +953,81 @@ Webpage 위젯에 포커스가 있을 때 `Alt+Home`을 누르면 액션바의 "
 
 ---
 
+## 28. Webpage 위젯 — 액션바 버튼 툴팁에 단축키 표기 *(2026-06-04)*
+
+Webpage 위젯 액션바 버튼에 마우스를 올리면 호버 툴팁에 해당 기능의 키보드 단축키가 함께 표시된다. 예: "Go Back (Alt+←)", "Open in web browser (Ctrl+T)". 그동안 #24·#25·#27로 단축키를 계속 추가해왔지만 라벨에는 의도적으로 노출하지 않아(이전 컨벤션) 사용자가 단축키 존재 자체를 알기 어려웠다 — 액션바를 단축키 치트시트로도 쓸 수 있게 방침을 바꿈.
+
+### 인터페이스
+
+단축키가 **실제로 바인딩된 버튼만** 힌트를 받는다. Copy current address·Auto-reload 토글은 바인딩이 없어 라벨 그대로. (Reload 행은 #29에서 단축키가 생기며 함께 추가됨.)
+
+| 버튼 | 툴팁 (Win/Linux) | 툴팁 (macOS) |
+|---|---|---|
+| Go to start page | `Go to start page (Alt+Home)` | 동일 |
+| Go Back | `Go Back (Alt+←)` | 동일 |
+| Go Forward | `Go Forward (Alt+→)` | 동일 |
+| Reload this page | `Reload this page (F5 · Ctrl+R)` | `Reload this page (F5 · Cmd+R)` |
+| Zoom out | `Zoom out (Ctrl+-)` | `Zoom out (Cmd+-)` |
+| Zoom in | `Zoom in (Ctrl++)` | `Zoom in (Cmd++)` |
+| Open in web browser | `Open in web browser (Ctrl+T)` | `Open in web browser (Cmd+T)` |
+
+수정자(modifier)는 OS를 따라간다(`Cmd` on macOS, `Ctrl` 그 외). `Alt`는 양 플랫폼 동일. `+`/`-` 기호와 화살표는 브라우저 메뉴 관용을 그대로 차용.
+
+### 아키텍처
+
+- 단축키 힌트는 `actionBar.ts`의 `title` 필드에만 덧붙인다. 라벨 상수(`labelGoBack` 등)는 **컨텍스트 메뉴와 공유**하므로 상수 자체는 건드리지 않음 — 액션바만 영향.
+- `title`은 `ActionBar` 컴포넌트에서 버튼의 네이티브 HTML `title` 속성(호버 툴팁)으로 렌더된다.
+- OS 판별은 `widgetApi.process.getProcessInfo().isMac` (시작 시 1회 IPC 로드 후 동기 반환). 이를 위해 webpage 위젯 `requiresApi`에 `'process'`를 추가.
+
+### 까다로웠던 포인트
+
+1. **라벨 상수 공유**: `labelGoBack` 등은 `actionBar.ts`와 `contextMenu.ts`가 함께 import. 상수를 고치면 우클릭 메뉴에도 단축키가 새어 들어가므로, 액션바의 `title` 조립 시점에만 `withKeys()`로 감쌌다.
+2. **`requiresApi`에 `process` 누락 → 테스트 mock 갱신**: 기존 `actionBar.spec.ts`의 `widgetApi` mock에는 `process`가 없어서 `getProcessInfo()` 호출 시 깨짐. mock에 `process.getProcessInfo`를 추가하고 `isMac` 분기 테스트를 같이 넣음.
+
+### 수정 파일
+
+- **수정**: `src/renderer/widgets/webpage/index.ts` (`requiresApi`에 `'process'` 추가)
+- **수정**: `src/renderer/widgets/webpage/actionBar.ts` (`withKeys` 헬퍼 + 버튼별 단축키 힌트)
+- **테스트**: `tests/renderer/widgets/webpage/actionBar.spec.ts` (mock에 `process` 추가, 힌트/플랫폼 분기 검증 3건)
+
+---
+
+## 29. Webpage 위젯 — 키보드 단축키: 새로고침 (`F5` / `Ctrl/Cmd+R`) *(2026-06-04)*
+
+Webpage 위젯에 포커스가 있을 때 `F5` 또는 `Ctrl/Cmd+R`로 페이지를 새로고침. 브라우저와 동일하게 **현재 확대 배율은 유지**한다. 그동안 새로고침은 액션바 버튼·컨텍스트 메뉴로만 가능했음.
+
+### 인터페이스
+
+| 입력 | 동작 |
+|---|---|
+| `F5` | webview 새로고침 (modifier 없음) |
+| `Ctrl/Cmd+R` | webview 새로고침. `Shift`는 제외 — `Ctrl+Shift+R`(하드 리로드 관용)은 비워 둠 |
+
+- **줌 유지**: 두 단축키 모두 `wc.reload()`만 호출하므로 확대 배율이 그대로다. 브라우저 F5/Ctrl+R 및 컨텍스트 메뉴의 "Reload this page"와 일치.
+- **액션바 Reload 버튼과의 차이**: 액션바 버튼은 의도적으로 줌을 100%로 리셋한 뒤 새로고침("start fresh", #24)하는데, 키보드 단축키는 줌을 유지한다. 즉 #28에서 버튼 툴팁에 `(F5 · Ctrl+R)`를 표기하지만 키와 버튼의 동작이 줌 처리에서만 미묘하게 다르다 — 일상 사용 시 줌이 갑자기 리셋되는 게 더 거슬린다는 판단.
+
+### 아키텍처
+
+#25(`Ctrl+T`, `Alt+←/→`)와 동일하게 **main `before-input-event`에서 전부 처리, IPC 없음** — webview의 webContents(`wc`)를 직접 들고 있어 `wc.reload()`면 충분.
+
+| 단축키 | 위치/처리 |
+|---|---|
+| `F5` | `src/main/infra/browserWindow/browserWindow.ts` — modifier가 없어 zoom용 `primaryMod` 가드 **앞**(Alt 블록 옆)에 배치. `!control && !meta && !alt && !shift` 확인 후 `wc.reload()` |
+| `Ctrl/Cmd+R` | 같은 파일, `Ctrl+T` 분기 옆. `input.code === 'KeyR' && !input.shift` (레이아웃 독립성 위해 `.code` 사용) 후 `wc.reload()` |
+
+### 까다로웠던 포인트
+
+1. **F5의 배치 순서**: 기존 핸들러는 `const primaryMod = ctrl || meta; if (!primaryMod || alt) return;`로 modifier 없는 키를 일찍 걸러낸다. F5는 modifier가 없으므로 이 가드 **앞**에 두지 않으면 도달하지 못함 — Alt 단독 블록 바로 뒤에 배치.
+2. **`Ctrl+Shift+R` 회피**: 실제 브라우저에서 `Ctrl+Shift+R`은 캐시 무시 하드 리로드. 의미가 다르므로 `!input.shift`로 제외해 향후 하드 리로드 바인딩 여지를 남김.
+
+### 수정 파일
+
+- **수정**: `src/main/infra/browserWindow/browserWindow.ts` (F5 분기 + Ctrl/Cmd+R 분기)
+- **수정**: `src/renderer/widgets/webpage/actionBar.ts` (#28의 Reload 버튼 툴팁에 `F5 · {mod}+R` 표기)
+- **테스트**: `tests/renderer/widgets/webpage/actionBar.spec.ts` (Reload 툴팁 검증 반영)
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

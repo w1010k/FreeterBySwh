@@ -6,7 +6,7 @@
 import { createActionBarItems } from '@/widgets/webpage/actionBar';
 import { WidgetApi } from '@/base/widgetApi';
 
-function setupMocks(currentUrl = 'https://example.com/path?q=1', initialZoom = 1) {
+function setupMocks(currentUrl = 'https://example.com/path?q=1', initialZoom = 1, isMac = false) {
   let zoom = initialZoom;
   const elWebview = {
     getURL: jest.fn(() => currentUrl),
@@ -21,7 +21,8 @@ function setupMocks(currentUrl = 'https://example.com/path?q=1', initialZoom = 1
 
   const clipboard = { writeText: jest.fn(), writeBookmark: jest.fn() };
   const shell = { openExternalUrl: jest.fn(), openApp: jest.fn(), openPath: jest.fn() };
-  const widgetApi = { clipboard, shell } as unknown as WidgetApi;
+  const process = { getProcessInfo: jest.fn(() => ({ isMac })) };
+  const widgetApi = { clipboard, shell, process } as unknown as WidgetApi;
 
   return { elWebview, widgetApi, clipboard };
 }
@@ -88,6 +89,38 @@ describe('Webpage action bar', () => {
     await zoomOut!.doAction();
 
     expect((elWebview as unknown as { setZoomFactor: jest.Mock }).setZoomFactor).toHaveBeenCalledWith(0.9);
+  })
+
+  it('should append keyboard shortcut hints to the relevant button titles (non-mac)', () => {
+    const { elWebview, widgetApi } = setupMocks('https://x', 1, false);
+    const items = createActionBarItems(elWebview, widgetApi, 'https://x', 0, false, () => undefined);
+
+    const titleOf = (id: string) => items.find(item => item.id === id)!.title;
+    expect(titleOf('HOME')).toBe('Go to start page (Alt+Home)');
+    expect(titleOf('BACK')).toBe('Go Back (Alt+←)');
+    expect(titleOf('FORWARD')).toBe('Go Forward (Alt+→)');
+    expect(titleOf('RELOAD')).toBe('Reload this page (F5 · Ctrl+R)');
+    expect(titleOf('ZOOM-OUT')).toBe('Zoom out (Ctrl+-)');
+    expect(titleOf('ZOOM-IN')).toBe('Zoom in (Ctrl++)');
+    expect(titleOf('OPEN-IN-BROWSER')).toBe('Open in web browser (Ctrl+T)');
+  })
+
+  it('should use the Cmd modifier in shortcut hints on macOS', () => {
+    const { elWebview, widgetApi } = setupMocks('https://x', 1, true);
+    const items = createActionBarItems(elWebview, widgetApi, 'https://x', 0, false, () => undefined);
+
+    const titleOf = (id: string) => items.find(item => item.id === id)!.title;
+    expect(titleOf('RELOAD')).toBe('Reload this page (F5 · Cmd+R)');
+    expect(titleOf('ZOOM-IN')).toBe('Zoom in (Cmd++)');
+    expect(titleOf('OPEN-IN-BROWSER')).toBe('Open in web browser (Cmd+T)');
+  })
+
+  it('should leave buttons without a bound shortcut unannotated', () => {
+    const { elWebview, widgetApi } = setupMocks('https://x', 1, false);
+    const items = createActionBarItems(elWebview, widgetApi, 'https://x', 0, false, () => undefined);
+
+    const titleOf = (id: string) => items.find(item => item.id === id)!.title;
+    expect(titleOf('COPY-URL')).toBe('Copy current address');
   })
 
   it('should reset zoom to 100% and reload when RELOAD is invoked', async () => {

@@ -21,7 +21,7 @@ const widgetType: WidgetType<Settings> = {
   createSettingsState,
   settingsEditorComp,
   widgetComp,
-  requiresApi: ['clipboard', 'shell']
+  requiresApi: ['clipboard', 'shell', 'process']
 }
 
 export default widgetType;

@@ -190,6 +190,16 @@ export function createRendererWindow(
           return;
         }
       }
+      // F5 — reload the widget's webview. No modifier; handled in main with
+      // wc.reload(), which keeps the current zoom factor (matching real
+      // browsers). Placed before the primaryMod guard below since F5 carries
+      // no Ctrl/Cmd. Note: this keeps zoom, unlike the action bar's Reload
+      // button which intentionally also resets zoom to 100%.
+      if (input.key === 'F5' && !input.control && !input.meta && !input.alt && !input.shift) {
+        event.preventDefault();
+        wc.reload();
+        return;
+      }
       // CmdOrCtrl+Shift+= (`+`) / CmdOrCtrl+- / CmdOrCtrl+0 — page zoom on
       // the widget's own webview. Only `+` is accepted for "zoom in" (Shift
       // is always pressed): Chromium's `before-input-event` doesn't reliably
@@ -214,6 +224,14 @@ export function createRendererWindow(
         if (safeUrl) {
           shell.openExternal(safeUrl);
         }
+        return;
+      }
+      // CmdOrCtrl+R — reload the widget's webview, keeping zoom (like browsers
+      // and the context menu's Reload). Shift excluded so Ctrl+Shift+R stays
+      // free. Handled in main like Ctrl+T; `.code` for layout independence.
+      if (input.code === 'KeyR' && !input.shift) {
+        event.preventDefault();
+        wc.reload();
         return;
       }
       let direction: IpcZoomWebpageDirection | null = null;
