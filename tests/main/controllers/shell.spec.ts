@@ -59,8 +59,8 @@ describe('ShellControllers', () => {
 
       await handle(event, testAppPath, testCmdArgs);
 
-      expect(openAppUseCase).toBeCalledTimes(1);
-      expect(openAppUseCase).toBeCalledWith(testAppPath, testCmdArgs);
+      expect(openAppUseCase).toHaveBeenCalledTimes(1);
+      expect(openAppUseCase).toHaveBeenCalledWith(testAppPath, testCmdArgs);
     });
   })
 
@@ -80,8 +80,8 @@ describe('ShellControllers', () => {
 
       const res = await handle(event, testUrl);
 
-      expect(openExternalUrlUseCase).toBeCalledTimes(1);
-      expect(openExternalUrlUseCase).toBeCalledWith(testUrl);
+      expect(openExternalUrlUseCase).toHaveBeenCalledTimes(1);
+      expect(openExternalUrlUseCase).toHaveBeenCalledWith(testUrl);
       expect(res).toBe(openExternalUrlUseCaseRes);
     });
   })
@@ -102,8 +102,8 @@ describe('ShellControllers', () => {
 
       const res = await handle(event, testPath);
 
-      expect(openPathUseCase).toBeCalledTimes(1);
-      expect(openPathUseCase).toBeCalledWith(testPath);
+      expect(openPathUseCase).toHaveBeenCalledTimes(1);
+      expect(openPathUseCase).toHaveBeenCalledWith(testPath);
       expect(res).toBe(openPathUseCaseRes);
     });
   })
@@ -122,8 +122,8 @@ describe('ShellControllers', () => {
 
       const res = await handle(event);
 
-      expect(openAppDataDirUseCase).toBeCalledTimes(1);
-      expect(openAppDataDirUseCase).toBeCalledWith();
+      expect(openAppDataDirUseCase).toHaveBeenCalledTimes(1);
+      expect(openAppDataDirUseCase).toHaveBeenCalledWith();
       expect(res).toBe(openAppDataDirUseCaseRes);
     });
   })

@@ -6,7 +6,7 @@
 import { Button, ReactComponent, WidgetReactComponentProps } from '@/widgets/appModules';
 import { Settings } from './settings';
 import { openLinkSvg } from '@/widgets/link-opener/icons';
-import * as styles from './widget.module.scss';
+import styles from './widget.module.scss';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useDynamicIcon } from '@/widgets/useDynamicIcon';
 import { sanitizeUrl } from '@common/helpers/sanitizeUrl';

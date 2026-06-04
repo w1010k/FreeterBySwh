@@ -40,8 +40,8 @@ describe('IconControllers', () => {
 
       const res = await getFileIconController.handle(event, '/some/path');
 
-      expect(getFileIconUseCase).toBeCalledTimes(1);
-      expect(getFileIconUseCase).toBeCalledWith('/some/path', undefined);
+      expect(getFileIconUseCase).toHaveBeenCalledTimes(1);
+      expect(getFileIconUseCase).toHaveBeenCalledWith('/some/path', undefined);
       expect(res).toBe(getFileIconRes);
     });
 
@@ -51,7 +51,7 @@ describe('IconControllers', () => {
 
       await getFileIconController.handle(event, '/some/path', true);
 
-      expect(getFileIconUseCase).toBeCalledWith('/some/path', true);
+      expect(getFileIconUseCase).toHaveBeenCalledWith('/some/path', true);
     });
   });
 
@@ -67,8 +67,8 @@ describe('IconControllers', () => {
 
       const res = await getFaviconController.handle(event, 'https://example.com');
 
-      expect(getFaviconUseCase).toBeCalledTimes(1);
-      expect(getFaviconUseCase).toBeCalledWith('https://example.com', undefined);
+      expect(getFaviconUseCase).toHaveBeenCalledTimes(1);
+      expect(getFaviconUseCase).toHaveBeenCalledWith('https://example.com', undefined);
       expect(res).toBe(getFaviconRes);
     });
 
@@ -78,7 +78,7 @@ describe('IconControllers', () => {
 
       await getFaviconController.handle(event, 'https://example.com', true);
 
-      expect(getFaviconUseCase).toBeCalledWith('https://example.com', true);
+      expect(getFaviconUseCase).toHaveBeenCalledWith('https://example.com', true);
     });
   });
 });

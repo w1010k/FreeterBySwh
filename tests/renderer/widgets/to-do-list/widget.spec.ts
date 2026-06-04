@@ -69,7 +69,7 @@ describe('To-Do List Widget', () => {
       expect(screen.getByRole('list')).toBeInTheDocument();
     })
 
-    expect(getJson).toBeCalledWith('todo');
+    expect(getJson).toHaveBeenCalledWith('todo');
     expect(screen.getAllByRole('listitem')).toHaveLength(3);
   })
 
@@ -87,7 +87,7 @@ describe('To-Do List Widget', () => {
       expect(screen.getByRole('list')).toBeInTheDocument();
     })
 
-    expect(getJson).toBeCalledWith('todo');
+    expect(getJson).toHaveBeenCalledWith('todo');
     expect(screen.queryAllByRole('listitem')).toHaveLength(0);
   })
 
@@ -185,18 +185,18 @@ describe('To-Do List Widget', () => {
     await user.click(checkboxes[0]);
 
     act(() => jest.advanceTimersByTime(200));
-    expect(setJson).toBeCalledTimes(0);
+    expect(setJson).toHaveBeenCalledTimes(0);
 
     await user.click(checkboxes[1]);
 
     act(() => jest.advanceTimersByTime(300));
-    expect(setJson).toBeCalledTimes(0);
+    expect(setJson).toHaveBeenCalledTimes(0);
 
     await user.click(checkboxes[2]);
 
     act(() => jest.advanceTimersByTime(500));
-    expect(setJson).toBeCalledTimes(1);
-    expect(setJson).toBeCalledWith('todo', {
+    expect(setJson).toHaveBeenCalledTimes(1);
+    expect(setJson).toHaveBeenCalledWith('todo', {
       ...testState,
       items: [
         { ...testState.items[0], isDone: true },

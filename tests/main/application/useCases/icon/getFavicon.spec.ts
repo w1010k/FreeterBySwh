@@ -21,8 +21,8 @@ describe('getFaviconUseCase()', () => {
 
     const res = await useCase('freeter.io');
 
-    expect(iconProviderMock.getFavicon).toBeCalledTimes(1);
-    expect(iconProviderMock.getFavicon).toBeCalledWith('https://freeter.io', undefined);
+    expect(iconProviderMock.getFavicon).toHaveBeenCalledTimes(1);
+    expect(iconProviderMock.getFavicon).toHaveBeenCalledWith('https://freeter.io', undefined);
     expect(res).toBe('data:image/png;base64,AAAA');
   });
 
@@ -31,7 +31,7 @@ describe('getFaviconUseCase()', () => {
 
     await useCase('https://example.com/page');
 
-    expect(iconProviderMock.getFavicon).toBeCalledWith('https://example.com/page', undefined);
+    expect(iconProviderMock.getFavicon).toHaveBeenCalledWith('https://example.com/page', undefined);
   });
 
   it('forwards bypassCache=true to iconProvider', async () => {
@@ -39,7 +39,7 @@ describe('getFaviconUseCase()', () => {
 
     await useCase('freeter.io', true);
 
-    expect(iconProviderMock.getFavicon).toBeCalledWith('https://freeter.io', true);
+    expect(iconProviderMock.getFavicon).toHaveBeenCalledWith('https://freeter.io', true);
   });
 
   it('returns null for empty url without calling provider', async () => {
@@ -47,7 +47,7 @@ describe('getFaviconUseCase()', () => {
 
     const res = await useCase('');
 
-    expect(iconProviderMock.getFavicon).not.toBeCalled();
+    expect(iconProviderMock.getFavicon).not.toHaveBeenCalled();
     expect(res).toBeNull();
   });
 
@@ -56,7 +56,7 @@ describe('getFaviconUseCase()', () => {
 
     const res = await useCase('test^url');
 
-    expect(iconProviderMock.getFavicon).not.toBeCalled();
+    expect(iconProviderMock.getFavicon).not.toHaveBeenCalled();
     expect(res).toBeNull();
   });
 

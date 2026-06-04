@@ -21,8 +21,8 @@ describe('getFileIconUseCase()', () => {
 
     const res = await useCase('/some/file');
 
-    expect(iconProviderMock.getFileIcon).toBeCalledTimes(1);
-    expect(iconProviderMock.getFileIcon).toBeCalledWith('/some/file', undefined);
+    expect(iconProviderMock.getFileIcon).toHaveBeenCalledTimes(1);
+    expect(iconProviderMock.getFileIcon).toHaveBeenCalledWith('/some/file', undefined);
     expect(res).toBe('data:image/png;base64,AAAA');
   });
 
@@ -31,7 +31,7 @@ describe('getFileIconUseCase()', () => {
 
     await useCase('/some/file', true);
 
-    expect(iconProviderMock.getFileIcon).toBeCalledWith('/some/file', true);
+    expect(iconProviderMock.getFileIcon).toHaveBeenCalledWith('/some/file', true);
   });
 
   it('returns null without calling provider for empty path', async () => {
@@ -39,7 +39,7 @@ describe('getFileIconUseCase()', () => {
 
     const res = await useCase('');
 
-    expect(iconProviderMock.getFileIcon).not.toBeCalled();
+    expect(iconProviderMock.getFileIcon).not.toHaveBeenCalled();
     expect(res).toBeNull();
   });
 

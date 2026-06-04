@@ -19,8 +19,8 @@ describe('IconProvider', () => {
 
       iconProvider.getFileIcon(testPath);
 
-      expect(electronIpcRenderer.invoke).toBeCalledTimes(1);
-      expect(electronIpcRenderer.invoke).toBeCalledWith(ipcGetFileIconChannel, testPath, undefined);
+      expect(electronIpcRenderer.invoke).toHaveBeenCalledTimes(1);
+      expect(electronIpcRenderer.invoke).toHaveBeenCalledWith(ipcGetFileIconChannel, testPath, undefined);
     })
 
     it('forwards the bypassCache flag', () => {
@@ -28,7 +28,7 @@ describe('IconProvider', () => {
 
       iconProvider.getFileIcon('/some/file', true);
 
-      expect(electronIpcRenderer.invoke).toBeCalledWith(ipcGetFileIconChannel, '/some/file', true);
+      expect(electronIpcRenderer.invoke).toHaveBeenCalledWith(ipcGetFileIconChannel, '/some/file', true);
     })
   })
 
@@ -39,8 +39,8 @@ describe('IconProvider', () => {
 
       iconProvider.getFavicon(testUrl);
 
-      expect(electronIpcRenderer.invoke).toBeCalledTimes(1);
-      expect(electronIpcRenderer.invoke).toBeCalledWith(ipcGetFaviconChannel, testUrl, undefined);
+      expect(electronIpcRenderer.invoke).toHaveBeenCalledTimes(1);
+      expect(electronIpcRenderer.invoke).toHaveBeenCalledWith(ipcGetFaviconChannel, testUrl, undefined);
     })
 
     it('forwards the bypassCache flag', () => {
@@ -48,7 +48,7 @@ describe('IconProvider', () => {
 
       iconProvider.getFavicon('https://example.com', true);
 
-      expect(electronIpcRenderer.invoke).toBeCalledWith(ipcGetFaviconChannel, 'https://example.com', true);
+      expect(electronIpcRenderer.invoke).toHaveBeenCalledWith(ipcGetFaviconChannel, 'https://example.com', true);
     })
   })
 });
