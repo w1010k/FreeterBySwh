@@ -176,6 +176,11 @@ function createStore() {
     resolve(true);
   });
 
+  // Persist any pending (debounced) app state before the window unloads. Best-effort:
+  // the save is dispatched over IPC and not awaited, but flushing here shrinks the
+  // loss window from the debounce delay (~5s) to the unload moment.
+  window.addEventListener('beforeunload', () => appStore.flush());
+
   return {
     appStore,
     appStoreForUi,

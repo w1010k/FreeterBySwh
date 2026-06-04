@@ -65,5 +65,53 @@ describe('debounce', () => {
 
       expect(fn).not.toBeCalled();
     })
+
+    it('should make a following flush a no-op', () => {
+      const fn = jest.fn();
+      const debouncedFn = debounce(fn, 2000);
+
+      debouncedFn()
+      debouncedFn.cancel();
+      debouncedFn.flush();
+
+      expect(fn).not.toBeCalled();
+    })
+  })
+
+  describe('flush', () => {
+    it('should immediately call the pending function with the last args and clear the timer', () => {
+      const fn = jest.fn();
+      const debouncedFn = debounce(fn, 2000);
+
+      debouncedFn('a', 1)
+      debouncedFn.flush();
+
+      expect(fn).toBeCalledTimes(1);
+      expect(fn).toBeCalledWith('a', 1);
+
+      jest.advanceTimersByTime(2000);
+      expect(fn).toBeCalledTimes(1);
+    })
+
+    it('should be a no-op when there is no pending call', () => {
+      const fn = jest.fn();
+      const debouncedFn = debounce(fn, 2000);
+
+      debouncedFn.flush();
+
+      expect(fn).not.toBeCalled();
+    })
+
+    it('should be a no-op when the pending call has already fired', () => {
+      const fn = jest.fn();
+      const debouncedFn = debounce(fn, 2000);
+
+      debouncedFn()
+      jest.advanceTimersByTime(2000);
+      expect(fn).toBeCalledTimes(1);
+
+      debouncedFn.flush();
+      expect(fn).toBeCalledTimes(1);
+    })
   })
 })

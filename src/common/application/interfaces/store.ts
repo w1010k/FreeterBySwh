@@ -13,6 +13,8 @@ export type StateInStore<TState extends object> = TState & {
 export interface Store<TState extends object> {
   get: GetState<StateInStore<TState>>;
   set: SetState<StateInStore<TState>>;
+  /** Immediately persist a pending debounced save (if any). Used to avoid losing the last change on quit. */
+  flush: () => void;
   subscribe: <U>(selector: (state: StateInStore<TState>) => U, listener: (selectedState: U, previousSelectedState: U) => void, options?: {
     fireImmediately?: boolean;
   }) => () => void;

@@ -7,6 +7,8 @@ export type DebouncedFunc<TArgs extends unknown[] = unknown[]> = (
   (...args: TArgs) => void
 ) & {
   cancel: () => void;
+  /** Run the pending call immediately (if any) and clear the timer. No-op when nothing is pending. */
+  flush: () => void;
 }
 
 export function debounce<TArgs extends unknown[] = unknown[]>(
@@ -14,14 +16,29 @@ export function debounce<TArgs extends unknown[] = unknown[]>(
   msec: number
 ) {
   let timer: ReturnType<typeof setTimeout>;
+  let pendingArgs: TArgs | undefined;
   const debouncedFunc: DebouncedFunc<TArgs> = (...args) => {
+    pendingArgs = args;
     clearTimeout(timer);
     timer = setTimeout(() => {
+      pendingArgs = undefined;
       func(...args);
     }, msec);
   };
 
-  debouncedFunc.cancel = () => clearTimeout(timer);
+  debouncedFunc.cancel = () => {
+    clearTimeout(timer);
+    pendingArgs = undefined;
+  };
+
+  debouncedFunc.flush = () => {
+    if (pendingArgs !== undefined) {
+      clearTimeout(timer);
+      const args = pendingArgs;
+      pendingArgs = undefined;
+      func(...args);
+    }
+  };
 
   return debouncedFunc;
 }

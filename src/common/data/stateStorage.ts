@@ -13,6 +13,8 @@ export const windowStateDataStoragKey = 'window';
 export interface StateStorage<TState extends object, TPersistentState extends object> {
   loadState(): Promise<TPersistentState | null>;
   saveState(state: TState): void;
+  /** Immediately persist a pending debounced save (if any). Used to avoid losing the last change on quit. */
+  flush(): void;
 }
 
 export function createStateStorage<TState extends object, TPersistentState extends object>(
@@ -26,6 +28,7 @@ export function createStateStorage<TState extends object, TPersistentState exten
   const saveState = (state: TState) => {
     dataStorage.setJson(stateDataStoragKey, createVersionedObject(persistentStateFactory(state), version));
   }
+  const debouncedSaveState = debounceMsec > 0 ? debounce(saveState, debounceMsec) : undefined;
   return {
     async loadState() {
       const gotData = await dataStorage.getJson(stateDataStoragKey);
@@ -35,6 +38,7 @@ export function createStateStorage<TState extends object, TPersistentState exten
       // TODO: validate PersistentState data
       return unwrapVersionedObject(gotData, version, migrate)
     },
-    saveState: debounceMsec > 0 ? debounce(saveState, 5000) : saveState
+    saveState: debouncedSaveState ?? saveState,
+    flush: () => debouncedSaveState?.flush()
   }
 }

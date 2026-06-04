@@ -7,7 +7,7 @@ import { ShelfItemProps, useShelfItemViewModel } from '@/ui/components/topBar/sh
 import { WidgetComponent } from '@/ui/components/widget';
 import clsx from 'clsx';
 import * as styles from './shelf.module.scss';
-import { useRef } from 'react';
+import { memo, useRef } from 'react';
 
 type Deps = {
   Widget: WidgetComponent;
@@ -69,7 +69,9 @@ export function createShelfItemComponent({
       </li>
     )
   }
-  return Component;
+  // Memoized for consistency with the other list items (WidgetLayoutItem, etc.):
+  // skips re-renders when the parent re-renders for reasons unrelated to this item.
+  return memo(Component);
 }
 
 export type ShelfItemComponent = ReturnType<typeof createShelfItemComponent>;

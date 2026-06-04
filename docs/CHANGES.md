@@ -1028,6 +1028,44 @@ Webpage 위젯에 포커스가 있을 때 `F5` 또는 `Ctrl/Cmd+R`로 페이지�
 
 ---
 
+## 30. 데이터 저장 안정성·정합성 개선 *(2026-06-04)*
+
+겉으로 드러나지 않지만 사용자 데이터를 지키는 저장 경로를 점검해 네 가지를 고쳤다. 모두 "데이터가 조용히 사라지거나 어긋나는" 종류의 문제다.
+
+### 사용자 가시적 효과
+
+1. **종료 직전 변경이 사라지지 않음**: 상태 저장은 마지막 변경 후 5초 debounce로 디스크에 쓰인다. 그래서 위젯 배치를 바꾸거나 창을 옮긴 뒤 5초 안에 앱을 닫으면 그 변경이 저장되지 않았다. 이제 앱 종료(`will-quit`) 및 창 unload(`beforeunload`) 시 대기 중인 저장을 즉시 flush한다 — 손실 가능 구간이 ~5초에서 종료 순간 수준으로 줄었다. (디스크 쓰기 자체는 비동기라 best-effort이며, 완전한 동기 보장은 별도 과제로 남김.)
+2. **특수문자 키 데이터 정합성**: 파일 저장 시 키의 특수문자(`:`, `/`, `*` 등)는 `_`로 치환해 파일명을 만드는데, 읽기(`getText`)·삭제는 치환된 경로를 쓰면서 **쓰기(`setText`)만 원본 키로 다른 경로에 저장**하고 있었다. 이런 키를 쓰는 데이터는 저장 후 다시 읽으면 보이지 않았다. 쓰기도 치환된 경로를 쓰도록 통일.
+3. **삭제 누락/에러 전파**: 파일 삭제(`deleteItem`)가 `await` 없이 호출돼 삭제 완료 전에 후속 동작(broadcast 등)이 진행될 수 있었고, 존재하지 않는 파일 삭제 시 unhandled rejection이 떠다녔다. `await rm(.., { force: true })`로 완료 보장 + 비존재 안전 처리.
+4. **로드 실패 시 빈 화면 방지**: 영속 상태 로드(`loadState`)가 예기치 못하게 reject하면 `onStoreReady`가 호출되지 않아 UI가 `isLoading` 상태로 영영 멈출 수 있었다. catch를 추가해 실패 시 기본 상태로 UI가 뜨도록 함.
+
+### 아키텍처
+
+- `debounce` 헬퍼에 `flush()` 추가 (대기 중인 호출을 마지막 인자로 즉시 실행 후 타이머 정리). 기존 `cancel()`과 대칭.
+- `StateStorage`/`Store` 인터페이스에 `flush()` 추가 → `createStateStorage`가 내부 debounced save를 노출, `createStore`가 이를 위임. main은 `windowStore`를 `will-quit`에서, renderer는 `appStore`를 `beforeunload`에서 flush.
+- `createStateStorage`가 그동안 무시하던 `debounceMsec` 인자를 실제로 사용하도록 수정 (기존엔 `5000` 하드코딩 — 모든 호출자가 5000을 넘겨 우연히 무해했음).
+- `store.set`은 set 전후 상태를 `shallow` 비교해 **변경이 없으면 저장(및 debounce 타이머 재설정)을 스킵**. dragOver처럼 동일 상태를 재설정하는 고빈도 경로의 불필요한 작업을 줄임 (zustand는 이미 구독자 알림을 단락시키므로 리렌더에는 영향 없음).
+
+### 까다로웠던 포인트
+
+- **종료 flush는 "완벽한 동기 보장"이 아니다**: flush는 디스크 쓰기를 *발사*할 뿐 완료를 기다리지 않는다(setText는 async, 미await). 완전 보장하려면 `before-quit` preventDefault + IPC 왕복 + 저장 완료 ack가 필요해 범위를 키우게 되므로, 손실 구간을 대폭 줄이는 best-effort로 한정했다.
+- **`fileDataStorage` 테스트의 `node:original-fs`**: 이 모듈은 Electron 전용이라 Jest에서 로드 불가. `jest.mock('node:original-fs', () => jest.requireActual('node:fs'), { virtual: true })`로 우회 (lint의 `no-require-imports` 때문에 `require` 대신 `jest.requireActual`).
+- **렌더 성능은 대부분 이미 최적화돼 있었다**: 리스트 아이템 중 `WidgetLayoutItem`·`Palette`·`WorkflowSwitcher`는 이미 `memo`. `ShelfItem`만 누락이라 일관성 차원에서 `memo` 추가. resize/scroll throttle은 `mouseup` 최종값 보정·`scrollLeft` 위치 계산 의존 때문에 회귀 위험 대비 이득이 불확실해 측정 기반 별도 과제로 보류.
+
+### 수정 파일
+
+- **수정**: `src/common/helpers/debounce.ts` (`flush()` 추가)
+- **수정**: `src/common/data/stateStorage.ts` (`debounceMsec` 존중 + `flush()` 노출)
+- **수정**: `src/common/data/store.ts` (no-op set 게이팅, `loadState` catch, `flush()` 위임)
+- **수정**: `src/common/application/interfaces/store.ts` (`flush` 추가)
+- **수정**: `src/main/infra/dataStorage/fileDataStorage.ts` (`setText` 경로 통일, `deleteItem` await/force)
+- **수정**: `src/main/index.ts` (`will-quit`에서 `windowStore` flush)
+- **수정**: `src/renderer/init.ts` (`beforeunload`에서 `appStore` flush)
+- **수정**: `src/renderer/ui/components/topBar/shelf/shelfItem.tsx` (`memo`)
+- **테스트**: `tests/main/infra/dataStorage/fileDataStorage.spec.ts` (신규), `tests/common/helpers/debounce.spec.ts`, `tests/common/data/store.spec.ts`
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

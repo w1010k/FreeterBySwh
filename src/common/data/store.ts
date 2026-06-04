@@ -28,30 +28,42 @@ export function createStore<TState extends object, TPersistentState extends obje
   const { getState, setState, subscribe } = zustandStore;
 
   let isLoaded = false;
+  const finishLoad = (state: TState) => {
+    setState(prepareState(state), true);
+    isLoaded = true;
+    if (onStoreReady) {
+      onStoreReady();
+    }
+  }
   stateStorage.loadState()
     .then(loadedState => {
-      let state: TState;
-      if (loadedState !== null) {
-        state = mergeState(initialState, loadedState);
-      } else {
-        state = initialState;
-      }
-      setState(prepareState(state), true);
-
-      isLoaded = true;
-      if (onStoreReady) {
-        onStoreReady();
-      }
+      finishLoad(loadedState !== null ? mergeState(initialState, loadedState) : initialState);
+    })
+    .catch(err => {
+      // Don't let a failed load leave the store stuck in isLoading forever — start
+      // with defaults so the UI can mount. (getJson normally swallows I/O errors,
+      // so this is a defensive safety net for unexpected rejections.)
+      console.error('Failed to load persisted state; starting with defaults.', err);
+      finishLoad(initialState);
     })
 
   const store: Store<TState> = {
     get: getState,
     set: state => {
       if (isLoaded) {
+        const prevState = getState();
         setState(state);
-        stateStorage.saveState(state);
+        const nextState = getState();
+        // Skip the save (and its debounce-timer reset) when the set was a no-op.
+        // High-frequency callers (e.g. dragOver) can re-set an unchanged state;
+        // zustand already short-circuits subscriber notifications, this avoids
+        // churning the persistence timer too.
+        if (!shallow(prevState, nextState)) {
+          stateStorage.saveState(nextState);
+        }
       }
     },
+    flush: () => stateStorage.flush(),
     subscribe: (selector, listener, options) => subscribe(selector, listener, { ...options, equalityFn: shallow }),
     subscribeWithStrictEq: subscribe,
     subscribeWithCustomEq: subscribe

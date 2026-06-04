@@ -102,6 +102,12 @@ if (!app.requestSingleInstanceLock()) {
 
   const globalShortcutProvider = createGlobalShortcutProvider();
 
+  // Set once the window store is created; flushed on quit so a pending (debounced)
+  // window position/size save isn't lost. Best-effort: the underlying disk write is
+  // async and not awaited, but flushing here shrinks the loss window from the
+  // debounce delay (~5s) to a few ms.
+  let flushWindowStore: (() => void) | undefined;
+
   const processProvider = createProcessProvider();
   const processInfo = processProvider.getProcessInfo();
   const { isDevMode } = processInfo;
@@ -127,6 +133,8 @@ if (!app.requestSingleInstanceLock()) {
     + `Chrome/${chromeMajor}.0.0.0 Safari/537.36`;
 
   app.on('will-quit', () => {
+    // Persist any pending (debounced) window state before exiting.
+    flushWindowStore?.();
     // Unregister global shortcuts
     globalShortcutProvider.destroy();
   })
@@ -285,6 +293,7 @@ if (!app.requestSingleInstanceLock()) {
 
       initTrayUseCase(appWindow);
     })
+    flushWindowStore = () => windowStore.flush();
   });
 
 }

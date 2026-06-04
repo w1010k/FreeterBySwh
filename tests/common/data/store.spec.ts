@@ -172,6 +172,64 @@ describe('Store', () => {
         }
       })
     })
+
+    it('should not saveState, when the set does not change the state (no-op set)', done => {
+      const initState = { state: 'init state' };
+      const stateStorage = fixtureStateStorageWithNoData();
+      stateStorage.saveState = jest.fn();
+      const [store] = createStore({
+        stateStorage,
+      }, initState, s => s, s => s, () => {
+        store.set({ ...initState });
+
+        try {
+          expect(stateStorage.saveState).not.toBeCalled();
+          done();
+        } catch (e) {
+          done(e);
+        }
+      });
+    })
+  })
+
+  describe('flush', () => {
+    it('should flush the StateStorage', done => {
+      const stateStorage = fixtureStateStorageWithNoData();
+      stateStorage.flush = jest.fn();
+      const [store] = createStore({
+        stateStorage,
+      }, {}, s => s, s => s, () => {
+        store.flush();
+
+        try {
+          expect(stateStorage.flush).toBeCalledTimes(1);
+          done();
+        } catch (e) {
+          done(e);
+        }
+      });
+    })
+  })
+
+  describe('failed load', () => {
+    it('should start with the init state and become ready, when loadState rejects', done => {
+      const initState = { state: 'init state' };
+      const stateStorage = fixtureStateStorageWithNoData();
+      stateStorage.loadState = jest.fn(() => Promise.reject(new Error('load failed')));
+      const errSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      const [store] = createStore({
+        stateStorage,
+      }, initState, s => s, s => s, () => {
+        try {
+          expect(store.get()).toEqual(initState);
+          done();
+        } catch (e) {
+          done(e);
+        } finally {
+          errSpy.mockRestore();
+        }
+      });
+    })
   })
 
   // it('should allow to subscribe to state changes', () => {
