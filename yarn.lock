@@ -403,7 +403,7 @@
 
 "@electron/node-gyp@https://github.com/electron/node-gyp#06b29aafb7708acef8b3669835c8a7857ebc92d2":
   version "10.2.0-electron.1"
-  resolved "git+ssh://git@github.com/electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2"
+  resolved "git+https://github.com/electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2"
   integrity sha512-BKHRQhfdxxhJib3igsxAF0Rbg51Q4pC6fBiroztNGuh7iHGFidCt4/TUGGse6xdy5/JdBnnoQaA6U7SKUgqsoA==
   dependencies:
     env-paths "^2.2.0"
