@@ -20,7 +20,13 @@ jobs:
           node-version: 20
 
       - name: Install Deps
-        run: yarn install
+        run: |
+          # Some transitive deps (e.g. @electron/node-gyp) are locked with a
+          # git+ssh:// resolved URL; rewrite to HTTPS so `yarn install` can fetch
+          # them on runners without SSH keys.
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git config --global --add url."https://github.com/".insteadOf "ssh://git@github.com/"
+          yarn install
 
       - name: Run Tests
         run: yarn run test
