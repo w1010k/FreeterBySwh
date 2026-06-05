@@ -42,22 +42,24 @@ describe('File Explorer Widget', () => {
     expect(screen.getByText(/no folders configured/i)).toBeInTheDocument();
   })
 
-  it('should render the configured favorite folders as root directory nodes', () => {
+  it('should render the configured favorite folders as root directory nodes, preserving registration order', () => {
+    // 'Downloads' before 'Documents' is the configured order, NOT alphabetical —
+    // roots are fed as presorted input so the tree keeps the user's order.
     setupSut(fixtureSettings({ paths: ['/home/user/Downloads', '/home/user/Documents'] }));
 
-    expect(treesMock.__getModel().resetPaths).toHaveBeenCalledWith(['Downloads/', 'Documents/']);
+    expect(treesMock.__getModel().resetPaths).toHaveBeenCalledWith(undefined, { preparedInput: { paths: ['Downloads/', 'Documents/'] } });
   })
 
   it('should disambiguate root nodes that share a basename', () => {
     setupSut(fixtureSettings({ paths: ['/a/src', '/b/src'] }));
 
-    expect(treesMock.__getModel().resetPaths).toHaveBeenCalledWith(['src/', 'src (2)/']);
+    expect(treesMock.__getModel().resetPaths).toHaveBeenCalledWith(undefined, { preparedInput: { paths: ['src/', 'src (2)/'] } });
   })
 
   it('should ignore empty path entries', () => {
     setupSut(fixtureSettings({ paths: ['', '/home/user/Documents', '  '] }));
 
-    expect(treesMock.__getModel().resetPaths).toHaveBeenCalledWith(['Documents/']);
+    expect(treesMock.__getModel().resetPaths).toHaveBeenCalledWith(undefined, { preparedInput: { paths: ['Documents/'] } });
   })
 
   it('should NOT open a directory on double-click (reserved for expand/collapse)', async () => {

@@ -8,6 +8,7 @@ import { Settings } from './settings';
 import { CSSProperties, useCallback, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { FileTree, useFileTree } from '@pierre/trees/react';
+import { preparePresortedFileTreeInput } from '@pierre/trees';
 import type { ContextMenuItem, ContextMenuOpenContext, FileTreeRowDecoration, FileTreeRowDecorationContext } from '@pierre/trees';
 import { buildEntryPaths, buildRootEntries, humanFileSize, toMapKey, toTreePath } from './treeModel';
 import styles from './widget.module.scss';
@@ -104,7 +105,11 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     loadedDirs.current.clear();
     const built = buildRootEntries(pathsKey.split('\n'));
     registerEntries(built.entries);
-    model.resetPaths(built.treePaths);
+    // Feed the roots as a *presorted* prepared input (and omit `paths`) so the
+    // tree keeps the user's configured folder order verbatim instead of applying
+    // its default folder sort. Children loaded lazily below still use the tree's
+    // default (natural, folders-first) sibling sort, which respects `sort: 'default'`.
+    model.resetPaths(undefined as unknown as readonly string[], { preparedInput: preparePresortedFileTreeInput(built.treePaths) });
   }, [pathsKey, showFileSize, model, registerEntries]);
 
   // Lazily read a directory's children the first time it gets expanded.

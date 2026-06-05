@@ -1036,6 +1036,7 @@ Webpage 위젯에 포커스가 있을 때 `F5` 또는 `Ctrl/Cmd+R`로 페이지�
 
 - **즐겨찾기(Favorites) 모델**: 한 폴더의 전부를 보여주는 게 아니라, 위젯 설정에서 **여러 폴더 경로를 등록**(File Opener의 다중 경로 UI와 동일한 add/삭제/폴더 선택)하면 그 폴더들만 트리 루트에 뜬다. 예: `Downloads`·`Documents`를 등록하면 루트에 그 둘만 보이고, 각각을 펼쳐 하위를 탐색.
 - **루트 라벨**: 등록 경로의 마지막 폴더명으로 표시(`.../Downloads` → `Downloads`). 이름이 겹치면 ` (2)`, ` (3)`로 구분.
+- **루트는 등록 순서 유지**: 트리 라이브러리는 기본적으로 형제 노드를 폴더 우선·알파벳순으로 자동 정렬하지만, **루트(등록한 즐겨찾기 폴더)만은 설정에 적은 순서를 그대로** 표시한다(`Downloads`→`Documents`로 적으면 알파벳순 `Documents`가 앞으로 가지 않음). 폴더 안쪽(하위 항목)은 그대로 라이브러리 기본 정렬(폴더 우선 + 자연스러운 숫자 정렬).
 - **지연 로딩(lazy expand)**: 폴더를 펼치는 순간 그 폴더의 내용만 읽는다. 등록 폴더를 통째로 재귀 스캔하지 않으므로 `node_modules` 같은 거대 트리에서도 가볍다.
 - **더블클릭 = 파일만 열기**: 파일을 더블클릭하면 OS 기본 앱으로 연다. **폴더는 더블클릭으로 열리지 않는다** — 폴더는 클릭으로 펼침/접힘만 한다(더블클릭은 결국 싱글클릭 2번이라 "폴더 더블클릭=탐색기 열기"로 두면 펼침과 충돌·깜빡임이 생김). 빠른 트리 탐색을 위해 폴더 토글과 파일 열기를 분리.
 - **컨텍스트 메뉴**: 우클릭 시 종류별로 — 파일은 **Open**, 폴더는 **Open in File Explorer**(둘 다 OS 기본 핸들러로 열기) / 공통 **Copy Path**(절대경로 클립보드 복사). 폴더를 탐색기로 여는 동작은 여기로 분리. 메뉴는 위젯 타일의 CSS `transform` 영향을 피하려 `document.body`로 포털해 클릭 좌표(`anchorRect`)에 띄움.
@@ -1065,6 +1066,7 @@ Webpage 위젯에 포커스가 있을 때 `F5` 또는 `Ctrl/Cmd+R`로 페이지�
 4. **jest mock 접근**: 스펙에서 `jest.requireMock`을 쓰면 mock 파일을 **자동 목(automock)** 해버려 `__getModel()`이 `undefined`를 반환했다. moduleNameMapper로 매핑된 일반 `import`를 쓰면 위젯과 **같은 mock 인스턴스**를 받는다.
 5. **컨텍스트 메뉴 위치**: 위젯 타일이 `transform: translate()`로 배치되므로 메뉴를 그냥 `position: fixed`로 두면 뷰포트가 아니라 타일 기준으로 앵커돼 엉뚱한 곳에 떴다. `createPortal(…, document.body)`로 transform 조상을 벗어나 `anchorRect.x/y`(=`clientX/Y`)에 고정. 라이브러리가 메뉴 내부 클릭을 "바깥 클릭"으로 보고 닫지 않도록 포털 루트에 `data-file-tree-context-menu-root="true"` 필요.
 6. **안정성·성능(최종 점검)**: ① 즐겨찾기 재빌드 중 이전 트리의 lazy `readDir`가 늦게 끝나 새 트리에 stale 노드를 `add`하던 race를 `loadEpoch` 가드로 차단. ② rebuild 이펙트가 `paths` **배열 identity**에 의존하면 store가 새 배열을 줄 때마다 트리를 통째로 재빌드하므로, 내용 기반 `pathsKey`(문자열)로만 키잉. ③ `subscribe` cadence를 컴파일본에서 실측 — 컨트롤러 `#emit()`는 **사용자 스크롤이 아니라 상태 변경(펼침/선택/검색/add) 때만** 호출돼서, lazy 로더의 "변경 때마다 디렉터리 스캔"은 고빈도가 아님(헛최적화 회피).
+7. **루트만 정렬 끄기**: `@pierre/trees`의 `sort` 옵션은 트리 전체(루트+모든 자식)에 적용돼서, 커스텀 comparator로 "루트만 무정렬"을 구현하려면 자식 쪽 기본 정렬(폴더 우선 + **natural/numeric** 토큰 정렬, `file2`<`file10`)을 직접 재구현해야 했다(미묘한 회귀 위험). 대신 라이브러리 컴파일본을 읽어 `resetPaths(paths, { preparedInput })` 경로가 **presorted 입력은 검증·재정렬 없이 그대로 신뢰**함을 확인 → 루트는 `preparePresortedFileTreeInput(...)`로 등록 순서 그대로 넣고(`paths` 인자는 생략: 둘 다 주면 `paths`를 기본 정렬해 presorted와 일치하는지 검증하다 throw), 자식은 `model.add`가 기존처럼 `sort:'default'`(natural)로 삽입. comparator 재구현 없이 자식 동작은 무변경.
 
 > 런타임(beta 라이브러리)의 빈 폴더 펼침·컨텍스트 메뉴 배치 등 일부 동작은 단위 테스트가 mock 기반이라, 실제 Electron에서 스모크 검증함(트리 표시·lazy 펼침·더블클릭 열기·우클릭 메뉴 위치·파일크기·검색창 모두 확인).
 
