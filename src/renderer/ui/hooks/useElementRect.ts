@@ -57,7 +57,5 @@ export function useElementRect(opts?: {
     };
   }, [opts?.useViewportRect]);
 
-  console.log(rect);
-
   return [ref, rect] as const;
 }

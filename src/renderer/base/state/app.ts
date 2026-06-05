@@ -98,7 +98,6 @@ export function mergeAppStateWithPersistentAppState(
 }
 
 export const migrateAppState: MigrateVersionedObject<object, PersistentAppState> = (fromData, fromVer) => {
-  console.log(fromVer);
   let toData = {
     ...fromData
   } as PersistentAppState

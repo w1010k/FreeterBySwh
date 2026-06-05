@@ -217,8 +217,6 @@ export function useWidgetLayoutItemViewModel(props: WidgetLayoutItemProps) {
     }
   }), [maximized])
 
-  console.log(isDragging);
-
   return {
     env,
     widgetId,

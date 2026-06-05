@@ -56,7 +56,10 @@ export async function createFileDataStorage(dataType: 'string', storageDirPath: 
   try {
     await mkdir(normStorageDirPath, { recursive: true });
   } catch (err) {
-    // TODO: handle err
+    // Surface the failure: a silently-failed mkdir means every later read/write
+    // to this storage dir fails with no clue why. Don't throw — callers treat
+    // storage as best-effort, but make the root cause visible in the logs.
+    console.error(`Failed to create data storage directory "${normStorageDirPath}":`, err);
   }
   return {
     deleteItem: async (key) => {
