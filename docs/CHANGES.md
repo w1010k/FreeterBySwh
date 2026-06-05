@@ -1042,7 +1042,7 @@ Webpage 위젯에 포커스가 있을 때 `F5` 또는 `Ctrl/Cmd+R`로 페이지�
 - **파일 크기 표시(설정 토글)**: 각 파일 행 우측 끝에 사람이 읽기 좋은 크기(`1.4 KB`, `3 MB` …)를 row decoration으로 표시(폴더는 없음). 설정의 **Show file sizes**(기본 켜짐)로 끌 수 있다. `readDir`가 파일 entry마다 `stat`으로 크기를 함께 반환 — 디렉터리 진입(lazy) 시에만 읽으므로 비용은 펼친 폴더로 한정.
 - **검색**: `Ctrl/Cmd+F`로 라이브러리 내장 검색창을 열어 필터(`hide-non-matches` 모드 — 매치 안 되는 행 숨김). **제약 둘**: ① lazy 로딩이라 모델에 올라온(=펼친) 노드만 검색됨(안 펼친 폴더 속 파일은 안 걸림). ② `@pierre/trees`(beta)의 검색·이름변경 입력이 **IME 조합(`isComposing`)을 가드하지 않아** 한글/CJK 입력이 매 글자 재필터·재렌더에 깨질 수 있음(매칭 로직 자체는 `toLowerCase`+부분일치라 한글 OK). 전체 재귀 검색·IME 안전한 자체 검색창은 별도 과제로 보류.
 - 등록된 폴더가 없으면 "설정에서 폴더를 추가하라"는 안내를 표시한다.
-- **모양**: 트리는 `@pierre/trees`의 테마 변수(`--trees-theme-*`)를 Freeter 테마 변수(`--freeter-*`)에 바인딩해 **현재 Freeter 테마(라이트/다크)를 자동으로 따라간다** — 색 하드코딩·테마 선택 UI 없음(CSS 변수가 트리 shadow DOM으로 상속). 행 밀도는 좁은 타일에 더 많이 보이도록 **Compact(행 24px)** 고정. 파일 타입 아이콘은 내장 `standard` 세트 + **컬러(`colored`)** 로 스캔하기 쉽게.
+- **모양**: 트리는 `@pierre/trees`의 테마 변수(`--trees-theme-*`)를 Freeter 테마 변수(`--freeter-*`)에 바인딩해 **현재 Freeter 테마(라이트/다크)를 자동으로 따라간다** — 색 하드코딩·테마 선택 UI 없음(CSS 변수가 트리 shadow DOM으로 상속). 행 밀도는 좁은 타일에 더 많이 보이도록 **Compact(행 24px)** 고정. 파일 타입 아이콘은 내장 `standard` 세트 + **컬러(`colored`)** 로 스캔하기 쉽게. 트리 기본 16px 좌우 거터는 `--trees-padding-inline-override: 0`(라이브러리 공식 훅)으로 없애 행이 위젯 가장자리에 붙도록 함.
 
 ### 아키텍처
 
