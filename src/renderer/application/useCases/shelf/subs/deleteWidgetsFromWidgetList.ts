@@ -10,14 +10,14 @@ export function deleteWidgetsFromWidgetListSubCase(
   widgetIdsToDel: EntityId[],
   widgetList: WidgetList,
 ): [newList: WidgetList, deletedIds: EntityId[]] {
+  const idsToDel = new Set(widgetIdsToDel);
   const delWidgetIds: EntityId[] = [];
   const newList = widgetList.filter(item => {
-    if (widgetIdsToDel.indexOf(item.widgetId) > -1) {
+    if (idsToDel.has(item.widgetId)) {
       delWidgetIds.push(item.widgetId);
       return false;
-    } else {
-      return true;
     }
+    return true;
   })
   return [newList, delWidgetIds];
 }

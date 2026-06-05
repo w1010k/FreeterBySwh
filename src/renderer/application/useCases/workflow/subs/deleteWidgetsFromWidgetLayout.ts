@@ -10,14 +10,14 @@ export function deleteWidgetsFromWidgetLayoutSubCase(
   widgetIds: EntityId[],
   layout: WidgetLayout,
 ): [newLayout: WidgetLayout, deletedIds: EntityId[]] {
+  const idsToDel = new Set(widgetIds);
   const delWidgetIds: EntityId[] = [];
   const newLayout = layout.filter(item => {
-    if (widgetIds.indexOf(item.widgetId) > -1) {
+    if (idsToDel.has(item.widgetId)) {
       delWidgetIds.push(item.widgetId);
       return false;
-    } else {
-      return true;
     }
+    return true;
   })
   return [newLayout, delWidgetIds];
 }
