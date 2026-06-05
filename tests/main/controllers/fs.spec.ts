@@ -49,8 +49,21 @@ describe('FsControllers', () => {
       const res = await handle(event, testPath);
 
       expect(readDirUseCase).toHaveBeenCalledTimes(1);
-      expect(readDirUseCase).toHaveBeenCalledWith(testPath);
+      expect(readDirUseCase).toHaveBeenCalledWith(testPath, undefined);
       expect(res).toBe(readDirUseCaseRes);
+    });
+
+    it('should forward read options to the usecase', async () => {
+      const testPath = '/some/dir';
+      const opts = { includeHidden: false, includeSizes: false };
+
+      const { readDirController, readDirUseCase } = setup();
+      const { handle } = readDirController;
+      const event = fixtureIpcMainEvent();
+
+      await handle(event, testPath, opts);
+
+      expect(readDirUseCase).toHaveBeenCalledWith(testPath, opts);
     });
   })
 

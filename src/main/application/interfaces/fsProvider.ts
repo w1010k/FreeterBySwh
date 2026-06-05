@@ -3,9 +3,9 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { FsDirEntry } from '@common/base/fs';
+import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
 
 export interface FsProvider {
-  readDir: (dirPath: string) => Promise<FsDirEntry[]>;
+  readDir: (dirPath: string, opts?: ReadDirOptions) => Promise<FsDirEntry[]>;
   getHomeDir: () => string;
 }

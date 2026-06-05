@@ -1080,6 +1080,37 @@ Webpage 위젯에 포커스가 있을 때 `F5` 또는 `Ctrl/Cmd+R`로 페이지�
 
 ---
 
+## 32. File Explorer 위젯 — 숨김 파일 토글 · 큰 폴더 읽기 성능 · 실패 폴더 재시도 *(2026-06-06)*
+
+[#31](#31-file-explorer-위젯--즐겨찾기-폴더-트리-탐색-2026-06-05) File Explorer 위젯의 후속 개선 세 가지. 새 설정 하나와, 겉으로 잘 안 보이지만 체감되는 성능·정확성 개선이 둘.
+
+### 사용자 가시적 효과
+
+- **숨김 파일 토글(설정)**: 설정에 **Show hidden files**(기본 **꺼짐**)를 추가했다. 켜기 전에는 `.git`·`.env` 같은 **점(`.`)으로 시작하는 항목**이 트리에서 숨는다. 토글하면 트리가 루트로 접혔다가 새 필터로 다시 읽는다(드물게 바꾸는 설정이라 허용). **판정 기준은 POSIX의 "이름이 `.`로 시작" 관례 하나** — Windows의 *숨김 파일 속성*(FILE_ATTRIBUTE_HIDDEN)은 보지 않는다(읽으려면 네이티브 바인딩이 필요해 의존성 추가를 피함). 즉 Windows에서 점 없이 숨김 속성만 걸린 파일은 여전히 보인다.
+- **큰 폴더가 더 빠르게 열림**: **Show file sizes를 끄면** 폴더를 펼칠 때 파일마다 호출하던 `stat()`를 건너뛴다. 기존에는 크기를 표시하든 말든 항목 1개당 `readdir`+`stat` 두 번의 syscall이 나갔는데, 크기를 안 쓰면 `stat`을 생략해 파일 수천 개짜리 폴더에서 syscall이 절반으로 준다.
+- **열다 실패한 폴더가 재시도된다**: 권한 거부·네트워크 드라이브 일시 끊김·읽는 중 폴더 삭제 등으로 펼치기가 실패하면, 기존에는 해당 폴더가 **"로드 완료"로 영구 표시돼 다시 펼쳐도 빈 채로 남았다**. 이제 실패 시 로드 표시를 되돌려, 다음에 다시 펼치면 재시도한다.
+
+### 아키텍처
+
+- `readDir`에 **옵션 인자**를 한 줄기로 추가했다 — `ReadDirOptions { includeHidden?, includeSizes? }`(둘 다 생략 시 기존 동작: 전부 포함·크기 수집). common 타입 → IPC 채널 args → main(useCase·controller·fsProvider) → renderer(infra·WidgetApi `fs.readDir`) 전 구간에 전달.
+- main `fsProvider`가 `includeHidden:false`면 `name.startsWith('.')` 항목을 거르고, `includeSizes:false`면 `stat`을 건너뛴다(파일은 `size:0`).
+- 위젯은 설정값을 ref로 들고 lazy-load 시 `{ includeHidden: showHiddenFiles, includeSizes: showFileSize }`로 호출. `showHiddenFiles`/`showFileSize` 변경 시 rebuild 이펙트가 재실행돼 새 필터로 다시 읽는다.
+
+### 까다로웠던 포인트
+
+- **`stat` 게이팅은 크기 표시 설정에 종속**: 크기 표시가 켜져 있으면 여전히 `stat`이 필요하므로, 성능 이득은 "크기 끔 + 큰 폴더"에서만 난다. 무조건 끄지 않고 설정과 연동.
+- **숨김 판정의 크로스플랫폼 한계를 의도적으로 수용**: 점-접두 관례만 쓰는 게 "틀린" 게 아니라, 의존성 없이 dev 워크플로(대부분 dotfile)를 커버하는 실용적 선택. 설정 `moreInfo`와 타입 주석에 한계를 명시.
+- **실패 재시도와 epoch 가드의 상호작용**: 즐겨찾기가 재빌드되면 `loadedDirs`가 비워지므로, 실패 catch의 `loadedDirs.delete(key)`는 이미 비워진 Set에 대해 무해한 no-op.
+
+### 수정 파일
+
+- **수정(common)**: `src/common/base/fs.ts`(`ReadDirOptions`), `src/common/ipc/channels.ts`(`IpcFsReadDirArgs`)
+- **수정(main)**: `src/main/application/interfaces/fsProvider.ts`, `src/main/infra/fsProvider/fsProvider.ts`, `src/main/application/useCases/fs/readDir.ts`, `src/main/controllers/fs.ts`
+- **수정(renderer)**: `src/renderer/application/interfaces/fsProvider.ts`, `src/renderer/infra/fsProvider/fsProvider.ts`, `src/renderer/base/widgetApi.ts`, `src/renderer/application/useCases/widget/getWidgetApi.ts`, `src/renderer/widgets/file-explorer/{settings.tsx,widget.tsx}`
+- **테스트**: `tests/main/{infra/fsProvider,application/useCases/fs,controllers/fs}*`, `tests/renderer/{infra/fsProvider,application/useCases/widget/getWidgetApi,widgets/file-explorer/{settings,widget}}*`
+
+---
+
 ## 30. 데이터 저장 안정성·정합성 개선 *(2026-06-04)*
 
 겉으로 드러나지 않지만 사용자 데이터를 지키는 저장 경로를 점검해 네 가지를 고쳤다. 모두 "데이터가 조용히 사라지거나 어긋나는" 종류의 문제다.

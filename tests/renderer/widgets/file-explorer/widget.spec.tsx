@@ -24,7 +24,7 @@ const treesMock = pierreTreesReact as unknown as {
   __resetModel: () => void;
 };
 
-const fixtureSettings = (settings: Partial<Settings>): Settings => ({ paths: [''], showFileSize: true, ...settings });
+const fixtureSettings = (settings: Partial<Settings>): Settings => ({ paths: [''], showFileSize: true, showHiddenFiles: false, ...settings });
 
 function setupSut(settings: Settings, optional?: SetupWidgetSutOptional) {
   return setupWidgetSut(widgetComp, settings, optional);
@@ -94,6 +94,48 @@ describe('File Explorer Widget', () => {
     fireEvent.doubleClick(screen.getByTestId('file-tree'));
 
     expect(openPath).toHaveBeenCalledWith('/home/user/Downloads/a.txt');
+  })
+
+  it('should read children with hidden/size options derived from settings', async () => {
+    const readDir = jest.fn(async () => []);
+    const model = treesMock.__getModel();
+    model.getItem.mockImplementation((p: string) => (p === 'Downloads/' ? { isDirectory: () => true, isExpanded: () => true } : null));
+
+    setupSut(
+      fixtureSettings({ paths: ['/home/user/Downloads'], showFileSize: false, showHiddenFiles: true }),
+      { mockWidgetApi: { fs: { readDir } } }
+    );
+
+    await waitFor(() => expect(model.resetPaths).toHaveBeenCalled());
+    const loadExpanded = model.subscribe.mock.calls[0][0];
+    loadExpanded();
+
+    await waitFor(() => expect(readDir).toHaveBeenCalledWith(
+      '/home/user/Downloads',
+      { includeHidden: true, includeSizes: false }
+    ));
+  })
+
+  it('should retry a failed directory read on a later expansion', async () => {
+    const readDir = jest.fn()
+      .mockRejectedValueOnce(new Error('EACCES'))
+      .mockResolvedValueOnce([{ name: 'a.txt', path: '/home/user/Downloads/a.txt', isDirectory: false, size: 1 }]);
+    const model = treesMock.__getModel();
+    model.getItem.mockImplementation((p: string) => (p === 'Downloads/' ? { isDirectory: () => true, isExpanded: () => true } : null));
+
+    setupSut(fixtureSettings({ paths: ['/home/user/Downloads'] }), { mockWidgetApi: { fs: { readDir } } });
+
+    await waitFor(() => expect(model.resetPaths).toHaveBeenCalled());
+    const loadExpanded = model.subscribe.mock.calls[0][0];
+
+    // First expansion fails; the dir must not stay marked as loaded.
+    loadExpanded();
+    await waitFor(() => expect(readDir).toHaveBeenCalledTimes(1));
+
+    // Second expansion retries and succeeds.
+    loadExpanded();
+    await waitFor(() => expect(model.add).toHaveBeenCalledWith('Downloads/a.txt'));
+    expect(readDir).toHaveBeenCalledTimes(2);
   })
 
   it('should not open anything on double-click when no row is focused', async () => {

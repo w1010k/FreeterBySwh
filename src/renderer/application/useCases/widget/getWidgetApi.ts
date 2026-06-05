@@ -134,7 +134,7 @@ function _createWidgetApiFactory({
         openPath: (path) => shellProvider.openPath(path)
       }),
       fs: () => ({
-        readDir: (dirPath) => fsProvider.readDir(dirPath),
+        readDir: (dirPath, opts) => fsProvider.readDir(dirPath, opts),
         getHomeDir: () => fsProvider.getHomeDir()
       }),
       terminal: () => ({

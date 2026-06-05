@@ -29,7 +29,17 @@ describe('readDirUseCase()', () => {
     const res = await useCase(testPath);
 
     expect(fsProviderMock.readDir).toHaveBeenCalledTimes(1);
-    expect(fsProviderMock.readDir).toHaveBeenCalledWith(testPath);
+    expect(fsProviderMock.readDir).toHaveBeenCalledWith(testPath, undefined);
     expect(res).toBe(providerRetVal);
+  });
+
+  it('should forward read options to fsProvider', async () => {
+    const testPath = '/some/dir'
+    const opts = { includeHidden: false, includeSizes: false };
+    const { useCase, fsProviderMock } = setup()
+
+    await useCase(testPath, opts);
+
+    expect(fsProviderMock.readDir).toHaveBeenCalledWith(testPath, opts);
   });
 })

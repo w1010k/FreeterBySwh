@@ -5,7 +5,7 @@
 
 import { MenuItemsIpc } from '@common/base/menu';
 import { ProcessInfo } from '@common/base/process';
-import { FsDirEntry } from '@common/base/fs';
+import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
 import { makeIpcChannelName } from '@common/ipc/ipc';
 import { MessageBoxConfig, MessageBoxResult, OpenDialogResult, OpenDirDialogConfig, OpenFileDialogConfig, SaveDialogResult, SaveFileDialogConfig } from '@common/base/dialog';
 
@@ -180,7 +180,7 @@ export type IpcGetFaviconArgs = [url: string, bypassCache?: boolean];
 export type IpcGetFaviconRes = string | null;
 
 export const ipcFsReadDirChannel = makeIpcChannelName('fs-read-dir');
-export type IpcFsReadDirArgs = [dirPath: string];
+export type IpcFsReadDirArgs = [dirPath: string, opts?: ReadDirOptions];
 export type IpcFsReadDirRes = FsDirEntry[];
 
 export const ipcFsGetHomeDirChannel = makeIpcChannelName('fs-get-home-dir');

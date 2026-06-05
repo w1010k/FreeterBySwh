@@ -11,13 +11,17 @@ import { FsDirEntry } from '@common/base/fs';
 
 export function createFsProvider(): FsProvider {
   return {
-    readDir: async (dirPath): Promise<FsDirEntry[]> => {
+    readDir: async (dirPath, opts): Promise<FsDirEntry[]> => {
+      const { includeHidden = true, includeSizes = true } = opts ?? {};
       const items = await readdir(dirPath, { withFileTypes: true });
-      return Promise.all(items.map(async item => {
+      const visible = includeHidden ? items : items.filter(item => !item.name.startsWith('.'));
+      return Promise.all(visible.map(async item => {
         const path = join(dirPath, item.name);
         const isDirectory = item.isDirectory();
         let size = 0;
-        if (!isDirectory) {
+        // Skip the extra per-file stat() when sizes won't be shown — on large
+        // directories this halves the syscall count.
+        if (!isDirectory && includeSizes) {
           try {
             size = (await stat(path)).size;
           } catch {

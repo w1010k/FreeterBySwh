@@ -9,11 +9,13 @@ import { useLayoutEffect, useRef } from 'react';
 export interface Settings {
   paths: List<string>;
   showFileSize: boolean;
+  showHiddenFiles: boolean;
 }
 
 export const createSettingsState: CreateSettingsState<Settings> = (settings) => ({
   paths: Array.isArray(settings.paths) ? settings.paths.map(path => typeof path === 'string' ? path : '') : [''],
-  showFileSize: typeof settings.showFileSize === 'boolean' ? settings.showFileSize : true
+  showFileSize: typeof settings.showFileSize === 'boolean' ? settings.showFileSize : true,
+  showHiddenFiles: typeof settings.showHiddenFiles === 'boolean' ? settings.showHiddenFiles : false
 })
 
 function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponentProps<Settings>) {
@@ -98,6 +100,20 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
           checked={settings.showFileSize}
           onChange={e => updateSettings({...settings, showFileSize: e.target.checked})}
         /> Show file sizes
+      </label>
+    </SettingBlock>
+    <SettingBlock
+      titleForId='file-explorer-show-hidden-files'
+      title='Hidden files'
+      moreInfo='Show entries whose name starts with a dot (e.g. .git, .env). The Windows “hidden” file attribute is not used — only the leading-dot convention.'
+    >
+      <label>
+        <input
+          id='file-explorer-show-hidden-files'
+          type='checkbox'
+          checked={settings.showHiddenFiles}
+          onChange={e => updateSettings({...settings, showHiddenFiles: e.target.checked})}
+        /> Show hidden files
       </label>
     </SettingBlock>
     </>

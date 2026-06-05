@@ -37,7 +37,7 @@ const treeThemeStyle = {
 
 function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) {
   const { fs, shell, clipboard } = widgetApi;
-  const { paths, showFileSize } = settings;
+  const { paths, showFileSize, showHiddenFiles } = settings;
 
   // Stable string key for the configured folders. The effects depend on this
   // (not the `paths` array) so they don't re-run when the store hands back a new
@@ -57,6 +57,9 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   const loadEpoch = useRef(0);
   // Current "show file size" setting, read inside the (stable) decoration callback.
   const showFileSizeRef = useRef(showFileSize);
+  // Both settings are also read (via refs) inside the stable lazy-load effect to
+  // build the readDir options without re-subscribing on every settings change.
+  const showHiddenFilesRef = useRef(showHiddenFiles);
 
   // Show the file size at the right end of each file row (directories: nothing).
   const renderRowDecoration = useCallback((ctx: FileTreeRowDecorationContext): FileTreeRowDecoration | null => {
@@ -94,10 +97,12 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   }, []);
 
   // Rebuild the root from the configured favorite folders whenever they change.
-  // Also re-runs when `showFileSize` toggles so visible rows re-render with/without
-  // the size decoration (the tree collapses to roots — acceptable for a rare setting).
+  // Also re-runs when `showFileSize` / `showHiddenFiles` toggle so the tree
+  // collapses to roots and reloads children with the new decoration / filter
+  // (acceptable churn for rarely-toggled settings).
   useEffect(() => {
     showFileSizeRef.current = showFileSize;
+    showHiddenFilesRef.current = showHiddenFiles;
     loadEpoch.current += 1;
     absByKey.current.clear();
     dirTreePaths.current.clear();
@@ -110,7 +115,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     // its default folder sort. Children loaded lazily below still use the tree's
     // default (natural, folders-first) sibling sort, which respects `sort: 'default'`.
     model.resetPaths(undefined as unknown as readonly string[], { preparedInput: preparePresortedFileTreeInput(built.treePaths) });
-  }, [pathsKey, showFileSize, model, registerEntries]);
+  }, [pathsKey, showFileSize, showHiddenFiles, model, registerEntries]);
 
   // Lazily read a directory's children the first time it gets expanded.
   useEffect(() => {
@@ -130,7 +135,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
           return;
         }
         const epoch = loadEpoch.current;
-        fs.readDir(abs).then(entries => {
+        fs.readDir(abs, { includeHidden: showHiddenFilesRef.current, includeSizes: showFileSizeRef.current }).then(entries => {
           // Drop the result if the favorites were rebuilt while this was loading.
           if (epoch !== loadEpoch.current) {
             return;
@@ -138,7 +143,14 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
           const built = buildEntryPaths(key, entries);
           registerEntries(built.entries);
           built.treePaths.forEach(p => model.add(p));
-        }).catch(() => undefined);
+        }).catch(() => {
+          // A transient failure (locked folder, permission blip, folder removed
+          // mid-read) shouldn't permanently mark the dir as loaded — drop it so a
+          // later expansion retries instead of showing a silently-empty folder.
+          // (If the favorites were rebuilt meanwhile, loadedDirs was cleared and
+          // this delete is a harmless no-op.)
+          loadedDirs.current.delete(key);
+        });
       });
     };
     return model.subscribe(loadExpanded);

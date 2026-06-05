@@ -7,7 +7,7 @@ import { EntityId } from '@/base/entity';
 import { WidgetContextMenuFactory } from '@/base/widget';
 import { ActionBarItems } from './actionBar';
 import { ProcessInfo } from '@common/base/process';
-import { FsDirEntry } from '@common/base/fs';
+import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
 import { OpenDialogResult, OpenDirDialogConfig, OpenFileDialogConfig } from '@common/base/dialog';
 
 interface WidgetApiCommon {
@@ -67,8 +67,12 @@ interface WidgetApiModules {
     openPath: (path: string) => Promise<string>;
   }
   readonly fs: {
-    /** List the contents of a directory. Each entry carries its absolute path. */
-    readDir: (dirPath: string) => Promise<FsDirEntry[]>;
+    /**
+     * List the contents of a directory. Each entry carries its absolute path.
+     * Pass `opts` to hide dot-prefixed entries (`includeHidden: false`) or skip
+     * per-file size collection (`includeSizes: false`) for faster reads.
+     */
+    readDir: (dirPath: string, opts?: ReadDirOptions) => Promise<FsDirEntry[]>;
     /** Resolve the OS home directory (default root for file browsing). */
     getHomeDir: () => Promise<string>;
   };

@@ -40,6 +40,38 @@ describe('FsProvider', () => {
       expect(await provider.readDir(dirPath)).toEqual([]);
     })
 
+    it('should include dot-prefixed entries by default', async () => {
+      await writeFile(join(dirPath, '.hidden'), 'x');
+      await writeFile(join(dirPath, 'visible.txt'), 'x');
+      const provider = createFsProvider();
+
+      const names = (await provider.readDir(dirPath)).map(e => e.name).sort();
+
+      expect(names).toEqual(['.hidden', 'visible.txt']);
+    })
+
+    it('should omit dot-prefixed entries when includeHidden is false', async () => {
+      await writeFile(join(dirPath, '.hidden'), 'x');
+      await mkdir(join(dirPath, '.git'));
+      await writeFile(join(dirPath, 'visible.txt'), 'x');
+      const provider = createFsProvider();
+
+      const names = (await provider.readDir(dirPath, { includeHidden: false })).map(e => e.name).sort();
+
+      expect(names).toEqual(['visible.txt']);
+    })
+
+    it('should report size 0 for files when includeSizes is false (skipping stat)', async () => {
+      await writeFile(join(dirPath, 'file.txt'), 'hello');
+      const provider = createFsProvider();
+
+      const entries = await provider.readDir(dirPath, { includeSizes: false });
+
+      expect(entries).toEqual([
+        { name: 'file.txt', path: join(dirPath, 'file.txt'), isDirectory: false, size: 0 },
+      ]);
+    })
+
     it('should reject when the directory does not exist', async () => {
       const provider = createFsProvider();
 

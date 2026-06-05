@@ -20,7 +20,17 @@ describe('FsProvider', () => {
       await fsProvider.readDir(testPath);
 
       expect(electronIpcRenderer.invoke).toHaveBeenCalledTimes(1);
-      expect(electronIpcRenderer.invoke).toHaveBeenCalledWith(ipcFsReadDirChannel, testPath);
+      expect(electronIpcRenderer.invoke).toHaveBeenCalledWith(ipcFsReadDirChannel, testPath, undefined);
+    })
+
+    it('should forward read options to the main process', async () => {
+      const testPath = '/some/dir';
+      const opts = { includeHidden: false, includeSizes: false };
+      const fsProvider = createFsProvider();
+
+      await fsProvider.readDir(testPath, opts);
+
+      expect(electronIpcRenderer.invoke).toHaveBeenCalledWith(ipcFsReadDirChannel, testPath, opts);
     })
   })
 

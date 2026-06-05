@@ -308,8 +308,11 @@ describe('getWidgetApiUseCase()', () => {
     const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, () => undefined, ['fs']);
 
     widgetApi.fs.readDir('/some/dir');
-    expect(fsProvider.readDir).toHaveBeenCalledTimes(1);
-    expect(fsProvider.readDir).toHaveBeenCalledWith('/some/dir');
+    expect(fsProvider.readDir).toHaveBeenLastCalledWith('/some/dir', undefined);
+
+    const opts = { includeHidden: false, includeSizes: false };
+    widgetApi.fs.readDir('/some/dir', opts);
+    expect(fsProvider.readDir).toHaveBeenLastCalledWith('/some/dir', opts);
 
     widgetApi.fs.getHomeDir();
     expect(fsProvider.getHomeDir).toHaveBeenCalledTimes(1);

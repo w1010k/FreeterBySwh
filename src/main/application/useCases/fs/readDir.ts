@@ -4,15 +4,15 @@
  */
 
 import { FsProvider } from '@/application/interfaces/fsProvider';
-import { FsDirEntry } from '@common/base/fs';
+import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
 
 interface Deps {
   fsProvider: FsProvider;
 }
 
 export function createReadDirUseCase({ fsProvider }: Deps) {
-  return function readDirUseCase(dirPath: string): Promise<FsDirEntry[]> {
-    return fsProvider.readDir(dirPath);
+  return function readDirUseCase(dirPath: string, opts?: ReadDirOptions): Promise<FsDirEntry[]> {
+    return fsProvider.readDir(dirPath, opts);
   }
 }
 

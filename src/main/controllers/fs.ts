@@ -22,7 +22,7 @@ export function createFsControllers({
   ] {
   return [{
     channel: ipcFsReadDirChannel,
-    handle: async (_event, dirPath) => readDirUseCase(dirPath)
+    handle: async (_event, dirPath, opts) => readDirUseCase(dirPath, opts)
   }, {
     channel: ipcFsGetHomeDirChannel,
     handle: async () => getHomeDirUseCase()

@@ -9,9 +9,10 @@ import { FsProvider } from '@/application/interfaces/fsProvider';
 
 export function createFsProvider(): FsProvider {
   return {
-    readDir: (dirPath) => electronIpcRenderer.invoke<IpcFsReadDirArgs, IpcFsReadDirRes>(
+    readDir: (dirPath, opts) => electronIpcRenderer.invoke<IpcFsReadDirArgs, IpcFsReadDirRes>(
       ipcFsReadDirChannel,
-      dirPath
+      dirPath,
+      opts
     ),
     getHomeDir: () => electronIpcRenderer.invoke<IpcFsGetHomeDirArgs, IpcFsGetHomeDirRes>(
       ipcFsGetHomeDirChannel
