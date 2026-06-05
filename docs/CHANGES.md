@@ -1149,6 +1149,36 @@ Webpage 위젯에 포커스가 있을 때 `F5` 또는 `Ctrl/Cmd+R`로 페이지�
 
 ---
 
+## 33. 공유 상태(shared state) 위젯 헛 리렌더 제거 *(2026-06-06)*
+
+`requiresState`를 선언한 위젯(현재 **Note** = `sharedDataKeys`, **File Opener** = `apps`)이 *자신과 무관한* 상태 변경에서도 매번 다시 그려지던 문제를 잡았다. (내부 성능 최적화 — 사용자에게 보이는 동작 변화는 없다.)
+
+### 배경 / 문제
+
+위젯 뷰모델은 `useAppState(state => createSharedState(state, requiresState))`로 공유 슬라이스를 구독한다. 그런데 `useAppState`의 기본 동등성은 **1단계 shallow**인데, `createSharedState`는 호출할 때마다 `{ apps: { appIds, apps } }`처럼 **새 래퍼 + 새 슬라이스 객체**를 만든다. shallow는 `.apps` 참조만 보는데 그게 매번 새 객체라 **항상 불일치** → store가 바뀔 때마다(편집 모드 토글, 드래그오버, 리사이즈 등 초당 수십 회) 해당 위젯이 리렌더됐다. 보드에 Note를 여러 개 깔고 위젯 하나를 리사이즈하면 모든 Note가 매 mousemove마다 다시 그려졌다.
+
+> 단, `requiresState`가 없는(대다수) 위젯은 `createSharedState`가 `{}`를 반환하고 `shallow({}, {})`가 `true`라 영향이 없었다. 그래서 문제는 Note·File Opener 두 종류에 한정.
+
+### 해결
+
+`createSharedState` 결과 전용 동등 함수 `sharedStateEquals`(2단계 shallow — 각 슬라이스의 내부 필드를 참조로 비교)를 추가하고, 두 구독처를 `useAppState.useWithCustomEq(..., sharedStateEquals)`로 바꿨다.
+
+### 까다로웠던 포인트 — "실시간성을 안 깨는가"의 증명
+
+내부 참조로만 비교하면 *내용이 바뀌었는데 같은 참조라 stale하게 남는* 버그가 날 수 있다. 그래서 모든 공유 소스가 **불변 업데이트**(내용 변경 시에만 새 참조)임을 먼저 확인했다:
+
+- `entities.apps` / `entities.sharedDataKeys` — `entityCollection.ts`의 모든 변경 함수가 `changed` 가드로 변경 시에만 새 컬렉션 반환, `entity.ts`의 `updateEntityState`도 `state.entities[key] !== newEntities`일 때만 새 state.
+- `ui.apps.appIds` — `list.ts`의 `removeItemFromList`가 `slice()` 후 splice(원본 불변), 범위 밖이면 동일 참조.
+
+따라서 참조가 바뀜 ⟺ 내용이 바뀜이 성립 → 내용 변경 시 즉시 리렌더(stale 불가), 무관한 변경에서만 렌더 생략. 비용도 슬라이스 1~2개 × 필드 1~2개 비교라 리렌더보다 훨씬 싸 성능 저하 없음. 소비자(`file-opener/settings.tsx`)도 `[sharedState.apps.appIds, sharedState.apps.apps]` 내부 참조에 의존하므로 이 동작과 정확히 일치.
+
+### 수정 파일
+
+- **수정(renderer)**: `src/renderer/base/state/shared.ts`(`sharedStateEquals` 추가), `src/renderer/ui/components/widget/widgetViewModel.ts`, `src/renderer/ui/components/widgetSettings/widgetSettingsViewModel.ts`
+- **테스트**: `tests/renderer/base/state/shared.spec.ts`(`sharedStateEquals` describe 추가)
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

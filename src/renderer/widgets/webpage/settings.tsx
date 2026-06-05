@@ -57,52 +57,41 @@ export const createSettingsState: CreateSettingsState<Settings> = (settings) => 
 
 const debounceUpdate3s = debounce((fn: () => void) => fn(), 3000);
 
+// Text settings that mirror their value in local state and write to settings debounced (3s)
+// while typing, immediately on blur. The three fields share one debounce instance so switching
+// fields flushes the previous one via blur — keep that behavior when changing this.
+type DebouncedTextField = 'url' | 'injectedJS' | 'userAgent';
+
+function useDebouncedTextSettingUpdater(
+  field: DebouncedTextField,
+  setLocalValue: (val: string) => void,
+  settings: Settings,
+  updateSettings: (settings: Settings) => void
+) {
+  return useCallback((newVal: string, shouldDebounce: boolean) => {
+    setLocalValue(newVal);
+    const updateValInSettings = () => updateSettings({
+      ...settings,
+      [field]: newVal
+    })
+    if (shouldDebounce) {
+      debounceUpdate3s(updateValInSettings);
+    } else {
+      debounceUpdate3s.cancel();
+      updateValInSettings();
+    }
+  }, [field, setLocalValue, settings, updateSettings])
+}
+
 export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponentProps<Settings>) {
   const {updateSettings} = settingsApi;
 
-  // TODO: refactor the updateUrl, updateInjectedJs, updateUserAgent
   const [url, setUrl] = useState(settings.url);
   const [injectedJs, setInjectedJs] = useState(settings.injectedJS);
   const [userAgent, setUserAgent] = useState(settings.userAgent);
-  const updateUrl = useCallback((newVal: string, debounce: boolean) => {
-    setUrl(newVal);
-    const updateValInSettings = () => updateSettings({
-      ...settings,
-      url: newVal
-    })
-    if (debounce) {
-      debounceUpdate3s(updateValInSettings);
-    } else {
-      debounceUpdate3s.cancel();
-      updateValInSettings();
-    }
-  }, [settings, updateSettings])
-  const updateInjectedJs = useCallback((newVal: string, debounce: boolean) => {
-    setInjectedJs(newVal);
-    const updateValInSettings = () => updateSettings({
-      ...settings,
-      injectedJS: newVal
-    })
-    if (debounce) {
-      debounceUpdate3s(updateValInSettings);
-    } else {
-      debounceUpdate3s.cancel();
-      updateValInSettings();
-    }
-  }, [settings, updateSettings])
-  const updateUserAgent = useCallback((newVal: string, debounce: boolean) => {
-    setUserAgent(newVal);
-    const updateValInSettings = () => updateSettings({
-      ...settings,
-      userAgent: newVal
-    })
-    if (debounce) {
-      debounceUpdate3s(updateValInSettings);
-    } else {
-      debounceUpdate3s.cancel();
-      updateValInSettings();
-    }
-  }, [settings, updateSettings])
+  const updateUrl = useDebouncedTextSettingUpdater('url', setUrl, settings, updateSettings);
+  const updateInjectedJs = useDebouncedTextSettingUpdater('injectedJS', setInjectedJs, settings, updateSettings);
+  const updateUserAgent = useDebouncedTextSettingUpdater('userAgent', setUserAgent, settings, updateSettings);
   return (
     <>
       <SettingBlock

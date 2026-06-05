@@ -18,7 +18,7 @@ import { DeleteWidgetUseCase } from '@/application/useCases/widget/deleteWidget'
 import { EntityId } from '@/base/entity';
 import { CopyWidgetUseCase } from '@/application/useCases/widget/copyWidget';
 import { ShowContextMenuUseCase } from '@/application/useCases/contextMenu/showContextMenu';
-import { createSharedState } from '@/base/state/shared';
+import { createSharedState, sharedStateEquals } from '@/base/state/shared';
 import { SetExposedApiUseCase } from '@/application/useCases/widget/setExposedApi';
 import { SetWidgetDynamicTitleUseCase } from '@/application/useCases/widget/setWidgetDynamicTitle';
 
@@ -155,7 +155,7 @@ export function createWidgetViewModelHook({
     const [contextMenuFactoryViewMode, setContextMenuFactoryViewMode] = useState<WidgetContextMenuFactory | undefined>(undefined);
 
     const widgetType = useAppState.useWithStrictEq(state => entityStateActions.widgetTypes.getOne(state, widget.type));
-    const sharedState = useAppState(state => createSharedState(state, widgetType?.requiresState || []));
+    const sharedState = useAppState.useWithCustomEq(state => createSharedState(state, widgetType?.requiresState || []), sharedStateEquals);
     const dynamicTitle = useAppState(state => state.ui.widgetDynamicTitles[widget.id]);
     const WidgetComp = useWidgetTypeComp(widgetType, 'widgetComp');
     const widgetApi = useMemo(() => getWidgetApiUseCase(

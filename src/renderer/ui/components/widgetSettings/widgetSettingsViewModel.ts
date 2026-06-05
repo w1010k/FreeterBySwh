@@ -7,7 +7,7 @@ import { CloseWidgetSettingsUseCase } from '@/application/useCases/widgetSetting
 import { GetWidgetSettingsApiUseCase } from '@/application/useCases/widgetSettings/getWidgetSettingsApi';
 import { SaveWidgetSettingsUseCase } from '@/application/useCases/widgetSettings/saveWidgetSettings';
 import { UpdateWidgetCoreSettingsUseCase } from '@/application/useCases/widgetSettings/updateWidgetCoreSettings';
-import { createSharedState } from '@/base/state/shared';
+import { createSharedState, sharedStateEquals } from '@/base/state/shared';
 import { WidgetSettings, WidgetCoreSettings } from '@/base/widget';
 import { WidgetSettingsApi } from '@/base/widgetApi';
 import { UseAppState } from '@/ui/hooks/appState';
@@ -41,7 +41,7 @@ export function createWidgetSettingsViewModelHook({
         widgetType,
       }
     })
-    const sharedState = useAppState(state => createSharedState(state, widgetType?.requiresState || []));
+    const sharedState = useAppState.useWithCustomEq(state => createSharedState(state, widgetType?.requiresState || []), sharedStateEquals);
     const SettingsEditorComp = useWidgetTypeComp(widgetType, 'settingsEditorComp');
     const settingsApi: WidgetSettingsApi<WidgetSettings> = useMemo(() => getWidgetSettingsApiUseCase(), [])
 
