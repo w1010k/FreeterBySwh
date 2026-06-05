@@ -5,6 +5,7 @@
 
 import { WidgetSettings, WidgetType } from '@/widgets/appModules'
 import commander from './commander';
+import fileExplorer from './file-explorer';
 import fileOpener from './file-opener';
 import linkOpener from './link-opener';
 import note from './note';
@@ -15,6 +16,7 @@ import webQuery from './web-query';
 
 const widgetTypes = [
   commander,
+  fileExplorer,
   fileOpener,
   linkOpener,
   note,

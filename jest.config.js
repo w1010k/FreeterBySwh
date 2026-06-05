@@ -57,6 +57,9 @@ module.exports = {
     moduleNameMapper: {
       '\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$': '<rootDir>/tests/__mocks__/fileMock.js',
       '\\.(css|less|scss)$': '<rootDir>/tests/__mocks__/identity-obj-proxy.js',
+      // @pierre/trees is ESM-only and can't load under Jest; map to manual mocks.
+      '^@pierre/trees/react$': '<rootDir>/tests/__mocks__/pierreTreesReact.js',
+      '^@pierre/trees$': '<rootDir>/tests/__mocks__/pierreTrees.js',
       ...makeModuleNameMapper('renderer')
     },
     roots: ['<rootDir>/tests/renderer/', '<rootDir>/src/renderer/']

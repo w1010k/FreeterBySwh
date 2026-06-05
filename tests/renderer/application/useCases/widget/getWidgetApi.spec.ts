@@ -14,6 +14,7 @@ import { WidgetApi, WidgetApiModuleName } from '@/base/widgetApi';
 import { ObjectManager, createObjectManager } from '@common/base/objectManager';
 import { ProcessInfo } from '@common/base/process';
 import { mockShellProvider } from '@tests/infra/mocks/shellProvider';
+import { mockFsProvider } from '@tests/infra/mocks/fsProvider';
 import { mockIconProvider } from '@tests/infra/mocks/iconProvider';
 import { fixtureAppStore } from '@tests/data/fixtures/appStore';
 import { fixtureAppState } from '@tests/base/state/fixtures/appState';
@@ -32,6 +33,10 @@ async function setup() {
     openApp: jest.fn(),
     openExternal: jest.fn(),
     openPath: jest.fn()
+  });
+  const fsProvider = mockFsProvider({
+    readDir: jest.fn(),
+    getHomeDir: jest.fn()
   });
   const iconProvider = mockIconProvider({
     getFileIcon: jest.fn(),
@@ -79,6 +84,7 @@ async function setup() {
     clipboardProvider,
     processProvider,
     shellProvider,
+    fsProvider,
     iconProvider,
     widgetDataStorageManager,
     sharedDataStorageManager,
@@ -90,6 +96,7 @@ async function setup() {
     clipboardProvider,
     processProvider,
     shellProvider,
+    fsProvider,
     iconProvider,
     widgetDataStorage,
     widgetDataStorageManager,
@@ -290,6 +297,22 @@ describe('getWidgetApiUseCase()', () => {
     widgetApi.shell.openPath('some/file/path');
     expect(shellProvider.openPath).toHaveBeenCalledTimes(1);
     expect(shellProvider.openPath).toHaveBeenCalledWith('some/file/path');
+  })
+
+  it('should correctly setup fs module', async () => {
+    const {
+      getWidgetApiUseCase,
+      fsProvider
+    } = await setup()
+
+    const widgetApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, () => undefined, ['fs']);
+
+    widgetApi.fs.readDir('/some/dir');
+    expect(fsProvider.readDir).toHaveBeenCalledTimes(1);
+    expect(fsProvider.readDir).toHaveBeenCalledWith('/some/dir');
+
+    widgetApi.fs.getHomeDir();
+    expect(fsProvider.getHomeDir).toHaveBeenCalledTimes(1);
   })
 
   it('should correctly setup icon module', async () => {

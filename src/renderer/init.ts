@@ -53,6 +53,7 @@ import { createClickContextMenuItemUseCase } from '@/application/useCases/contex
 import { createShowWidgetContextMenuUseCase } from '@/application/useCases/widget/showWidgetContextMenu';
 import { createClipboardProvider } from '@/infra/clipboardProvider/clipboardProvider';
 import { createShellProvider } from '@/infra/shellProvider/shellProvider';
+import { createFsProvider } from '@/infra/fsProvider/fsProvider';
 import { createIconProvider } from '@/infra/iconProvider/iconProvider';
 import { createProcessProvider } from '@/infra/processProvider/processProvider';
 import { createGetWidgetApiUseCase } from '@/application/useCases/widget/getWidgetApi';
@@ -269,6 +270,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
 
   const clipboardProvider = createClipboardProvider();
   const shellProvider = createShellProvider();
+  const fsProvider = createFsProvider();
   const iconProvider = createIconProvider();
   const processProvider = await createProcessProvider();
   const widgetDataStorageManager = createObjectManager(
@@ -300,6 +302,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     clipboardProvider,
     processProvider,
     shellProvider,
+    fsProvider,
     iconProvider,
     widgetDataStorageManager,
     sharedDataStorageManager,

@@ -21,6 +21,10 @@ import { createPopupContextMenuUseCase } from '@/application/useCases/contextMen
 import { createContextMenuProvider } from '@/infra/contextMenuProvider/contextMenuProvider';
 import { createClipboardControllers } from '@/controllers/clipboard';
 import { createShellControllers } from '@/controllers/shell';
+import { createFsControllers } from '@/controllers/fs';
+import { createFsProvider } from '@/infra/fsProvider/fsProvider';
+import { createReadDirUseCase } from '@/application/useCases/fs/readDir';
+import { createGetHomeDirUseCase } from '@/application/useCases/fs/getHomeDir';
 import { createWriteTextIntoClipboardUseCase } from '@/application/useCases/clipboard/writeTextIntoClipboard';
 import { createClipboardProvider } from '@/infra/clipboardProvider/clipboardProvider';
 import { createOpenExternalUrlUseCase } from '@/application/useCases/shell/openExternalUrl';
@@ -189,6 +193,10 @@ if (!app.requestSingleInstanceLock()) {
     const openPathUseCase = createOpenPathUseCase({ shellProvider })
     const openAppDataDirUseCase = createOpenAppDataDirUseCase({ shellProvider, appDataDir })
 
+    const fsProvider = createFsProvider();
+    const readDirUseCase = createReadDirUseCase({ fsProvider });
+    const getHomeDirUseCase = createGetHomeDirUseCase({ fsProvider });
+
     const getProcessInfoUseCase = createGetProcessInfoUseCase({ processProvider });
     const { isLinux } = await getProcessInfoUseCase();
 
@@ -233,6 +241,7 @@ if (!app.requestSingleInstanceLock()) {
       ...createContextMenuControllers({ popupContextMenuUseCase }),
       ...createClipboardControllers({ writeBookmarkIntoClipboardUseCase, writeTextIntoClipboardUseCase }),
       ...createShellControllers({ openExternalUrlUseCase, openPathUseCase, openAppUseCase, openAppDataDirUseCase }),
+      ...createFsControllers({ readDirUseCase, getHomeDirUseCase }),
       ...createProcessControllers({ getProcessInfoUseCase }),
       ...createDialogControllers({
         showMessageBoxUseCase: dialogShowMessageBoxUseCase,

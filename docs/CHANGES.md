@@ -1028,6 +1028,56 @@ Webpage 위젯에 포커스가 있을 때 `F5` 또는 `Ctrl/Cmd+R`로 페이지�
 
 ---
 
+## 31. File Explorer 위젯 — 즐겨찾기 폴더 트리 탐색 *(2026-06-05)*
+
+자주 쓰는 폴더 몇 개를 등록해 두고 트리로 펼쳐 탐색하는 **File Explorer** 위젯을 새로 추가했다. 기존 `File Opener`는 "미리 지정한 경로 하나를 여는 버튼"이었던 반면, 이 위젯은 등록한 폴더들의 실제 디렉터리 구조를 트리로 보여주고 항목을 **더블클릭하면 OS 기본 앱/탐색기로 연다**(파일=연결 프로그램, 폴더=Explorer/Finder).
+
+### 사용자 가시적 효과
+
+- **즐겨찾기(Favorites) 모델**: 한 폴더의 전부를 보여주는 게 아니라, 위젯 설정에서 **여러 폴더 경로를 등록**(File Opener의 다중 경로 UI와 동일한 add/삭제/폴더 선택)하면 그 폴더들만 트리 루트에 뜬다. 예: `Downloads`·`Documents`를 등록하면 루트에 그 둘만 보이고, 각각을 펼쳐 하위를 탐색.
+- **루트 라벨**: 등록 경로의 마지막 폴더명으로 표시(`.../Downloads` → `Downloads`). 이름이 겹치면 ` (2)`, ` (3)`로 구분.
+- **지연 로딩(lazy expand)**: 폴더를 펼치는 순간 그 폴더의 내용만 읽는다. 등록 폴더를 통째로 재귀 스캔하지 않으므로 `node_modules` 같은 거대 트리에서도 가볍다.
+- **더블클릭 = 파일만 열기**: 파일을 더블클릭하면 OS 기본 앱으로 연다. **폴더는 더블클릭으로 열리지 않는다** — 폴더는 클릭으로 펼침/접힘만 한다(더블클릭은 결국 싱글클릭 2번이라 "폴더 더블클릭=탐색기 열기"로 두면 펼침과 충돌·깜빡임이 생김). 빠른 트리 탐색을 위해 폴더 토글과 파일 열기를 분리.
+- **컨텍스트 메뉴**: 우클릭 시 종류별로 — 파일은 **Open**, 폴더는 **Open in File Explorer**(둘 다 OS 기본 핸들러로 열기) / 공통 **Copy Path**(절대경로 클립보드 복사). 폴더를 탐색기로 여는 동작은 여기로 분리. 메뉴는 위젯 타일의 CSS `transform` 영향을 피하려 `document.body`로 포털해 클릭 좌표(`anchorRect`)에 띄움.
+- **파일 크기 표시(설정 토글)**: 각 파일 행 우측 끝에 사람이 읽기 좋은 크기(`1.4 KB`, `3 MB` …)를 row decoration으로 표시(폴더는 없음). 설정의 **Show file sizes**(기본 켜짐)로 끌 수 있다. `readDir`가 파일 entry마다 `stat`으로 크기를 함께 반환 — 디렉터리 진입(lazy) 시에만 읽으므로 비용은 펼친 폴더로 한정.
+- **검색**: `Ctrl/Cmd+F`로 라이브러리 내장 검색창을 열어 필터(`hide-non-matches` 모드 — 매치 안 되는 행 숨김). **제약 둘**: ① lazy 로딩이라 모델에 올라온(=펼친) 노드만 검색됨(안 펼친 폴더 속 파일은 안 걸림). ② `@pierre/trees`(beta)의 검색·이름변경 입력이 **IME 조합(`isComposing`)을 가드하지 않아** 한글/CJK 입력이 매 글자 재필터·재렌더에 깨질 수 있음(매칭 로직 자체는 `toLowerCase`+부분일치라 한글 OK). 전체 재귀 검색·IME 안전한 자체 검색창은 별도 과제로 보류.
+- 등록된 폴더가 없으면 "설정에서 폴더를 추가하라"는 안내를 표시한다.
+- **모양**: 트리는 `@pierre/trees`의 테마 변수(`--trees-theme-*`)를 Freeter 테마 변수(`--freeter-*`)에 바인딩해 **현재 Freeter 테마(라이트/다크)를 자동으로 따라간다** — 색 하드코딩·테마 선택 UI 없음(CSS 변수가 트리 shadow DOM으로 상속). 행 밀도는 좁은 타일에 더 많이 보이도록 **Compact(행 24px)** 고정. 파일 타입 아이콘은 내장 `standard` 세트 + **컬러(`colored`)** 로 스캔하기 쉽게.
+
+### 아키텍처
+
+새 파일시스템 읽기 능력을 main↔renderer로 한 줄기 뚫고, 트리 UI는 `@pierre/trees`(beta) React 엔트리를 썼다.
+
+| 레이어 | 추가 |
+|---|---|
+| common | `base/fs.ts`(`FsDirEntry`), `ipc/channels.ts`에 `fs-read-dir`·`fs-get-home-dir` 채널 |
+| main | `infra/fsProvider`(node `fs/promises.readdir` + `os.homedir`), `useCases/fs/{readDir,getHomeDir}`, `controllers/fs.ts`, `index.ts` 배선 |
+| renderer infra | `infra/fsProvider`(IPC invoke), WidgetApi에 **`fs` 모듈**(`readDir`/`getHomeDir`) 추가 — `getWidgetApi`·`init.ts` 배선 |
+| widget | `widgets/file-explorer/`(`index.ts`/`settings.tsx`/`widget.tsx`/`treeModel.ts`/icons), `widgets/index.ts` 등록. `requiresApi: ['fs','shell','clipboard']` |
+
+`@pierre/trees`는 **path-first** 모델 — 각 행을 POSIX 경로 문자열로 식별하고 **후행 `/`로 디렉터리를 표시**한다(문서에 없어 실측으로 확인). 절대 OS 경로(Windows의 `\`·드라이브 문자)는 트리의 `/` 세그먼트 중첩을 깨므로, 트리 키는 이름 기반 상대 POSIX 경로로 만들고 `key → 절대경로` Map을 따로 들어 열 때 매핑한다(`treeModel.ts`).
+
+### 까다로웠던 포인트
+
+1. **`@pierre/trees`는 ESM 전용** → webpack/TS(`moduleResolution: bundler`)에선 잘 동작하지만 jest(CJS)가 못 읽는다. 전역 `customExportConditions`로 풀면 `synckit` 등 다른 ESM 의존성까지 줄줄이 깨졌다(blast radius 過). 그래서 **Renderer jest 프로젝트에서만 `moduleNameMapper`로 수동 mock**(`tests/__mocks__/pierreTrees*.js`)에 매핑 — 어차피 서드파티 트리 UI는 단위 테스트에서 목으로 두는 게 정석.
+2. **행 활성화(더블클릭) 콜백이 없음**: 라이브러리에 `onActivate`/`onOpen`류 행 콜백이 없어, 래퍼 `div`의 `onDoubleClick` → `model.getFocusedPath()`로 포커스된 행 경로를 읽어 연다.
+3. **lazy 확장 감지**: 확장 이벤트가 따로 없고 `subscribe`는 제네릭 변경 통지뿐. 디렉터리 키 집합을 들고 있다가 변경 때마다 아직 안 읽은 디렉터리의 `getItem(path).isExpanded()`를 확인해, 펼쳐졌으면 `readDir` 후 `model.add(...)`로 자식을 끼워 넣는다. `isExpanded`는 `FileTreeDirectoryHandle`에만 있어 `'isExpanded' in item`으로 union을 좁힘(`isDirectory()`는 타입 가드가 아님).
+4. **jest mock 접근**: 스펙에서 `jest.requireMock`을 쓰면 mock 파일을 **자동 목(automock)** 해버려 `__getModel()`이 `undefined`를 반환했다. moduleNameMapper로 매핑된 일반 `import`를 쓰면 위젯과 **같은 mock 인스턴스**를 받는다.
+5. **컨텍스트 메뉴 위치**: 위젯 타일이 `transform: translate()`로 배치되므로 메뉴를 그냥 `position: fixed`로 두면 뷰포트가 아니라 타일 기준으로 앵커돼 엉뚱한 곳에 떴다. `createPortal(…, document.body)`로 transform 조상을 벗어나 `anchorRect.x/y`(=`clientX/Y`)에 고정. 라이브러리가 메뉴 내부 클릭을 "바깥 클릭"으로 보고 닫지 않도록 포털 루트에 `data-file-tree-context-menu-root="true"` 필요.
+6. **안정성·성능(최종 점검)**: ① 즐겨찾기 재빌드 중 이전 트리의 lazy `readDir`가 늦게 끝나 새 트리에 stale 노드를 `add`하던 race를 `loadEpoch` 가드로 차단. ② rebuild 이펙트가 `paths` **배열 identity**에 의존하면 store가 새 배열을 줄 때마다 트리를 통째로 재빌드하므로, 내용 기반 `pathsKey`(문자열)로만 키잉. ③ `subscribe` cadence를 컴파일본에서 실측 — 컨트롤러 `#emit()`는 **사용자 스크롤이 아니라 상태 변경(펼침/선택/검색/add) 때만** 호출돼서, lazy 로더의 "변경 때마다 디렉터리 스캔"은 고빈도가 아님(헛최적화 회피).
+
+> 런타임(beta 라이브러리)의 빈 폴더 펼침·컨텍스트 메뉴 배치 등 일부 동작은 단위 테스트가 mock 기반이라, 실제 Electron에서 스모크 검증함(트리 표시·lazy 펼침·더블클릭 열기·우클릭 메뉴 위치·파일크기·검색창 모두 확인).
+
+### 수정 파일
+
+- **신규(common)**: `src/common/base/fs.ts`
+- **신규(main)**: `src/main/application/interfaces/fsProvider.ts`, `src/main/infra/fsProvider/fsProvider.ts`, `src/main/application/useCases/fs/{readDir,getHomeDir}.ts`, `src/main/controllers/fs.ts`
+- **신규(renderer)**: `src/renderer/application/interfaces/fsProvider.ts`, `src/renderer/infra/fsProvider/fsProvider.ts`, `src/renderer/widgets/file-explorer/{index.ts,settings.tsx,widget.tsx,treeModel.ts,widget.module.scss,icons/*}`
+- **수정**: `src/common/ipc/channels.ts`, `src/main/index.ts`, `src/renderer/base/widgetApi.ts`, `src/renderer/application/useCases/widget/getWidgetApi.ts`, `src/renderer/init.ts`, `src/renderer/widgets/index.ts`, `src/renderer/base/state/ui.ts`(팔레트 기본 목록 — 새 위젯은 레지스트리 등록만으론 Add Widget에 안 뜨고 이 하드코딩 배열에도 추가해야 함), `jest.config.js`
+- **테스트**: `tests/main/{infra/fsProvider,application/useCases/fs,controllers/fs}*`, `tests/main/infra/mocks/fsProvider.ts`, `tests/renderer/{infra/fsProvider,widgets/file-explorer}*`, `tests/renderer/infra/mocks/fsProvider.ts`, `tests/renderer/application/useCases/widget/getWidgetApi.spec.ts`(fs 모듈), `tests/renderer/widgets/setupSut.tsx`(fs mock), `tests/__mocks__/pierreTrees*.js`
+
+---
+
 ## 30. 데이터 저장 안정성·정합성 개선 *(2026-06-04)*
 
 겉으로 드러나지 않지만 사용자 데이터를 지키는 저장 경로를 점검해 네 가지를 고쳤다. 모두 "데이터가 조용히 사라지거나 어긋나는" 종류의 문제다.

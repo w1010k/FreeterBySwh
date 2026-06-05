@@ -6,6 +6,7 @@
 import { ClipboardProvider } from '@/application/interfaces/clipboardProvider';
 import { ProcessProvider } from '@/application/interfaces/processProvider';
 import { ShellProvider } from '@/application/interfaces/shellProvider';
+import { FsProvider } from '@/application/interfaces/fsProvider';
 import { IconProvider } from '@/application/interfaces/iconProvider';
 import { DataStorageRenderer } from '@/application/interfaces/dataStorage';
 import { EntityId } from '@/base/entity';
@@ -50,6 +51,7 @@ interface Deps {
   sharedDataStorageManager: ObjectManager<DataStorageRenderer>;
   processProvider: ProcessProvider;
   shellProvider: ShellProvider;
+  fsProvider: FsProvider;
   iconProvider: IconProvider;
   terminalProvider: TerminalProvider;
   getWidgetsInCurrentWorkflowUseCase: GetWidgetsInCurrentWorkflowUseCase;
@@ -59,6 +61,7 @@ function _createWidgetApiFactory({
   clipboardProvider,
   processProvider,
   shellProvider,
+  fsProvider,
   iconProvider,
   widgetDataStorageManager,
   sharedDataStorageManager,
@@ -129,6 +132,10 @@ function _createWidgetApiFactory({
         openApp: (appPath, args) => shellProvider.openApp(appPath, args),
         openExternalUrl: (url) => shellProvider.openExternal(url),
         openPath: (path) => shellProvider.openPath(path)
+      }),
+      fs: () => ({
+        readDir: (dirPath) => fsProvider.readDir(dirPath),
+        getHomeDir: () => fsProvider.getHomeDir()
       }),
       terminal: () => ({
         execCmdLines: (cmdLines, cwd) => terminalProvider.execCmdLines(cmdLines, cwd)

@@ -130,6 +130,11 @@ export function setupWidgetSut<T>(reactComp: ReactComponent<WidgetReactComponent
       openPath: jest.fn(),
       ...mockWidgetApi.shell
     },
+    fs: {
+      readDir: jest.fn(async () => []),
+      getHomeDir: jest.fn(async () => ''),
+      ...mockWidgetApi.fs
+    },
     terminal: {
       execCmdLines: jest.fn(),
       ...mockWidgetApi.terminal

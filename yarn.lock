@@ -1319,6 +1319,14 @@
     tslib "^2.8.1"
     tsyringe "^4.10.0"
 
+"@pierre/trees@^1.0.0-beta.4":
+  version "1.0.0-beta.4"
+  resolved "https://registry.yarnpkg.com/@pierre/trees/-/trees-1.0.0-beta.4.tgz#d19881431e2396c19641b6bd36d1d4e5a267cac8"
+  integrity sha512-OfT1yk9ne8Te5+GB5zUY8yqE6B8BqjBHQJleH4lu8ltwNpoocZl4vXt1AzlEExpxI/pp+AFX5QG+lR3JjtTEag==
+  dependencies:
+    preact "11.0.0-beta.0"
+    preact-render-to-string "6.6.5"
+
 "@pkgjs/parseargs@^0.11.0":
   version "0.11.0"
   resolved "https://registry.npmjs.org/@pkgjs/parseargs/-/parseargs-0.11.0.tgz"
@@ -7808,6 +7816,16 @@ posthtml@^0.9.2:
   dependencies:
     posthtml-parser "^0.2.0"
     posthtml-render "^1.0.5"
+
+preact-render-to-string@6.6.5:
+  version "6.6.5"
+  resolved "https://registry.yarnpkg.com/preact-render-to-string/-/preact-render-to-string-6.6.5.tgz#1be84cc8565e3bcfcf2a33cb9c61185e6498ab31"
+  integrity sha512-O6MHzYNIKYaiSX3bOw0gGZfEbOmlIDtDfWwN1JJdc/T3ihzRT6tGGSEWE088dWrEDGa1u7101q+6fzQnO9XCPA==
+
+preact@11.0.0-beta.0:
+  version "11.0.0-beta.0"
+  resolved "https://registry.yarnpkg.com/preact/-/preact-11.0.0-beta.0.tgz#c6e5c6e8657abf18b4a637eae88b5b377d36973f"
+  integrity sha512-IcODoASASYwJ9kxz7+MJeiJhvLriwSb4y4mHIyxdgaRZp6kPUud7xytrk/6GZw8U3y6EFJaRb5wi9SrEK+8+lg==
 
 prelude-ls@^1.2.1:
   version "1.2.1"
