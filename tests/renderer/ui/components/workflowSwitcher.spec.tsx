@@ -110,7 +110,7 @@ describe('<WorkflowSwitcher />', () => {
       ui: { appConfig: fixtureAppConfig({ workflowBarPos: 'left', workflowBarWidth: 250 }) }
     }));
 
-    expect((comp.container.firstChild as HTMLElement).style.width).toBe('250px');
+    expect(comp.container.firstChild as HTMLElement).toHaveStyle({ width: '250px' });
   });
 
   it('should not set an inline width when workflowBarPos is top', async () => {
@@ -118,7 +118,7 @@ describe('<WorkflowSwitcher />', () => {
       ui: { appConfig: fixtureAppConfig({ workflowBarPos: 'top' }) }
     }));
 
-    expect((comp.container.firstChild as HTMLElement).style.width).toBe('');
+    expect(comp.container.firstChild as HTMLElement).not.toHaveAttribute('style');
   });
 
   it('should not display EditModeToggle, when its pos!==TabBar', async() => {

@@ -88,14 +88,14 @@ describe('<Worktable />', () => {
     }));
     const bg = screen.getByTestId('worktable-bg');
     expect(bg).toHaveStyle({ backgroundColor: 'rgb(10, 20, 30)' });
-    expect(bg.style.opacity).toBe('0.6');
+    expect(bg).toHaveStyle({ opacity: '0.6' });
   });
 
   it('should resolve the configured background image to a data URL and apply it with the fit mode', async () => {
     const workflowA = fixtureWorkflowA();
     const dataUrl = 'data:image/png;base64,AAAA';
     const getImageDataUrl = jest.fn(async () => dataUrl);
-    const { comp } = await setup(fixtureAppState({
+    await setup(fixtureAppState({
       entities: {
         projects: { ...fixtureProjectAInColl({ id: projectId, workflowIds: [workflowA.id] }) },
         workflows: { [workflowA.id]: workflowA }
@@ -109,10 +109,10 @@ describe('<Worktable />', () => {
     }), getImageDataUrl);
 
     expect(getImageDataUrl).toHaveBeenCalledWith('/img/bg.png');
-    await waitFor(() => expect(screen.getByTestId('worktable-bg').style.backgroundImage).toBe(`url("${dataUrl}")`));
+    await waitFor(() => expect(screen.getByTestId('worktable-bg')).toHaveStyle({ backgroundImage: `url("${dataUrl}")` }));
     const bg = screen.getByTestId('worktable-bg');
-    expect(bg.style.backgroundSize).toBe('contain');
-    expect(bg.style.backgroundRepeat).toBe('no-repeat');
+    expect(bg).toHaveStyle({ backgroundSize: 'contain' });
+    expect(bg).toHaveStyle({ backgroundRepeat: 'no-repeat' });
   });
 
   it('should not render a background layer when no custom background is configured', async () => {
