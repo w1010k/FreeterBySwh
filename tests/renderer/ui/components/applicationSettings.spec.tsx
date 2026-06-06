@@ -36,6 +36,12 @@ async function setup(
   const closeApplicationSettingsUseCase = jest.fn();
   const updateApplicationSettingsUseCase = jest.fn();
   const saveApplicationSettingsUseCase = jest.fn();
+  const dialogProvider = {
+    showMessageBox: jest.fn(),
+    showOpenFileDialog: jest.fn(),
+    showSaveFileDialog: jest.fn(),
+    showOpenDirDialog: jest.fn().mockResolvedValue({ canceled: true, filePaths: [] }),
+  };
 
   const useApplicationSettingsViewModel = createApplicationSettingsViewModelHook({
     useAppState,
@@ -43,6 +49,7 @@ async function setup(
     closeApplicationSettingsUseCase,
     updateApplicationSettingsUseCase,
     saveApplicationSettingsUseCase,
+    dialogProvider,
   })
 
   const ApplicationSettings = createApplicationSettingsComponent({

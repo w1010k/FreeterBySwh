@@ -9,4 +9,6 @@ export interface AppConfig {
   mainHotkey: string;
   memSaver: MemSaverConfigApp;
   uiTheme: string;
+  /** Folder downloads are saved to. Empty = OS default (~/Downloads). */
+  downloadDir: string;
 }

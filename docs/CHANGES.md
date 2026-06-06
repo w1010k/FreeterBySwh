@@ -1341,6 +1341,35 @@ Note와 To-Do List의 디스크 저장은 디바운스(노트 800ms, 투두 500m
 
 ---
 
+## 41. Webpage 위젯 다운로드 — 폴더 지정(기본 OS Downloads, 설정에서 변경) *(2026-06-06)*
+
+기존엔 Webpage 위젯에서 다운로드할 때마다 **OS 저장 대화상자**가 떴다. 이제 지정한 폴더로 **자동 저장**하며, 기본값은 **OS 기본 다운로드 폴더**다.
+
+### 사용자 가시적 효과
+
+- 다운로드가 대화상자 없이 다운로드 폴더로 바로 저장된다. 같은 이름이 있으면 브라우저처럼 `이름 (1).ext`로 번호가 붙는다.
+- **앱 설정(Application Settings) → Download folder**에서 폴더를 바꿀 수 있다. 비워두면 OS 기본 Downloads 폴더. "Browse…"로 폴더 선택, "Use default"로 기본값 복귀.
+
+### 아키텍처
+
+- **main**: `downloadManager`(`infra/downloads`)가 `app.on('session-created')`로 모든 세션(앱 창 + webview 파티션)의 `will-download`를 가로채 지정 폴더로 `setSavePath`. 윈도우 생성 전에 등록해 파티션 세션까지 포함. 파일명 충돌 dedupe는 순수 함수 `resolveUniqueSavePath`.
+- **설정 전파**: 전역 설정이라 `mainHotkey`와 동일한 경로를 미러링 — `AppConfig.downloadDir`(영속) → 스토어 구독(`initDownloadDir`)이 변경 시 IPC(`set-download-dir`)로 main의 `setDownloadDir`에 전달.
+- **위젯별이 아니라 전역인 이유**: webview 다운로드는 파티션(세션) 단위로 일어나고 여러 위젯이 세션을 공유할 수 있어, 위젯별 폴더는 충돌·복잡도가 큼.
+
+### 까다로웠던 포인트
+
+- `AppConfig`에 필드를 추가하면 모든 생성자에 파급되지만, 기본값은 `createUiState`·`fixtureAppConfig` 등 소수 지점에만 있어 안전하게 추가. 영속 상태 마이그레이션은 불필요(병합 시 기본값 `''`가 빈 자리를 채움).
+
+### 수정 파일
+
+- **신규(main)**: `infra/downloads/downloadManager.ts`, `application/interfaces/downloadManager.ts`, `application/useCases/download/setDownloadDir.ts`, `controllers/download.ts`
+- **신규(renderer)**: `application/interfaces/downloadProvider.ts`, `infra/download/downloadProvider.ts`, `application/useCases/download/initDownloadDir.ts`
+- **신규(common)**: `ipc/channels.ts`의 `set-download-dir` 채널
+- **수정**: `src/main/index.ts`, `src/renderer/init.ts`, `base/appConfig.ts`, `base/state/ui.ts`, `applicationSettings`(뷰모델·컴포넌트·scss)
+- **테스트**: `resolveUniqueSavePath`·`setDownloadDir`·`initDownloadDir`, 설정 fixture 갱신
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

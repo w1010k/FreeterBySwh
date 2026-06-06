@@ -96,6 +96,8 @@ import { createAppMenuProvider } from '@/infra/appMenuProvider/appMenuProvider';
 import { createClickAppMenuItemUseCase } from '@/application/useCases/appMenu/clickAppMenuItem';
 import { createInitMainShortcutUseCase } from '@/application/useCases/globalShortcut/initMainShortcut';
 import { createGlobalShortcutProvider } from '@/infra/globalShortcut/globalShortcutProvider';
+import { createInitDownloadDirUseCase } from '@/application/useCases/download/initDownloadDir';
+import { createDownloadProvider } from '@/infra/download/downloadProvider';
 import { createApplicationSettingsComponent, createApplicationSettingsViewModelHook } from '@/ui/components/applicationSettings';
 import { createGetMainHotkeyOptionsUseCase } from '@/application/useCases/applicationSettings/getMainHotkeyOptions';
 import { createOpenApplicationSettingsUseCase } from '@/application/useCases/applicationSettings/openApplicationSettings';
@@ -411,6 +413,12 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     globalShortcut: globalShortcutProvider
   })
 
+  const downloadProvider = createDownloadProvider();
+  const initDownloadDirUseCase = createInitDownloadDirUseCase({
+    ...deps,
+    download: downloadProvider
+  })
+
   const showContextMenuUseCase = createShowContextMenuUseCase({ contextMenu: osContextMenuProvider })
 
   const createWidgetSubCase = createCreateWidgetSubCase(deps);
@@ -547,6 +555,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     initAppMenuUseCase,
     initTrayMenuUseCase,
     initMainShortcutUseCase,
+    initDownloadDirUseCase,
 
     getMainHotkeyOptionsUseCase,
     openApplicationSettingsUseCase,
@@ -720,9 +729,13 @@ export async function init() {
   const store = createStore();
   const useCases = await createUseCases(store);
 
-  const { initAppMenuUseCase, initMainShortcutUseCase, initTrayMenuUseCase, initMemSaverUseCase, switchWorkflowByOffsetUseCase } = useCases;
+  const {
+    initAppMenuUseCase, initMainShortcutUseCase, initDownloadDirUseCase,
+    initTrayMenuUseCase, initMemSaverUseCase, switchWorkflowByOffsetUseCase
+  } = useCases;
   store.appStoreReady.then(_ => {
     initMainShortcutUseCase();
+    initDownloadDirUseCase();
     initAppMenuUseCase();
     initTrayMenuUseCase();
     initMemSaverUseCase();

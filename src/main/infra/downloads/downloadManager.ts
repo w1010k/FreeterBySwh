@@ -6,6 +6,7 @@
 import { app, session as electronSession, Session } from 'electron';
 import { existsSync } from 'node:original-fs';
 import { join, extname, basename } from 'node:path';
+import { DownloadManager } from '@/application/interfaces/downloadManager';
 
 /**
  * Resolve a non-colliding save path inside `dir` for `filename`, browser-style:
@@ -26,11 +27,6 @@ export function resolveUniqueSavePath(dir: string, filename: string, exists: (p:
     n += 1;
   } while (exists(candidate));
   return candidate;
-}
-
-export interface DownloadManager {
-  /** Set the directory downloads are saved to. Empty string = OS default (~/Downloads). */
-  setDownloadDir(dir: string): void;
 }
 
 /**

@@ -10,3 +10,16 @@
   left:0;
   right:0;
 }
+.download-dir-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  button {
+    flex: 0 0 auto;
+  }
+}

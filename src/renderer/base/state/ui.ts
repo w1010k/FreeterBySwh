@@ -241,7 +241,8 @@ export function createUiState(): UiState {
         activateWorkflowsOnProjectSwitch: true,
         workflowInactiveAfter: -1
       },
-      uiTheme: defaultUiThemeId
+      uiTheme: defaultUiThemeId,
+      downloadDir: ''
     },
     apps: {
       appIds: []

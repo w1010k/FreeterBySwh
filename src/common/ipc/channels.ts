@@ -155,6 +155,10 @@ export const ipcSetMainShortcutChannel = makeIpcChannelName('set-main-shortcut')
 export type IpcSetMainShortcutArgs = [accelerator: string];
 export type IpcSetMainShortcutRes = boolean;
 
+export const ipcSetDownloadDirChannel = makeIpcChannelName('set-download-dir');
+export type IpcSetDownloadDirArgs = [dir: string];
+export type IpcSetDownloadDirRes = void;
+
 export const ipcSetTrayMenuChannel = makeIpcChannelName('set-tray-menu');
 export type IpcSetTrayMenuArgs = [menuItems: MenuItemsIpc];
 export type IpcSetTrayMenuRes = void;

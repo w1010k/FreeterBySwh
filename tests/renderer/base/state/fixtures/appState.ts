@@ -23,7 +23,8 @@ const appState: AppState = {
         activateWorkflowsOnProjectSwitch: true,
         workflowInactiveAfter: -1
       },
-      uiTheme: 'light'
+      uiTheme: 'light',
+      downloadDir: ''
     },
     apps: {
       appIds: [],

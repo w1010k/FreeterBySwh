@@ -11,6 +11,7 @@ import { AppConfig } from '@/base/appConfig';
 import { memSaverConfigAppActivateOnProjectSwitchOptions, memSaverConfigAppInactiveAfterOptions } from '@/base/memSaver';
 import { uiThemes } from '@/base/uiTheme';
 import { UseAppState } from '@/ui/hooks/appState';
+import { DialogProvider } from '@/application/interfaces/dialogProvider';
 import { useCallback } from 'react';
 
 type Deps = {
@@ -19,6 +20,7 @@ type Deps = {
   saveApplicationSettingsUseCase: SaveApplicationSettingsUseCase;
   updateApplicationSettingsUseCase: UpdateApplicationSettingsUseCase;
   closeApplicationSettingsUseCase: CloseApplicationSettingsUseCase;
+  dialogProvider: DialogProvider;
 }
 
 export function createApplicationSettingsViewModelHook({
@@ -27,6 +29,7 @@ export function createApplicationSettingsViewModelHook({
   saveApplicationSettingsUseCase,
   updateApplicationSettingsUseCase,
   closeApplicationSettingsUseCase,
+  dialogProvider,
 }: Deps) {
   const hotkeyOptions = getMainHotkeyOptionsUseCase();
   const uiThemeOptions = uiThemes;
@@ -44,6 +47,22 @@ export function createApplicationSettingsViewModelHook({
       updateApplicationSettingsUseCase(newAppConfig);
     }, [])
 
+    const onBrowseDownloadDirHandler = useCallback(async () => {
+      if (!appConfig) {
+        return;
+      }
+      const res = await dialogProvider.showOpenDirDialog({});
+      if (!res.canceled && res.filePaths[0]) {
+        updateSettings({ ...appConfig, downloadDir: res.filePaths[0] });
+      }
+    }, [appConfig, updateSettings])
+
+    const onResetDownloadDirHandler = useCallback(() => {
+      if (appConfig) {
+        updateSettings({ ...appConfig, downloadDir: '' });
+      }
+    }, [appConfig, updateSettings])
+
     const onOkClickHandler = useCallback(() => {
       saveApplicationSettingsUseCase();
     }, []);
@@ -56,6 +75,8 @@ export function createApplicationSettingsViewModelHook({
       appConfig,
       hotkeyOptions,
       updateSettings,
+      onBrowseDownloadDirHandler,
+      onResetDownloadDirHandler,
       onOkClickHandler,
       onCancelClickHandler,
       uiThemeOptions,

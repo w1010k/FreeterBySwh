@@ -86,6 +86,8 @@ import { createGetFileIconUseCase } from '@/application/useCases/icon/getFileIco
 import { createGetFaviconUseCase } from '@/application/useCases/icon/getFavicon';
 import { createIconControllers } from '@/controllers/icon';
 import { createDownloadManager } from '@/infra/downloads/downloadManager';
+import { createSetDownloadDirUseCase } from '@/application/useCases/download/setDownloadDir';
+import { createDownloadControllers } from '@/controllers/download';
 
 let appWindow: BrowserWindow | null = null; // ref to the app window
 
@@ -150,8 +152,10 @@ if (!app.requestSingleInstanceLock()) {
 
     // Route downloads (app window + every webview partition) to a folder instead
     // of prompting each time. Created before any window/webview so its
-    // session-created listener catches partition sessions. Default = OS Downloads.
-    createDownloadManager();
+    // session-created listener catches partition sessions. Default = OS Downloads;
+    // the renderer pushes the configured override via the download controller.
+    const downloadManager = createDownloadManager();
+    const setDownloadDirUseCase = createSetDownloadDirUseCase({ downloadManager });
 
     const appDataDir = join(app.getPath('appData'), 'freeter-swh', 'freeter-data');
     const appDataStorage = await createFileDataStorage('string', appDataDir);
@@ -267,7 +271,8 @@ if (!app.requestSingleInstanceLock()) {
         clearSharedDataStorageUseCase,
         getKeysFromSharedDataStorageUseCase,
       }),
-      ...createIconControllers({ getFileIconUseCase, getFaviconUseCase })
+      ...createIconControllers({ getFileIconUseCase, getFaviconUseCase }),
+      ...createDownloadControllers({ setDownloadDirUseCase })
     ])
 
     const [windowStore] = createWindowStore({

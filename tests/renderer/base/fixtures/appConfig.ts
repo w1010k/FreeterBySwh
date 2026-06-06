@@ -12,7 +12,8 @@ const appConfig: AppConfig = {
     activateWorkflowsOnProjectSwitch: true,
     workflowInactiveAfter: -1
   },
-  uiTheme: 'light'
+  uiTheme: 'light',
+  downloadDir: ''
 }
 
 export const fixtureAppConfig = (testData?: Partial<AppConfig>): AppConfig => deepFreeze({

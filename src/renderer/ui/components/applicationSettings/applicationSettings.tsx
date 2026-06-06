@@ -25,6 +25,8 @@ export function createApplicationSettingsComponent({
       appConfig,
       hotkeyOptions,
       updateSettings,
+      onBrowseDownloadDirHandler,
+      onResetDownloadDirHandler,
       onOkClickHandler,
       onCancelClickHandler,
       uiThemeOptions,
@@ -64,6 +66,25 @@ export function createApplicationSettingsComponent({
                 <option key={item.id} value={item.id}>{item.name}</option>
               ))}
             </select>
+          </SettingBlock>
+
+          <SettingBlock
+            titleForId='download-dir'
+            title='Download folder'
+            moreInfo='Where files downloaded from Webpage widgets are saved. Leave empty to use the
+                      system default Downloads folder.'
+          >
+            <div className={styles['download-dir-row']}>
+              <input
+                id="download-dir"
+                type="text"
+                value={appConfig.downloadDir}
+                placeholder='Default (system Downloads folder)'
+                onChange={e => updateSettings({ ...appConfig, downloadDir: e.target.value })}
+              />
+              <button type="button" onClick={onBrowseDownloadDirHandler}>Browse…</button>
+              {appConfig.downloadDir !== '' && <button type="button" onClick={onResetDownloadDirHandler}>Use default</button>}
+            </div>
           </SettingBlock>
 
           <SettingBlock
