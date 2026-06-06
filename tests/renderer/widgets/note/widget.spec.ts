@@ -8,6 +8,28 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { SHARED_DATA_CHANGED_EVENT } from '@/base/sharedDataEvents';
 
+// Lightweight stand-in for the markdown editor so we can assert the widget
+// drives it via setContent() on remote reloads (jsdom can't host the real
+// contenteditable editor reliably). markdown:false tests never construct it.
+jest.mock('tiny-markdown-editor', () => {
+  class Editor {
+    static last: Editor | null = null;
+    e: HTMLDivElement;
+    private content: string;
+    constructor(props?: { content?: string }) {
+      this.content = props?.content ?? '';
+      this.e = document.createElement('div');
+      this.e.className = 'TinyMDE';
+      document.body.appendChild(this.e);
+      Editor.last = this;
+    }
+    addEventListener() { /* no-op for tests */ }
+    setContent(c: string) { this.content = c; }
+    getContent() { return this.content; }
+  }
+  return { Editor };
+});
+
 jest.useFakeTimers();
 
 function setupNoteWidgetSut(optional?: SetupWidgetSutOptional) {
@@ -150,5 +172,26 @@ describe('Note Widget', () => {
 
     act(() => { fireEvent.blur(textbox); });
     await waitFor(() => expect(textbox).toHaveValue('NEW'));
+  })
+
+  it('markdown mode: should drive the editor via setContent() on a remote change', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { Editor } = require('tiny-markdown-editor') as { Editor: { last: { getContent(): string } | null } };
+    const getText = jest.fn().mockResolvedValue('OLD');
+    setupWidgetSut(widgetComp, { spellCheck: false, markdown: true, sharedKeyId: 'K' }, {
+      mockWidgetApi: { dataStorage: { getText } }
+    });
+
+    await waitFor(() => expect(screen.getByRole('textbox')).toBeInTheDocument());
+    const editor = Editor.last!;
+    expect(editor).toBeTruthy();
+
+    getText.mockResolvedValue('NEW'); // a sibling note changed the shared data
+    act(() => {
+      window.dispatchEvent(new CustomEvent(SHARED_DATA_CHANGED_EVENT, { detail: { widgetType: 'note', sharedKeyId: 'K' } }));
+    });
+
+    // Not focused → reload runs and pushes content into the editor (not just the textarea).
+    await waitFor(() => expect(editor.getContent()).toBe('NEW'));
   })
 })

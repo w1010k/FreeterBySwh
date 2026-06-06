@@ -23,6 +23,10 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
   // A remote change that arrived while this note was focused: applied on blur
   // so a focused note doesn't stay stale until the next broadcast.
   const pendingReload = useRef(false);
+  // The tiny-markdown-editor instance when markdown mode is on (else null).
+  // External reloads must go through its setContent(); writing textarea.value
+  // alone wouldn't update the editor's own rendered DOM.
+  const editorRef = useRef<Editor | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -44,7 +48,12 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
     pendingReload.current = false;
     const next = await dataStorage.getText(keyNote) || '';
     loadedNote.current = next;
-    if (textAreaRef.current && textAreaRef.current.value !== next) {
+    if (editorRef.current) {
+      // Markdown mode: drive the editor so its rendered view updates too.
+      if (editorRef.current.getContent() !== next) {
+        editorRef.current.setContent(next);
+      }
+    } else if (textAreaRef.current && textAreaRef.current.value !== next) {
       textAreaRef.current.value = next;
     }
     setIsLoaded(true);
@@ -77,8 +86,13 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
     () => {
       // While the user is editing this note, defer the remote change to blur
       // (handleBlur) instead of dropping it — otherwise a focused note would
-      // stay stale until the next broadcast.
-      if (document.activeElement === textAreaRef.current) {
+      // stay stale until the next broadcast. In markdown mode the focused
+      // element is the tiny-markdown-editor div, not the textarea.
+      const editorEl = editorRef.current?.e;
+      const editing = editorEl
+        ? editorEl.contains(document.activeElement)
+        : document.activeElement === textAreaRef.current;
+      if (editing) {
         pendingReload.current = true;
         return true;
       }
@@ -87,20 +101,32 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
     loadNote
   );
 
+  // Markdown editor lifecycle. Create the tiny-markdown-editor when markdown is
+  // on, wiring its change → save and its blur (focusout) → flush/deferred-reload
+  // so the same sync guarantees as the plain textarea hold. Tear it down (and
+  // remove its DOM, which lives outside React's tree) on cleanup.
   useEffect(() => {
-    if (textAreaRef.current) {
-      if (settings.markdown) {
-        const tinyMDE = new Editor({textarea: textAreaRef.current});
-        tinyMDE.addEventListener('change', (e) => updNote(e.content));
-        (textAreaRef.current.nextSibling as HTMLElement).spellcheck = settings.spellCheck;
-      } else {
-        loadedNote.current = textAreaRef.current.value;
-        Array.from(textAreaRef.current.parentElement?.children || [])
-          .filter(child => child.classList.contains('TinyMDE'))
-          .forEach(child => child.remove());
-      }
+    // Gated on isLoaded so it runs once the textarea is actually mounted.
+    const textarea = textAreaRef.current;
+    if (!isLoaded || !textarea || !settings.markdown) {
+      return undefined;
     }
-  })
+    const editor = new Editor({ textarea, content: loadedNote.current });
+    editorRef.current = editor;
+    editor.addEventListener('change', e => updNote(e.content));
+    const editorEl = editor.e;
+    if (editorEl) {
+      editorEl.spellcheck = settings.spellCheck;
+      editorEl.addEventListener('focusout', handleBlur);
+    }
+    return () => {
+      editorRef.current = null;
+      if (editorEl) {
+        editorEl.removeEventListener('focusout', handleBlur);
+        editorEl.remove();
+      }
+    };
+  }, [isLoaded, settings.markdown, settings.spellCheck, updNote, handleBlur])
 
   return (
     isLoaded
