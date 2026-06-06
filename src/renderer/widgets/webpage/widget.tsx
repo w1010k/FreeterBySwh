@@ -86,6 +86,7 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
   const {updateActionBar, setContextMenuFactory, exposeApi, setDynamicTitle} = widgetApi;
   const webviewRef = useRef<Electron.WebviewTag>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [webviewIsReady, setWebviewIsReady] = useState(false);
   const [autoReloadStopped, setAutoReloadStopped] = useState(false);
   const [cssInDom, setCssInDom] = useState<[string, string]|null>(null);
@@ -226,6 +227,8 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
 
     const handleDidStartLoading = () => {
       setIsLoading(true);
+      // A fresh load attempt clears any previous failure overlay.
+      setLoadError(null);
     }
     const handleDidStopLoading = () => {
       setIsLoading(false);
@@ -257,14 +260,20 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
     const handleFoundInPage = (e: Electron.FoundInPageEvent) => {
       setFindResult({ active: e.result.activeMatchOrdinal, total: e.result.matches });
     };
-    // const handleDidFailLoad = (e: DidFailLoadEvent) => {
-    //   console.log(e.errorDescription);
-    // };
+    // Surface main-frame load failures as an overlay instead of a silent blank
+    // page. Ignore sub-frame failures (a broken iframe shouldn't blank the whole
+    // widget) and code -3 (ERR_ABORTED — e.g. the user navigated away or hit
+    // stop, which isn't a real error).
+    const handleDidFailLoad = (e: Electron.DidFailLoadEvent) => {
+      if (e.isMainFrame && e.errorCode !== -3) {
+        setLoadError(e.validatedURL || '');
+      }
+    };
 
     // Add event listeners
     webviewEl.addEventListener('did-start-loading', handleDidStartLoading);
     webviewEl.addEventListener('did-stop-loading', handleDidStopLoading);
-    // webviewEl.addEventListener('did-fail-load', handleDidFailLoad);
+    webviewEl.addEventListener('did-fail-load', handleDidFailLoad);
     webviewEl.addEventListener('context-menu', handleContextMenu)
     webviewEl.addEventListener('page-title-updated', handlePageTitleUpdated);
     webviewEl.addEventListener('did-navigate', handleDidNavigateForTitle);
@@ -275,7 +284,7 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
       // Remove event listeners
       webviewEl.removeEventListener('did-start-loading', handleDidStartLoading);
       webviewEl.removeEventListener('did-stop-loading', handleDidStopLoading);
-      // webviewEl.removeEventListener('did-fail-load', handleDidFailLoad);
+      webviewEl.removeEventListener('did-fail-load', handleDidFailLoad);
       webviewEl.removeEventListener('context-menu', handleContextMenu)
       webviewEl.removeEventListener('page-title-updated', handlePageTitleUpdated);
       webviewEl.removeEventListener('did-navigate', handleDidNavigateForTitle);
@@ -473,6 +482,11 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
       <button className={styles['find-btn']} title="Previous (Shift+Enter)" onClick={() => findNext(false)}>↑</button>
       <button className={styles['find-btn']} title="Next (Enter)" onClick={() => findNext(true)}>↓</button>
       <button className={styles['find-btn']} title="Close (Esc)" onClick={closeFind}>✕</button>
+    </div>}
+    {loadError !== null && <div className={styles['load-error']}>
+      <div className={styles['load-error-title']}>This page couldn{'’'}t be loaded</div>
+      {loadError !== '' && <div className={styles['load-error-url']}>{loadError}</div>}
+      <button className={styles['load-error-retry']} onClick={() => { const el = webviewRef.current; if (el) { reload(el); } }}>Retry</button>
     </div>}
     {isLoading && <div className={styles['loading']}>Loading...</div>}
   </>

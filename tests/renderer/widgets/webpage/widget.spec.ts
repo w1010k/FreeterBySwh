@@ -5,7 +5,7 @@
 
 import { Settings, SettingsSessionPersist, SettingsSessionScope } from '@/widgets/webpage/settings';
 import { widgetComp } from '@/widgets/webpage/widget'
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { fixtureSettings } from './fixtures';
 import { WidgetEnv, EntityId } from '@/widgets/appModules';
@@ -73,6 +73,45 @@ describe('Webpage Widget', () => {
 
     expect(comp.container.getElementsByTagName('webview')[0]).not.toBe(elem);
   })
+  describe('load failure overlay', () => {
+    const failEvent = (props: { isMainFrame: boolean; errorCode: number; validatedURL?: string }) => {
+      const evt = new Event('did-fail-load') as Event & typeof props;
+      Object.assign(evt, props);
+      return evt;
+    };
+
+    it('should show an error overlay with the failed URL and a Retry button on a main-frame load failure', () => {
+      const { webview } = setupWebpageWidgetSut(fixtureSettings({ url: 'https://nope.invalid/' }));
+
+      act(() => { webview.dispatchEvent(failEvent({ isMainFrame: true, errorCode: -106, validatedURL: 'https://nope.invalid/' })); });
+
+      expect(screen.getByText(/couldn.t be loaded/i)).toBeInTheDocument();
+      expect(screen.getByText('https://nope.invalid/')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    })
+
+    it('should ignore sub-frame failures and aborted (-3) loads', () => {
+      const { webview } = setupWebpageWidgetSut(fixtureSettings({ url: 'https://x/' }));
+
+      act(() => {
+        webview.dispatchEvent(failEvent({ isMainFrame: false, errorCode: -106, validatedURL: 'https://x/iframe' }));
+        webview.dispatchEvent(failEvent({ isMainFrame: true, errorCode: -3, validatedURL: 'https://x/' }));
+      });
+
+      expect(screen.queryByText(/couldn.t be loaded/i)).not.toBeInTheDocument();
+    })
+
+    it('should clear the overlay once a new load starts', () => {
+      const { webview } = setupWebpageWidgetSut(fixtureSettings({ url: 'https://x/' }));
+
+      act(() => { webview.dispatchEvent(failEvent({ isMainFrame: true, errorCode: -106, validatedURL: 'https://x/' })); });
+      expect(screen.getByText(/couldn.t be loaded/i)).toBeInTheDocument();
+
+      act(() => { webview.dispatchEvent(new Event('did-start-loading')); });
+      expect(screen.queryByText(/couldn.t be loaded/i)).not.toBeInTheDocument();
+    })
+  })
+
   describe('webview src attribute', () => {
     it('should be as specified by the url setting', () => {
       const testUrl = 'http://127.0.0.1/';
