@@ -5,7 +5,7 @@
 
 import { Settings, SettingsSessionPersist, SettingsSessionScope } from '@/widgets/webpage/settings';
 import { widgetComp } from '@/widgets/webpage/widget'
-import { act, screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { fixtureSettings } from './fixtures';
 import { WidgetEnv, EntityId } from '@/widgets/appModules';
@@ -99,6 +99,17 @@ describe('Webpage Widget', () => {
       });
 
       expect(screen.queryByText(/couldn.t be loaded/i)).not.toBeInTheDocument();
+    })
+
+    it('should re-attempt the failed URL via loadURL when Retry is clicked', () => {
+      const { webview } = setupWebpageWidgetSut(fixtureSettings({ url: 'https://x/' }));
+      const loadURL = jest.fn(() => Promise.resolve());
+      (webview as unknown as { loadURL: jest.Mock }).loadURL = loadURL;
+
+      act(() => { webview.dispatchEvent(failEvent({ isMainFrame: true, errorCode: -106, validatedURL: 'https://x/page' })); });
+      fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+
+      expect(loadURL).toHaveBeenCalledWith('https://x/page');
     })
 
     it('should clear the overlay once a new load starts', () => {

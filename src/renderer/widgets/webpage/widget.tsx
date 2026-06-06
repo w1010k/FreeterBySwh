@@ -486,7 +486,21 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
     {loadError !== null && <div className={styles['load-error']}>
       <div className={styles['load-error-title']}>This page couldn{'’'}t be loaded</div>
       {loadError !== '' && <div className={styles['load-error-url']}>{loadError}</div>}
-      <button className={styles['load-error-retry']} onClick={() => { const el = webviewRef.current; if (el) { reload(el); } }}>Retry</button>
+      <button className={styles['load-error-retry']} onClick={() => {
+        const el = webviewRef.current;
+        if (!el) {
+          return;
+        }
+        // Re-attempt the URL that failed (falling back to the configured one).
+        // reload() alone isn't reliable here: when the *initial* load failed
+        // nothing is committed, so there's no current page to reload.
+        const target = loadError || sanitUrl;
+        if (target) {
+          el.loadURL(target).catch(() => undefined);
+        } else {
+          reload(el);
+        }
+      }}>Retry</button>
     </div>}
     {isLoading && <div className={styles['loading']}>Loading...</div>}
   </>
