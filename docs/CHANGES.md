@@ -1468,9 +1468,12 @@ Web Query 위젯의 **Query Engine** 드롭다운(빌트인 검색 엔진 목록
 | Naver (Maps) | `https://map.naver.com/p/search/QUERY` |
 | Naver (Shopping) | `https://search.shopping.naver.com/search/all?query=QUERY` |
 | Naver (Stock) | `https://stock.naver.com/domestic/stock/QUERY/price` (QUERY=종목 코드, 예 005930) |
+| Naver (Dictionary) | `https://dict.naver.com/#/search?query=QUERY` (통합 사전; 국어만 `ko.`/영어만 `en.`) |
 | Namuwiki | `https://namu.wiki/Search?q=QUERY` |
+| Daum | `https://search.daum.net/search?q=QUERY` |
 | YouTube | `https://www.youtube.com/results?search_query=QUERY` |
 | Perplexity | `https://www.perplexity.ai/search?q=QUERY` |
+| Google Scholar | `https://scholar.google.com/scholar?q=QUERY` |
 | Google Translate | `https://translate.google.com/?sl=auto&tl=ko&text=QUERY&op=translate` |
 | Papago | `https://papago.naver.com/?sk=auto&tk=ko&st=QUERY` |
 
