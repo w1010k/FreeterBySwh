@@ -28,7 +28,9 @@ const appState: AppState = {
       bgColor: '',
       bgImage: '',
       bgImageMode: 'cover',
-      bgOpacity: 100
+      bgOpacity: 100,
+      workflowBarPos: 'top',
+      workflowBarWidth: 200
     },
     apps: {
       appIds: [],

@@ -238,6 +238,8 @@ export function createWorkflowSwitcherViewModelHook({
       topBarIsHidden,
       editTogglePos,
       prjSwitcherPos,
+      workflowBarPos,
+      workflowBarWidth,
     } = useAppState(state => {
       const { editMode: isEditMode } = state.ui;
       const { currentProjectId } = state.ui.projectSwitcher;
@@ -252,6 +254,8 @@ export function createWorkflowSwitcherViewModelHook({
       const topBarIsHidden = !state.ui.topBar;
       const editTogglePos = state.ui.editTogglePos;
       const prjSwitcherPos = state.ui.projectSwitcher.pos;
+      const workflowBarPos = state.ui.appConfig.workflowBarPos;
+      const workflowBarWidth = state.ui.appConfig.workflowBarWidth;
       return {
         isEditMode,
         currentProjectId,
@@ -266,6 +270,8 @@ export function createWorkflowSwitcherViewModelHook({
         topBarIsHidden,
         editTogglePos,
         prjSwitcherPos,
+        workflowBarPos,
+        workflowBarWidth,
       }
     })
 
@@ -419,6 +425,8 @@ export function createWorkflowSwitcherViewModelHook({
       showPrjSwitcherRight,
       showEditToggleLeft,
       showEditToggleRight,
+      workflowBarPos,
+      workflowBarWidth,
     }
   }
 

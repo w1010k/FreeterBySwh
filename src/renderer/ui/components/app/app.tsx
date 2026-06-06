@@ -6,6 +6,7 @@
 import { AppViewModelHook } from './appViewModel';
 import './globals.scss';
 import React from 'react';
+import clsx from 'clsx';
 import styles from './app.module.scss';
 import {SvgIcon} from '@/ui/components/basic/svgIcon';
 import { manage24Svg } from '@/ui/assets/images/appIcons';
@@ -26,21 +27,27 @@ export function createAppComponent({
   useAppViewModel
 }: Deps) {
   function App() {
-    const {modalScreens, hasModalScreens, hasProjects, contextMenuHandler, uiThemeId, hasTopBar} = useAppViewModel();
+    const {modalScreens, hasModalScreens, hasProjects, contextMenuHandler, uiThemeId, hasTopBar, workflowBarPos} = useAppViewModel();
+    const body = hasProjects
+      ? <Worktable />
+      : <InAppNote className={styles['no-projects']}>
+          {'You don\'t have any projects. Use the Manage Projects '} <SvgIcon svg={manage24Svg} className={styles['manage-icon']} /> {' button above (or under the View menu) to create a first one.'}
+        </InAppNote>;
+    const isSide = workflowBarPos === 'left' || workflowBarPos === 'right';
     return (
       <div onContextMenu={contextMenuHandler}>
         <UITheme themeId={uiThemeId} />
         <div className={styles['main-screen']} data-testid="main-screen" {...{ inert: hasModalScreens ? true : undefined }}>
           {hasTopBar && <TopBar />}
-          <WorkflowSwitcher />
-          {
-            hasProjects
-            ? <>
-                <Worktable />
+          {isSide
+            ? <div className={clsx(styles['body-row'], workflowBarPos === 'right' && styles['is-right'])}>
+                <WorkflowSwitcher />
+                {body}
+              </div>
+            : <>
+                {workflowBarPos === 'bottom' ? body : <WorkflowSwitcher />}
+                {workflowBarPos === 'bottom' ? <WorkflowSwitcher /> : body}
               </>
-            : <InAppNote className={styles['no-projects']}>
-                {'You don\'t have any projects. Use the Manage Projects '} <SvgIcon svg={manage24Svg} className={styles['manage-icon']} /> {' button above (or under the View menu) to create a first one.'}
-              </InAppNote>
           }
         </div>
         {

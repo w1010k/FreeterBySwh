@@ -58,7 +58,11 @@ export function createWorkflowSwitcherComponent({
       showEditToggleLeft,
       showPrjSwitcherRight,
       showEditToggleRight,
+      workflowBarPos,
+      workflowBarWidth,
     } = useWorkflowSwitcherViewModel();
+
+    const isVertical = workflowBarPos === 'left' || workflowBarPos === 'right';
 
     const compPrjSwitcher =
       <div
@@ -78,7 +82,15 @@ export function createWorkflowSwitcherComponent({
       </div>
 
     return (
-      <div className={styles['workflow-switcher-bar']}>
+      <div
+        className={clsx(
+          styles['workflow-switcher-bar'],
+          isVertical && styles['is-vertical'],
+          workflowBarPos === 'bottom' && styles['is-bottom'],
+          workflowBarPos === 'right' && styles['is-right']
+        )}
+        style={isVertical ? { width: workflowBarWidth } : undefined}
+      >
         {showPrjSwitcherLeft && compPrjSwitcher}
         {showEditToggleLeft && compEditToggle}
         {showPaletteLeft && compPalette}

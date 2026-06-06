@@ -246,7 +246,9 @@ export function createUiState(): UiState {
       bgColor: '',
       bgImage: '',
       bgImageMode: 'cover',
-      bgOpacity: 100
+      bgOpacity: 100,
+      workflowBarPos: 'top',
+      workflowBarWidth: 200
     },
     apps: {
       appIds: []

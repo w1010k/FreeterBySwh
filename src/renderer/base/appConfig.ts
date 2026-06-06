@@ -7,6 +7,8 @@ import { MemSaverConfigApp } from '@/base/memSaver';
 
 export type WorktableBgImageMode = 'cover' | 'contain' | 'center' | 'tile';
 
+export type WorkflowBarPos = 'top' | 'bottom' | 'left' | 'right';
+
 export interface AppConfig {
   mainHotkey: string;
   memSaver: MemSaverConfigApp;
@@ -21,4 +23,8 @@ export interface AppConfig {
   bgImageMode: WorktableBgImageMode;
   /** Opacity of the custom background (color + image), 0–100. 100 = opaque. */
   bgOpacity: number;
+  /** Where the workflow tab bar sits: along the top (default) or as a side panel. */
+  workflowBarPos: WorkflowBarPos;
+  /** Width (px) of the workflow bar when positioned on the left/right. */
+  workflowBarWidth: number;
 }

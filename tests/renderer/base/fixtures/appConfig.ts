@@ -17,7 +17,9 @@ const appConfig: AppConfig = {
   bgColor: '',
   bgImage: '',
   bgImageMode: 'cover',
-  bgOpacity: 100
+  bgOpacity: 100,
+  workflowBarPos: 'top',
+  workflowBarWidth: 200
 }
 
 export const fixtureAppConfig = (testData?: Partial<AppConfig>): AppConfig => deepFreeze({

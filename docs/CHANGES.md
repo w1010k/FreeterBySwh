@@ -1425,6 +1425,28 @@ Note와 To-Do List의 디스크 저장은 디바운스(노트 800ms, 투두 500m
 
 ---
 
+## 45. 워크플로우 바 위치 선택 — 위/아래/좌/우 + 사이드 너비 조절 *(2026-06-06)*
+
+워크플로우 탭 바(프로젝트 스위처·편집 토글·팔레트가 함께 있는 그 바)를 **위(기본)/아래/왼쪽/오른쪽** 중 원하는 위치에 둘 수 있다. 좌/우(사이드)일 때는 세로 패널이 되고 **너비를 조절**할 수 있다.
+
+### 사용자 가시적 효과
+
+- **Application Settings → "Workflow bar position"** 에서 Top / Bottom / Left / Right 선택. 좌/우면 너비(px) 입력칸이 함께 나온다(드래그 조절은 후속 커밋에서).
+- 좌/우일 때 바는 세로 사이드 패널, 탭은 세로로 쌓이고, 본문(Worktable)이 나머지를 채운다.
+
+### 아키텍처
+
+- 전역 설정 `AppConfig.workflowBarPos`('top'|'bottom'|'left'|'right')·`workflowBarWidth`(px).
+- **레이아웃**: `app.tsx`가 위치에 따라 — 위/아래는 기존 세로 스택에서 바를 본문 앞/뒤로, 좌/우는 `[바 + 본문]`을 가로 행(`.body-row`, right는 `row-reverse`)으로 묶음.
+- **세로 바**: `workflowSwitcher`가 좌/우면 `is-vertical` 클래스(+ 인라인 width)로 `flex-direction:column`·세로 탭·테두리 방향(좌=오른쪽 테두리/우=왼쪽 테두리)을 전환. 아래는 `is-bottom`으로 테두리만 위로.
+
+### 수정 파일
+
+- **수정**: `base/appConfig.ts`(`workflowBarPos`/`workflowBarWidth`), `base/state/ui.ts`, `app`(컴포넌트·뷰모델·scss), `workflowSwitcher`(컴포넌트·뷰모델·scss), `applicationSettings`(컴포넌트)
+- **테스트**: `workflowSwitcher.spec.tsx`(세로 패널 width 적용/미적용), 설정 fixture 갱신
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

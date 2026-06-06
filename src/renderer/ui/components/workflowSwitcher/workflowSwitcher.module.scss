@@ -14,6 +14,63 @@
   flex-direction: row;
 }
 
+// Bottom position: same horizontal bar, border on top instead of bottom.
+.workflow-switcher-bar.is-bottom {
+  border-bottom: none;
+  border-top: 1px solid var(--freeter-workflowSwitcherBorder);
+}
+
+// Left/Right position: vertical side panel. Width comes from an inline style.
+.workflow-switcher-bar.is-vertical {
+  flex-direction: column;
+  height: auto;
+  width: 200px;
+  flex: 0 0 auto;
+  border-bottom: none;
+  border-right: 1px solid var(--freeter-workflowSwitcherBorder);
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  &.is-right {
+    border-right: none;
+    border-left: 1px solid var(--freeter-workflowSwitcherBorder);
+  }
+
+  .workflow-switcher-bar-section {
+    &:not(:last-child) {
+      border-right: none;
+      border-bottom: 1px solid var(--freeter-workflowSwitcherBorder);
+    }
+  }
+
+  .workflow-switcher {
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    margin-bottom: 0;
+  }
+
+  .workflow-switcher-item {
+    display: block;
+    margin-top: 0;
+    &:not(:first-child) {
+      margin-left: 0;
+      margin-top: -1px;
+    }
+  }
+
+  .workflow-switcher-item-button,
+  .workflow-switcher-item-name-editor {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    height: auto;
+    min-width: 0;
+    line-height: 1.4;
+    padding: 8px 36px 8px 12px;
+  }
+}
+
 .workflow-switcher-bar-section {
   box-sizing: border-box;
   padding: 0 6px;

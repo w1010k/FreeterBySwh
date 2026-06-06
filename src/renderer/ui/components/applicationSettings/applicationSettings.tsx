@@ -71,6 +71,37 @@ export function createApplicationSettingsComponent({
           </SettingBlock>
 
           <SettingBlock
+            titleForId='workflow-bar-pos'
+            title='Workflow bar position'
+            moreInfo='Where the workflow tab bar sits. Left/Right show it as a vertical side panel whose width you can set (or drag its edge).'
+          >
+            <select id="workflow-bar-pos" value={appConfig.workflowBarPos} onChange={e => updateSettings({
+              ...appConfig,
+              workflowBarPos: e.target.value as typeof appConfig.workflowBarPos
+            })}>
+              <option value="top">Top</option>
+              <option value="bottom">Bottom</option>
+              <option value="left">Left</option>
+              <option value="right">Right</option>
+            </select>
+            {(appConfig.workflowBarPos === 'left' || appConfig.workflowBarPos === 'right') && <div className={styles['download-dir-row']}>
+              <span>Width</span>
+              <input
+                type="number"
+                min={120}
+                max={600}
+                step={10}
+                value={appConfig.workflowBarWidth}
+                onChange={e => updateSettings({
+                  ...appConfig,
+                  workflowBarWidth: Math.min(600, Math.max(120, Number.parseInt(e.target.value) || 120))
+                })}
+              />
+              <span>px</span>
+            </div>}
+          </SettingBlock>
+
+          <SettingBlock
             titleForId='download-dir'
             title='Download folder'
             moreInfo='Where files downloaded from Webpage widgets are saved. Leave empty to use the

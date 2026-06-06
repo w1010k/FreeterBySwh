@@ -18,6 +18,7 @@ import userEvent from '@testing-library/user-event';
 import { fixtureWorktableNotResizing, fixtureWorktableResizingItem } from '@tests/base/state/fixtures/worktable';
 import { createCreateWorkflowSubCase } from '@/application/useCases/workflow/subs/createWorkflow';
 import { EditTogglePos, ProjectSwitcherPos } from '@/base/state/ui';
+import { fixtureAppConfig } from '@tests/base/fixtures/appConfig';
 
 const newWorkflowId = 'NEW-WORKFLOW-ID';
 
@@ -104,6 +105,22 @@ const dragItemId = 'DRAG-ITEM-ID';
 const overItemId = 'OVER-ITEM-ID';
 
 describe('<WorkflowSwitcher />', () => {
+  it('should render as a vertical side panel with the configured width when workflowBarPos is left', async () => {
+    const { comp } = await setup(fixtureAppState({
+      ui: { appConfig: fixtureAppConfig({ workflowBarPos: 'left', workflowBarWidth: 250 }) }
+    }));
+
+    expect((comp.container.firstChild as HTMLElement).style.width).toBe('250px');
+  });
+
+  it('should not set an inline width when workflowBarPos is top', async () => {
+    const { comp } = await setup(fixtureAppState({
+      ui: { appConfig: fixtureAppConfig({ workflowBarPos: 'top' }) }
+    }));
+
+    expect((comp.container.firstChild as HTMLElement).style.width).toBe('');
+  });
+
   it('should not display EditModeToggle, when its pos!==TabBar', async() => {
     await setup(fixtureAppState({
       ui: {
