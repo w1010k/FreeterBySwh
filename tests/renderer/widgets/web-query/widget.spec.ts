@@ -7,7 +7,7 @@ import { Settings, SettingsMode, defaultEngine } from '@/widgets/web-query/setti
 import { widgetComp } from '@/widgets/web-query/widget'
 import { screen } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
-import { fixtureSettings } from './fixtures';
+import { fixtureEntry, fixtureSettings1 } from './fixtures';
 import { WebpageExposedApi } from '@/widgets/interfaces';
 import { WidgetApiWidget } from '@/widgets/appModules';
 
@@ -22,56 +22,56 @@ function setupSut(settings: Settings, optional?: SetupWidgetSutOptional) {
 describe('Web Query Widget', () => {
   describe('Browser mode', () => {
     it('should render an "Invalid URL template" note, if engine=custom and url is empty', () => {
-      setupSut(fixtureSettings({ mode: SettingsMode.Browser, engine: '', url: '' }));
+      setupSut(fixtureSettings1(SettingsMode.Browser, { engine: '', url: '' }));
 
       expect(screen.getByText(/Invalid URL template/i)).toBeInTheDocument();
     })
 
     it('should render an "Invalid URL template" note, if engine=custom and url is invalid', () => {
-      setupSut(fixtureSettings({ mode: SettingsMode.Browser, engine: '', url: 'invalid^url/QUERY' }));
+      setupSut(fixtureSettings1(SettingsMode.Browser, { engine: '', url: 'invalid^url/QUERY' }));
 
       expect(screen.getByText(/Invalid URL template/i)).toBeInTheDocument();
     })
 
     it('should not render an "Invalid URL template" note, if engine!=custom and url is invalid', () => {
-      setupSut(fixtureSettings({ mode: SettingsMode.Browser, engine: defaultEngine.id, url: 'invalid^url/QUERY' }));
+      setupSut(fixtureSettings1(SettingsMode.Browser, { engine: defaultEngine.id, url: 'invalid^url/QUERY' }));
 
       expect(screen.queryByText(/Invalid URL template/i)).not.toBeInTheDocument();
     })
 
     it('should render a "Missing QUERY in URL template" note, if engine=custom and url does not have QUERY', () => {
-      setupSut(fixtureSettings({ mode: SettingsMode.Browser, engine: '', url: 'https://freeter.io/' }));
+      setupSut(fixtureSettings1(SettingsMode.Browser, { engine: '', url: 'https://freeter.io/' }));
 
       expect(screen.getByText(/Missing QUERY in URL template/i)).toBeInTheDocument();
     })
 
     it('should not render a "Missing QUERY in URL template" note, if engine!=custom and url does not have QUERY', () => {
-      setupSut(fixtureSettings({ mode: SettingsMode.Browser, engine: defaultEngine.id, url: 'https://freeter.io/' }));
+      setupSut(fixtureSettings1(SettingsMode.Browser, { engine: defaultEngine.id, url: 'https://freeter.io/' }));
 
       expect(screen.queryByText(/Missing QUERY in URL template/i)).not.toBeInTheDocument();
     })
 
     it('should render a "Missing QUERY in Query template" note, if query does not have QUERY', () => {
-      setupSut(fixtureSettings({ mode: SettingsMode.Browser, engine: '', url: 'https://freeter.io/QUERY', query: 'non-uppercase-query' }));
+      setupSut(fixtureSettings1(SettingsMode.Browser, { engine: '', url: 'https://freeter.io/QUERY', query: 'non-uppercase-query' }));
 
       expect(screen.getByText(/Missing QUERY in Query template/i)).toBeInTheDocument();
     })
 
     it('should not render a "Missing QUERY in Query template" note, if query is empty', () => {
-      setupSut(fixtureSettings({ mode: SettingsMode.Browser, engine: '', url: 'https://freeter.io/QUERY', query: '' }));
+      setupSut(fixtureSettings1(SettingsMode.Browser, { engine: '', url: 'https://freeter.io/QUERY', query: '' }));
 
       expect(screen.queryByText(/Missing QUERY in Query template/i)).not.toBeInTheDocument();
     })
 
     it('should render a text input and a button, when there are not any warning notes', () => {
-      setupSut(fixtureSettings({ mode: SettingsMode.Browser, engine: '', url: 'https://freeter.io/QUERY', query: '' }));
+      setupSut(fixtureSettings1(SettingsMode.Browser, { engine: '', url: 'https://freeter.io/QUERY', query: '' }));
 
       expect(screen.getByRole('textbox')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /query/i })).toBeInTheDocument();
     })
 
     it('should not render a text input and a button, when there is a warning notes', () => {
-      setupSut(fixtureSettings({ mode: SettingsMode.Browser, engine: '', url: '', query: '' }));
+      setupSut(fixtureSettings1(SettingsMode.Browser, { engine: '', url: '', query: '' }));
 
       expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /query/i })).not.toBeInTheDocument();
@@ -79,19 +79,19 @@ describe('Web Query Widget', () => {
 
     it('should set the descr setting value as a text input placeholder, when engine=custom', () => {
       const descr = 'Descr';
-      setupSut(fixtureSettings({ mode: SettingsMode.Browser, engine: '', url: 'https://freeter.io/QUERY', query: '', descr }));
+      setupSut(fixtureSettings1(SettingsMode.Browser, { engine: '', url: 'https://freeter.io/QUERY', query: '', descr }));
 
       expect(screen.getByRole('textbox')).toHaveProperty('placeholder', descr);
     })
 
     it('should set the engine descr as a text input placeholder, when engine!=custom', () => {
-      setupSut(fixtureSettings({ mode: SettingsMode.Browser, engine: 'ovrs', query: '', descr: 'Descr' }));
+      setupSut(fixtureSettings1(SettingsMode.Browser, { engine: 'ovrs', query: '', descr: 'Descr' }));
 
       expect(screen.getByRole('textbox')).toHaveProperty('placeholder', 'Search for content');
     })
 
     it('should set the default engine descr as a text input placeholder, when engine does not exist', () => {
-      setupSut(fixtureSettings({ mode: SettingsMode.Browser, engine: 'NO-SUCH-ID', query: '', descr: 'Descr' }));
+      setupSut(fixtureSettings1(SettingsMode.Browser, { engine: 'NO-SUCH-ID', query: '', descr: 'Descr' }));
 
       expect(screen.getByRole('textbox')).toHaveProperty('placeholder', defaultEngine.descr);
     })
@@ -100,7 +100,7 @@ describe('Web Query Widget', () => {
       const someQuery = 'some query';
       const openExternalUrl = jest.fn();
       const { userEvent } = setupSut(
-        fixtureSettings({ mode: SettingsMode.Browser, engine: 'goog', query: 'query QUERY', url: 'https://freeter.io/QUERY' }),
+        fixtureSettings1(SettingsMode.Browser, { engine: 'goog', query: 'query QUERY', url: 'https://freeter.io/QUERY' }),
         {
           mockWidgetApi: {
             shell: {
@@ -123,7 +123,7 @@ describe('Web Query Widget', () => {
       const someQuery = 'some query';
       const openExternalUrl = jest.fn();
       const { userEvent } = setupSut(
-        fixtureSettings({ mode: SettingsMode.Browser, engine: 'goog', query: 'query QUERY', url: 'https://freeter.io/QUERY' }),
+        fixtureSettings1(SettingsMode.Browser, { engine: 'goog', query: 'query QUERY', url: 'https://freeter.io/QUERY' }),
         {
           mockWidgetApi: {
             shell: {
@@ -153,7 +153,7 @@ describe('Web Query Widget', () => {
       }]
       const getWidgetsInCurrentWorkflow = jest.fn().mockReturnValue(webpageWidgets);
       const { userEvent } = setupSut(
-        fixtureSettings({ mode: SettingsMode.Browser, engine: 'goog', query: 'query QUERY', url: 'https://freeter.io/QUERY' }),
+        fixtureSettings1(SettingsMode.Browser, { engine: 'goog', query: 'query QUERY', url: 'https://freeter.io/QUERY' }),
         {
           mockWidgetApi: {
             widgets: {
@@ -177,7 +177,7 @@ describe('Web Query Widget', () => {
       }]
       const getWidgetsInCurrentWorkflow = jest.fn().mockReturnValue(webpageWidgets);
       const { userEvent } = setupSut(
-        fixtureSettings({ mode: SettingsMode.Browser, engine: 'goog', query: 'query QUERY', url: 'https://freeter.io/QUERY' }),
+        fixtureSettings1(SettingsMode.Browser, { engine: 'goog', query: 'query QUERY', url: 'https://freeter.io/QUERY' }),
         {
           mockWidgetApi: {
             widgets: {
@@ -199,7 +199,7 @@ describe('Web Query Widget', () => {
       const someQuery = 'some query';
       const openExternalUrl = jest.fn();
       const { userEvent } = setupSut(
-        fixtureSettings({ mode: SettingsMode.Browser, engine: '', query: 'query QUERY', url: 'freeter.io/QUERY' }),
+        fixtureSettings1(SettingsMode.Browser, { engine: '', query: 'query QUERY', url: 'freeter.io/QUERY' }),
         {
           mockWidgetApi: {
             shell: {
@@ -219,7 +219,7 @@ describe('Web Query Widget', () => {
       const someQuery = 'some query';
       const openExternalUrl = jest.fn();
       const { userEvent } = setupSut(
-        fixtureSettings({ mode: SettingsMode.Browser, engine: 'goog', query: 'query QUERY', url: 'freeter.io/QUERY' }),
+        fixtureSettings1(SettingsMode.Browser, { engine: 'goog', query: 'query QUERY', url: 'freeter.io/QUERY' }),
         {
           mockWidgetApi: {
             shell: {
@@ -235,48 +235,75 @@ describe('Web Query Widget', () => {
       expect(openExternalUrl).toHaveBeenCalledWith('https://www.google.com/search?q=query%20some%20query');
     })
 
+    it('should render one input row per entry and query each independently', async () => {
+      const openExternalUrl = jest.fn();
+      const { userEvent } = setupSut(
+        {
+          mode: SettingsMode.Browser,
+          entries: [
+            fixtureEntry({ id: 'e1', engine: 'goog', query: '' }),
+            fixtureEntry({ id: 'e2', engine: 'bing', query: '' })
+          ]
+        },
+        {
+          mockWidgetApi: {
+            shell: {
+              openExternalUrl
+            }
+          }
+        }
+      );
+      const textboxes = screen.getAllByRole('textbox');
+      expect(textboxes).toHaveLength(2);
+
+      await userEvent.type(textboxes[1], 'hello[enter]');
+
+      expect(openExternalUrl).toHaveBeenCalledTimes(1);
+      expect(openExternalUrl).toHaveBeenCalledWith('https://www.bing.com/search?q=hello');
+    })
+
   })
 
   describe('Webpages mode', () => {
     it('should not render an "Invalid URL template" note, if engine=custom and url is empty', () => {
-      setupSut(fixtureSettings({ mode: SettingsMode.Webpages, engine: '', url: '' }));
+      setupSut(fixtureSettings1(SettingsMode.Webpages, { engine: '', url: '' }));
 
       expect(screen.queryByText(/Invalid URL template/i)).not.toBeInTheDocument();
     })
 
     it('should not render an "Invalid URL template" note, if engine=custom and url is invalid', () => {
-      setupSut(fixtureSettings({ mode: SettingsMode.Webpages, engine: '', url: 'invalid^url/QUERY' }));
+      setupSut(fixtureSettings1(SettingsMode.Webpages, { engine: '', url: 'invalid^url/QUERY' }));
 
       expect(screen.queryByText(/Invalid URL template/i)).not.toBeInTheDocument();
     })
 
     it('should not render a "Missing QUERY in URL template" note, if engine=custom and url does not have QUERY', () => {
-      setupSut(fixtureSettings({ mode: SettingsMode.Webpages, engine: '', url: 'https://freeter.io/' }));
+      setupSut(fixtureSettings1(SettingsMode.Webpages, { engine: '', url: 'https://freeter.io/' }));
 
       expect(screen.queryByText(/Missing QUERY in URL template/i)).not.toBeInTheDocument();
     })
 
     it('should render a "Missing QUERY in Query template" note, if query does not have QUERY', () => {
-      setupSut(fixtureSettings({ mode: SettingsMode.Webpages, engine: '', url: 'https://freeter.io/QUERY', query: 'non-uppercase-query' }));
+      setupSut(fixtureSettings1(SettingsMode.Webpages, { engine: '', url: 'https://freeter.io/QUERY', query: 'non-uppercase-query' }));
 
       expect(screen.getByText(/Missing QUERY in Query template/i)).toBeInTheDocument();
     })
 
     it('should not render a "Missing QUERY in Query template" note, if query is empty', () => {
-      setupSut(fixtureSettings({ mode: SettingsMode.Webpages, engine: '', url: 'https://freeter.io/QUERY', query: '' }));
+      setupSut(fixtureSettings1(SettingsMode.Webpages, { engine: '', url: 'https://freeter.io/QUERY', query: '' }));
 
       expect(screen.queryByText(/Missing QUERY in Query template/i)).not.toBeInTheDocument();
     })
 
     it('should render a text input and a button, when there are not any warning notes', () => {
-      setupSut(fixtureSettings({ mode: SettingsMode.Webpages, engine: '', url: '', query: '' }));
+      setupSut(fixtureSettings1(SettingsMode.Webpages, { engine: '', url: '', query: '' }));
 
       expect(screen.getByRole('textbox')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /query/i })).toBeInTheDocument();
     })
 
     it('should not render a text input and a button, when there is a warning note', () => {
-      setupSut(fixtureSettings({ mode: SettingsMode.Browser, engine: '', url: '', query: 'non-uppercase-query' }));
+      setupSut(fixtureSettings1(SettingsMode.Browser, { engine: '', url: '', query: 'non-uppercase-query' }));
 
       expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /query/i })).not.toBeInTheDocument();
@@ -284,21 +311,21 @@ describe('Web Query Widget', () => {
 
     it('should set the descr setting value as a text input placeholder, when engine=custom', () => {
       const descr = 'Descr';
-      setupSut(fixtureSettings({ mode: SettingsMode.Webpages, engine: '', url: '', query: '', descr }));
+      setupSut(fixtureSettings1(SettingsMode.Webpages, { engine: '', url: '', query: '', descr }));
 
       expect(screen.getByRole('textbox')).toHaveProperty('placeholder', descr);
     })
 
     it('should set the descr setting value as a text input placeholder, when engine!=custom', () => {
       const descr = 'Descr';
-      setupSut(fixtureSettings({ mode: SettingsMode.Webpages, engine: 'ovrs', query: '', descr }));
+      setupSut(fixtureSettings1(SettingsMode.Webpages, { engine: 'ovrs', query: '', descr }));
 
       expect(screen.getByRole('textbox')).toHaveProperty('placeholder', descr);
     })
 
     it('should set the descr setting value as a text input placeholder, when engine does not exist', () => {
       const descr = 'Descr';
-      setupSut(fixtureSettings({ mode: SettingsMode.Webpages, engine: 'NO-SUCH-ID', query: '', descr }));
+      setupSut(fixtureSettings1(SettingsMode.Webpages, { engine: 'NO-SUCH-ID', query: '', descr }));
 
       expect(screen.getByRole('textbox')).toHaveProperty('placeholder', descr);
     })
@@ -313,7 +340,7 @@ describe('Web Query Widget', () => {
       const getWidgetsInCurrentWorkflow = jest.fn().mockReturnValue(webpageWidgets);
       const openExternalUrl = jest.fn();
       const { userEvent } = setupSut(
-        fixtureSettings({ mode: SettingsMode.Webpages, engine: 'goog', query: 'query QUERY', url: 'https://freeter.io/QUERY' }),
+        fixtureSettings1(SettingsMode.Webpages, { engine: 'goog', query: 'query QUERY', url: 'https://freeter.io/QUERY' }),
         {
           mockWidgetApi: {
             shell: {
@@ -342,7 +369,7 @@ describe('Web Query Widget', () => {
       const getWidgetsInCurrentWorkflow = jest.fn().mockReturnValue(webpageWidgets);
       const openExternalUrl = jest.fn();
       const { userEvent } = setupSut(
-        fixtureSettings({ mode: SettingsMode.Webpages, engine: 'goog', query: 'query QUERY', url: 'https://freeter.io/QUERY' }),
+        fixtureSettings1(SettingsMode.Webpages, { engine: 'goog', query: 'query QUERY', url: 'https://freeter.io/QUERY' }),
         {
           mockWidgetApi: {
             shell: {
@@ -375,7 +402,7 @@ describe('Web Query Widget', () => {
       }]
       const getWidgetsInCurrentWorkflow = jest.fn().mockReturnValue(webpageWidgets);
       const { userEvent } = setupSut(
-        fixtureSettings({ mode: SettingsMode.Webpages, engine: '', query: 'query QUERY', url: '' }),
+        fixtureSettings1(SettingsMode.Webpages, { engine: '', query: 'query QUERY', url: '' }),
         {
           mockWidgetApi: {
             widgets: {
@@ -408,7 +435,7 @@ describe('Web Query Widget', () => {
       }]
       const getWidgetsInCurrentWorkflow = jest.fn().mockReturnValue(webpageWidgets);
       const { userEvent } = setupSut(
-        fixtureSettings({ mode: SettingsMode.Webpages, engine: '', query: 'query QUERY', url: '' }),
+        fixtureSettings1(SettingsMode.Webpages, { engine: '', query: 'query QUERY', url: '' }),
         {
           mockWidgetApi: {
             widgets: {
@@ -442,7 +469,7 @@ describe('Web Query Widget', () => {
       }]
       const getWidgetsInCurrentWorkflow = jest.fn().mockReturnValue(webpageWidgets);
       const { userEvent } = setupSut(
-        fixtureSettings({ mode: SettingsMode.Webpages, engine: '', query: 'query QUERY', url: '' }),
+        fixtureSettings1(SettingsMode.Webpages, { engine: '', query: 'query QUERY', url: '' }),
         {
           mockWidgetApi: {
             widgets: {
@@ -487,7 +514,7 @@ describe('Web Query Widget', () => {
       }]
       const getWidgetsInCurrentWorkflow = jest.fn().mockReturnValue(webpageWidgets);
       const { userEvent } = setupSut(
-        fixtureSettings({ mode: SettingsMode.Webpages, engine: '', query: 'query QUERY', url: '' }),
+        fixtureSettings1(SettingsMode.Webpages, { engine: '', query: 'query QUERY', url: '' }),
         {
           mockWidgetApi: {
             widgets: {

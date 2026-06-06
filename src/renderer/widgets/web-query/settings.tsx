@@ -72,55 +72,98 @@ export const defaultEngine = engineDdgo;
 
 export const enginesById = Object.fromEntries(engines.map(item => [item.id, item]));
 
-export interface Settings {
-  mode: SettingsMode;
+/** A single query box within the widget. The widget holds a list of these. */
+export interface QueryEntry {
+  id: string;
   engine: string;
   descr: string;
   query: string;
   url: string;
 }
 
+export interface Settings {
+  mode: SettingsMode;
+  entries: QueryEntry[];
+}
+
+let entryIdCounter = 0;
+function genEntryId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  entryIdCounter += 1;
+  return `e${Date.now()}-${entryIdCounter}`;
+}
+
+type RawEntry = Partial<QueryEntry> & Record<string, unknown>;
+
+// Normalize a single (possibly legacy/partial) entry, applying the same
+// engine/descr/url rules the widget used to apply to its single config.
+function normalizeEntry(raw: RawEntry | undefined, mode: SettingsMode): QueryEntry {
+  const src: RawEntry = raw || {};
+  const id = typeof src.id === 'string' && src.id !== '' ? src.id : genEntryId();
+  const query = typeof src.query === 'string' ? src.query : '';
+
+  if (mode === SettingsMode.Browser) {
+    if (typeof src.engine === 'string') {
+      if (src.engine !== '') {
+        const engineObj = enginesById[src.engine] || defaultEngine;
+        return { id, engine: engineObj.id, descr: '', url: '', query };
+      }
+      // custom engine
+      return {
+        id,
+        engine: '',
+        descr: typeof src.descr === 'string' ? src.descr : '',
+        url: typeof src.url === 'string' ? src.url : '',
+        query
+      };
+    }
+    // engine missing / non-string -> fall back to the default engine
+    return { id, engine: defaultEngine.id, descr: '', url: '', query };
+  }
+
+  // Webpages mode
+  return {
+    id,
+    engine: '',
+    descr: typeof src.descr === 'string' ? src.descr : 'Search',
+    url: '',
+    query
+  };
+}
+
+export function makeNewEntry(mode: SettingsMode): QueryEntry {
+  return normalizeEntry({ engine: mode === SettingsMode.Browser ? defaultEngine.id : '' }, mode);
+}
+
 export const createSettingsState: CreateSettingsState<Settings> = (settings) => {
   const mode = isSettingsMode(settings.mode) ? settings.mode : SettingsMode.Browser;
-  let descr: string;
-  let url: string;
-  let engine: string;
 
-  if(mode === SettingsMode.Browser) {
-    let engineObj: SettingsEngine | undefined;
-    if (typeof settings.engine === 'string') {
-      if (settings.engine !== '') {
-        engineObj = enginesById[settings.engine]
-        if (!engineObj) {
-          engineObj = defaultEngine;
-        }
-      }
-    } else {
-      engineObj = defaultEngine;
-    }
-
-    if (engineObj) {
-      engine = engineObj.id;
-      descr = '';
-      url = '';
-    } else {
-      engine = '';
-      descr = typeof settings.descr === 'string' ? settings.descr : '';
-      url = typeof settings.url === 'string' ? settings.url : '';
-    }
-  } else {
-    engine = '';
-    descr = typeof settings.descr === 'string' ? settings.descr : 'Search';
-    url = '';
+  let rawEntries: unknown[] | undefined;
+  if (Array.isArray(settings.entries)) {
+    rawEntries = settings.entries;
+  } else if (
+    typeof settings.engine === 'string' ||
+    typeof settings.descr === 'string' ||
+    typeof settings.url === 'string' ||
+    typeof settings.query === 'string'
+  ) {
+    // Legacy single-config shape — wrap it as the first (and only) entry.
+    rawEntries = [{
+      engine: settings.engine,
+      descr: settings.descr,
+      url: settings.url,
+      query: settings.query
+    }];
   }
 
-  return {
-    mode: mode,
-    engine,
-    descr,
-    url,
-    query: typeof settings.query === 'string' ? settings.query : ''
+  let entries = (rawEntries || []).map(e => normalizeEntry(e as RawEntry, mode));
+  if (entries.length === 0) {
+    entries = [makeNewEntry(mode)];
   }
+
+  return { mode, entries };
 }
 
 function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponentProps<Settings>) {
@@ -128,34 +171,60 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
 
   function updMode(newModeId: string) {
     const val = Number.parseInt(newModeId);
+    const mode = isSettingsMode(val) ? val : SettingsMode.Browser;
+    // When switching to Webpages mode, carry each entry's engine description so
+    // the query field still shows a meaningful placeholder (mirrors old behavior).
+    const entries = mode === SettingsMode.Webpages
+      ? settings.entries.map(e => ({
+          ...e,
+          engine: '',
+          url: '',
+          descr: (e.engine !== '' && enginesById[e.engine]?.descr) || e.descr
+        }))
+      : settings.entries;
+    updateSettings({ ...settings, mode, entries });
+  }
+
+  function updEntry(id: string, patch: Partial<QueryEntry>) {
     updateSettings({
       ...settings,
-      descr: (settings.mode === SettingsMode.Browser && enginesById[settings.engine]?.descr) || settings.descr,
-      mode: isSettingsMode(val) ? val : SettingsMode.Browser
-    })
+      entries: settings.entries.map(e => (e.id === id ? { ...e, ...patch } : e))
+    });
   }
-  function updEngine(newEngineId: string) {
-    if (newEngineId === '') {
-      const curEngineObj = enginesById[settings.engine];
-      if (curEngineObj) {
-        updateSettings({
-          ...settings,
-          descr: curEngineObj.descr,
-          engine: newEngineId,
-          url: curEngineObj.url
-        })
-      } else {
-        updateSettings({
-          ...settings,
-          engine: newEngineId
-        })
-      }
-    } else {
-      updateSettings({
-        ...settings,
-        engine: newEngineId
-      })
+
+  function updEntryEngine(id: string, newEngineId: string) {
+    const entry = settings.entries.find(e => e.id === id);
+    if (!entry) {
+      return;
     }
+    if (newEngineId === '') {
+      // Switching to Custom: seed descr/url from the engine being left behind.
+      const curEngineObj = enginesById[entry.engine];
+      updEntry(id, curEngineObj
+        ? { engine: '', descr: curEngineObj.descr, url: curEngineObj.url }
+        : { engine: '' });
+    } else {
+      updEntry(id, { engine: newEngineId });
+    }
+  }
+
+  function addEntry() {
+    updateSettings({ ...settings, entries: [...settings.entries, makeNewEntry(settings.mode)] });
+  }
+
+  function removeEntry(id: string) {
+    const entries = settings.entries.filter(e => e.id !== id);
+    updateSettings({ ...settings, entries: entries.length > 0 ? entries : [makeNewEntry(settings.mode)] });
+  }
+
+  function moveEntry(idx: number, dir: -1 | 1) {
+    const target = idx + dir;
+    if (target < 0 || target >= settings.entries.length) {
+      return;
+    }
+    const entries = [...settings.entries];
+    [entries[idx], entries[target]] = [entries[target], entries[idx]];
+    updateSettings({ ...settings, entries });
   }
 
   return (
@@ -176,89 +245,83 @@ Make sure that any Webpage widget you want to use for queries includes the capit
         </select>
       </SettingBlock>
 
-      {settings.mode === SettingsMode.Browser && <SettingBlock
-        titleForId='web-query-engine'
-        title='Query Engine'
-        moreInfo='Pick one of the common engines to perform your queries with, or select Custom Engine to define your own engine.'
-      >
-        <select id="web-query-engine" value={settings.engine} onChange={e => {
-          updEngine(e.target.value)
-        }}>
-          <option key='' value=''>Custom Engine</option>
-          {
-            engines.map(engine=>(
-              <option
-                key={engine.id}
-                value={engine.id}
-              >
-                {engine.name}
-              </option>
-            ))
-          }
-        </select>
-      </SettingBlock>}
+      {settings.entries.map((entry, idx) => (
+        <SettingBlock
+          key={entry.id}
+          title={`Query #${idx + 1}`}
+          moreInfo='Each query is shown as its own input row in the widget.'
+        >
+          <div style={{ display: 'flex', gap: '6px' }} data-testid={`entry-toolbar-${idx}`}>
+            <button type="button" aria-label={`Move query #${idx + 1} up`} disabled={idx === 0} onClick={() => moveEntry(idx, -1)}>↑</button>
+            <button type="button" aria-label={`Move query #${idx + 1} down`} disabled={idx === settings.entries.length - 1} onClick={() => moveEntry(idx, 1)}>↓</button>
+            <button type="button" aria-label={`Remove query #${idx + 1}`} onClick={() => removeEntry(entry.id)}>Remove</button>
+          </div>
 
-      <SettingBlock
-        titleForId='web-query-descr'
-        title='Description'
-        moreInfo='A short description displayed in the query field.'
-      >
-        {
-          settings.mode !== SettingsMode.Browser || settings.engine===''
-          ? <input
-              id="web-query-descr"
+          {settings.mode === SettingsMode.Browser && <SettingBlock
+            titleForId={`web-query-engine-${entry.id}`}
+            title='Query Engine'
+            moreInfo='Pick one of the common engines to perform your queries with, or select Custom Engine to define your own engine.'
+          >
+            <select id={`web-query-engine-${entry.id}`} value={entry.engine} onChange={e => updEntryEngine(entry.id, e.target.value)}>
+              <option key='' value=''>Custom Engine</option>
+              {engines.map(engine => (
+                <option key={engine.id} value={engine.id}>{engine.name}</option>
+              ))}
+            </select>
+          </SettingBlock>}
+
+          <SettingBlock
+            titleForId={`web-query-descr-${entry.id}`}
+            title='Description'
+            moreInfo='A short description displayed in the query field.'
+          >
+            {settings.mode !== SettingsMode.Browser || entry.engine === ''
+              ? <input
+                  id={`web-query-descr-${entry.id}`}
+                  type="text"
+                  value={entry.descr}
+                  maxLength={100}
+                  onChange={e => updEntry(entry.id, { descr: e.target.value })}
+                  placeholder="Type a description"
+                />
+              : <input id={`web-query-descr-${entry.id}`} type="text" disabled={true} value={enginesById[entry.engine]?.descr || ''} />}
+          </SettingBlock>
+
+          {settings.mode === SettingsMode.Browser && <SettingBlock
+            titleForId={`web-query-url-${entry.id}`}
+            title='URL Template'
+            moreInfo='A template of a URL that will be opened to perform the query. Capitilized QUERY inside the url template is a placeholder that will be replaced with a query typed in the widget.'
+          >
+            {entry.engine === ''
+              ? <input
+                  id={`web-query-url-${entry.id}`}
+                  type="text"
+                  value={entry.url}
+                  maxLength={2000}
+                  onChange={e => updEntry(entry.id, { url: e.target.value })}
+                  placeholder="Type a URL template"
+                />
+              : <input id={`web-query-url-${entry.id}`} type="text" disabled={true} value={enginesById[entry.engine]?.url || ''} />}
+          </SettingBlock>}
+
+          <SettingBlock
+            titleForId={`web-query-query-${entry.id}`}
+            title='Query Template'
+            moreInfo='If you need to retype similar queries, use this setting to specify a template for them. Capitilized QUERY inside the url template is a placeholder that will be replaced with a query typed in the widget. Template examples: "How to QUERY in Blender?" to search for Blender tutorials, "site:freeter.io QUERY" to search on freeter.io website.'
+          >
+            <input
+              id={`web-query-query-${entry.id}`}
               type="text"
-              value={settings.descr}
-              maxLength={100}
-              onChange={e => updateSettings({
-                ...settings,
-                descr: e.target.value
-              })}
-              placeholder="Type a description"
+              value={entry.query}
+              onChange={e => updEntry(entry.id, { query: e.target.value })}
+              placeholder="Type a query template"
             />
-          : <input id="web-query-descr" type="text" disabled={true} value={enginesById[settings.engine]?.descr || ''} />
-        }
-      </SettingBlock>
+          </SettingBlock>
+        </SettingBlock>
+      ))}
 
-      {settings.mode === SettingsMode.Browser && <SettingBlock
-        titleForId='web-query-url'
-        title='URL Template'
-        moreInfo='A template of a URL that will be opened to perform the query. Capitilized QUERY inside the url template is a placeholder that will be replaced with a query typed in the widget.'
-      >
-        {
-          settings.engine===''
-          ? <input
-              id="web-query-url"
-              type="text"
-              value={settings.url}
-              maxLength={2000}
-              onChange={e => updateSettings({
-                ...settings,
-                url: e.target.value
-              })}
-              placeholder="Type a URL template"
-            />
-          : <input id="web-query-url" type="text" disabled={true} value={enginesById[settings.engine]?.url || ''} />
-        }
-      </SettingBlock>}
-
-      <SettingBlock
-        titleForId='web-query-query'
-        title='Query Template'
-        moreInfo='If you need to retype similar queries, use this setting to specify a template for them. Capitilized QUERY inside the url template is a placeholder that will be replaced with a query typed in the widget. Template examples: "How to QUERY in Blender?" to search for Blender tutorials, "site:freeter.io QUERY" to search on freeter.io website.'
-      >
-        {
-          <input
-            id="web-query-query"
-            type="text"
-            value={settings.query}
-            onChange={e => updateSettings({
-              ...settings,
-              query: e.target.value
-            })}
-            placeholder="Type a query template"
-          />
-        }
+      <SettingBlock title=''>
+        <button type="button" onClick={addEntry}>+ Add query</button>
       </SettingBlock>
     </>
   )

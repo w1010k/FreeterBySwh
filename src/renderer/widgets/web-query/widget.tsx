@@ -4,7 +4,7 @@
  */
 
 import { Button, ReactComponent, WidgetReactComponentProps } from '@/widgets/appModules';
-import { Settings, SettingsMode, defaultEngine, enginesById } from './settings';
+import { Settings, SettingsMode, QueryEntry, defaultEngine, enginesById } from './settings';
 import styles from './widget.module.scss';
 import { SubmitEvent, useMemo, useState } from 'react';
 import { querySvg } from '@/widgets/web-query/icons';
@@ -15,90 +15,94 @@ const queryPlaceholder = 'QUERY';
 
 const replaceQueryPlaceholder = (strWithQuery: string, queryVal: string) => strWithQuery.replaceAll(queryPlaceholder, queryVal);
 
-function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) {
-  const [typedQuery, setTypedQuery] = useState('');
-  const { shell, widgets } = widgetApi;
+type WidgetApi = WidgetReactComponentProps<Settings>['widgetApi'];
 
-  const {descr, urlTpl, queryTpl, notConfigNotes} = useMemo(() => {
-    const engineId = settings.engine;
-    const modeId = settings.mode;
-    let descr = ''
-    let urlTpl = '';
-    const notConfigNotes: string[] = [];
-    if (modeId === SettingsMode.Browser) {
-      if (engineId !== '') {
-        const engineObj = enginesById[engineId]
-        if (engineObj) {
-          descr = engineObj.descr;
-          urlTpl = engineObj.url;
-        } else {
-          descr = defaultEngine.descr;
-          urlTpl = defaultEngine.url;
-        }
+function computeEntry(entry: QueryEntry, mode: SettingsMode) {
+  let descr = '';
+  let urlTpl = '';
+  const notConfigNotes: string[] = [];
+
+  if (mode === SettingsMode.Browser) {
+    if (entry.engine !== '') {
+      const engineObj = enginesById[entry.engine];
+      if (engineObj) {
+        descr = engineObj.descr;
+        urlTpl = engineObj.url;
       } else {
-        descr = settings.descr;
-        urlTpl = sanitizeUrl(settings.url);
-        if(urlTpl==='') {
-          notConfigNotes.push('Invalid URL template')
-        } else if (urlTpl.indexOf(queryPlaceholder)<0) {
-          notConfigNotes.push('Missing QUERY in URL template')
-        }
+        descr = defaultEngine.descr;
+        urlTpl = defaultEngine.url;
       }
     } else {
-      descr = settings.descr;
+      descr = entry.descr;
+      urlTpl = sanitizeUrl(entry.url);
+      if (urlTpl === '') {
+        notConfigNotes.push('Invalid URL template')
+      } else if (urlTpl.indexOf(queryPlaceholder) < 0) {
+        notConfigNotes.push('Missing QUERY in URL template')
+      }
     }
+  } else {
+    descr = entry.descr;
+  }
 
-    const queryTpl = settings.query.trim();
+  const queryTpl = entry.query.trim();
+  if (queryTpl !== '' && queryTpl.indexOf(queryPlaceholder) < 0) {
+    notConfigNotes.push('Missing QUERY in Query template')
+  }
 
-    if (queryTpl !== '' && queryTpl.indexOf(queryPlaceholder)<0) {
-      notConfigNotes.push('Missing QUERY in Query template')
-    }
+  return { descr, urlTpl, queryTpl, notConfigNotes };
+}
 
-    return {descr, urlTpl, queryTpl, notConfigNotes}
-  }, [settings.descr, settings.engine, settings.mode, settings.query, settings.url])
+function QueryRow({ entry, mode, widgetApi }: { entry: QueryEntry; mode: SettingsMode; widgetApi: WidgetApi }) {
+  const [typedQuery, setTypedQuery] = useState('');
+  const { descr, urlTpl, queryTpl, notConfigNotes } = useMemo(() => computeEntry(entry, mode), [entry, mode]);
 
-  const onQuerySubmit = (() => {
-    if (notConfigNotes.length>0) {
-      return (_: SubmitEvent<HTMLFormElement>) => undefined;
-    } else {
-      const finalQuery = queryTpl === '' ? typedQuery : replaceQueryPlaceholder(queryTpl, typedQuery);
-      const queryForUrl = encodeURIComponent(finalQuery);
+  if (notConfigNotes.length > 0) {
+    return <div className={styles['not-configured']}>{notConfigNotes[0]}</div>;
+  }
 
-      return (e: SubmitEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        setTypedQuery('');
-        switch (settings.mode) {
-          case SettingsMode.Browser: {
-            const finalUrl = replaceQueryPlaceholder(urlTpl, queryForUrl);
-            shell.openExternalUrl(finalUrl);
-            break;
-          }
-          case SettingsMode.Webpages: {
-            const webpageWidgets = widgets.getWidgetsInCurrentWorkflow<WebpageExposedApi>('webpage');
-            for (const {api} of webpageWidgets) {
-              if (api.getUrl && api.openUrl) {
-                const tplUrl = api.getUrl();
-                const finalUrl = replaceQueryPlaceholder(tplUrl, queryForUrl);
-                if (tplUrl!==finalUrl) {
-                  api.openUrl(finalUrl);
-                }
-              }
+  const onQuerySubmit = (e: SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const finalQuery = queryTpl === '' ? typedQuery : replaceQueryPlaceholder(queryTpl, typedQuery);
+    const queryForUrl = encodeURIComponent(finalQuery);
+    setTypedQuery('');
+    switch (mode) {
+      case SettingsMode.Browser: {
+        widgetApi.shell.openExternalUrl(replaceQueryPlaceholder(urlTpl, queryForUrl));
+        break;
+      }
+      case SettingsMode.Webpages: {
+        const webpageWidgets = widgetApi.widgets.getWidgetsInCurrentWorkflow<WebpageExposedApi>('webpage');
+        for (const { api } of webpageWidgets) {
+          if (api.getUrl && api.openUrl) {
+            const tplUrl = api.getUrl();
+            const finalUrl = replaceQueryPlaceholder(tplUrl, queryForUrl);
+            if (tplUrl !== finalUrl) {
+              api.openUrl(finalUrl);
             }
-            break;
           }
         }
+        break;
       }
     }
-  })();
+  };
 
-  return notConfigNotes.length===0
-    ? <form onSubmit={onQuerySubmit} className={styles['web-query']}>
-        <input className={styles['web-query-input']} type='text' placeholder={descr} value={typedQuery} onChange={(e) => setTypedQuery(e.target.value)} />
-        <Button type='submit' iconSvg={querySvg} title='Query' />
-      </form>
-    : <div className={styles['not-configured']}>
-        {notConfigNotes[0]}
-      </div>
+  return (
+    <form onSubmit={onQuerySubmit} className={styles['web-query-row']}>
+      <input className={styles['web-query-input']} type='text' placeholder={descr} value={typedQuery} onChange={(e) => setTypedQuery(e.target.value)} />
+      <Button type='submit' iconSvg={querySvg} title='Query' />
+    </form>
+  );
+}
+
+function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) {
+  return (
+    <div className={styles['web-query']}>
+      {settings.entries.map(entry => (
+        <QueryRow key={entry.id} entry={entry} mode={settings.mode} widgetApi={widgetApi} />
+      ))}
+    </div>
+  )
 }
 
 export const widgetComp: ReactComponent<WidgetReactComponentProps<Settings>> = {

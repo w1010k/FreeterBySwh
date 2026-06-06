@@ -10,10 +10,18 @@
 
 .web-query {
   display: flex;
+  flex-direction: column;
   height: 100%;
   padding: 6px;
-  align-items: center;
+  gap: 6px;
   box-sizing: border-box;
+  overflow: auto;
+}
+
+.web-query-row {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
 }
 
 .web-query-input {

@@ -1493,6 +1493,33 @@ Web Query 위젯의 **Query Engine** 드롭다운(빌트인 검색 엔진 목록
 
 ---
 
+## 47. Web Query 위젯: 한 위젯에 여러 검색창 *(2026-06-06)*
+
+기존엔 Web Query 위젯 하나당 검색 1개였는데, 이제 **한 위젯에 여러 검색창을 세로로 쌓을** 수 있다. 각 줄은 자기 엔진으로 독립 검색하고, placeholder로 무슨 검색인지(엔진명/설명) 표시된다. "Google / Naver / GitHub …"를 한 위젯에 모아두는 식.
+
+### 사용자 가시적 효과
+
+- 위젯 본문이 **검색창 목록**(세로 스택)으로 바뀌고, 줄이 많으면 본문이 스크롤된다. 각 줄은 그 줄의 엔진/URL로 따로 검색.
+- 설정 화면에 **Query #1, #2 … 블록**이 생기고, 블록마다 **↑ / ↓ / Remove** 버튼 + **+ Add query** 버튼으로 추가·삭제·순서 변경. 모드(Browser/Webpages)는 위젯 단위로 유지.
+
+### 아키텍처
+
+- `Settings`를 단일 `{mode, engine, descr, query, url}`에서 `{mode, entries: QueryEntry[]}`로 변경. `QueryEntry = {id, engine, descr, query, url}`.
+- 위젯은 `entries`마다 `QueryRow`(자체 입력 상태 보유)를 렌더 → 줄별 독립 제출. 엔진/URL/placeholder 계산은 `computeEntry`로 분리(기존 단일 로직과 동일).
+- 에디터는 항목 리스트를 추가/삭제/순서이동(swap)·항목별 엔진 선택으로 관리. 각 입력 id에 `entry.id`를 붙여 라벨 연결을 고유화.
+
+### 까다로웠던 포인트
+
+- **무중단 마이그레이션**: 기존 위젯은 옛 단일 형태로 저장돼 있다. `createSettingsState`가 `entries` 배열이 없고 `engine/descr/url/query` 중 하나라도 문자열이면 옛 형태로 보고 `entries:[{그 값}]`으로 감싼다. 별도 마이그레이션 코드·버전 업 없이 로드 시 정규화 → 기존 위젯·데이터 손실 0.
+- 엔트리 `id`는 없으면 생성(`crypto.randomUUID`, jsdom 대비 폴백)하고 있으면 보존 → 첫 저장 후 안정화. React key·항목 타깃팅에 사용.
+
+### 수정 파일
+
+- **수정**: `widgets/web-query/settings.tsx`(모델·정규화·에디터), `widgets/web-query/widget.tsx`(다중 행 렌더), `widgets/web-query/widget.module.scss`(세로 스택)
+- **테스트**: `web-query/fixtures.ts`(엔트리 기반 fixture), `settings.spec.ts`·`widget.spec.ts` 재작성(정규화·마이그레이션·다중 엔트리·추가/삭제/순서)
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)
