@@ -14,6 +14,8 @@ import reloadStopSvg from './reload-stop.svg';
 import widgetSvg from './widget.svg';
 import zoomInSvg from './zoom-in.svg';
 import zoomOutSvg from './zoom-out.svg';
+import volumeOnSvg from './volume-on.svg';
+import volumeOffSvg from './volume-off.svg';
 
 export {
   backSvg,
@@ -26,5 +28,7 @@ export {
   reloadStopSvg,
   widgetSvg,
   zoomInSvg,
-  zoomOutSvg
+  zoomOutSvg,
+  volumeOnSvg,
+  volumeOffSvg
 }

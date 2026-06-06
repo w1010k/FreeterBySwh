@@ -1207,6 +1207,28 @@ Webpage 위젯에 포커스가 있을 때 `F5` 또는 `Ctrl/Cmd+R`로 페이지�
 
 ---
 
+## 35. Webpage 위젯 — 오디오 음소거 토글 *(2026-06-06)*
+
+Webpage 위젯 액션바에 **음소거 버튼**을 추가했다. 음악·영상 사이트를 위젯으로 띄웠을 때 버튼 한 번으로 그 위젯의 소리만 끄고 켤 수 있다(ZOOM-IN과 COPY-URL 사이에 배치). 그동안 안 쓰던 Chromium/webview 기능(`setAudioMuted`)을 활용한 것.
+
+### 사용자 가시적 효과
+
+- 액션바의 스피커 아이콘 클릭 → 해당 위젯 음소거(아이콘이 스피커+X로, 툴팁이 "Unmute audio"로 바뀜). 다시 누르면 해제.
+- 음소거 상태는 같은 webContents 안에서 페이지 내비게이션·새로고침을 넘어 유지된다(위젯 재시작 시에만 초기화).
+
+### 아키텍처
+
+- 상태는 위젯 컴포넌트의 `audioMuted`(세션 한정, 영속 X). 토글 시 effect가 `setAudioMuted(webview, muted)`로 적용 — `setAudioMuted`는 webContents 수명 동안 유지되므로 reload마다 재적용할 필요가 없어, `webviewIsReady`/`audioMuted` 변경 시에만 적용.
+- 액션바 버튼은 `createActionBarItems`에 **선택적 콜백**(`onToggleMute`)으로 주입 — 콜백이 없으면(코어 버튼 단위 테스트 등) 버튼을 렌더하지 않아 기존 동작/테스트에 무영향.
+
+### 수정 파일
+
+- **신규**: `src/renderer/widgets/webpage/icons/{volume-on,volume-off}.svg`
+- **수정**: `src/renderer/widgets/webpage/{actions.ts,actionBar.ts,widget.tsx,icons/index.ts}`
+- **테스트**: `tests/renderer/widgets/webpage/actionBar.spec.ts`(MUTE 버튼 배치·라벨·토글)
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

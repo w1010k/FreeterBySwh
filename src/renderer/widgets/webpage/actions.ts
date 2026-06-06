@@ -19,6 +19,8 @@ export const labelCopyCurrentAddress = 'Copy current address';
 export const labelZoom = 'Zoom';
 export const labelZoomIn = 'Zoom in';
 export const labelZoomOut = 'Zoom out';
+export const labelMuteAudio = 'Mute audio';
+export const labelUnmuteAudio = 'Unmute audio';
 export const labelPrintPage = 'Print...';
 export const labelOpenLinkInBrowser = 'Open link in web browser';
 export const labelSaveLinkAs = 'Save link as...';
@@ -123,6 +125,10 @@ export function zoomStepOut(elWebview: Electron.WebviewTag) {
 
 export function zoomReset(elWebview: Electron.WebviewTag) {
   elWebview.setZoomFactor(1);
+}
+
+export function setAudioMuted(elWebview: Electron.WebviewTag, muted: boolean) {
+  elWebview.setAudioMuted(muted);
 }
 
 export function openCurrentInBrowser(elWebview: Electron.WebviewTag, widgetApi: WidgetApi) {

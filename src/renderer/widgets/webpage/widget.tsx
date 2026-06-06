@@ -13,7 +13,7 @@ import { sanitizeUrl } from '@common/helpers/sanitizeUrl';
 import { createContextMenuFactory } from '@/widgets/webpage/contextMenu';
 import { ContextMenuEvent as ElectronContextMenuEvent } from 'electron';
 import { createPartition } from '@/widgets/webpage/partition';
-import { canGoHome, goHome, reload, zoomReset, zoomStepIn, zoomStepOut } from '@/widgets/webpage/actions';
+import { canGoHome, goHome, reload, setAudioMuted, zoomReset, zoomStepIn, zoomStepOut } from '@/widgets/webpage/actions';
 import { WebpageExposedApi } from '@/widgets/interfaces';
 import { WEBPAGE_ZOOM_EVENT, WebpageZoomEventDetail } from '@/widgets/webpage/zoomEvents';
 import { WEBPAGE_GO_HOME_EVENT, WebpageGoHomeEventDetail } from '@/widgets/webpage/homeEvents';
@@ -71,6 +71,7 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
   const [webviewIsReady, setWebviewIsReady] = useState(false);
   const [autoReloadStopped, setAutoReloadStopped] = useState(false);
   const [cssInDom, setCssInDom] = useState<[string, string]|null>(null);
+  const [audioMuted, setAudioMutedState] = useState(false);
 
   const sanitUrl = useMemo(() => sanitizeUrl(url), [url]);
   const sanitUA = useMemo(() => userAgent.trim(), [userAgent]);
@@ -82,6 +83,19 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
     })
   }, [exposeApi, url])
 
+  // Apply the mute state to the guest. setAudioMuted persists across in-page
+  // navigations/reloads on the same webContents, so we only need to (re)apply
+  // when the flag changes or the webview first becomes ready.
+  const toggleMute = useCallback(() => setAudioMutedState(muted => !muted), []);
+  useEffect(() => {
+    if (webviewIsReady) {
+      const webviewEl = webviewRef.current;
+      if (webviewEl) {
+        setAudioMuted(webviewEl, audioMuted);
+      }
+    }
+  }, [audioMuted, webviewIsReady])
+
   const refreshActions = useCallback(
     () => updateActionBar(
       createActionBarItems(
@@ -90,10 +104,12 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
         url,
         autoReload,
         autoReloadStopped,
-        setAutoReloadStopped
+        setAutoReloadStopped,
+        audioMuted,
+        toggleMute
       )
     ),
-    [autoReload, autoReloadStopped, updateActionBar, url, webviewIsReady, widgetApi]
+    [autoReload, autoReloadStopped, updateActionBar, url, webviewIsReady, widgetApi, audioMuted, toggleMute]
   );
 
   const injectCSSInDOM = useCallback(

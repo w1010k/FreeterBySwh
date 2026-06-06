@@ -4,8 +4,8 @@
  */
 
 import { ActionBarItem, ActionBarItems } from '@/base/actionBar';
-import { canGoBack, canGoForward, canGoHome, canReload, copyCurrentAddress, goBack, goForward, goHome, labelAutoReloadStart, labelAutoReloadStop, labelCopyCurrentAddress, labelGoBack, labelGoForward, labelGoHome, labelOpenInBrowser, labelReload, labelZoomIn, labelZoomOut, openCurrentInBrowser, reload, zoomReset, zoomStepIn, zoomStepOut } from './actions';
-import { backSvg, copyUrlSvg, forwardSvg, homeSvg, openInBrowserSvg, reloadSvg, reloadStartSvg, reloadStopSvg, zoomInSvg, zoomOutSvg } from './icons';
+import { canGoBack, canGoForward, canGoHome, canReload, copyCurrentAddress, goBack, goForward, goHome, labelAutoReloadStart, labelAutoReloadStop, labelCopyCurrentAddress, labelGoBack, labelGoForward, labelGoHome, labelMuteAudio, labelOpenInBrowser, labelReload, labelUnmuteAudio, labelZoomIn, labelZoomOut, openCurrentInBrowser, reload, zoomReset, zoomStepIn, zoomStepOut } from './actions';
+import { backSvg, copyUrlSvg, forwardSvg, homeSvg, openInBrowserSvg, reloadSvg, reloadStartSvg, reloadStopSvg, volumeOffSvg, volumeOnSvg, zoomInSvg, zoomOutSvg } from './icons';
 import { WidgetApi } from '@/base/widgetApi';
 
 export function createActionBarItems(
@@ -14,7 +14,11 @@ export function createActionBarItems(
   homeUrl: string,
   autoReload: number,
   autoReloadStopped: boolean,
-  setAutoReloadStopped: (val: boolean) => void
+  setAutoReloadStopped: (val: boolean) => void,
+  // Optional capabilities wired by the widget component. When omitted (e.g. in
+  // unit tests of the core buttons) the corresponding button is not rendered.
+  audioMuted = false,
+  onToggleMute?: () => void
 ): ActionBarItems {
   if (!elWebview || !homeUrl) {
     return []
@@ -92,6 +96,13 @@ export function createActionBarItems(
       title: withKeys(labelZoomIn, `${mod}++`),
       doAction: async () => zoomStepIn(elWebview)
     },
+    ...(onToggleMute ? [{
+      enabled: true,
+      icon: audioMuted ? volumeOffSvg : volumeOnSvg,
+      id: 'MUTE',
+      title: audioMuted ? labelUnmuteAudio : labelMuteAudio,
+      doAction: async () => onToggleMute()
+    }] : []),
     {
       enabled: true,
       icon: copyUrlSvg,

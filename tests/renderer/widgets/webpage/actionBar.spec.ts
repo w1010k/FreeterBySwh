@@ -123,6 +123,40 @@ describe('Webpage action bar', () => {
     expect(titleOf('COPY-URL')).toBe('Copy current address');
   })
 
+  it('should not include a MUTE item when no mute toggle is provided', () => {
+    const { elWebview, widgetApi } = setupMocks();
+    const items = createActionBarItems(elWebview, widgetApi, 'https://example.com', 0, false, () => undefined);
+
+    expect(items.find(item => item.id === 'MUTE')).toBeUndefined();
+  })
+
+  it('should include a MUTE item right after ZOOM-IN (before COPY-URL) when a mute toggle is provided', () => {
+    const { elWebview, widgetApi } = setupMocks();
+    const items = createActionBarItems(elWebview, widgetApi, 'https://example.com', 0, false, () => undefined, false, () => undefined);
+
+    const ids = items.map(item => item.id);
+    expect(ids).toEqual([
+      'HOME', 'BACK', 'FORWARD', 'RELOAD',
+      'ZOOM-OUT', 'ZOOM-IN', 'MUTE',
+      'COPY-URL', 'OPEN-IN-BROWSER',
+    ]);
+  })
+
+  it('should label the MUTE item per current state and call the toggle when invoked', async () => {
+    const onToggleMute = jest.fn();
+    const { elWebview, widgetApi } = setupMocks();
+
+    const notMuted = createActionBarItems(elWebview, widgetApi, 'https://x', 0, false, () => undefined, false, onToggleMute);
+    const muteItem = notMuted.find(item => item.id === 'MUTE')!;
+    expect(muteItem.title).toBe('Mute audio');
+
+    await muteItem.doAction();
+    expect(onToggleMute).toHaveBeenCalledTimes(1);
+
+    const muted = createActionBarItems(elWebview, widgetApi, 'https://x', 0, false, () => undefined, true, onToggleMute);
+    expect(muted.find(item => item.id === 'MUTE')!.title).toBe('Unmute audio');
+  })
+
   it('should reset zoom to 100% and reload when RELOAD is invoked', async () => {
     const { elWebview, widgetApi } = setupMocks('https://x', 2);
     const items = createActionBarItems(elWebview, widgetApi, 'https://x', 0, false, () => undefined);
