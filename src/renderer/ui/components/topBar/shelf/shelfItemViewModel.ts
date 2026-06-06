@@ -73,7 +73,7 @@ export function useShelfItemViewModel(props: ShelfItemProps) {
   }, [id, onContextMenu])
 
 
-  const [itemElRef, itemElRect] = useElementRect({ useViewportRect: true });
+  const [itemElRef, itemElRect, measureItemElRect] = useElementRect({ useViewportRect: true });
 
   const wPx = typeof w === 'number' ? w : shelfWidgetDefaultW;
   const hPx = typeof h === 'number' ? h : shelfWidgetDefaultH;
@@ -110,6 +110,7 @@ export function useShelfItemViewModel(props: ShelfItemProps) {
     widgetBoxHeight: hPx,
     itemWidgetElRef: itemElRef,
     itemWidgetElRectStyle,
+    measureItemElRect,
     onContextMenuHandler,
     onDragStartHandler,
     onDragEndHandler,

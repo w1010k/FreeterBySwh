@@ -28,6 +28,7 @@ export function createShelfItemComponent({
       widgetBoxHeight,
       itemWidgetElRef,
       itemWidgetElRectStyle,
+      measureItemElRect,
       onContextMenuHandler,
       onDragStartHandler,
       onDragEndHandler,
@@ -74,6 +75,11 @@ export function createShelfItemComponent({
           isResizing && styles['is-resizing'],
         )}
         onContextMenu={onContextMenuHandler}
+        // Re-measure the tab's position right before the popup opens, so it
+        // tracks the current layout. A ResizeObserver only catches size changes,
+        // missing the horizontal shift when a sibling tab is deleted/added.
+        onMouseEnter={measureItemElRect}
+        onFocus={measureItemElRect}
         tabIndex={0}
         ref={itemWidgetElRef as React.RefObject<HTMLLIElement | null>}
       >
