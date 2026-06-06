@@ -152,7 +152,7 @@ export const darkTheme = {
   widgetLayoutItemBorder: '#323232',
   widgetLayoutItemEditHoverBorder: '#565656',
   widgetLayoutItemResizingBorder: '#FFFFFF',
-  widgetLayoutItemResizingOpacity: '0.5',
+  widgetLayoutItemResizingOpacity: '0.8',
   widgetLayoutGhostBackground: base.dropAreaBackground,
   widgetLayoutItemShadow: base.shadow,
 

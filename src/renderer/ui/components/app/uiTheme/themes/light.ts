@@ -152,7 +152,7 @@ export const lightTheme = {
   widgetLayoutItemBorder: base.componentBorder,
   widgetLayoutItemEditHoverBorder: '#A6A6A6',
   widgetLayoutItemResizingBorder: '#000000',
-  widgetLayoutItemResizingOpacity: '0.5',
+  widgetLayoutItemResizingOpacity: '0.8',
   widgetLayoutGhostBackground: base.dropAreaBackground,
   widgetLayoutItemShadow: base.shadow,
 
