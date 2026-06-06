@@ -1467,9 +1467,14 @@ Web Query 위젯의 **Query Engine** 드롭다운(빌트인 검색 엔진 목록
 | Naver | `https://search.naver.com/search.naver?query=QUERY` |
 | Naver (Maps) | `https://map.naver.com/p/search/QUERY` |
 | Naver (Shopping) | `https://search.shopping.naver.com/search/all?query=QUERY` |
+| Naver (Stock) | `https://stock.naver.com/domestic/stock/QUERY/price` (QUERY=종목 코드, 예 005930) |
 | Namuwiki | `https://namu.wiki/Search?q=QUERY` |
 | YouTube | `https://www.youtube.com/results?search_query=QUERY` |
 | Perplexity | `https://www.perplexity.ai/search?q=QUERY` |
+| Google Translate | `https://translate.google.com/?sl=auto&tl=ko&text=QUERY&op=translate` |
+| Papago | `https://papago.naver.com/?sk=auto&tk=ko&st=QUERY` |
+
+> QUERY는 `encodeURIComponent`로 인코딩돼 치환되므로 공백·한글 문장(번역)·종목명도 안전. 단 Naver (Stock)는 검색이 아니라 종목 **코드**로 가격 페이지에 직행하는 형식이라 6자리 코드를 입력해야 한다(placeholder로 안내). 한국어 맞춤법 검사기는 전부 입력 박스형 인터랙티브라 URL 쿼리로 결과에 못 가 추가 불가.
 
 기존 엔진 배열(`engines`)에 항목만 추가하는 순수 가산 변경 — `enginesById`는 자동 파생되고, 기존 위젯은 엔진 id로 참조하므로 영향 없음. (목록 정렬에 맞춰 Naver는 Google 다음, YouTube는 맨 끝에 배치.)
 
