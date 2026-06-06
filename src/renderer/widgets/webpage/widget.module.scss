@@ -48,6 +48,13 @@
   width: 160px;
   font-size: 12px;
   padding: 2px 4px;
+  border-radius: 2px;
+  background: var(--freeter-inputBackground);
+  color: var(--freeter-inputColor);
+  border: 1px solid var(--freeter-inputBorder);
+}
+.find-input:focus {
+  outline: 1px solid var(--freeter-outline);
 }
 .find-count {
   font-size: 11px;
@@ -59,7 +66,14 @@
   font-size: 12px;
   line-height: 1;
   padding: 2px 6px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  background: var(--freeter-buttonBackground);
+  color: var(--freeter-buttonColor);
   cursor: pointer;
+}
+.find-btn:hover {
+  background: var(--freeter-buttonHoverBackground);
 }
 .load-error {
   position: absolute;
@@ -91,5 +105,12 @@
 .load-error-retry {
   font-size: 13px;
   padding: 4px 16px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  background: var(--freeter-buttonPrimaryBackground);
+  color: var(--freeter-buttonPrimaryColor);
   cursor: pointer;
+}
+.load-error-retry:hover {
+  background: var(--freeter-buttonPrimaryHoverBackground);
 }
