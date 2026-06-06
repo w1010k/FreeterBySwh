@@ -217,8 +217,9 @@ export function createWidgetLayoutViewModelHook({
       })
 
       // Timeout to update the element after setDragImage executes
+      const sizePx = { wPx: Math.round(thisRect.width), hPx: Math.round(thisRect.height) };
       setTimeout(() => {
-        dragWidgetFromWorktableLayoutUseCase(workflowId, item.widgetId, item.id);
+        dragWidgetFromWorktableLayoutUseCase(workflowId, item.widgetId, item.id, sizePx);
       }, 0);
     }, [isVisible, isEditMode, workflowId, layoutItems])
 

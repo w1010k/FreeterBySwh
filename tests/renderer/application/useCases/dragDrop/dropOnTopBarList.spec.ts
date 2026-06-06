@@ -387,6 +387,40 @@ describe('await dropOnTopBarListUseCase()', () => {
     })
   })
 
+  describe('when dragging a widget from Worktable layout with a captured pixel size', () => {
+    it('should seed the new Shelf item\'s w/h from the dragged widget\'s pixel size', async () => {
+      const initState = fixtureAppState({
+        entities: {
+          workflows: {
+            ...fixtureWorkflowAInColl({
+              id: workflowId,
+              layout: [fixtureWidgetLayoutItemA({ id: draggingItemId })]
+            })
+          }
+        },
+        ui: {
+          dragDrop: {
+            ...fixtureDragDropFromWorktableLayout({
+              workflowId,
+              widgetId: draggingItemWidgetId,
+              layoutItemId: draggingItemId,
+              sizePx: { wPx: 440, hPx: 330 }
+            })
+          },
+          shelf: {
+            widgetList: [fixtureWidgetListItemA()]
+          }
+        }
+      });
+      const { appStore, dropOnTopBarListUseCase } = await setup(initState)
+
+      await dropOnTopBarListUseCase(null);
+
+      const newList = appStore.get().ui.shelf.widgetList;
+      expect(newList[newList.length - 1]).toEqual({ id: newListItemId, widgetId: draggingItemWidgetId, w: 440, h: 330 });
+    })
+  })
+
   describe('when dragging item from Palette (Add list) and the type does not exist', () => {
     it('should reset DragDrop State and leave Widgets/Shelf untouched', async () => {
       const initState = fixtureAppState({

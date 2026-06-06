@@ -38,6 +38,9 @@ export interface DragDropFromWorktableLayoutState {
   widgetId: EntityId;
   layoutItemId: EntityId;
   layoutItemWH: WidgetLayoutItemWH;
+  // Rendered pixel size of the dragged widget, captured at drag start. Used to
+  // seed the popup size if the widget is dropped onto the Top Bar shelf.
+  sizePx?: { wPx: number; hPx: number };
 }
 
 export interface DragDropFromState {

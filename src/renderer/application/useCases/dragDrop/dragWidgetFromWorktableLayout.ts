@@ -14,7 +14,12 @@ type Deps = {
 export function createDragWidgetFromWorktableLayoutUseCase({
   appStore,
 }: Deps) {
-  const dragWidgetFromWorktableLayoutUseCase = (sourceWorkflowId: EntityId, sourceWidgetId: EntityId, sourceWidgetLayoutItemId: EntityId) => {
+  const dragWidgetFromWorktableLayoutUseCase = (
+    sourceWorkflowId: EntityId,
+    sourceWidgetId: EntityId,
+    sourceWidgetLayoutItemId: EntityId,
+    sizePx?: { wPx: number; hPx: number }
+  ) => {
     let state = appStore.get();
     const workflow = entityStateActions.workflows.getOne(state, sourceWorkflowId);
 
@@ -34,7 +39,8 @@ export function createDragWidgetFromWorktableLayoutUseCase({
                   workflowId: sourceWorkflowId,
                   widgetId: sourceWidgetId,
                   layoutItemId: sourceWidgetLayoutItemId,
-                  layoutItemWH: { w, h }
+                  layoutItemWH: { w, h },
+                  ...(sizePx ? { sizePx } : {})
                 }
               }
             }

@@ -1522,6 +1522,34 @@ Web Query 위젯의 **Query Engine** 드롭다운(빌트인 검색 엔진 목록
 
 ---
 
+## 48. Top Bar 위젯 팝업 크기 조절 + worktable 크기 유지 *(2026-06-06)*
+
+위젯을 Top Bar(shelf)에 올리면 hover 시 뜨는 팝업이 **모든 위젯에 300×150px로 고정**돼 있어 worktable에서 키워둔 위젯도 작게 보였다. 이제 **위젯별로 팝업 크기를 저장**하고, worktable에서 올릴 때 그 크기로 시작하며, 에딧 모드에서 드래그로 조절할 수 있다.
+
+### 사용자 가시적 효과
+
+- **(B) worktable → Top Bar로 위젯을 드래그하면** 그 시점의 worktable 픽셀 크기로 팝업 크기가 초기화된다(150~1200 × 80~900으로 클램프). 팔레트/붙여넣기로 올린 위젯은 기본값 300×150.
+- **(C) 에딧 모드에서 팝업 우하단 모서리를 드래그**해 크기를 조절하고, 그 크기가 영구 저장된다. 워크플로우 바 너비 리사이저와 **일관되게 에딧 모드에서만** 수정 가능.
+
+### 아키텍처
+
+- `WidgetListItem`에 `w?`/`h?`(px) 추가(없으면 기본값). shelf 상태는 영구 저장 대상이라 자동 저장된다.
+- **(C)** `setShelfItemSize` use case(클램프·반올림·동일값 무시). `shelfItem`이 에딧 모드에서 리사이즈 핸들 렌더 → `window` mousemove로 실시간 갱신.
+- **(B)** worktable 드래그 시작(`onItemDragStart`)에서 `getBoundingClientRect`로 픽셀 크기를 캡처해 `dragDrop.from.worktableLayout.sizePx`에 저장 → `dropOnTopBarList`가 shelf 항목 생성 시 `w/h`로 시드(클램프).
+
+### 까다로웠던 포인트
+
+- shelf 팝업은 평소 `:hover`/`:focus-within`으로만 보이는데, 리사이즈 드래그 중 커서가 탭 밖으로 나가면 팝업이 숨어 드래그가 끊긴다. 드래그 중엔 `is-resizing` 클래스로 **강제 표시**하고, 전체화면 투명 오버레이로 webview 위에서도 이벤트가 끊기지 않게 했다(#38·#45와 동일 원리).
+- worktable 크기는 그리드 단위라 px 변환에 뷰포트가 필요 → use case(상태 레벨)에서 못 구한다. 그래서 렌더러의 드래그 시작 시점에 실측 px를 캡처해 드래그 상태로 전달하는 방식으로 해결.
+
+### 수정 파일
+
+- **신규**: `application/useCases/shelf/setShelfItemSize.ts`
+- **수정**: `base/widgetList.ts`(`w`/`h`), `base/state/ui.ts`(`sizePx`), `init.ts`, `topBar/shelf`(viewModel·item·shelf·scss), `dragDrop/dragWidgetFromWorktableLayout.ts`·`dropOnTopBarList.ts`, `widgetLayoutViewModel.ts`(px 캡처)
+- **테스트**: `setShelfItemSize.spec.ts`(신규), `dropOnTopBarList.spec.ts`(sizePx 시드), `shelf.spec.tsx`(deps)
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

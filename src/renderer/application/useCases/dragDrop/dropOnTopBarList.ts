@@ -14,6 +14,7 @@ import { addOneToEntityCollection, getOneFromEntityCollection } from '@/base/ent
 import { CreateWidgetSubCase } from '@/application/useCases/widget/subs/createWidget';
 import { AddItemToWidgetListSubCase } from '@/application/useCases/shelf/subs/addItemToWidgetList';
 import { getAllWidgetNamesFromWidgetList } from '@/base/state/actions/usedNames';
+import { shelfWidgetMaxH, shelfWidgetMaxW, shelfWidgetMinH, shelfWidgetMinW } from '@/application/useCases/shelf/setShelfItemSize';
 
 type Deps = {
   appStore: AppStore;
@@ -103,11 +104,19 @@ export function createDropOnTopBarListUseCase({
           }
         }
       } else if (draggingFrom.worktableLayout) {
+        const { sizePx } = draggingFrom.worktableLayout;
+        const seedSize = sizePx
+          ? {
+              w: Math.min(shelfWidgetMaxW, Math.max(shelfWidgetMinW, Math.round(sizePx.wPx))),
+              h: Math.min(shelfWidgetMaxH, Math.max(shelfWidgetMinH, Math.round(sizePx.hPx)))
+            }
+          : {};
         const [newWidgetList] = createListItem(
           widgetList,
           {
             id: idGenerator(),
-            widgetId: draggingFrom.worktableLayout.widgetId
+            widgetId: draggingFrom.worktableLayout.widgetId,
+            ...seedSize
           },
           targetListItemId
         );
