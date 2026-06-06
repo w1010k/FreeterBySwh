@@ -5,7 +5,7 @@
 
 import { AppViewModelHook } from './appViewModel';
 import './globals.scss';
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import clsx from 'clsx';
 import styles from './app.module.scss';
 import {SvgIcon} from '@/ui/components/basic/svgIcon';
@@ -27,13 +27,41 @@ export function createAppComponent({
   useAppViewModel
 }: Deps) {
   function App() {
-    const {modalScreens, hasModalScreens, hasProjects, contextMenuHandler, uiThemeId, hasTopBar, workflowBarPos} = useAppViewModel();
+    const {
+      modalScreens, hasModalScreens, hasProjects, contextMenuHandler, uiThemeId, hasTopBar,
+      workflowBarPos, workflowBarWidth, setWorkflowBarWidth
+    } = useAppViewModel();
     const body = hasProjects
       ? <Worktable />
       : <InAppNote className={styles['no-projects']}>
           {'You don\'t have any projects. Use the Manage Projects '} <SvgIcon svg={manage24Svg} className={styles['manage-icon']} /> {' button above (or under the View menu) to create a first one.'}
         </InAppNote>;
     const isSide = workflowBarPos === 'left' || workflowBarPos === 'right';
+
+    const dragRef = useRef<{ startX: number; startWidth: number; dir: number } | null>(null);
+    const onResizerMouseDown = useCallback((e: React.MouseEvent) => {
+      e.preventDefault();
+      dragRef.current = {
+        startX: e.clientX,
+        startWidth: workflowBarWidth,
+        dir: workflowBarPos === 'right' ? -1 : 1
+      };
+      const onMove = (ev: MouseEvent) => {
+        const drag = dragRef.current;
+        if (!drag) {
+          return;
+        }
+        setWorkflowBarWidth(drag.startWidth + drag.dir * (ev.clientX - drag.startX));
+      };
+      const onUp = () => {
+        dragRef.current = null;
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    }, [workflowBarWidth, workflowBarPos, setWorkflowBarWidth]);
+
     return (
       <div onContextMenu={contextMenuHandler}>
         <UITheme themeId={uiThemeId} />
@@ -42,6 +70,13 @@ export function createAppComponent({
           {isSide
             ? <div className={clsx(styles['body-row'], workflowBarPos === 'right' && styles['is-right'])}>
                 <WorkflowSwitcher />
+                <div
+                  className={styles['workflow-bar-resizer']}
+                  onMouseDown={onResizerMouseDown}
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label="Resize workflow bar"
+                />
                 {body}
               </div>
             : <>

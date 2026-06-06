@@ -4,6 +4,7 @@
  */
 
 import { ShowContextMenuUseCase } from '@/application/useCases/contextMenu/showContextMenu';
+import { SetWorkflowBarWidthUseCase } from '@/application/useCases/applicationSettings/setWorkflowBarWidth';
 import { contextMenuForTextInput } from '@/base/contextMenu';
 import { ModalScreenId } from '@/base/state/ui';
 import { sanitizeUiThemeId } from '@/base/uiTheme';
@@ -19,6 +20,7 @@ type Deps = {
   ApplicationSettings: React.FC;
   About: React.FC;
   showContextMenuUseCase: ShowContextMenuUseCase;
+  setWorkflowBarWidthUseCase: SetWorkflowBarWidthUseCase;
 }
 
 export function createAppViewModelHook({
@@ -30,6 +32,7 @@ export function createAppViewModelHook({
   ApplicationSettings,
   About,
   showContextMenuUseCase,
+  setWorkflowBarWidthUseCase,
 }: Deps) {
   function useViewModel() {
     const [
@@ -41,7 +44,8 @@ export function createAppViewModelHook({
       modalScreensOrder,
       uiTheme,
       hasTopBar,
-      workflowBarPos
+      workflowBarPos,
+      workflowBarWidth
     ] = useAppState(state => [
       state.ui.editMode,
       state.ui.projectSwitcher.projectIds,
@@ -51,7 +55,8 @@ export function createAppViewModelHook({
       state.ui.modalScreens.order,
       state.ui.appConfig.uiTheme,
       state.ui.topBar,
-      state.ui.appConfig.workflowBarPos
+      state.ui.appConfig.workflowBarPos,
+      state.ui.appConfig.workflowBarWidth
     ])
 
     const projectList = useAppState.useEntityList(state => state.entities.projects, projectIds);
@@ -98,7 +103,9 @@ export function createAppViewModelHook({
       contextMenuHandler,
       uiThemeId,
       hasTopBar,
-      workflowBarPos
+      workflowBarPos,
+      workflowBarWidth,
+      setWorkflowBarWidth: setWorkflowBarWidthUseCase
     }
   }
 

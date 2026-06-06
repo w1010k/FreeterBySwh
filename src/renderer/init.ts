@@ -105,6 +105,7 @@ import { createOpenApplicationSettingsUseCase } from '@/application/useCases/app
 import { createCloseApplicationSettingsUseCase } from '@/application/useCases/applicationSettings/closeApplicationSettings';
 import { createSaveApplicationSettingsUseCase } from '@/application/useCases/applicationSettings/saveApplicationSettings';
 import { createUpdateApplicationSettingsUseCase } from '@/application/useCases/applicationSettings/updateApplicationSettings';
+import { createSetWorkflowBarWidthUseCase } from '@/application/useCases/applicationSettings/setWorkflowBarWidth';
 import { createInitTrayMenuUseCase } from '@/application/useCases/trayMenu/initTrayMenu';
 import { createTrayMenuProvider } from '@/infra/trayMenuProvider/trayMenuProvider';
 import { createClickTrayMenuItemUseCase } from '@/application/useCases/trayMenu/clickTrayMenuItem';
@@ -373,6 +374,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
   const closeApplicationSettingsUseCase = createCloseApplicationSettingsUseCase(deps);
   const saveApplicationSettingsUseCase = createSaveApplicationSettingsUseCase(deps);
   const updateApplicationSettingsUseCase = createUpdateApplicationSettingsUseCase(deps);
+  const setWorkflowBarWidthUseCase = createSetWorkflowBarWidthUseCase(deps);
 
   const clickAppMenuItemUseCase = createClickAppMenuItemUseCase();
   const appMenuProvider = createAppMenuProvider({
@@ -566,6 +568,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     closeApplicationSettingsUseCase,
     saveApplicationSettingsUseCase,
     updateApplicationSettingsUseCase,
+    setWorkflowBarWidthUseCase,
     dialogProvider: osDialogProvider,
 
     showBrowserWindowUseCase,

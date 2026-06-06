@@ -31,6 +31,20 @@
   flex-direction: row-reverse;
 }
 
+// Thin draggable splitter between the side workflow bar and the body. Stays a
+// hairline but offers a wider invisible hit area via the negative margins.
+.workflow-bar-resizer {
+  flex: 0 0 auto;
+  width: 1px;
+  margin: 0 -2px;
+  z-index: 1;
+  cursor: col-resize;
+  background-color: var(--freeter-workflowSwitcherBorder);
+}
+.workflow-bar-resizer:hover {
+  background-color: var(--freeter-workflowSwitcherTabHoverColor);
+}
+
 .manage-icon {
   display: inline-block;
   width: 24px;

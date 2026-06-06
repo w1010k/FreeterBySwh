@@ -1431,19 +1431,27 @@ Note와 To-Do List의 디스크 저장은 디바운스(노트 800ms, 투두 500m
 
 ### 사용자 가시적 효과
 
-- **Application Settings → "Workflow bar position"** 에서 Top / Bottom / Left / Right 선택. 좌/우면 너비(px) 입력칸이 함께 나온다(드래그 조절은 후속 커밋에서).
+- **Application Settings → "Workflow bar position"** 에서 Top / Bottom / Left / Right 선택. 좌/우면 너비(px) 입력칸이 함께 나온다.
 - 좌/우일 때 바는 세로 사이드 패널, 탭은 세로로 쌓이고, 본문(Worktable)이 나머지를 채운다.
+- 좌/우 사이드일 때 **바와 본문 사이 경계를 마우스로 드래그**해 너비를 실시간 조절할 수 있다(120~600px로 클램프, 자동 저장).
 
 ### 아키텍처
 
 - 전역 설정 `AppConfig.workflowBarPos`('top'|'bottom'|'left'|'right')·`workflowBarWidth`(px).
 - **레이아웃**: `app.tsx`가 위치에 따라 — 위/아래는 기존 세로 스택에서 바를 본문 앞/뒤로, 좌/우는 `[바 + 본문]`을 가로 행(`.body-row`, right는 `row-reverse`)으로 묶음.
 - **세로 바**: `workflowSwitcher`가 좌/우면 `is-vertical` 클래스(+ 인라인 width)로 `flex-direction:column`·세로 탭·테두리 방향(좌=오른쪽 테두리/우=왼쪽 테두리)을 전환. 아래는 `is-bottom`으로 테두리만 위로.
+- **드래그 리사이저**: `.body-row` 안 바와 본문 사이에 얇은 스플리터(`.workflow-bar-resizer`, `cursor:col-resize`). `mousedown` 시 시작 X·시작 width·방향(left=+1/right=−1)을 ref에 저장하고 `window` `mousemove`로 `setWorkflowBarWidthUseCase(시작width + 방향×ΔX)`를 호출 → store 갱신·자동 저장. `mouseup`에 리스너 해제. 너비 클램프(120~600)·반올림·동일값 무시는 use case에서.
+
+### 까다로웠던 포인트
+
+- 드래그 중 매 `mousemove`마다 store를 갱신하지만, 디스크 저장은 store의 디바운스에 맡기고 재렌더는 메모이즈된 컴포넌트에 한정돼 비용이 작다. 별도 로컬 상태 없이 단일 진실 소스(store)로 단순화.
+- `right`는 `.body-row`가 `row-reverse`라 DOM 순서 `[바, 리사이저, 본문]`이 시각적으로 `[본문, 리사이저, 바]`로 뒤집힌다 — 리사이저가 양쪽 모두 바의 안쪽 경계에 정확히 위치하므로 위치 분기 불필요, 드래그 방향만 부호(`dir`)로 처리.
 
 ### 수정 파일
 
-- **수정**: `base/appConfig.ts`(`workflowBarPos`/`workflowBarWidth`), `base/state/ui.ts`, `app`(컴포넌트·뷰모델·scss), `workflowSwitcher`(컴포넌트·뷰모델·scss), `applicationSettings`(컴포넌트)
-- **테스트**: `workflowSwitcher.spec.tsx`(세로 패널 width 적용/미적용), 설정 fixture 갱신
+- **신규**: `application/useCases/applicationSettings/setWorkflowBarWidth.ts`(너비 갱신 use case)
+- **수정**: `base/appConfig.ts`(`workflowBarPos`/`workflowBarWidth`), `base/state/ui.ts`, `init.ts`(use case 조립), `app`(컴포넌트·뷰모델·scss), `workflowSwitcher`(컴포넌트·뷰모델·scss), `applicationSettings`(컴포넌트)
+- **테스트**: `setWorkflowBarWidth.spec.ts`(클램프·반올림·동일값 무시), `workflowSwitcher.spec.tsx`(세로 패널 width 적용/미적용), `app.spec.tsx` 및 설정 fixture 갱신
 
 ---
 

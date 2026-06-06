@@ -41,6 +41,7 @@ async function setup(
   const useAppState = createAppStateHook(appStoreForUi);
 
   const showContextMenuUseCase = jest.fn();
+  const setWorkflowBarWidthUseCase = jest.fn();
 
   const useAppViewModel = createAppViewModelHook({
     useAppState,
@@ -50,7 +51,8 @@ async function setup(
     ApplicationSettings: mockApplicationSettings,
     AppManager: mockAppManager,
     About: mockAbout,
-    showContextMenuUseCase
+    showContextMenuUseCase,
+    setWorkflowBarWidthUseCase
   });
 
   const App = createAppComponent({
@@ -66,7 +68,8 @@ async function setup(
   return {
     comp,
     appStore,
-    showContextMenuUseCase
+    showContextMenuUseCase,
+    setWorkflowBarWidthUseCase
   }
 }
 
