@@ -29,7 +29,7 @@ export function createAppComponent({
   function App() {
     const {
       modalScreens, hasModalScreens, hasProjects, contextMenuHandler, uiThemeId, hasTopBar,
-      workflowBarPos, workflowBarWidth, setWorkflowBarWidth
+      workflowBarPos, workflowBarWidth, editMode, setWorkflowBarWidth
     } = useAppViewModel();
     const body = hasProjects
       ? <Worktable />
@@ -76,13 +76,13 @@ export function createAppComponent({
           {isSide
             ? <div className={clsx(styles['body-row'], workflowBarPos === 'right' && styles['is-right'])}>
                 <WorkflowSwitcher />
-                <div
+                {editMode && <div
                   className={styles['workflow-bar-resizer']}
                   onMouseDown={onResizerMouseDown}
                   role="separator"
                   aria-orientation="vertical"
                   aria-label="Resize workflow bar"
-                />
+                />}
                 {body}
               </div>
             : <>

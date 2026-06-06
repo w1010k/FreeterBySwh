@@ -105,6 +105,7 @@ export function createAppViewModelHook({
       hasTopBar,
       workflowBarPos,
       workflowBarWidth,
+      editMode,
       setWorkflowBarWidth: setWorkflowBarWidthUseCase
     }
   }

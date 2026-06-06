@@ -73,7 +73,7 @@ export function createApplicationSettingsComponent({
           <SettingBlock
             titleForId='workflow-bar-pos'
             title='Workflow bar position'
-            moreInfo='Where the workflow tab bar sits. Left/Right show it as a vertical side panel whose width you can set (or drag its edge).'
+            moreInfo='Where the workflow tab bar sits. Left/Right show it as a vertical side panel whose width you can set here (or drag its edge while in Edit Mode).'
           >
             <select id="workflow-bar-pos" value={appConfig.workflowBarPos} onChange={e => updateSettings({
               ...appConfig,
