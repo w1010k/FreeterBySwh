@@ -13,8 +13,8 @@ const widgetType: WidgetType<Settings> = {
   icon: widgetSvg,
   name: 'Commander',
   minSize: {
-    w: 2,
-    h: 2
+    w: 1,
+    h: 1
   },
   description: 'The Commander widget allows to set command-lines and run them in Terminal with a single click.',
   createSettingsState,
