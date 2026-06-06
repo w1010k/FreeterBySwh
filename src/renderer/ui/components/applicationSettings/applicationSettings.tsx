@@ -27,6 +27,8 @@ export function createApplicationSettingsComponent({
       updateSettings,
       onBrowseDownloadDirHandler,
       onResetDownloadDirHandler,
+      onBrowseBgImageHandler,
+      onClearBgImageHandler,
       onOkClickHandler,
       onCancelClickHandler,
       uiThemeOptions,
@@ -101,6 +103,34 @@ export function createApplicationSettingsComponent({
               />
               {appConfig.bgColor !== '' && <button type="button" onClick={() => updateSettings({ ...appConfig, bgColor: '' })}>Use default</button>}
             </div>
+          </SettingBlock>
+
+          <SettingBlock
+            titleForId='worktable-bg-image'
+            title='Workflow background image'
+            moreInfo='Optional image shown behind the widgets. Leave empty for no image.'
+          >
+            <div className={styles['download-dir-row']}>
+              <input
+                id="worktable-bg-image"
+                type="text"
+                value={appConfig.bgImage}
+                placeholder='No image'
+                onChange={e => updateSettings({ ...appConfig, bgImage: e.target.value })}
+              />
+              <button type="button" onClick={onBrowseBgImageHandler}>Browse…</button>
+              {appConfig.bgImage !== '' && <button type="button" onClick={onClearBgImageHandler}>Clear</button>}
+            </div>
+            {appConfig.bgImage !== '' && <select
+              aria-label='Background image fit'
+              value={appConfig.bgImageMode}
+              onChange={e => updateSettings({ ...appConfig, bgImageMode: e.target.value as typeof appConfig.bgImageMode })}
+            >
+              <option value="cover">Fill (cover)</option>
+              <option value="contain">Fit (contain)</option>
+              <option value="center">Center</option>
+              <option value="tile">Tile</option>
+            </select>}
           </SettingBlock>
 
           <SettingBlock

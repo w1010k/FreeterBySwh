@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import React, { memo } from 'react';
+import React, { CSSProperties, memo, useMemo } from 'react';
 import styles from './worktable.module.scss';
 import { WorktableViewModel } from '@/ui/components/worktable/worktableViewModel';
 import { WidgetLayoutProps } from '@/ui/components/worktable/widgetLayout';
@@ -34,7 +34,27 @@ export function createWorktableComponent({
       widgetTypes,
       copiedWidgets,
       bgColor,
+      bgImageUrl,
+      bgImageMode,
     } = useWorktableViewModel();
+
+    const bgStyle = useMemo<CSSProperties | undefined>(() => {
+      const style: CSSProperties = {};
+      if (bgColor !== '') {
+        style.backgroundColor = bgColor;
+      }
+      if (bgImageUrl) {
+        style.backgroundImage = `url("${bgImageUrl}")`;
+        if (bgImageMode === 'tile') {
+          style.backgroundRepeat = 'repeat';
+        } else {
+          style.backgroundRepeat = 'no-repeat';
+          style.backgroundPosition = 'center';
+          style.backgroundSize = bgImageMode === 'cover' ? 'cover' : bgImageMode === 'contain' ? 'contain' : 'auto';
+        }
+      }
+      return Object.keys(style).length > 0 ? style : undefined;
+    }, [bgColor, bgImageUrl, bgImageMode]);
 
     return noWorkflows
       ? (
@@ -52,7 +72,7 @@ export function createWorktableComponent({
         )
       : <div
         className={styles.worktable}
-        style={bgColor !== '' ? { backgroundColor: bgColor } : undefined}
+        style={bgStyle}
       >
         {activeWorkflows.map(({wfl, prjId}) => {
           const isCurrentWorkflow = wfl.id === currentWorkflowId;

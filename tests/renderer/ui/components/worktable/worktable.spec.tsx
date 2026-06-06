@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { createWorktableComponent } from '@/ui/components/worktable/worktable';
 import { createWorktableViewModelHook } from '@/ui/components/worktable/worktableViewModel';
 import { AppState } from '@/base/state/app';
@@ -24,12 +24,13 @@ const strIsVisible = 'IS-VISIBLE'
 const WidgetLayout = (props: WidgetLayoutProps) => <div>{strWidgetLayout} {props.projectId} {props.workflowId} {props.isVisible && strIsVisible}</div>;
 
 async function setup(
-  appState: AppState
+  appState: AppState,
+  getImageDataUrlUseCase: (path: string) => Promise<string | null> = jest.fn(async () => null)
 ) {
   const [appStore, appStoreForUi] = await fixtureAppStore(appState);
   const useAppState = createAppStateHook(appStoreForUi);
 
-  const useWorktableViewModel = createWorktableViewModelHook({useAppState})
+  const useWorktableViewModel = createWorktableViewModelHook({useAppState, getImageDataUrlUseCase})
   const Worktable = createWorktableComponent({
     useWorktableViewModel,
     WidgetLayout
@@ -86,6 +87,30 @@ describe('<Worktable />', () => {
       }
     }));
     expect(comp.container.firstChild).toHaveStyle({ backgroundColor: 'rgb(10, 20, 30)' });
+  });
+
+  it('should resolve the configured background image to a data URL and apply it with the fit mode', async () => {
+    const workflowA = fixtureWorkflowA();
+    const dataUrl = 'data:image/png;base64,AAAA';
+    const getImageDataUrl = jest.fn(async () => dataUrl);
+    const { comp } = await setup(fixtureAppState({
+      entities: {
+        projects: { ...fixtureProjectAInColl({ id: projectId, workflowIds: [workflowA.id] }) },
+        workflows: { [workflowA.id]: workflowA }
+      },
+      ui: {
+        editMode: false,
+        memSaver: fixtureMemSaver({ activeWorkflows: [{ prjId: projectId, wflId: workflowA.id }] }),
+        projectSwitcher: fixtureProjectSwitcher({ currentProjectId: projectId }),
+        appConfig: fixtureAppConfig({ bgImage: '/img/bg.png', bgImageMode: 'contain' })
+      }
+    }), getImageDataUrl);
+
+    expect(getImageDataUrl).toHaveBeenCalledWith('/img/bg.png');
+    const root = comp.container.firstChild as HTMLElement;
+    await waitFor(() => expect(root.style.backgroundImage).toBe(`url("${dataUrl}")`));
+    expect(root.style.backgroundSize).toBe('contain');
+    expect(root.style.backgroundRepeat).toBe('no-repeat');
   });
 
   it('should not set an inline background color when none is configured', async () => {

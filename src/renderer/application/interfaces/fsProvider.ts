@@ -8,4 +8,5 @@ import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
 export interface FsProvider {
   readDir: (dirPath: string, opts?: ReadDirOptions) => Promise<FsDirEntry[]>;
   getHomeDir: () => Promise<string>;
+  getImageDataUrl: (path: string) => Promise<string | null>;
 }

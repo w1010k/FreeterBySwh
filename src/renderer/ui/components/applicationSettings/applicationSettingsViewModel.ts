@@ -63,6 +63,25 @@ export function createApplicationSettingsViewModelHook({
       }
     }, [appConfig, updateSettings])
 
+    const onBrowseBgImageHandler = useCallback(async () => {
+      if (!appConfig) {
+        return;
+      }
+      const res = await dialogProvider.showOpenFileDialog({
+        title: 'Choose workflow background image',
+        filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'] }]
+      });
+      if (!res.canceled && res.filePaths[0]) {
+        updateSettings({ ...appConfig, bgImage: res.filePaths[0] });
+      }
+    }, [appConfig, updateSettings])
+
+    const onClearBgImageHandler = useCallback(() => {
+      if (appConfig) {
+        updateSettings({ ...appConfig, bgImage: '' });
+      }
+    }, [appConfig, updateSettings])
+
     const onOkClickHandler = useCallback(() => {
       saveApplicationSettingsUseCase();
     }, []);
@@ -77,6 +96,8 @@ export function createApplicationSettingsViewModelHook({
       updateSettings,
       onBrowseDownloadDirHandler,
       onResetDownloadDirHandler,
+      onBrowseBgImageHandler,
+      onClearBgImageHandler,
       onOkClickHandler,
       onCancelClickHandler,
       uiThemeOptions,

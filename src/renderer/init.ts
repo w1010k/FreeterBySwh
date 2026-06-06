@@ -98,6 +98,7 @@ import { createInitMainShortcutUseCase } from '@/application/useCases/globalShor
 import { createGlobalShortcutProvider } from '@/infra/globalShortcut/globalShortcutProvider';
 import { createInitDownloadDirUseCase } from '@/application/useCases/download/initDownloadDir';
 import { createDownloadProvider } from '@/infra/download/downloadProvider';
+import { createGetImageDataUrlUseCase } from '@/application/useCases/fs/getImageDataUrl';
 import { createApplicationSettingsComponent, createApplicationSettingsViewModelHook } from '@/ui/components/applicationSettings';
 import { createGetMainHotkeyOptionsUseCase } from '@/application/useCases/applicationSettings/getMainHotkeyOptions';
 import { createOpenApplicationSettingsUseCase } from '@/application/useCases/applicationSettings/openApplicationSettings';
@@ -273,6 +274,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
   const clipboardProvider = createClipboardProvider();
   const shellProvider = createShellProvider();
   const fsProvider = createFsProvider();
+  const getImageDataUrlUseCase = createGetImageDataUrlUseCase({ fsProvider });
   const iconProvider = createIconProvider();
   const processProvider = await createProcessProvider();
   const widgetDataStorageManager = createObjectManager(
@@ -528,6 +530,8 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     showWidgetContextMenuUseCase,
 
     showOpenFileDialogUseCase,
+
+    getImageDataUrlUseCase,
 
     getWidgetApiUseCase,
     deleteWidgetUseCase,

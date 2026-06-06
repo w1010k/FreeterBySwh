@@ -6,15 +6,18 @@
 import { EntityId } from '@/base/entity';
 import { getOneFromEntityCollection } from '@/base/entityCollection';
 import { Workflow } from '@/base/workflow';
+import { GetImageDataUrlUseCase } from '@/application/useCases/fs/getImageDataUrl';
 import { UseAppState } from '@/ui/hooks/appState';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type Deps = {
   useAppState: UseAppState;
+  getImageDataUrlUseCase: GetImageDataUrlUseCase;
 }
 
 export function createWorktableViewModelHook({
   useAppState,
+  getImageDataUrlUseCase,
 }: Deps) {
   function useWorktableViewModel() {
     const {
@@ -29,6 +32,8 @@ export function createWorktableViewModelHook({
       copiedWidgetIds,
       widgetTypeIds,
       bgColor,
+      bgImage,
+      bgImageMode,
     } = useAppState(state => {
       const { editMode: isEditMode } = state.ui;
       const { currentProjectId } = state.ui.projectSwitcher;
@@ -54,7 +59,7 @@ export function createWorktableViewModelHook({
       const dndDraggingWidgetType = widgetTypeId ? getOneFromEntityCollection(state.entities.widgetTypes, widgetTypeId) : undefined;
       const widgetTypeIds = state.ui.palette.widgetTypeIds;
       const copiedWidgetIds = state.ui.copy.widgets.list;
-      const { bgColor } = state.ui.appConfig;
+      const { bgColor, bgImage, bgImageMode } = state.ui.appConfig;
       return {
         isEditMode,
         currentWorkflowId,
@@ -67,8 +72,27 @@ export function createWorktableViewModelHook({
         copiedWidgetIds,
         widgetTypeIds,
         bgColor,
+        bgImage,
+        bgImageMode,
       }
     });
+
+    // Resolve the configured background image (an absolute path) to a data URL
+    // the renderer can use in CSS. Re-runs only when the path changes.
+    const [bgImageUrl, setBgImageUrl] = useState<string | null>(null);
+    useEffect(() => {
+      if (bgImage === '') {
+        setBgImageUrl(null);
+        return undefined;
+      }
+      let cancelled = false;
+      getImageDataUrlUseCase(bgImage).then(url => {
+        if (!cancelled) {
+          setBgImageUrl(url);
+        }
+      });
+      return () => { cancelled = true; };
+    }, [bgImage]);
 
     const activeWorkflows = useMemo(
       () => _activeWorkflows
@@ -100,6 +124,8 @@ export function createWorktableViewModelHook({
       widgetTypes,
       copiedWidgets,
       bgColor,
+      bgImageUrl,
+      bgImageMode,
     }
   }
 

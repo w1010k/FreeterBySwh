@@ -1370,6 +1370,37 @@ Note와 To-Do List의 디스크 저장은 디바운스(노트 800ms, 투두 500m
 
 ---
 
+## 42. 워크플로우 배경 커스텀 — 전역 배경색 + 배경 이미지 *(2026-06-06)*
+
+작업판(worktable) 배경을 **앱 전역 설정**에서 커스텀할 수 있다. 단색 배경색과/또는 배경 이미지를 지정할 수 있고, 둘 다 비우면 테마 기본 배경.
+
+### 사용자 가시적 효과
+
+- **Application Settings**에 "Workflow background color"(컬러 피커 + Use default)와 "Workflow background image"(파일 선택 + 표시 모드 + Clear)를 추가.
+- 배경 이미지 표시 모드: **Fill(cover) / Fit(contain) / Center / Tile**.
+- 위젯 뒤(투명한 widgetLayout 아래의 worktable 레이어)에 적용되어 위젯 가독성은 유지.
+
+### 아키텍처
+
+- **전역인 이유**: 워크플로우별이 아니라 앱 전역. webview 다운로드 폴더와 마찬가지로 전역이 단순·일관(워크플로우별로 다른 배경의 실익이 적고 설정 분산만 늘어남).
+- **렌더링**: worktable 루트에 인라인 스타일. 색은 `backgroundColor`, 이미지는 `backgroundImage` + 모드별 `size/repeat/position`. `.widgetLayout` 루트는 원래 투명이라 worktable 배경이 그대로 보임.
+- **이미지 로딩(data URL)**: 로컬 이미지 파일을 렌더러에서 바로 못 쓰므로(CSP), **favicon과 동일하게 main이 파일을 읽어 base64 data URL로 IPC 전달**(`fs-get-image-data-url`). main `fsProvider.getImageDataUrl`이 확장자→MIME 매핑 + 20MB 상한. worktable 뷰모델이 경로 변경 시 비동기로 data URL을 받아 적용.
+- **설정 저장**: `AppConfig`(전역, 영속)에 `bgColor`/`bgImage`/`bgImageMode`. 마이그레이션 불필요(병합 시 기본값).
+
+### 까다로웠던 포인트
+
+- **로컬 이미지 표시**: `file://`은 커스텀 프로토콜 오리진의 CSP에서 막히고, 앱 커스텀 프로토콜은 번들 파일만 서빙. 그래서 검증된 data-URL 경로(favicon 방식) 채택 — 추가 보안 표면·CSP 변경 없음.
+
+### 수정 파일
+
+- **신규(common)**: `ipc/channels.ts`의 `fs-get-image-data-url` 채널
+- **신규(main)**: `application/useCases/fs/getImageDataUrl.ts`. `infra/fsProvider`·`controllers/fs`·`index.ts`에 배선
+- **신규(renderer)**: `application/useCases/fs/getImageDataUrl.ts`. `infra/fsProvider`·`init.ts`에 배선
+- **수정**: `base/appConfig.ts`(`bgColor`/`bgImage`/`bgImageMode`), `base/state/ui.ts`, `worktable`(뷰모델·컴포넌트), `applicationSettings`(뷰모델·컴포넌트)
+- **테스트**: worktable 배경색/이미지 적용, main `fsProvider.getImageDataUrl`, fs 컨트롤러, 설정 fixture 갱신
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

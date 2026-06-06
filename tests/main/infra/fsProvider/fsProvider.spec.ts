@@ -86,4 +86,26 @@ describe('FsProvider', () => {
       expect(provider.getHomeDir()).toBe(homedir());
     })
   })
+
+  describe('getImageDataUrl()', () => {
+    it('should read a supported image as a base64 data URL with the mime from its extension', async () => {
+      const provider = createFsProvider();
+      const path = join(dirPath, 'bg.png');
+      await writeFile(path, Buffer.from([1, 2, 3, 4]));
+
+      expect(await provider.getImageDataUrl(path)).toBe(`data:image/png;base64,${Buffer.from([1, 2, 3, 4]).toString('base64')}`);
+    })
+
+    it('should return null for an unsupported extension (without reading the file)', async () => {
+      const provider = createFsProvider();
+
+      expect(await provider.getImageDataUrl(join(dirPath, 'note.txt'))).toBeNull();
+    })
+
+    it('should return null when the file does not exist', async () => {
+      const provider = createFsProvider();
+
+      expect(await provider.getImageDataUrl(join(dirPath, 'missing.png'))).toBeNull();
+    })
+  })
 })

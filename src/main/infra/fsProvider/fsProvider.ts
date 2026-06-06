@@ -3,11 +3,22 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { readdir, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readdir, stat, readFile } from 'node:fs/promises';
+import { join, extname } from 'node:path';
 import { homedir } from 'node:os';
 import { FsProvider } from '@/application/interfaces/fsProvider';
 import { FsDirEntry } from '@common/base/fs';
+
+const imageMimeByExt: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.svg': 'image/svg+xml',
+};
+const maxImageBytes = 20 * 1024 * 1024;
 
 export function createFsProvider(): FsProvider {
   return {
@@ -31,6 +42,21 @@ export function createFsProvider(): FsProvider {
         return { name: item.name, path, isDirectory, size };
       }));
     },
-    getHomeDir: () => homedir()
+    getHomeDir: () => homedir(),
+    getImageDataUrl: async (path): Promise<string | null> => {
+      const mime = imageMimeByExt[extname(path).toLowerCase()];
+      if (!mime) {
+        return null;
+      }
+      try {
+        const buf = await readFile(path);
+        if (buf.byteLength > maxImageBytes) {
+          return null;
+        }
+        return `data:${mime};base64,${buf.toString('base64')}`;
+      } catch {
+        return null;
+      }
+    }
   }
 }

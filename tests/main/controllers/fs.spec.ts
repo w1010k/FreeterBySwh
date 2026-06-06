@@ -14,20 +14,25 @@ const getHomeDirUseCaseRes = '/home/user';
 function setup() {
   const readDirUseCase = jest.fn(async () => readDirUseCaseRes);
   const getHomeDirUseCase = jest.fn(() => getHomeDirUseCaseRes);
+  const getImageDataUrlUseCase = jest.fn(async () => null);
 
   const [
     readDirController,
-    getHomeDirController
+    getHomeDirController,
+    getImageDataUrlController
   ] = createFsControllers({
     readDirUseCase,
-    getHomeDirUseCase
+    getHomeDirUseCase,
+    getImageDataUrlUseCase
   })
 
   return {
     readDirUseCase,
     getHomeDirUseCase,
+    getImageDataUrlUseCase,
     readDirController,
     getHomeDirController,
+    getImageDataUrlController,
   }
 }
 

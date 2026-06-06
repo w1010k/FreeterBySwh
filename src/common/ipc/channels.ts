@@ -190,3 +190,7 @@ export type IpcFsReadDirRes = FsDirEntry[];
 export const ipcFsGetHomeDirChannel = makeIpcChannelName('fs-get-home-dir');
 export type IpcFsGetHomeDirArgs = [];
 export type IpcFsGetHomeDirRes = string;
+
+export const ipcFsGetImageDataUrlChannel = makeIpcChannelName('fs-get-image-data-url');
+export type IpcFsGetImageDataUrlArgs = [path: string];
+export type IpcFsGetImageDataUrlRes = string | null;
