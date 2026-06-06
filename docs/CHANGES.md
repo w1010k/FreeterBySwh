@@ -1458,15 +1458,18 @@ Note와 To-Do List의 디스크 저장은 디바운스(노트 800ms, 투두 500m
 
 ---
 
-## 46. Web Query 기본 엔진에 Naver·Naver Map·YouTube 추가 *(2026-06-06)*
+## 46. Web Query 기본 엔진 확충 (Naver·YouTube·Namuwiki·Perplexity 등) *(2026-06-06)*
 
-Web Query 위젯의 **Query Engine** 드롭다운(빌트인 검색 엔진 목록)에 한국 사용자가 자주 쓰는 세 개를 기본 제공 항목으로 추가했다. 더 이상 Custom Engine으로 직접 URL을 넣지 않아도 된다.
+Web Query 위젯의 **Query Engine** 드롭다운(빌트인 검색 엔진 목록)에 자주 쓰는 항목들을 기본 제공으로 추가했다. 더 이상 Custom Engine으로 직접 URL을 넣지 않아도 된다.
 
 | 엔진 | URL 템플릿 |
 |---|---|
 | Naver | `https://search.naver.com/search.naver?query=QUERY` |
 | Naver (Maps) | `https://map.naver.com/p/search/QUERY` |
+| Naver (Shopping) | `https://search.shopping.naver.com/search/all?query=QUERY` |
+| Namuwiki | `https://namu.wiki/Search?q=QUERY` |
 | YouTube | `https://www.youtube.com/results?search_query=QUERY` |
+| Perplexity | `https://www.perplexity.ai/search?q=QUERY` |
 
 기존 엔진 배열(`engines`)에 항목만 추가하는 순수 가산 변경 — `enginesById`는 자동 파생되고, 기존 위젯은 엔진 id로 참조하므로 영향 없음. (목록 정렬에 맞춰 Naver는 Google 다음, YouTube는 맨 끝에 배치.)
 
