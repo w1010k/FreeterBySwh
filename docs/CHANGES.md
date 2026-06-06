@@ -1466,7 +1466,7 @@ Web Query 위젯의 **Query Engine** 드롭다운(빌트인 검색 엔진 목록
 |---|---|
 | Naver | `https://search.naver.com/search.naver?query=QUERY` |
 | Naver (Maps) | `https://map.naver.com/p/search/QUERY` |
-| Naver (Shopping) | `https://search.shopping.naver.com/search/all?query=QUERY` |
+| Naver (Shopping) | `https://search.shopping.naver.com/ns/search?query=QUERY` (네이버스토어) |
 | Naver (Stock) | `https://stock.naver.com/domestic/stock/QUERY/price` (QUERY=종목 코드, 예 005930) |
 | Naver (Dictionary) | `https://dict.naver.com/#/search?query=QUERY` (통합 사전; 국어만 `ko.`/영어만 `en.`) |
 | Naver (News) | `https://search.naver.com/search.naver?where=news&query=QUERY` |

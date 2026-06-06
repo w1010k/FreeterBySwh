@@ -56,7 +56,7 @@ const engines: SettingsEngine[] = [
   {id: 'namu', name: 'Namuwiki', url: 'https://namu.wiki/Search?q=QUERY', descr: 'Search Namuwiki'},
   {id: 'nvr', name: 'Naver', url: 'https://search.naver.com/search.naver?query=QUERY', descr: 'Search'},
   {id: 'nvr-maps', name: 'Naver (Maps)', url: 'https://map.naver.com/p/search/QUERY', descr: 'Search for maps'},
-  {id: 'nvr-shop', name: 'Naver (Shopping)', url: 'https://search.shopping.naver.com/search/all?query=QUERY', descr: 'Search for products'},
+  {id: 'nvr-shop', name: 'Naver (Shopping)', url: 'https://search.shopping.naver.com/ns/search?query=QUERY', descr: 'Search for products'},
   {id: 'nvr-stock', name: 'Naver (Stock)', url: 'https://stock.naver.com/domestic/stock/QUERY/price', descr: 'Stock code, e.g. 005930'},
   {id: 'nvr-dict', name: 'Naver (Dictionary)', url: 'https://dict.naver.com/#/search?query=QUERY', descr: 'Look up words'},
   {id: 'nvr-news', name: 'Naver (News)', url: 'https://search.naver.com/search.naver?where=news&query=QUERY', descr: 'Search for news'},
