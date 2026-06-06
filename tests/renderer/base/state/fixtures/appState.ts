@@ -24,7 +24,10 @@ const appState: AppState = {
         workflowInactiveAfter: -1
       },
       uiTheme: 'light',
-      downloadDir: ''
+      downloadDir: '',
+      bgColor: '',
+      bgImage: '',
+      bgImageMode: 'cover'
     },
     apps: {
       appIds: [],

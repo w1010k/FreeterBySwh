@@ -15,6 +15,7 @@ import { fixtureProjectAInColl } from '@tests/base/state/fixtures/entitiesState'
 import { fixtureWorkflowA, fixtureWorkflowB, fixtureWorkflowC } from '@tests/base/fixtures/workflow';
 import { WidgetLayoutProps } from '@/ui/components/worktable/widgetLayout';
 import { fixtureMemSaver } from '@tests/base/state/fixtures/memSaver';
+import { fixtureAppConfig } from '@tests/base/fixtures/appConfig';
 
 const strWidgetLayout = 'WidgetLayout';
 const projectId = 'PROJECT-ID';
@@ -68,6 +69,40 @@ describe('<Worktable />', () => {
       }
     }));
     expect(screen.queryByText(/The project does not have any workflows/i)).not.toBeInTheDocument();
+  });
+
+  it('should apply the configured worktable background color as an inline style', async () => {
+    const workflowA = fixtureWorkflowA();
+    const { comp } = await setup(fixtureAppState({
+      entities: {
+        projects: { ...fixtureProjectAInColl({ id: projectId, workflowIds: [workflowA.id] }) },
+        workflows: { [workflowA.id]: workflowA }
+      },
+      ui: {
+        editMode: false,
+        memSaver: fixtureMemSaver({ activeWorkflows: [{ prjId: projectId, wflId: workflowA.id }] }),
+        projectSwitcher: fixtureProjectSwitcher({ currentProjectId: projectId }),
+        appConfig: fixtureAppConfig({ bgColor: 'rgb(10, 20, 30)' })
+      }
+    }));
+    expect(comp.container.firstChild).toHaveStyle({ backgroundColor: 'rgb(10, 20, 30)' });
+  });
+
+  it('should not set an inline background color when none is configured', async () => {
+    const workflowA = fixtureWorkflowA();
+    const { comp } = await setup(fixtureAppState({
+      entities: {
+        projects: { ...fixtureProjectAInColl({ id: projectId, workflowIds: [workflowA.id] }) },
+        workflows: { [workflowA.id]: workflowA }
+      },
+      ui: {
+        editMode: false,
+        memSaver: fixtureMemSaver({ activeWorkflows: [{ prjId: projectId, wflId: workflowA.id }] }),
+        projectSwitcher: fixtureProjectSwitcher({ currentProjectId: projectId }),
+        appConfig: fixtureAppConfig({ bgColor: '' })
+      }
+    }));
+    expect((comp.container.firstChild as HTMLElement).style.backgroundColor).toBe('');
   });
 
   it('should display "No Workflows" text, when there are no workflows active in mem saver', async () => {

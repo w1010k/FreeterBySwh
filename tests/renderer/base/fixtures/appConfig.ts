@@ -13,7 +13,10 @@ const appConfig: AppConfig = {
     workflowInactiveAfter: -1
   },
   uiTheme: 'light',
-  downloadDir: ''
+  downloadDir: '',
+  bgColor: '',
+  bgImage: '',
+  bgImageMode: 'cover'
 }
 
 export const fixtureAppConfig = (testData?: Partial<AppConfig>): AppConfig => deepFreeze({

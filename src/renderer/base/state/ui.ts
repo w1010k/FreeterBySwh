@@ -242,7 +242,10 @@ export function createUiState(): UiState {
         workflowInactiveAfter: -1
       },
       uiTheme: defaultUiThemeId,
-      downloadDir: ''
+      downloadDir: '',
+      bgColor: '',
+      bgImage: '',
+      bgImageMode: 'cover'
     },
     apps: {
       appIds: []

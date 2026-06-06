@@ -88,6 +88,22 @@ export function createApplicationSettingsComponent({
           </SettingBlock>
 
           <SettingBlock
+            titleForId='worktable-bg-color'
+            title='Workflow background color'
+            moreInfo='Custom background color for the workflow area. Leave as default to use the theme color.'
+          >
+            <div className={styles['download-dir-row']}>
+              <input
+                id="worktable-bg-color"
+                type="color"
+                value={appConfig.bgColor !== '' ? appConfig.bgColor : '#ffffff'}
+                onChange={e => updateSettings({ ...appConfig, bgColor: e.target.value })}
+              />
+              {appConfig.bgColor !== '' && <button type="button" onClick={() => updateSettings({ ...appConfig, bgColor: '' })}>Use default</button>}
+            </div>
+          </SettingBlock>
+
+          <SettingBlock
             title='Memory Saver'
             moreInfo='Freeter frees up memory from inactive workflows.
                       This gives active workflows more computer resources and keeps Freeter

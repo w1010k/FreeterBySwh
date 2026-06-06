@@ -33,6 +33,7 @@ export function createWorktableComponent({
       noWorkflows,
       widgetTypes,
       copiedWidgets,
+      bgColor,
     } = useWorktableViewModel();
 
     return noWorkflows
@@ -51,6 +52,7 @@ export function createWorktableComponent({
         )
       : <div
         className={styles.worktable}
+        style={bgColor !== '' ? { backgroundColor: bgColor } : undefined}
       >
         {activeWorkflows.map(({wfl, prjId}) => {
           const isCurrentWorkflow = wfl.id === currentWorkflowId;
