@@ -566,6 +566,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     closeApplicationSettingsUseCase,
     saveApplicationSettingsUseCase,
     updateApplicationSettingsUseCase,
+    dialogProvider: osDialogProvider,
 
     showBrowserWindowUseCase,
 
