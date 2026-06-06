@@ -45,6 +45,16 @@
   background-color: var(--freeter-workflowSwitcherTabHoverColor);
 }
 
+// Transparent capture layer mounted only while dragging the resizer. Sits above
+// everything (incl. webview widgets) so the drag keeps tracking and shows a
+// consistent resize cursor regardless of what's underneath.
+.resize-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  cursor: col-resize;
+}
+
 .manage-icon {
   display: inline-block;
   width: 24px;

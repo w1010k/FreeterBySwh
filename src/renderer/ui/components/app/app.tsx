@@ -5,7 +5,7 @@
 
 import { AppViewModelHook } from './appViewModel';
 import './globals.scss';
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import clsx from 'clsx';
 import styles from './app.module.scss';
 import {SvgIcon} from '@/ui/components/basic/svgIcon';
@@ -38,6 +38,10 @@ export function createAppComponent({
         </InAppNote>;
     const isSide = workflowBarPos === 'left' || workflowBarPos === 'right';
 
+    // While dragging, an overlay covers the whole window (incl. any <webview>
+    // widgets) so mousemove/mouseup keep firing in the host document — Electron
+    // webviews otherwise swallow those events when the cursor passes over them.
+    const [isResizing, setIsResizing] = useState(false);
     const dragRef = useRef<{ startX: number; startWidth: number; dir: number } | null>(null);
     const onResizerMouseDown = useCallback((e: React.MouseEvent) => {
       e.preventDefault();
@@ -46,6 +50,7 @@ export function createAppComponent({
         startWidth: workflowBarWidth,
         dir: workflowBarPos === 'right' ? -1 : 1
       };
+      setIsResizing(true);
       const onMove = (ev: MouseEvent) => {
         const drag = dragRef.current;
         if (!drag) {
@@ -55,6 +60,7 @@ export function createAppComponent({
       };
       const onUp = () => {
         dragRef.current = null;
+        setIsResizing(false);
         window.removeEventListener('mousemove', onMove);
         window.removeEventListener('mouseup', onUp);
       };
@@ -92,6 +98,7 @@ export function createAppComponent({
             </div>
           ))
         }
+        {isResizing && <div className={styles['resize-overlay']} data-testid="resize-overlay" />}
       </div>
     )
   }
