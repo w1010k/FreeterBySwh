@@ -206,6 +206,40 @@ describe('To-Do List Widget', () => {
     });
   })
 
+  it('should flush the pending save on app quit (beforeunload), without waiting out the debounce', async () => {
+    const testState: ToDoListState = {
+      items: [
+        { id: 1, isDone: false, text: 'Task 1' },
+      ],
+      nextItemId: 99
+    };
+    const getJson = jest.fn().mockResolvedValue(testState);
+    const setJson = jest.fn();
+    const { userEvent } = setupToDoListWidgetSut(fixtureSettings({ doneToBottom: false }), {
+      mockWidgetApi: {
+        dataStorage: {
+          getJson,
+          setJson
+        }
+      }
+    });
+    const user = userEvent.setup({ delay: null });
+
+    await waitFor(() => {
+      expect(screen.getByRole('list')).toBeInTheDocument();
+    })
+
+    await user.click(screen.getAllByRole('checkbox')[0]);
+    expect(setJson).toHaveBeenCalledTimes(0); // still within the 500ms debounce window
+
+    act(() => { window.dispatchEvent(new Event('beforeunload')); });
+    expect(setJson).toHaveBeenCalledTimes(1);
+    expect(setJson).toHaveBeenCalledWith('todo', {
+      ...testState,
+      items: [{ ...testState.items[0], isDone: true }]
+    });
+  })
+
   // TODO: more tests needed for the rest features
 })
 

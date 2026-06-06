@@ -1321,6 +1321,26 @@ Webpage 위젯에 **인페이지 검색**을 추가했다. 임베드한 페이�
 
 ---
 
+## 40. Note·To-Do List — 종료/언마운트 시 미저장 변경 flush *(2026-06-06)*
+
+Note와 To-Do List의 디스크 저장은 디바운스(노트 800ms, 투두 500ms)라, **변경 직후 그 시간 안에 앱을 닫거나 워크플로우를 전환하면** 마지막 변경이 디스크에 안 써지고 사라질 수 있었다([#30](#30-데이터-저장-안정성정합성-개선-2026-06-04)에서 앱 전역 상태는 종료 시 flush하지만, 위젯별 디바운스는 별개였다).
+
+### 사용자 가시적 효과
+
+- 노트/투두를 바꾸고 **바로 앱을 종료**해도 마지막 변경이 보존된다. **워크플로우 전환 등으로 위젯이 언마운트**될 때도 마찬가지.
+
+### 아키텍처
+
+- 두 위젯에 `beforeunload`(앱 종료) 리스너 + 언마운트 cleanup에서 디바운스 saver의 `flush()`를 호출하는 effect를 추가. `flush()`는 대기 중인 호출이 있을 때만 즉시 실행(없으면 no-op)이라 불필요한 쓰기는 없다.
+- 투두 saver는 scope(프로젝트/`'app'`)별 공유라 어느 형제 위젯에서 flush해도 같은 보류 쓰기를 비운다.
+
+### 수정 파일
+
+- **수정**: `src/renderer/widgets/note/widget.tsx`, `src/renderer/widgets/to-do-list/widget.tsx`
+- **테스트**: `tests/renderer/widgets/{note,to-do-list}/widget.spec.ts`(beforeunload flush)
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

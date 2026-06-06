@@ -76,6 +76,18 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
     saveData(next);
   }, [saveData, setStoreToDoList])
 
+  // Persist a pending change when the app quits (beforeunload) or the widget
+  // unmounts — otherwise an edit made within the (short) debounce window would
+  // be lost. The saver is per-scope, so flushing from any sibling is correct.
+  useEffect(() => {
+    const flush = () => saveData.flush();
+    window.addEventListener('beforeunload', flush);
+    return () => {
+      window.removeEventListener('beforeunload', flush);
+      flush();
+    };
+  }, [saveData])
+
   useEffect(() => {
     if (toDoList) {
       updateActionBar(createActionBarItems(getToDoList, setToDoListAndSave, setActiveItemEditorState));

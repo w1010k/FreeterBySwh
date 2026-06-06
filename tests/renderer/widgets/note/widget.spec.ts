@@ -151,6 +151,28 @@ describe('Note Widget', () => {
     expect(setText).toHaveBeenCalledWith('note', 'HELLO');
   })
 
+  it('should flush the pending save on app quit (beforeunload)', async () => {
+    const setText = jest.fn();
+    const { userEvent } = setupNoteWidgetSut({
+      mockWidgetApi: {
+        dataStorage: {
+          setText
+        }
+      }
+    });
+    const user = userEvent.setup({ delay: null });
+
+    await waitFor(() => {
+      expect(screen.getByRole('textbox')).toBeInTheDocument();
+    })
+
+    await user.type(screen.getByRole('textbox'), 'BYE');
+    expect(setText).toHaveBeenCalledTimes(0); // still within the debounce window
+
+    act(() => { window.dispatchEvent(new Event('beforeunload')); });
+    expect(setText).toHaveBeenCalledWith('note', 'BYE');
+  })
+
   it('should defer a remote change while the note is focused and apply it on blur', async () => {
     const getText = jest.fn().mockResolvedValue('OLD');
     setupWidgetSut(widgetComp, { spellCheck: false, markdown: false, sharedKeyId: 'K' }, {

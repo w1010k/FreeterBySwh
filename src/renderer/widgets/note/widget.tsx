@@ -77,6 +77,18 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
     loadNote();
   }, [loadNote])
 
+  // Persist a pending edit when the app quits (beforeunload) or the widget
+  // unmounts (e.g. switching workflows) — otherwise a change made within the
+  // debounce window would be lost.
+  useEffect(() => {
+    const flush = () => saveNote.flush();
+    window.addEventListener('beforeunload', flush);
+    return () => {
+      window.removeEventListener('beforeunload', flush);
+      flush();
+    };
+  }, [saveNote])
+
   // Live sync via shared storage; skip reload while the user is typing in
   // this textarea, since their own debounced save echoes back as a broadcast
   // and we don't want to clobber unsaved keystrokes.
