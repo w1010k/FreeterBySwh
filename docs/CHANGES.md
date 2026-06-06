@@ -1257,6 +1257,27 @@ Webpage 위젯에 **인페이지 검색**을 추가했다. 임베드한 페이�
 
 ---
 
+## 37. File Explorer 위젯 — 컨텍스트 메뉴에 "Open containing folder" · "Copy name" *(2026-06-06)*
+
+[#31](#31-file-explorer-위젯--즐겨찾기-폴더-트리-탐색-2026-06-05) File Explorer 우클릭 메뉴에 두 항목을 추가했다. 둘 다 위젯이 이미 가진 API(`shell`/`clipboard`)만 써서 새 배선 없이 붙인 것.
+
+### 사용자 가시적 효과
+
+- **Open containing folder**(파일에만 표시): 파일의 **상위 폴더를 OS 파일 관리자에서** 연다. 폴더는 기존 "Open in File Explorer"가 이미 그 역할을 하므로 파일 항목에만 나온다.
+- **Copy name**(파일·폴더 모두): 전체 경로 대신 **이름만**(마지막 경로 세그먼트) 클립보드에 복사. 기존 "Copy Path"와 나란히.
+
+### 아키텍처
+
+- 메뉴는 `widget.tsx`의 `renderContextMenu` 인라인. "Open containing folder"는 `shell.openPath(부모경로)`(폴더 경로를 openPath하면 파일 관리자에서 열림), "Copy name"은 `clipboard.writeText(이름)`.
+- 부모 경로 계산용 `dirnameOf(path)`를 `treeModel.ts`에 추가(POSIX `/`·Windows `\` 모두 처리, 후행 구분자 무시). 이름은 기존 `basenameOf` 재사용.
+
+### 수정 파일
+
+- **수정**: `src/renderer/widgets/file-explorer/{treeModel.ts,widget.tsx}`
+- **테스트**: `tests/renderer/widgets/file-explorer/treeModel.spec.ts`(`dirnameOf`)
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

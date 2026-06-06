@@ -10,7 +10,7 @@ import { createPortal } from 'react-dom';
 import { FileTree, useFileTree } from '@pierre/trees/react';
 import { preparePresortedFileTreeInput } from '@pierre/trees';
 import type { ContextMenuItem, ContextMenuOpenContext, FileTreeRowDecoration, FileTreeRowDecorationContext } from '@pierre/trees';
-import { buildEntryPaths, buildRootEntries, humanFileSize, toMapKey, toTreePath } from './treeModel';
+import { basenameOf, buildEntryPaths, buildRootEntries, dirnameOf, humanFileSize, toMapKey, toTreePath } from './treeModel';
 import styles from './widget.module.scss';
 
 // Bind the tree's theme custom properties to Freeter's theme vars so the tree
@@ -185,11 +185,14 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     // not to treat clicks inside the menu as an outside-click (which closes it).
     const { anchorRect } = context;
     const menuPos: CSSProperties = { left: anchorRect.x, top: anchorRect.y };
-    const openLabel = item.kind === 'directory' ? 'Open in File Explorer' : 'Open';
+    const isDir = item.kind === 'directory';
+    const openLabel = isDir ? 'Open in File Explorer' : 'Open';
     return createPortal(
       <div className={styles['menu']} style={menuPos} data-file-tree-context-menu-root="true">
         <button onClick={() => { shell.openPath(abs); context.close(); }}>{openLabel}</button>
+        {!isDir && <button onClick={() => { shell.openPath(dirnameOf(abs)); context.close(); }}>Open containing folder</button>}
         <button onClick={() => { clipboard.writeText(abs); context.close(); }}>Copy Path</button>
+        <button onClick={() => { clipboard.writeText(basenameOf(abs)); context.close(); }}>Copy name</button>
       </div>,
       document.body
     );

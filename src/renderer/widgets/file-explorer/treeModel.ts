@@ -46,6 +46,18 @@ export function basenameOf(path: string): string {
 }
 
 /**
+ * Parent directory of an absolute OS path (handles both `/` and `\`). A trailing
+ * separator is ignored. Falls back to the path itself when there is no parent
+ * segment (e.g. a bare root) — tree entries are always nested under a favorite
+ * root, so that fallback doesn't arise in practice.
+ */
+export function dirnameOf(path: string): string {
+  const trimmed = path.replace(/[/\\]+$/, '');
+  const idx = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
+  return idx > 0 ? trimmed.slice(0, idx) : trimmed;
+}
+
+/**
  * Pick a tree key for `base` that isn't already in `used`, appending ` (2)`,
  * ` (3)`, … on collision. Mutates `used` with the chosen key.
  */

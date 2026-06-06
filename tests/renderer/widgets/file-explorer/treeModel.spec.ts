@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { basenameOf, buildEntryPaths, buildRootEntries, dedupeKey, humanFileSize, toMapKey, toTreePath } from '@/widgets/file-explorer/treeModel';
+import { basenameOf, buildEntryPaths, buildRootEntries, dedupeKey, dirnameOf, humanFileSize, toMapKey, toTreePath } from '@/widgets/file-explorer/treeModel';
 import { FsDirEntry } from '@common/base/fs';
 
 const entry = (name: string, isDirectory: boolean, path: string, size = 0): FsDirEntry => ({ name, isDirectory, path, size });
@@ -60,6 +60,16 @@ describe('file-explorer treeModel', () => {
       expect(basenameOf('/home/user/Downloads')).toBe('Downloads');
       expect(basenameOf('C:\\Users\\swh\\Documents')).toBe('Documents');
       expect(basenameOf('/home/user/Downloads/')).toBe('Downloads');
+    })
+  })
+
+  describe('dirnameOf()', () => {
+    it('should return the parent directory for posix and windows paths', () => {
+      expect(dirnameOf('/home/user/Downloads/a.txt')).toBe('/home/user/Downloads');
+      expect(dirnameOf('C:\\Users\\swh\\a.txt')).toBe('C:\\Users\\swh');
+    })
+    it('should ignore a trailing separator', () => {
+      expect(dirnameOf('/home/user/sub/')).toBe('/home/user');
     })
   })
 
