@@ -1187,6 +1187,7 @@ Webpage 위젯에 포커스가 있을 때 `F5` 또는 `Ctrl/Cmd+R`로 페이지�
 
 - 위젯 이동·리사이즈 시 스냅 간격이 절반으로 줄어 미세 조정이 가능해진다.
 - 위젯 타입별 **최소 크기(minSize)도 ×2** 로 맞춰, 새 위젯의 기본 크기와 최소 크기는 *물리적으로 기존과 동일*하다(= 모양은 그대로, 조정만 촘촘). minSize는 `1×1`→`2×2`, `2×1`→`4×2`.
+- 칸 사이 **여백·바깥 패딩을 6px → 4px** 로 줄여, 촘촘해진 격자에 맞춰 위젯들이 시각적으로도 더 붙어 보이게 했다.
 - **⚠️ 마이그레이션 없음(의도적)**: 기존에 저장된 워크플로우의 위젯들은 옛 16×8 단위값을 그대로 들고 있어, 새 32×16 격자에서 **1/4 크기로 쪼그라들어 좌상단에 몰려 보인다.** 한 번 수동으로 다시 배치/리사이즈하면 된다(데이터 손실은 아님 — 단위 재해석일 뿐). 영속 상태 버전·migrate는 건드리지 않았다.
 
 ### 아키텍처
@@ -1197,11 +1198,11 @@ Webpage 위젯에 포커스가 있을 때 `F5` 또는 `Ctrl/Cmd+R`로 페이지�
 ### 까다로웠던 포인트
 
 - **마이그레이션을 일부러 뺀 트레이드오프**: 정수 배율(×2)이라 기존 좌표에 2를 곱하면 무손실로 모양 보존이 가능했지만, 사용자 요청으로 마이그레이션 없이 진행 — 기존 레이아웃은 수동 재조정 전제. 영속 데이터 스키마는 그대로라 롤백도 안전.
-- **margin/padding(6px)은 유지**: ×2(32칸)까지는 일반 창폭에서 칸이 충분히 커서 6px 여백이 문제되지 않음. 더 잘게(×3↑) 갈 경우엔 재검토 필요.
+- **margin/padding 6px → 4px**: 격자가 ×2로 촘촘해지면서 6px 여백이 상대적으로 두껍게 느껴져 4px로 축소(`calcs.ts`). 픽셀 변환 로직은 단위 테스트가 없어 시각 조정만으로 안전. 더 잘게(×3↑) 갈 경우엔 추가 재검토 필요.
 
 ### 수정 파일
 
-- **수정**: `src/renderer/base/widgetLayout.ts`(상수 32/16), 위젯 10종 `src/renderer/widgets/*/index.ts`(minSize ×2)
+- **수정**: `src/renderer/base/widgetLayout.ts`(상수 32/16), 위젯 10종 `src/renderer/widgets/*/index.ts`(minSize ×2), `src/renderer/ui/components/worktable/widgetLayout/calcs.ts`(여백 6→4px)
 - **테스트**: `tests/renderer/base/widgetLayout.spec.ts`, `tests/renderer/application/useCases/workflow/addWidgetToWorkflow.spec.ts`(32칸 기준 자동배치 좌표 정정)
 
 ---

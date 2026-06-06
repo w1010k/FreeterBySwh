@@ -6,8 +6,8 @@
 import { WidgetLayoutItemRect, widgetLayoutVisibleCols, widgetLayoutVisibleRows } from '@/base/widgetLayout';
 import { RectPx, WHPx, XYPx } from '@/ui/types/dimensions';
 
-const itemMargin: XYPx = { xPx: 6, yPx: 6 };
-const layoutPadding: XYPx = { xPx: 6, yPx: 6 };
+const itemMargin: XYPx = { xPx: 4, yPx: 4 };
+const layoutPadding: XYPx = { xPx: 4, yPx: 4 };
 
 /**
  * Functions to calc grid XYWH in pixels and units (cols/rows)
