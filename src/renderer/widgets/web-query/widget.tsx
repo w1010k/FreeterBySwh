@@ -4,7 +4,7 @@
  */
 
 import { Button, ReactComponent, WidgetReactComponentProps } from '@/widgets/appModules';
-import { Settings, SettingsMode, QueryEntry, defaultEngine, enginesById } from './settings';
+import { Settings, SettingsMode, QueryEntry, defaultEngine, enginesById, enginePlaceholder } from './settings';
 import styles from './widget.module.scss';
 import { SubmitEvent, useMemo, useState } from 'react';
 import { querySvg } from '@/widgets/web-query/icons';
@@ -24,14 +24,9 @@ function computeEntry(entry: QueryEntry, mode: SettingsMode) {
 
   if (mode === SettingsMode.Browser) {
     if (entry.engine !== '') {
-      const engineObj = enginesById[entry.engine];
-      if (engineObj) {
-        descr = engineObj.descr;
-        urlTpl = engineObj.url;
-      } else {
-        descr = defaultEngine.descr;
-        urlTpl = defaultEngine.url;
-      }
+      const engineObj = enginesById[entry.engine] || defaultEngine;
+      descr = enginePlaceholder(engineObj);
+      urlTpl = engineObj.url;
     } else {
       descr = entry.descr;
       urlTpl = sanitizeUrl(entry.url);

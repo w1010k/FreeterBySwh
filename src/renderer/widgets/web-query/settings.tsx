@@ -4,6 +4,7 @@
  */
 
 import { CreateSettingsState, ReactComponent, SettingsEditorReactComponentProps, SettingBlock } from '@/widgets/appModules';
+import styles from './settings.module.scss';
 
 export enum SettingsMode {
   Browser = 1,
@@ -71,6 +72,17 @@ const engines: SettingsEngine[] = [
 export const defaultEngine = engineDdgo;
 
 export const enginesById = Object.fromEntries(engines.map(item => [item.id, item]));
+
+/**
+ * A specific placeholder/description for a built-in engine, e.g. "Search Google"
+ * instead of just "Search" — so multiple query boxes are distinguishable. Avoids
+ * duplication when the action phrase already names the engine (e.g. "Search Wikipedia").
+ */
+export function enginePlaceholder(engine: SettingsEngine): string {
+  return engine.descr.toLowerCase().includes(engine.name.toLowerCase())
+    ? engine.descr
+    : `${engine.descr} ${engine.name}`;
+}
 
 /** A single query box within the widget. The widget holds a list of these. */
 export interface QueryEntry {
@@ -245,83 +257,61 @@ Make sure that any Webpage widget you want to use for queries includes the capit
         </select>
       </SettingBlock>
 
-      {settings.entries.map((entry, idx) => (
-        <SettingBlock
-          key={entry.id}
-          title={`Query #${idx + 1}`}
-          moreInfo='Each query is shown as its own input row in the widget.'
-        >
-          <div style={{ display: 'flex', gap: '6px' }} data-testid={`entry-toolbar-${idx}`}>
-            <button type="button" aria-label={`Move query #${idx + 1} up`} disabled={idx === 0} onClick={() => moveEntry(idx, -1)}>↑</button>
-            <button type="button" aria-label={`Move query #${idx + 1} down`} disabled={idx === settings.entries.length - 1} onClick={() => moveEntry(idx, 1)}>↓</button>
-            <button type="button" aria-label={`Remove query #${idx + 1}`} onClick={() => removeEntry(entry.id)}>Remove</button>
-          </div>
-
-          {settings.mode === SettingsMode.Browser && <SettingBlock
-            titleForId={`web-query-engine-${entry.id}`}
-            title='Query Engine'
-            moreInfo='Pick one of the common engines to perform your queries with, or select Custom Engine to define your own engine.'
-          >
-            <select id={`web-query-engine-${entry.id}`} value={entry.engine} onChange={e => updEntryEngine(entry.id, e.target.value)}>
-              <option key='' value=''>Custom Engine</option>
-              {engines.map(engine => (
-                <option key={engine.id} value={engine.id}>{engine.name}</option>
-              ))}
-            </select>
-          </SettingBlock>}
-
-          <SettingBlock
-            titleForId={`web-query-descr-${entry.id}`}
-            title='Description'
-            moreInfo='A short description displayed in the query field.'
-          >
-            {settings.mode !== SettingsMode.Browser || entry.engine === ''
-              ? <input
-                  id={`web-query-descr-${entry.id}`}
+      <SettingBlock
+        title='Queries'
+        moreInfo='Each row below becomes its own query input in the widget. The placeholder shows which engine it queries. For Custom Engine, put the capitalized word QUERY in the URL/Query template — it is replaced with what you type.'
+      >
+        <div className={styles['entries']}>
+          {settings.entries.map((entry, idx) => {
+            const showDescr = settings.mode !== SettingsMode.Browser || entry.engine === '';
+            const showUrl = settings.mode === SettingsMode.Browser && entry.engine === '';
+            return (
+              <div key={entry.id} className={styles['entry']} data-testid={`entry-${idx}`}>
+                <span className={styles['num']}>#{idx + 1}</span>
+                <button type="button" aria-label={`Move query #${idx + 1} up`} disabled={idx === 0} onClick={() => moveEntry(idx, -1)}>↑</button>
+                <button type="button" aria-label={`Move query #${idx + 1} down`} disabled={idx === settings.entries.length - 1} onClick={() => moveEntry(idx, 1)}>↓</button>
+                {settings.mode === SettingsMode.Browser && <select
+                  aria-label="Query Engine"
+                  value={entry.engine}
+                  onChange={e => updEntryEngine(entry.id, e.target.value)}
+                >
+                  <option key='' value=''>Custom Engine</option>
+                  {engines.map(engine => (
+                    <option key={engine.id} value={engine.id}>{engine.name}</option>
+                  ))}
+                </select>}
+                {showDescr && <input
+                  aria-label="Description"
+                  className={styles['descr']}
                   type="text"
                   value={entry.descr}
                   maxLength={100}
                   onChange={e => updEntry(entry.id, { descr: e.target.value })}
-                  placeholder="Type a description"
-                />
-              : <input id={`web-query-descr-${entry.id}`} type="text" disabled={true} value={enginesById[entry.engine]?.descr || ''} />}
-          </SettingBlock>
-
-          {settings.mode === SettingsMode.Browser && <SettingBlock
-            titleForId={`web-query-url-${entry.id}`}
-            title='URL Template'
-            moreInfo='A template of a URL that will be opened to perform the query. Capitilized QUERY inside the url template is a placeholder that will be replaced with a query typed in the widget.'
-          >
-            {entry.engine === ''
-              ? <input
-                  id={`web-query-url-${entry.id}`}
+                  placeholder="Description"
+                />}
+                {showUrl && <input
+                  aria-label="URL Template"
+                  className={styles['url']}
                   type="text"
                   value={entry.url}
                   maxLength={2000}
                   onChange={e => updEntry(entry.id, { url: e.target.value })}
-                  placeholder="Type a URL template"
+                  placeholder="URL template (with QUERY)"
+                />}
+                <input
+                  aria-label="Query Template"
+                  className={styles['query']}
+                  type="text"
+                  value={entry.query}
+                  onChange={e => updEntry(entry.id, { query: e.target.value })}
+                  placeholder="Query template (optional)"
                 />
-              : <input id={`web-query-url-${entry.id}`} type="text" disabled={true} value={enginesById[entry.engine]?.url || ''} />}
-          </SettingBlock>}
-
-          <SettingBlock
-            titleForId={`web-query-query-${entry.id}`}
-            title='Query Template'
-            moreInfo='If you need to retype similar queries, use this setting to specify a template for them. Capitilized QUERY inside the url template is a placeholder that will be replaced with a query typed in the widget. Template examples: "How to QUERY in Blender?" to search for Blender tutorials, "site:freeter.io QUERY" to search on freeter.io website.'
-          >
-            <input
-              id={`web-query-query-${entry.id}`}
-              type="text"
-              value={entry.query}
-              onChange={e => updEntry(entry.id, { query: e.target.value })}
-              placeholder="Type a query template"
-            />
-          </SettingBlock>
-        </SettingBlock>
-      ))}
-
-      <SettingBlock title=''>
-        <button type="button" onClick={addEntry}>+ Add query</button>
+                <button type="button" aria-label={`Remove query #${idx + 1}`} onClick={() => removeEntry(entry.id)}>✕</button>
+              </div>
+            );
+          })}
+        </div>
+        <button type="button" className={styles['add']} onClick={addEntry}>+ Add query</button>
       </SettingBlock>
     </>
   )

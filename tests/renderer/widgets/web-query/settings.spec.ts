@@ -207,14 +207,24 @@ describe('Web Query Widget Settings', () => {
   })
 
   describe('Browser mode (single entry)', () => {
-    it('should show right inputs', () => {
-      const settings = fixtureSettings1(SettingsMode.Browser);
+    it('should show all inputs for a custom-engine entry', () => {
+      const settings = fixtureSettings1(SettingsMode.Browser, { engine: '' });
       setupSettingsSut(settingsEditorComp, settings);
 
       expect(screen.getByRole('combobox', { name: /query engine/i })).toBeInTheDocument();
       expect(screen.getByRole('textbox', { name: /description/i })).toBeInTheDocument();
       expect(screen.getByRole('textbox', { name: /url template/i })).toBeInTheDocument();
       expect(screen.getByRole('textbox', { name: /query template/i })).toBeInTheDocument();
+    })
+
+    it('should show only engine + query template for a built-in engine entry', () => {
+      const settings = fixtureSettings1(SettingsMode.Browser, { engine: defaultEngine.id });
+      setupSettingsSut(settingsEditorComp, settings);
+
+      expect(screen.getByRole('combobox', { name: /query engine/i })).toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: /query template/i })).toBeInTheDocument();
+      expect(screen.queryByRole('textbox', { name: /description/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('textbox', { name: /url template/i })).not.toBeInTheDocument();
     })
 
     it('should fill inputs with right values, when engine==custom', () => {
@@ -227,13 +237,11 @@ describe('Web Query Widget Settings', () => {
       expect(screen.getByRole('textbox', { name: /query template/i })).toHaveValue('Some Query');
     })
 
-    it('should fill inputs with right values, when engine!==custom', () => {
-      const settings = fixtureSettings1(SettingsMode.Browser, { engine: defaultEngine.id, descr: 'Some Descr', query: 'Some Query', url: 'Some Url' });
+    it('should fill engine + query template, when engine!==custom', () => {
+      const settings = fixtureSettings1(SettingsMode.Browser, { engine: defaultEngine.id, query: 'Some Query' });
       setupSettingsSut(settingsEditorComp, settings);
 
       expect(screen.getByRole('combobox', { name: /query engine/i })).toHaveValue(defaultEngine.id);
-      expect(screen.getByRole('textbox', { name: /description/i })).toHaveValue(defaultEngine.descr);
-      expect(screen.getByRole('textbox', { name: /url template/i })).toHaveValue(defaultEngine.url);
       expect(screen.getByRole('textbox', { name: /query template/i })).toHaveValue('Some Query');
     })
 
@@ -243,14 +251,6 @@ describe('Web Query Widget Settings', () => {
 
       expect(screen.getByRole('textbox', { name: /description/i })).toBeEnabled();
       expect(screen.getByRole('textbox', { name: /url template/i })).toBeEnabled();
-    })
-
-    it('should disable descr/url inputs, when engine!==custom', () => {
-      const settings = fixtureSettings1(SettingsMode.Browser, { engine: defaultEngine.id });
-      setupSettingsSut(settingsEditorComp, settings);
-
-      expect(screen.getByRole('textbox', { name: /description/i })).toBeDisabled();
-      expect(screen.getByRole('textbox', { name: /url template/i })).toBeDisabled();
     })
 
     it('should allow to update "engine" setting with an option select', async () => {
@@ -372,9 +372,9 @@ describe('Web Query Widget Settings', () => {
         entries: [fixtureEntry({ id: 'a', engine: '', query: '' }), fixtureEntry({ id: 'b', engine: '', query: '' })]
       };
       const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
-      const secondBlock = within(screen.getByText('Query #2').closest('fieldset') as HTMLElement);
+      const secondEntry = within(screen.getByTestId('entry-1'));
 
-      await userEvent.type(secondBlock.getByRole('textbox', { name: /query template/i }), 'x');
+      await userEvent.type(secondEntry.getByRole('textbox', { name: /query template/i }), 'x');
 
       expect(getSettings().entries[0].query).toBe('');
       expect(getSettings().entries[1].query).toBe('x');

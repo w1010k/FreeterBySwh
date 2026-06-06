@@ -1500,7 +1500,8 @@ Web Query 위젯의 **Query Engine** 드롭다운(빌트인 검색 엔진 목록
 ### 사용자 가시적 효과
 
 - 위젯 본문이 **검색창 목록**(세로 스택)으로 바뀌고, 줄이 많으면 본문이 스크롤된다. 각 줄은 그 줄의 엔진/URL로 따로 검색.
-- 설정 화면에 **Query #1, #2 … 블록**이 생기고, 블록마다 **↑ / ↓ / Remove** 버튼 + **+ Add query** 버튼으로 추가·삭제·순서 변경. 모드(Browser/Webpages)는 위젯 단위로 유지.
+- 빌트인 엔진의 placeholder가 **엔진 이름까지 포함**(예: 그냥 "Search"가 아니라 "Search Google")해서 검색창이 여러 개일 때 구분된다. 동작 문구가 이미 엔진명을 포함하면 중복 안 함(예: "Search Wikipedia").
+- 설정 화면은 **항목당 한 줄짜리 가로 레이아웃**: `#N  ↑ ↓  [엔진]  [(커스텀이면)설명/URL]  [쿼리 템플릿]  ✕`. 항목을 추가해도 세로로 길어지지 않는다. 빌트인 엔진 항목은 설명/URL이 자동이라 칸을 숨겨 더 짧게. 맨 아래 **+ Add query**. 모드(Browser/Webpages)는 위젯 단위로 유지.
 
 ### 아키텍처
 
@@ -1515,7 +1516,8 @@ Web Query 위젯의 **Query Engine** 드롭다운(빌트인 검색 엔진 목록
 
 ### 수정 파일
 
-- **수정**: `widgets/web-query/settings.tsx`(모델·정규화·에디터), `widgets/web-query/widget.tsx`(다중 행 렌더), `widgets/web-query/widget.module.scss`(세로 스택)
+- **신규**: `widgets/web-query/settings.module.scss`(가로 항목 레이아웃 — settings-screen-panel의 `width:240px;display:block`을 specificity로 오버라이드)
+- **수정**: `widgets/web-query/settings.tsx`(모델·정규화·가로 에디터·`enginePlaceholder`), `widgets/web-query/widget.tsx`(다중 행 렌더·엔진명 포함 placeholder), `widgets/web-query/widget.module.scss`(세로 스택)
 - **테스트**: `web-query/fixtures.ts`(엔트리 기반 fixture), `settings.spec.ts`·`widget.spec.ts` 재작성(정규화·마이그레이션·다중 엔트리·추가/삭제/순서)
 
 ---

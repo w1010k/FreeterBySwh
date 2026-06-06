@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { Settings, SettingsMode, defaultEngine } from '@/widgets/web-query/settings';
+import { Settings, SettingsMode, defaultEngine, enginePlaceholder, enginesById } from '@/widgets/web-query/settings';
 import { widgetComp } from '@/widgets/web-query/widget'
 import { screen } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
@@ -84,16 +84,22 @@ describe('Web Query Widget', () => {
       expect(screen.getByRole('textbox')).toHaveProperty('placeholder', descr);
     })
 
-    it('should set the engine descr as a text input placeholder, when engine!=custom', () => {
+    it('should set the engine-specific placeholder (descr + name), when engine!=custom', () => {
       setupSut(fixtureSettings1(SettingsMode.Browser, { engine: 'ovrs', query: '', descr: 'Descr' }));
 
-      expect(screen.getByRole('textbox')).toHaveProperty('placeholder', 'Search for content');
+      expect(screen.getByRole('textbox')).toHaveProperty('placeholder', enginePlaceholder(enginesById['ovrs']));
     })
 
-    it('should set the default engine descr as a text input placeholder, when engine does not exist', () => {
+    it('should set the default engine placeholder, when engine does not exist', () => {
       setupSut(fixtureSettings1(SettingsMode.Browser, { engine: 'NO-SUCH-ID', query: '', descr: 'Descr' }));
 
-      expect(screen.getByRole('textbox')).toHaveProperty('placeholder', defaultEngine.descr);
+      expect(screen.getByRole('textbox')).toHaveProperty('placeholder', enginePlaceholder(defaultEngine));
+    })
+
+    it('should include the engine name in the placeholder (e.g. "Search Google")', () => {
+      setupSut(fixtureSettings1(SettingsMode.Browser, { engine: 'goog', query: '' }));
+
+      expect(screen.getByRole('textbox')).toHaveProperty('placeholder', 'Search Google');
     })
 
     it('should call openExternalUrl with right args on ENTER keypress in the text input', async () => {

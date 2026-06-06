@@ -1,0 +1,45 @@
+/*
+ * Copyright: (c) 2024, Alex Kaul
+ * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+ */
+
+.entries {
+  display: flex;
+  flex-direction: column;
+}
+
+.entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+}
+.entry:not(:last-child) {
+  border-bottom: 1px solid var(--freeter-widgetHeaderBorder);
+}
+
+// Override the settings-screen-panel rule (input/select -> display:block; width:240px)
+// so the controls sit inline on one compact row. Specificity beats the panel rule.
+.entries .entry select,
+.entries .entry input[type=text] {
+  display: inline-block;
+  width: auto;
+  margin: 0;
+}
+
+.entries .entry .descr,
+.entries .entry .url,
+.entries .entry .query {
+  flex: 1 1 120px;
+  min-width: 80px;
+}
+
+.num {
+  opacity: 0.6;
+  min-width: 24px;
+}
+
+.add {
+  margin-top: 12px;
+}
