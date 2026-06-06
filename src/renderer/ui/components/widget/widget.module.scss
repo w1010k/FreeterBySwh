@@ -10,7 +10,10 @@
   right: 0;
   bottom: 0;
   background-color: var(--freeter-widgetBackground);
-  color: var(--freeter-widgetColor)
+  color: var(--freeter-widgetColor);
+  // Clip the header/body to the rounded layout-item corners.
+  border-radius: 4px;
+  overflow: hidden;
 }
 .widget-header {
   position: absolute;

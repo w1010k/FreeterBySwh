@@ -1412,6 +1412,19 @@ Note와 To-Do List의 디스크 저장은 디바운스(노트 800ms, 투두 500m
 
 ---
 
+## 44. 위젯 모서리 살짝 둥글게 (4px) *(2026-06-06)*
+
+위젯 테두리가 직각이라 다소 딱딱해 보이던 것을 **4px 라운드**로 살짝 둥글렸다.
+
+- 외곽 박스(`.layout-item`)에 `border-radius`를 주고, 내부 위젯(`.widget`)에 같은 `border-radius` + `overflow:hidden`을 줘 헤더·본문이 둥근 모서리에 맞게 클립되도록 함.
+- `.layout-item`의 하단 패딩 트릭(`:after` 스페이서)·리사이즈 핸들은 `.widget` 바깥이라 클립 영향 없음.
+
+### 수정 파일
+
+- **수정**: `src/renderer/ui/components/worktable/widgetLayout/widgetLayout.module.scss`, `src/renderer/ui/components/widget/widget.module.scss`
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)
