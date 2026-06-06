@@ -4,10 +4,11 @@
  */
 
 export function generateUniqueName(baseName: string, usedNames: string[]): string {
+  const used = new Set(usedNames);
   let res = '';
   for (let i = 1; i <= 1000; i++) {
     res = `${baseName} ${i}`;
-    if (usedNames.indexOf(res) < 0) {
+    if (!used.has(res)) {
       return res;
     }
   }
