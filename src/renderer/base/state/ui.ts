@@ -245,7 +245,8 @@ export function createUiState(): UiState {
       downloadDir: '',
       bgColor: '',
       bgImage: '',
-      bgImageMode: 'cover'
+      bgImageMode: 'cover',
+      bgOpacity: 100
     },
     apps: {
       appIds: []

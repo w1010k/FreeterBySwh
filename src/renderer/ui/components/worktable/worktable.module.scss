@@ -13,6 +13,14 @@
   background: var(--freeter-worktableBackground);
 }
 
+// Custom background layer: fills the worktable behind the widget layouts, so its
+// opacity (and image) affect only the background, never the widgets on top.
+.worktable-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
 .no-workflows {
   background-color: var(--freeter-inAppNoteNoWorkflowsBackground);
 }

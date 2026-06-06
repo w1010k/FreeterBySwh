@@ -16,7 +16,8 @@ const appConfig: AppConfig = {
   downloadDir: '',
   bgColor: '',
   bgImage: '',
-  bgImageMode: 'cover'
+  bgImageMode: 'cover',
+  bgOpacity: 100
 }
 
 export const fixtureAppConfig = (testData?: Partial<AppConfig>): AppConfig => deepFreeze({

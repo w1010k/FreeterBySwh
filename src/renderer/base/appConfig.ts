@@ -19,4 +19,6 @@ export interface AppConfig {
   bgImage: string;
   /** How the background image is laid out. */
   bgImageMode: WorktableBgImageMode;
+  /** Opacity of the custom background (color + image), 0–100. 100 = opaque. */
+  bgOpacity: number;
 }

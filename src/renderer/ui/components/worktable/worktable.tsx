@@ -36,8 +36,11 @@ export function createWorktableComponent({
       bgColor,
       bgImageUrl,
       bgImageMode,
+      bgOpacity,
     } = useWorktableViewModel();
 
+    // The custom background lives on its own layer (behind the widgets) so its
+    // opacity doesn't fade the widgets too. Undefined when nothing is configured.
     const bgStyle = useMemo<CSSProperties | undefined>(() => {
       const style: CSSProperties = {};
       if (bgColor !== '') {
@@ -53,8 +56,12 @@ export function createWorktableComponent({
           style.backgroundSize = bgImageMode === 'cover' ? 'cover' : bgImageMode === 'contain' ? 'contain' : 'auto';
         }
       }
-      return Object.keys(style).length > 0 ? style : undefined;
-    }, [bgColor, bgImageUrl, bgImageMode]);
+      if (Object.keys(style).length === 0) {
+        return undefined;
+      }
+      style.opacity = Math.min(Math.max(bgOpacity, 0), 100) / 100;
+      return style;
+    }, [bgColor, bgImageUrl, bgImageMode, bgOpacity]);
 
     return noWorkflows
       ? (
@@ -72,8 +79,8 @@ export function createWorktableComponent({
         )
       : <div
         className={styles.worktable}
-        style={bgStyle}
       >
+        {bgStyle && <div data-testid="worktable-bg" className={styles['worktable-bg']} style={bgStyle} />}
         {activeWorkflows.map(({wfl, prjId}) => {
           const isCurrentWorkflow = wfl.id === currentWorkflowId;
           return <WidgetLayout

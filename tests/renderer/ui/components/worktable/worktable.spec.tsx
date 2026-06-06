@@ -72,9 +72,9 @@ describe('<Worktable />', () => {
     expect(screen.queryByText(/The project does not have any workflows/i)).not.toBeInTheDocument();
   });
 
-  it('should apply the configured worktable background color as an inline style', async () => {
+  it('should render a background layer with the configured color and opacity', async () => {
     const workflowA = fixtureWorkflowA();
-    const { comp } = await setup(fixtureAppState({
+    await setup(fixtureAppState({
       entities: {
         projects: { ...fixtureProjectAInColl({ id: projectId, workflowIds: [workflowA.id] }) },
         workflows: { [workflowA.id]: workflowA }
@@ -83,10 +83,12 @@ describe('<Worktable />', () => {
         editMode: false,
         memSaver: fixtureMemSaver({ activeWorkflows: [{ prjId: projectId, wflId: workflowA.id }] }),
         projectSwitcher: fixtureProjectSwitcher({ currentProjectId: projectId }),
-        appConfig: fixtureAppConfig({ bgColor: 'rgb(10, 20, 30)' })
+        appConfig: fixtureAppConfig({ bgColor: 'rgb(10, 20, 30)', bgOpacity: 60 })
       }
     }));
-    expect(comp.container.firstChild).toHaveStyle({ backgroundColor: 'rgb(10, 20, 30)' });
+    const bg = screen.getByTestId('worktable-bg');
+    expect(bg).toHaveStyle({ backgroundColor: 'rgb(10, 20, 30)' });
+    expect(bg.style.opacity).toBe('0.6');
   });
 
   it('should resolve the configured background image to a data URL and apply it with the fit mode', async () => {
@@ -107,15 +109,15 @@ describe('<Worktable />', () => {
     }), getImageDataUrl);
 
     expect(getImageDataUrl).toHaveBeenCalledWith('/img/bg.png');
-    const root = comp.container.firstChild as HTMLElement;
-    await waitFor(() => expect(root.style.backgroundImage).toBe(`url("${dataUrl}")`));
-    expect(root.style.backgroundSize).toBe('contain');
-    expect(root.style.backgroundRepeat).toBe('no-repeat');
+    await waitFor(() => expect(screen.getByTestId('worktable-bg').style.backgroundImage).toBe(`url("${dataUrl}")`));
+    const bg = screen.getByTestId('worktable-bg');
+    expect(bg.style.backgroundSize).toBe('contain');
+    expect(bg.style.backgroundRepeat).toBe('no-repeat');
   });
 
-  it('should not set an inline background color when none is configured', async () => {
+  it('should not render a background layer when no custom background is configured', async () => {
     const workflowA = fixtureWorkflowA();
-    const { comp } = await setup(fixtureAppState({
+    await setup(fixtureAppState({
       entities: {
         projects: { ...fixtureProjectAInColl({ id: projectId, workflowIds: [workflowA.id] }) },
         workflows: { [workflowA.id]: workflowA }
@@ -124,10 +126,10 @@ describe('<Worktable />', () => {
         editMode: false,
         memSaver: fixtureMemSaver({ activeWorkflows: [{ prjId: projectId, wflId: workflowA.id }] }),
         projectSwitcher: fixtureProjectSwitcher({ currentProjectId: projectId }),
-        appConfig: fixtureAppConfig({ bgColor: '' })
+        appConfig: fixtureAppConfig({ bgColor: '', bgImage: '' })
       }
     }));
-    expect((comp.container.firstChild as HTMLElement).style.backgroundColor).toBe('');
+    expect(screen.queryByTestId('worktable-bg')).not.toBeInTheDocument();
   });
 
   it('should display "No Workflows" text, when there are no workflows active in mem saver', async () => {

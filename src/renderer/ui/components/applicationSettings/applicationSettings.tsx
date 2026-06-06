@@ -133,6 +133,25 @@ export function createApplicationSettingsComponent({
             </select>}
           </SettingBlock>
 
+          {(appConfig.bgColor !== '' || appConfig.bgImage !== '') && <SettingBlock
+            titleForId='worktable-bg-opacity'
+            title='Workflow background opacity'
+            moreInfo='Opacity of the custom background color/image. Lower values let the theme background show through.'
+          >
+            <div className={styles['download-dir-row']}>
+              <input
+                id="worktable-bg-opacity"
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={appConfig.bgOpacity}
+                onChange={e => updateSettings({ ...appConfig, bgOpacity: Number.parseInt(e.target.value) })}
+              />
+              <span>{appConfig.bgOpacity}%</span>
+            </div>
+          </SettingBlock>}
+
           <SettingBlock
             title='Memory Saver'
             moreInfo='Freeter frees up memory from inactive workflows.

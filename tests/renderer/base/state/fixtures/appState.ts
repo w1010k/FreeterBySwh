@@ -27,7 +27,8 @@ const appState: AppState = {
       downloadDir: '',
       bgColor: '',
       bgImage: '',
-      bgImageMode: 'cover'
+      bgImageMode: 'cover',
+      bgOpacity: 100
     },
     apps: {
       appIds: [],
