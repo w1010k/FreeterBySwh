@@ -13,8 +13,8 @@ const widgetType: WidgetType<Settings> = {
   icon: widgetSvg,
   name: 'To-Do List',
   minSize: {
-    w: 2,
-    h: 1
+    w: 4,
+    h: 2
   },
   description: 'The To-Do List widget allows yout to quickly organize tasks with simple to-do lists.',
   createSettingsState,

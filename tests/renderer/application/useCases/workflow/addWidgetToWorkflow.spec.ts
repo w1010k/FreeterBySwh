@@ -88,7 +88,8 @@ describe('addWidgetToWorkflowUseCase()', () => {
             ...initState.entities.workflows[workflowId]!,
             layout: expect.arrayContaining([...initState.entities.workflows[workflowId]!.layout, {
               id: newLayoutItemId,
-              rect: { x: 4, y: 3, w: 3, h: 3 },
+              // 32-col grid: a 3-wide item fits at x:16 on the top row, after item B (cols 6-15).
+              rect: { x: 16, y: 0, w: 3, h: 3 },
               widgetId: newWidgetId
             }])
           }

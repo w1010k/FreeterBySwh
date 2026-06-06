@@ -13,8 +13,8 @@ const widgetType: WidgetType<Settings> = {
   icon: widgetSvg,
   name: 'File Explorer',
   minSize: {
-    w: 1,
-    h: 1
+    w: 2,
+    h: 2
   },
   description: 'The File Explorer widget shows a directory tree and opens entries in the OS default app on double-click.',
   createSettingsState,

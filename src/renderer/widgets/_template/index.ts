@@ -13,8 +13,8 @@ const widgetType: WidgetType<Settings> = {
   icon: widgetSvg,
   name: 'Widget Name',
   minSize: {
-    w: 1,
-    h: 1
+    w: 2,
+    h: 2
   },
   description: 'Widget description',
   createSettingsState,

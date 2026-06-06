@@ -159,7 +159,9 @@ describe('WidgetLayout', () => {
 
     it('should set x,y to the closest free area based on the provided w,h size', () => {
       const size = { w: 3, h: 3 };
-      const expectRect = { x: 4, y: 3, ...size };
+      // Grid is 32 cols wide: after item B (cols 6-15) there is room for a 3-wide
+      // item at x:16 on the top row, so that is the closest free area.
+      const expectRect = { x: 16, y: 0, ...size };
       const layout: WidgetLayout = [
         fixtureWidgetLayoutItemA({ rect: { x: 2, y: 2, w: 2, h: 2 } }),
         fixtureWidgetLayoutItemB({ rect: { x: 6, y: 0, w: 10, h: 3 } }),

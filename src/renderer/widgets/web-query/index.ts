@@ -13,8 +13,8 @@ const widgetType: WidgetType<Settings> = {
   icon: widgetSvg,
   name: 'Web Query',
   minSize: {
-    w: 2,
-    h: 1
+    w: 4,
+    h: 2
   },
   description: 'The Web Query widget allows you to perform templated queries on a web search engine (or another website) by only typing a variable part of the reusable query.',
   createSettingsState,

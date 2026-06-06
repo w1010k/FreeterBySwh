@@ -13,8 +13,8 @@ const widgetType: WidgetType<Settings> = {
   icon: widgetSvg,
   name: 'Link Opener',
   minSize: {
-    w: 1,
-    h: 1
+    w: 2,
+    h: 2
   },
   description: 'The Link Opener widget allows you to set a link or a group of links and open them in Browser with a single click.',
   createSettingsState,

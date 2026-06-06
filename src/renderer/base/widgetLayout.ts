@@ -6,8 +6,8 @@
 import { Entity, EntityId } from '@/base/entity';
 import { EntityList, findEntityIndexOnList, findEntityOnList, removeEntityFromListAtIndex, updateEntityOnList } from '@/base/entityList';
 
-export const widgetLayoutVisibleCols = 16;
-export const widgetLayoutVisibleRows = 8;
+export const widgetLayoutVisibleCols = 32;
+export const widgetLayoutVisibleRows = 16;
 
 
 export interface WidgetLayoutItemXY {

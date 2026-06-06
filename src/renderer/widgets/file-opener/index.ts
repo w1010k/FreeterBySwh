@@ -13,8 +13,8 @@ const widgetType: WidgetType<Settings> = {
   icon: widgetSvg,
   name: 'File Opener',
   minSize: {
-    w: 1,
-    h: 1
+    w: 2,
+    h: 2
   },
   description: 'The File Opener widget allows you to set files and folders, and open them in an associated application with a single click.',
   createSettingsState,
