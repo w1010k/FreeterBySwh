@@ -1446,12 +1446,14 @@ Note와 To-Do List의 디스크 저장은 디바운스(노트 800ms, 투두 500m
 
 - 드래그 중 매 `mousemove`마다 store를 갱신하지만, 디스크 저장은 store의 디바운스에 맡기고 재렌더는 메모이즈된 컴포넌트에 한정돼 비용이 작다. 별도 로컬 상태 없이 단일 진실 소스(store)로 단순화.
 - **webview 이벤트 가로채기**: 드래그가 일반 모드(바 상시 표시)에서 일어나므로, 커서가 살아있는 `<webview>` 위젯 위를 지나면 Electron webview가 `mousemove`/`mouseup`을 삼켜 드래그가 멈추거나 "끼이는" 문제가 생긴다. 드래그 중에만 전체 화면 투명 오버레이(`.resize-overlay`, `position:fixed; inset:0; z-index:9999`)를 호스트 문서에 띄워 모든 마우스 이벤트가 호스트로 들어오게 했다(#38 로드 오류 오버레이가 webview 위에 떠는 것과 동일 원리). 일관된 리사이즈 커서·텍스트 선택 방지도 덤.
+- **리사이저가 worktable 왼쪽 여백을 먹던 버그**: 리사이저에 넓은 클릭 영역을 주려고 `width:1px; margin:0 -2px`를 썼더니 flex 주축에서 순수 차지 공간이 −3px가 되어, worktable이 바 쪽으로 3px 끌려가 좌측 위젯 여백이 4px→1px로 좁아졌다(상단은 영향 없어 비대칭으로 보임). 리사이저를 `width:0`(여백 0)로 만들고 클릭 영역은 영역 밖으로 넘치는 `::before` 의사요소로 제공(의사요소도 호스트의 마우스 핸들러를 트리거하므로 레이아웃 공간 없이 넓은 히트 타깃 확보). worktable이 바에 딱 붙어 4px 여백 복원.
+- **바 크기 변화 시 그리드 미반영**: 그리드 셀 크기는 worktable 실측값(`useElementRect`)으로 계산하는데, 이 훅이 `window.resize`와 마운트 시에만 재측정했다. 바를 사이드로 옮기거나 너비를 드래그하면 worktable 크기가 창 리사이즈 없이 바뀌므로 그리드가 옛 치수로 남아 위젯이 어긋났다. `ResizeObserver`를 추가해 worktable 크기가 바뀔 때마다 재측정(드래그 중 실시간 리플로우 포함). jsdom엔 `ResizeObserver`가 없어 `typeof` 가드.
 - `right`는 `.body-row`가 `row-reverse`라 DOM 순서 `[바, 리사이저, 본문]`이 시각적으로 `[본문, 리사이저, 바]`로 뒤집힌다 — 리사이저가 양쪽 모두 바의 안쪽 경계에 정확히 위치하므로 위치 분기 불필요, 드래그 방향만 부호(`dir`)로 처리.
 
 ### 수정 파일
 
 - **신규**: `application/useCases/applicationSettings/setWorkflowBarWidth.ts`(너비 갱신 use case)
-- **수정**: `base/appConfig.ts`(`workflowBarPos`/`workflowBarWidth`), `base/state/ui.ts`, `init.ts`(use case 조립), `app`(컴포넌트·뷰모델·scss), `workflowSwitcher`(컴포넌트·뷰모델·scss), `applicationSettings`(컴포넌트)
+- **수정**: `base/appConfig.ts`(`workflowBarPos`/`workflowBarWidth`), `base/state/ui.ts`, `init.ts`(use case 조립), `app`(컴포넌트·뷰모델·scss), `workflowSwitcher`(컴포넌트·뷰모델·scss), `applicationSettings`(컴포넌트), `ui/hooks/useElementRect.ts`(ResizeObserver)
 - **테스트**: `setWorkflowBarWidth.spec.ts`(클램프·반올림·동일값 무시), `workflowSwitcher.spec.tsx`(세로 패널 width 적용/미적용), `app.spec.tsx` 및 설정 fixture 갱신
 
 ---

@@ -31,18 +31,29 @@
   flex-direction: row-reverse;
 }
 
-// Thin draggable splitter between the side workflow bar and the body. Stays a
-// hairline but offers a wider invisible hit area via the negative margins.
+// Draggable splitter between the side workflow bar and the body. Consumes zero
+// flex space (width:0, no margins) so the worktable stays flush against the bar
+// and its 4px content gap is preserved — the grab area is an overflowing
+// pseudo-element straddling the seam (pseudo-elements still trigger the host's
+// mouse handlers, so the wider hit target costs no layout space).
 .workflow-bar-resizer {
+  position: relative;
   flex: 0 0 auto;
-  width: 1px;
-  margin: 0 -2px;
+  width: 0;
   z-index: 1;
-  cursor: col-resize;
-  background-color: var(--freeter-workflowSwitcherBorder);
 }
-.workflow-bar-resizer:hover {
+.workflow-bar-resizer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  width: 6px;
+  cursor: col-resize;
+}
+.workflow-bar-resizer:hover::before {
   background-color: var(--freeter-workflowSwitcherTabHoverColor);
+  opacity: 0.4;
 }
 
 // Transparent capture layer mounted only while dragging the resizer. Sits above

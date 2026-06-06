@@ -42,6 +42,7 @@ export function useElementRect(opts?: {
   const [rect, setRect] = useState<RectPx>(opts?.defaultVal || getElRect(null, !!opts?.useViewportRect))
 
   useLayoutEffect(() => {
+    const el = ref.current;
     const updateRect = () => {
       if (ref.current) {
         setRect(getElRect(ref.current, !!opts?.useViewportRect));
@@ -49,11 +50,20 @@ export function useElementRect(opts?: {
     };
 
     updateRect();
-    // Re-measure on window resize or scroll if needed
+    // Re-measure on window resize…
     window.addEventListener('resize', updateRect);
+    // …and whenever the element itself changes size without a window resize
+    // (e.g. the workflow bar moving to a side / being drag-resized shrinks the
+    // worktable). Guarded for environments (jsdom) that lack ResizeObserver.
+    let resizeObserver: ResizeObserver | undefined;
+    if (el && typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(updateRect);
+      resizeObserver.observe(el);
+    }
 
     return () => {
       window.removeEventListener('resize', updateRect);
+      resizeObserver?.disconnect();
     };
   }, [opts?.useViewportRect]);
 
