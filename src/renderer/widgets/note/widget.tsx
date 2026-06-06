@@ -20,6 +20,9 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
   const {updateActionBar, setContextMenuFactory, dataStorage} = widgetApi;
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const loadedNote = useRef('');
+  // A remote change that arrived while this note was focused: applied on blur
+  // so a focused note doesn't stay stale until the next broadcast.
+  const pendingReload = useRef(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -29,13 +32,16 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
     }
   }, [isLoaded, updateActionBar, setContextMenuFactory, widgetApi]);
 
-  const saveNote = useMemo(() => debounce((note: string) => dataStorage.setText(keyNote, note), 3000), [dataStorage]);
+  // Save shortly after typing stops (was 3s — too long, made sibling notes feel
+  // out of sync). Leaving the field flushes immediately (see handleBlur).
+  const saveNote = useMemo(() => debounce((note: string) => dataStorage.setText(keyNote, note), 800), [dataStorage]);
   const updNote = useCallback((note: string) => {
     loadedNote.current = note;
     saveNote(note);
   }, [saveNote])
 
   const loadNote = useCallback(async function () {
+    pendingReload.current = false;
     const next = await dataStorage.getText(keyNote) || '';
     loadedNote.current = next;
     if (textAreaRef.current && textAreaRef.current.value !== next) {
@@ -49,6 +55,15 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
     updNote(newNote)
   }, [updNote])
 
+  // On blur: persist the pending edit right away (don't wait out the debounce),
+  // then apply any remote change that was deferred while the field was focused.
+  const handleBlur = useCallback(() => {
+    saveNote.flush();
+    if (pendingReload.current) {
+      loadNote();
+    }
+  }, [saveNote, loadNote])
+
   useEffect(() => {
     loadNote();
   }, [loadNote])
@@ -59,7 +74,16 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
   useSharedDataChangedEffect(
     noteWidgetType,
     settings.sharedKeyId,
-    () => document.activeElement === textAreaRef.current,
+    () => {
+      // While the user is editing this note, defer the remote change to blur
+      // (handleBlur) instead of dropping it — otherwise a focused note would
+      // stay stale until the next broadcast.
+      if (document.activeElement === textAreaRef.current) {
+        pendingReload.current = true;
+        return true;
+      }
+      return false;
+    },
     loadNote
   );
 
@@ -86,6 +110,7 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
         className={styles['textarea']}
         defaultValue={loadedNote.current}
         onChange={handleChange}
+        onBlur={handleBlur}
         placeholder='Write a note here'
         data-widget-context={textAreaContextId}
         spellCheck={settings.spellCheck}
