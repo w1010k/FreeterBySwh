@@ -1229,6 +1229,34 @@ Webpage 위젯 액션바에 **음소거 버튼**을 추가했다. 음악·영상
 
 ---
 
+## 36. Webpage 위젯 — 페이지 내 찾기 (Ctrl/Cmd+F) *(2026-06-06)*
+
+Webpage 위젯에 **인페이지 검색**을 추가했다. 임베드한 페이지 안에서 텍스트를 찾을 수 있다 — 브라우저의 "페이지에서 찾기"와 같은 기능으로, Chromium webview의 `findInPage`/`stopFindInPage`/`found-in-page`를 활용한 것.
+
+### 사용자 가시적 효과
+
+- **Ctrl/Cmd+F** 또는 액션바의 돋보기 버튼으로 위젯 우상단에 작은 **찾기 바**가 열린다.
+- 입력하면 즉시(증분) 검색·하이라이트, `n/m` 형태로 현재/전체 일치 수 표시.
+- **Enter** = 다음, **Shift+Enter** = 이전, **Esc**(또는 ✕) = 닫기(하이라이트 해제 후 페이지로 포커스 복귀).
+
+### 아키텍처
+
+- 찾기 바 UI·상태(`findOpen`/`findQuery`/`findResult`)는 호스트(위젯 컴포넌트)에 있고, 결과는 webview의 `found-in-page` 이벤트로 받는다. 증분 검색은 `findQuery` 변경 시 effect가 `findInPage`를 호출(쿼리가 비거나 닫히면 `stopFindInPage('clearSelection')`).
+- **Ctrl/Cmd+F 가로채기**는 줌-휠과 동일한 방식 — guest에 keydown 리스너를 주입(capture+preventDefault)하고 magic-prefix `console.log`로 호스트에 신호 → `console-message`에서 찾기 바를 연다. guest가 포커스를 가진 상태에서 호스트가 키를 못 보는 문제를 우회.
+- 액션바 FIND 버튼은 `createActionBarItems`에 선택적 콜백(`onFind`)으로 주입(ZOOM-IN과 MUTE 사이) — 콜백이 없으면 렌더 안 함(기존 동작/테스트 무영향).
+
+### 까다로웠던 포인트
+
+- **count 리셋을 effect에서 빼냄**: 증분 검색 effect는 webview 동기화(`findInPage`/`stopFindInPage`)만 하고 `setFindResult`는 호출하지 않는다(이펙트 내 setState 경고 회피). 표시는 `findQuery !== ''`로 게이팅하고, 닫을 때만 `closeFind`에서 카운트를 리셋.
+
+### 수정 파일
+
+- **신규**: `src/renderer/widgets/webpage/icons/search.svg`
+- **수정**: `src/renderer/widgets/webpage/{widget.tsx,actions.ts,actionBar.ts,icons/index.ts,widget.module.scss}`
+- **테스트**: `tests/renderer/widgets/webpage/actionBar.spec.ts`(FIND 버튼 배치·라벨·핸들러)
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

@@ -16,6 +16,7 @@ import zoomInSvg from './zoom-in.svg';
 import zoomOutSvg from './zoom-out.svg';
 import volumeOnSvg from './volume-on.svg';
 import volumeOffSvg from './volume-off.svg';
+import searchSvg from './search.svg';
 
 export {
   backSvg,
@@ -30,5 +31,6 @@ export {
   zoomInSvg,
   zoomOutSvg,
   volumeOnSvg,
-  volumeOffSvg
+  volumeOffSvg,
+  searchSvg
 }

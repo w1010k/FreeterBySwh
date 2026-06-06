@@ -21,6 +21,7 @@ export const labelZoomIn = 'Zoom in';
 export const labelZoomOut = 'Zoom out';
 export const labelMuteAudio = 'Mute audio';
 export const labelUnmuteAudio = 'Unmute audio';
+export const labelFindInPage = 'Find in page';
 export const labelPrintPage = 'Print...';
 export const labelOpenLinkInBrowser = 'Open link in web browser';
 export const labelSaveLinkAs = 'Save link as...';

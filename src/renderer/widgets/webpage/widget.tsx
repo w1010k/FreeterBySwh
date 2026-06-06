@@ -38,6 +38,24 @@ const zoomWheelInjectionJs = `
 })();
 `;
 
+// Same console.log signalling trick as zoom-wheel: intercept Ctrl/Cmd+F inside
+// the guest (where the host window can't see the keystroke) and tell the host to
+// open the in-page find bar. Capture phase + preventDefault so the guest page's
+// own find handling (if any) doesn't also fire.
+const FIND_KEY_MARKER = '__FREETER_WEBPAGE_FIND_KEY__';
+const findKeyInjectionJs = `
+(function() {
+  if (window.__freeterWebpageFindHooked) { return; }
+  window.__freeterWebpageFindHooked = true;
+  window.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key === 'f' || e.key === 'F')) {
+      e.preventDefault();
+      console.log('${FIND_KEY_MARKER}');
+    }
+  }, { capture: true });
+})();
+`;
+
 interface WebviewProps extends WidgetReactComponentProps<Settings> {
   /**
    * Should be called when <Webview> tag requires a full restart by
@@ -72,6 +90,10 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
   const [autoReloadStopped, setAutoReloadStopped] = useState(false);
   const [cssInDom, setCssInDom] = useState<[string, string]|null>(null);
   const [audioMuted, setAudioMutedState] = useState(false);
+  const [findOpen, setFindOpen] = useState(false);
+  const [findQuery, setFindQuery] = useState('');
+  const [findResult, setFindResult] = useState<{ active: number; total: number }>({ active: 0, total: 0 });
+  const findInputRef = useRef<HTMLInputElement>(null);
 
   const sanitUrl = useMemo(() => sanitizeUrl(url), [url]);
   const sanitUA = useMemo(() => userAgent.trim(), [userAgent]);
@@ -96,6 +118,47 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
     }
   }, [audioMuted, webviewIsReady])
 
+  // In-page find (Ctrl/Cmd+F or action-bar button). The find bar lives in the
+  // host; results come back via the webview's 'found-in-page' event (wired below).
+  const openFind = useCallback(() => setFindOpen(true), []);
+  const closeFind = useCallback(() => {
+    setFindOpen(false);
+    setFindQuery('');
+    setFindResult({ active: 0, total: 0 });
+    webviewRef.current?.focus();
+  }, []);
+  const findNext = useCallback((forward: boolean) => {
+    const webviewEl = webviewRef.current;
+    if (webviewEl && findQuery !== '') {
+      webviewEl.findInPage(findQuery, { findNext: true, forward });
+    }
+  }, [findQuery]);
+  // Incremental search: re-query as the text changes; clear highlights when the
+  // query empties or the bar closes.
+  useEffect(() => {
+    if (!webviewIsReady) {
+      return;
+    }
+    const webviewEl = webviewRef.current;
+    if (!webviewEl) {
+      return;
+    }
+    if (findOpen && findQuery !== '') {
+      webviewEl.findInPage(findQuery);
+    } else {
+      // Clear highlights when the query empties or the bar closes. The match
+      // count display is gated on `findQuery !== ''`, so stale counts aren't
+      // shown; found-in-page refreshes them as soon as a new query runs.
+      webviewEl.stopFindInPage('clearSelection');
+    }
+  }, [findOpen, findQuery, webviewIsReady])
+  // Focus the find input when the bar opens.
+  useEffect(() => {
+    if (findOpen) {
+      findInputRef.current?.focus();
+    }
+  }, [findOpen])
+
   const refreshActions = useCallback(
     () => updateActionBar(
       createActionBarItems(
@@ -106,10 +169,11 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
         autoReloadStopped,
         setAutoReloadStopped,
         audioMuted,
-        toggleMute
+        toggleMute,
+        openFind
       )
     ),
-    [autoReload, autoReloadStopped, updateActionBar, url, webviewIsReady, widgetApi, audioMuted, toggleMute]
+    [autoReload, autoReloadStopped, updateActionBar, url, webviewIsReady, widgetApi, audioMuted, toggleMute, openFind]
   );
 
   const injectCSSInDOM = useCallback(
@@ -190,6 +254,9 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
     }
     const handlePageTitleUpdated = () => publishTitle();
     const handleDidNavigateForTitle = () => publishTitle();
+    const handleFoundInPage = (e: Electron.FoundInPageEvent) => {
+      setFindResult({ active: e.result.activeMatchOrdinal, total: e.result.matches });
+    };
     // const handleDidFailLoad = (e: DidFailLoadEvent) => {
     //   console.log(e.errorDescription);
     // };
@@ -202,6 +269,7 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
     webviewEl.addEventListener('page-title-updated', handlePageTitleUpdated);
     webviewEl.addEventListener('did-navigate', handleDidNavigateForTitle);
     webviewEl.addEventListener('did-navigate-in-page', handleDidNavigateForTitle);
+    webviewEl.addEventListener('found-in-page', handleFoundInPage);
 
     return () => {
       // Remove event listeners
@@ -212,6 +280,7 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
       webviewEl.removeEventListener('page-title-updated', handlePageTitleUpdated);
       webviewEl.removeEventListener('did-navigate', handleDidNavigateForTitle);
       webviewEl.removeEventListener('did-navigate-in-page', handleDidNavigateForTitle);
+      webviewEl.removeEventListener('found-in-page', handleFoundInPage);
       // Clear the override so a fresh mount (e.g. after a required restart)
       // doesn't briefly show a stale title.
       setDynamicTitle(null);
@@ -241,6 +310,8 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
       // Intercept Ctrl+wheel to zoom the page; see `zoomWheelInjectionJs`
       // for the rationale on using console.log as the signalling channel.
       webviewEl.executeJavaScript(zoomWheelInjectionJs).catch(() => undefined);
+      // Intercept Ctrl/Cmd+F to open the in-page find bar (same signalling trick).
+      webviewEl.executeJavaScript(findKeyInjectionJs).catch(() => undefined);
       // webviewEl.classList.add('is-bg-visible');
     }
     const handleDidFinishLoad = () => {
@@ -256,6 +327,10 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
       refreshActions();
     }
     const handleConsoleMessage = (e: Electron.ConsoleMessageEvent) => {
+      if (e.message && e.message.startsWith(FIND_KEY_MARKER)) {
+        openFind();
+        return;
+      }
       if (!e.message || !e.message.startsWith(ZOOM_WHEEL_MARKER)) {
         return;
       }
@@ -288,7 +363,7 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
       webviewEl.removeEventListener('did-finish-load', handleDidFinishLoad);
       webviewEl.removeEventListener('console-message', handleConsoleMessage);
           };
-  }, [injectCSSInDOM, injectedCSS, injectedJS, refreshActions]);
+  }, [injectCSSInDOM, injectedCSS, injectedJS, refreshActions, openFind]);
 
   // Keyboard zoom (CmdOrCtrl + = / - / 0) is routed from the main process
   // through `init.ts` as a window CustomEvent; we match our own
@@ -376,6 +451,29 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
       // eslint-disable-next-line react/no-unknown-property
       useragent={sanitUA !== '' ? sanitUA : undefined}
     ></webview>
+    {findOpen && <div className={styles['find-bar']}>
+      <input
+        ref={findInputRef}
+        type="text"
+        className={styles['find-input']}
+        value={findQuery}
+        placeholder="Find in page"
+        onChange={e => setFindQuery(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            findNext(!e.shiftKey);
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            closeFind();
+          }
+        }}
+      />
+      <span className={styles['find-count']}>{findQuery !== '' ? `${findResult.active}/${findResult.total}` : ''}</span>
+      <button className={styles['find-btn']} title="Previous (Shift+Enter)" onClick={() => findNext(false)}>↑</button>
+      <button className={styles['find-btn']} title="Next (Enter)" onClick={() => findNext(true)}>↓</button>
+      <button className={styles['find-btn']} title="Close (Esc)" onClick={closeFind}>✕</button>
+    </div>}
     {isLoading && <div className={styles['loading']}>Loading...</div>}
   </>
 }

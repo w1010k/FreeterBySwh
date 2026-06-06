@@ -29,3 +29,35 @@
   display: block;
   padding: 6px;
 }
+.find-bar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: var(--freeter-componentBackground);
+  color: var(--freeter-componentColor);
+  border: 1px solid var(--freeter-componentBorder);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  z-index: 2;
+}
+.find-input {
+  width: 160px;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+.find-count {
+  font-size: 11px;
+  min-width: 36px;
+  text-align: center;
+  opacity: 0.75;
+}
+.find-btn {
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+}

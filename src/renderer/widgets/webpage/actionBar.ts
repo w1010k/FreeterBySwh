@@ -4,8 +4,8 @@
  */
 
 import { ActionBarItem, ActionBarItems } from '@/base/actionBar';
-import { canGoBack, canGoForward, canGoHome, canReload, copyCurrentAddress, goBack, goForward, goHome, labelAutoReloadStart, labelAutoReloadStop, labelCopyCurrentAddress, labelGoBack, labelGoForward, labelGoHome, labelMuteAudio, labelOpenInBrowser, labelReload, labelUnmuteAudio, labelZoomIn, labelZoomOut, openCurrentInBrowser, reload, zoomReset, zoomStepIn, zoomStepOut } from './actions';
-import { backSvg, copyUrlSvg, forwardSvg, homeSvg, openInBrowserSvg, reloadSvg, reloadStartSvg, reloadStopSvg, volumeOffSvg, volumeOnSvg, zoomInSvg, zoomOutSvg } from './icons';
+import { canGoBack, canGoForward, canGoHome, canReload, copyCurrentAddress, goBack, goForward, goHome, labelAutoReloadStart, labelAutoReloadStop, labelCopyCurrentAddress, labelFindInPage, labelGoBack, labelGoForward, labelGoHome, labelMuteAudio, labelOpenInBrowser, labelReload, labelUnmuteAudio, labelZoomIn, labelZoomOut, openCurrentInBrowser, reload, zoomReset, zoomStepIn, zoomStepOut } from './actions';
+import { backSvg, copyUrlSvg, forwardSvg, homeSvg, openInBrowserSvg, reloadSvg, reloadStartSvg, reloadStopSvg, searchSvg, volumeOffSvg, volumeOnSvg, zoomInSvg, zoomOutSvg } from './icons';
 import { WidgetApi } from '@/base/widgetApi';
 
 export function createActionBarItems(
@@ -18,7 +18,8 @@ export function createActionBarItems(
   // Optional capabilities wired by the widget component. When omitted (e.g. in
   // unit tests of the core buttons) the corresponding button is not rendered.
   audioMuted = false,
-  onToggleMute?: () => void
+  onToggleMute?: () => void,
+  onFind?: () => void
 ): ActionBarItems {
   if (!elWebview || !homeUrl) {
     return []
@@ -96,6 +97,13 @@ export function createActionBarItems(
       title: withKeys(labelZoomIn, `${mod}++`),
       doAction: async () => zoomStepIn(elWebview)
     },
+    ...(onFind ? [{
+      enabled: true,
+      icon: searchSvg,
+      id: 'FIND',
+      title: withKeys(labelFindInPage, `${mod}+F`),
+      doAction: async () => onFind()
+    }] : []),
     ...(onToggleMute ? [{
       enabled: true,
       icon: audioMuted ? volumeOffSvg : volumeOnSvg,

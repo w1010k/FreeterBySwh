@@ -157,6 +157,32 @@ describe('Webpage action bar', () => {
     expect(muted.find(item => item.id === 'MUTE')!.title).toBe('Unmute audio');
   })
 
+  it('should not include a FIND item when no find handler is provided', () => {
+    const { elWebview, widgetApi } = setupMocks();
+    const items = createActionBarItems(elWebview, widgetApi, 'https://example.com', 0, false, () => undefined);
+
+    expect(items.find(item => item.id === 'FIND')).toBeUndefined();
+  })
+
+  it('should include FIND (with Ctrl+F hint) before MUTE when both handlers are provided', async () => {
+    const onFind = jest.fn();
+    const { elWebview, widgetApi } = setupMocks('https://x', 1, false);
+    const items = createActionBarItems(elWebview, widgetApi, 'https://x', 0, false, () => undefined, false, () => undefined, onFind);
+
+    const ids = items.map(item => item.id);
+    expect(ids).toEqual([
+      'HOME', 'BACK', 'FORWARD', 'RELOAD',
+      'ZOOM-OUT', 'ZOOM-IN', 'FIND', 'MUTE',
+      'COPY-URL', 'OPEN-IN-BROWSER',
+    ]);
+
+    const findItem = items.find(item => item.id === 'FIND')!;
+    expect(findItem.title).toBe('Find in page (Ctrl+F)');
+
+    await findItem.doAction();
+    expect(onFind).toHaveBeenCalledTimes(1);
+  })
+
   it('should reset zoom to 100% and reload when RELOAD is invoked', async () => {
     const { elWebview, widgetApi } = setupMocks('https://x', 2);
     const items = createActionBarItems(elWebview, widgetApi, 'https://x', 0, false, () => undefined);
