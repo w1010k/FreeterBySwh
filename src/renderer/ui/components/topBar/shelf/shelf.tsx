@@ -34,6 +34,7 @@ export function createShelfComponent({
       onItemDragLeave,
       onItemDragOver,
       onItemDrop,
+      onItemResize,
       onDragEnter,
       onDragLeave,
       onDragOver,
@@ -69,12 +70,15 @@ export function createShelfComponent({
           isEditMode={isEditMode}
           isDragging={item.id===dndSourceListItemId}
           isDropArea={isEditMode && item.id===dndTargetListItemId}
+          w={item.w}
+          h={item.h}
           onDragStart={onItemDragStart}
           onDragEnd={onItemDragEnd}
           onDragEnter={onItemDragEnter}
           onDragLeave={onItemDragLeave}
           onDragOver={onItemDragOver}
           onDrop={onItemDrop}
+          onResize={onItemResize}
           onContextMenu={onItemContextMenu}
         />
       })}

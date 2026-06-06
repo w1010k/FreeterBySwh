@@ -8,6 +8,10 @@ import { addEntityToList, EntityList, findEntityIndexOnList, findEntityOnList } 
 
 export interface WidgetListItem extends Entity {
   readonly widgetId: string;
+  // Size (px) of this widget's popup box when shown from the Top Bar shelf.
+  // Optional: undefined falls back to the default popup size.
+  readonly w?: number;
+  readonly h?: number;
 }
 export type WidgetList = EntityList<WidgetListItem>;
 
@@ -18,6 +22,8 @@ export function createList(): WidgetList {
 interface ListItemProps {
   readonly id: string;
   readonly widgetId: string;
+  readonly w?: number;
+  readonly h?: number;
 }
 
 export function createListItem(
@@ -25,7 +31,7 @@ export function createListItem(
   props: ListItemProps,
   itemTargetId: string | null
 ): [list: WidgetList, listItem: WidgetListItem | null] {
-  const { id, widgetId } = props;
+  const { id, widgetId, w, h } = props;
 
   const sameIdItem = findEntityOnList(list, id);
   if (sameIdItem) {
@@ -39,7 +45,9 @@ export function createListItem(
 
   const newItem: WidgetListItem = {
     id,
-    widgetId
+    widgetId,
+    ...(typeof w === 'number' ? { w } : {}),
+    ...(typeof h === 'number' ? { h } : {})
   }
 
   const newList = addEntityToList(list, newItem, toIdx);

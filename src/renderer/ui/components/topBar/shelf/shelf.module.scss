@@ -68,6 +68,24 @@
     box-sizing: border-box;
     border: 1px solid var(--freeter-shelfWidgetBoxWidgetBorder);
   }
+
+  // Drag handle at the bottom-right corner of the popup box (edit mode only).
+  .shelf-item-resizer {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 16px;
+    height: 16px;
+    cursor: se-resize;
+    z-index: 2;
+  }
+
+  // Keep the popup visible while resizing even if the cursor leaves the tab
+  // (the box is otherwise only shown on :hover / :focus-within).
+  &.is-resizing .shelf-item-widget-box {
+    visibility: visible;
+  }
+
   &:first-child {
     .shelf-item-caption{
       border-left-color: transparent;
@@ -112,4 +130,13 @@
       }
     }
   }
+}
+
+// Transparent capture layer mounted only while dragging the popup resizer, so
+// the drag keeps tracking over webview widgets and shows a consistent cursor.
+.shelf-resize-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  cursor: se-resize;
 }

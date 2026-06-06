@@ -7,7 +7,7 @@ import { ShelfItemProps, useShelfItemViewModel } from '@/ui/components/topBar/sh
 import { WidgetComponent } from '@/ui/components/widget';
 import clsx from 'clsx';
 import styles from './shelf.module.scss';
-import { memo } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 
 type Deps = {
   Widget: WidgetComponent;
@@ -24,6 +24,8 @@ export function createShelfItemComponent({
       isEditMode,
       // isDragging,
       isDropArea,
+      widgetBoxWidth,
+      widgetBoxHeight,
       itemWidgetElRef,
       itemWidgetElRectStyle,
       onContextMenuHandler,
@@ -33,7 +35,35 @@ export function createShelfItemComponent({
       onDragLeaveHandler,
       onDragOverHandler,
       onDropHandler,
+      onResizeHandler,
     } = useShelfItemViewModel(props);
+
+    // Drag-resize the popup box (edit mode only). While dragging we keep the box
+    // forced-visible (it is otherwise :hover-gated) and overlay the window so the
+    // drag keeps tracking over <webview> widgets below.
+    const [isResizing, setIsResizing] = useState(false);
+    const dragRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null);
+    const onResizerMouseDown = useCallback((e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragRef.current = { startX: e.clientX, startY: e.clientY, startW: widgetBoxWidth, startH: widgetBoxHeight };
+      setIsResizing(true);
+      const onMove = (ev: MouseEvent) => {
+        const drag = dragRef.current;
+        if (!drag) {
+          return;
+        }
+        onResizeHandler(drag.startW + (ev.clientX - drag.startX), drag.startH + (ev.clientY - drag.startY));
+      };
+      const onUp = () => {
+        dragRef.current = null;
+        setIsResizing(false);
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    }, [widgetBoxWidth, widgetBoxHeight, onResizeHandler]);
 
     return (
       <li
@@ -41,6 +71,7 @@ export function createShelfItemComponent({
           styles['shelf-item'],
           // isDragging && styles['is-dragging'],
           isDropArea && styles['is-drop-area'],
+          isResizing && styles['is-resizing'],
         )}
         onContextMenu={onContextMenuHandler}
         tabIndex={0}
@@ -65,7 +96,14 @@ export function createShelfItemComponent({
           <div className={styles['shelf-item-widget']}>
             {widget && <Widget widget={widget} env={env} />}
           </div>
+          {isEditMode && <div
+            className={styles['shelf-item-resizer']}
+            onMouseDown={onResizerMouseDown}
+            role="separator"
+            aria-label="Resize widget"
+          />}
         </div>
+        {isResizing && <div className={styles['shelf-resize-overlay']} />}
       </li>
     )
   }

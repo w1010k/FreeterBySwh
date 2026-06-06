@@ -20,6 +20,7 @@ import { PasteWidgetToShelfUseCase } from '@/application/useCases/shelf/pasteWid
 import { WidgetType } from '@/base/widgetType';
 import { ShowContextMenuUseCase } from '@/application/useCases/contextMenu/showContextMenu';
 import { AddWidgetToShelfUseCase } from '@/application/useCases/shelf/addWidgetToShelf';
+import { SetShelfItemSizeUseCase } from '@/application/useCases/shelf/setShelfItemSize';
 
 type Deps = {
   useAppState: UseAppState;
@@ -30,6 +31,7 @@ type Deps = {
   dragEndUseCase: DragEndUseCase;
   pasteWidgetToShelfUseCase: PasteWidgetToShelfUseCase;
   addWidgetToShelfUseCase: AddWidgetToShelfUseCase;
+  setShelfItemSizeUseCase: SetShelfItemSizeUseCase;
   showContextMenuUseCase: ShowContextMenuUseCase;
 }
 
@@ -46,6 +48,7 @@ export function createShelfViewModelHook({
   dragEndUseCase,
   pasteWidgetToShelfUseCase,
   addWidgetToShelfUseCase,
+  setShelfItemSizeUseCase,
   showContextMenuUseCase,
 }: Deps) {
   function buildAddMenuItems(
@@ -192,6 +195,10 @@ export function createShelfViewModelHook({
       dropOnTopBarListUseCase(itemId);
     }, [])
 
+    const onItemResize = useCallback((itemId: string, w: number, h: number) => {
+      setShelfItemSizeUseCase(itemId, w, h);
+    }, [])
+
     const onDragEnter = useCallback((_evt: DragEvent<HTMLElement>) => {
       dragOverTopBarListUseCase(null);
     }, [])
@@ -243,6 +250,7 @@ export function createShelfViewModelHook({
       onItemDragLeave,
       onItemDragOver,
       onItemDrop,
+      onItemResize,
       onDragEnter,
       onDragLeave,
       onDragOver,

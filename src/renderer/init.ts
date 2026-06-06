@@ -134,6 +134,7 @@ import { createAddItemToWidgetLayoutSubCase } from '@/application/useCases/workf
 import { createCloneWidgetToWidgetLayoutSubCase } from '@/application/useCases/workflow/subs/cloneWidgetToWidgetLayout';
 import { createCloneWidgetToWidgetListSubCase } from '@/application/useCases/shelf/subs/cloneWidgetToWidgetList';
 import { createAddWidgetToShelfUseCase } from '@/application/useCases/shelf/addWidgetToShelf';
+import { createSetShelfItemSizeUseCase } from '@/application/useCases/shelf/setShelfItemSize';
 import { createCreateWidgetSubCase } from '@/application/useCases/widget/subs/createWidget';
 import { createCreateWorkflowSubCase } from '@/application/useCases/workflow/subs/createWorkflow';
 import { createTopBarViewModelHook } from '@/ui/components/topBar/topBarViewModel';
@@ -438,6 +439,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     addItemToWidgetListSubCase,
     createWidgetSubCase
   })
+  const setShelfItemSizeUseCase = createSetShelfItemSizeUseCase(deps)
   const pasteWidgetToShelfUseCase = createPasteWidgetToShelfUseCase({
     ...deps,
     cloneWidgetToWidgetListSubCase
@@ -582,6 +584,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
 
     copyWidgetUseCase,
     addWidgetToShelfUseCase,
+    setShelfItemSizeUseCase,
     pasteWidgetToShelfUseCase,
     pasteWidgetToWorkflowUseCase,
     copyWorkflowUseCase,

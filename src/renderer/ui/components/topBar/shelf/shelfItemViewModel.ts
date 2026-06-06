@@ -9,6 +9,7 @@ import { WidgetType } from '@/base/widgetType';
 import { useElementRect } from '@/ui/hooks';
 import { useWindowSize } from '@/ui/hooks/useWindowSize';
 import { CSSProperties, DragEvent, MouseEvent, useCallback, useMemo } from 'react';
+import { shelfWidgetDefaultH, shelfWidgetDefaultW } from '@/application/useCases/shelf/setShelfItemSize';
 
 export interface ShelfItemProps {
   id: EntityId;
@@ -18,6 +19,8 @@ export interface ShelfItemProps {
   isEditMode: boolean;
   isDragging: boolean;
   isDropArea: boolean;
+  w?: number;
+  h?: number;
   onContextMenu: (evt: MouseEvent<HTMLElement>, itemId: EntityId) => void;
   onDragStart: (evt: DragEvent<HTMLElement>, itemId: EntityId) => void;
   onDragEnd: (evt: DragEvent<HTMLElement>, itemId: EntityId) => void;
@@ -25,13 +28,14 @@ export interface ShelfItemProps {
   onDragLeave: (evt: DragEvent<HTMLElement>, itemId: EntityId) => void;
   onDragOver: (evt: DragEvent<HTMLElement>, itemId: EntityId) => void;
   onDrop: (evt: DragEvent<HTMLElement>, itemId: EntityId) => void;
+  onResize: (itemId: EntityId, w: number, h: number) => void;
 }
 
 export function useShelfItemViewModel(props: ShelfItemProps) {
   const {
-    env, widget, widgetType, id, isEditMode, isDragging, isDropArea,
+    env, widget, widgetType, id, isEditMode, isDragging, isDropArea, w, h,
     onDragStart, onDragEnd, onDragEnter, onDragLeave, onDragOver,
-    onDrop, onContextMenu
+    onDrop, onContextMenu, onResize
   } = props;
 
   const widgetName = widget?.coreSettings.name || widgetType?.name || '';
@@ -71,14 +75,17 @@ export function useShelfItemViewModel(props: ShelfItemProps) {
 
   const [itemElRef, itemElRect] = useElementRect({ useViewportRect: true });
 
+  const wPx = typeof w === 'number' ? w : shelfWidgetDefaultW;
+  const hPx = typeof h === 'number' ? h : shelfWidgetDefaultH;
+
   const windowSize = useWindowSize();
   const itemWidgetElRectStyle = useMemo(() => {
-    const hPx = 150;
-    const wPx = 300;
-
     let xPx = itemElRect.xPx;
     if (xPx + wPx > windowSize.wPx) {
       xPx = windowSize.wPx - wPx;
+    }
+    if (xPx < 0) {
+      xPx = 0;
     }
 
     return {
@@ -86,7 +93,11 @@ export function useShelfItemViewModel(props: ShelfItemProps) {
       width: wPx + 'px',
       height: hPx + 'px'
     } as CSSProperties;
-  }, [itemElRect.xPx, windowSize.wPx])
+  }, [itemElRect.xPx, windowSize.wPx, wPx, hPx])
+
+  const onResizeHandler = useCallback((newW: number, newH: number) => {
+    onResize(id, newW, newH);
+  }, [id, onResize])
 
   return {
     env,
@@ -95,6 +106,8 @@ export function useShelfItemViewModel(props: ShelfItemProps) {
     isEditMode,
     isDragging,
     isDropArea,
+    widgetBoxWidth: wPx,
+    widgetBoxHeight: hPx,
     itemWidgetElRef: itemElRef,
     itemWidgetElRectStyle,
     onContextMenuHandler,
@@ -104,5 +117,6 @@ export function useShelfItemViewModel(props: ShelfItemProps) {
     onDragLeaveHandler,
     onDragOverHandler,
     onDropHandler,
+    onResizeHandler,
   }
 }
