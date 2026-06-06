@@ -44,11 +44,14 @@ const engines: SettingsEngine[] = [
   {id: 'goog-maps', name: 'Google (Maps)', url: 'https://www.google.com/maps/search/QUERY', descr: 'Search for maps'},
   {id: 'goog-news', name: 'Google (News)', url: 'https://www.google.com/search?q=QUERY&tbm=nws', descr: 'Search for news'},
   {id: 'goog-vids', name: 'Google (Videos)', url: 'https://www.google.com/search?q=QUERY&tbm=vid', descr: 'Search for videos'},
+  {id: 'nvr', name: 'Naver', url: 'https://search.naver.com/search.naver?query=QUERY', descr: 'Search'},
+  {id: 'nvr-maps', name: 'Naver (Maps)', url: 'https://map.naver.com/p/search/QUERY', descr: 'Search for maps'},
   {id: 'ovrs', name: 'Openverse (All Content)', url: 'https://openverse.org/search/?q=QUERY', descr: 'Search for content'},
   {id: 'ovrs-auds', name: 'Openverse (Audio)', url: 'https://openverse.org/search/audio?q=QUERY', descr: 'Search for audio'},
   {id: 'ovrs-imgs', name: 'Openverse (Images)', url: 'https://openverse.org/search/image?q=QUERY', descr: 'Search for images'},
   {id: 'wkpd', name: 'Wikipedia', url: 'https://en.wikipedia.org/w/index.php?search=QUERY', descr: 'Search Wikipedia'},
   {id: 'wfal', name: 'Wolfram|Alpha', url: 'https://www.wolframalpha.com/input?i=QUERY', descr: 'Calculate / Know about'},
+  {id: 'yt', name: 'YouTube', url: 'https://www.youtube.com/results?search_query=QUERY', descr: 'Search for videos'},
 ]
 export const defaultEngine = engineDdgo;
 

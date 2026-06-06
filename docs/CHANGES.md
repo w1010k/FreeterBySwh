@@ -1458,6 +1458,24 @@ Note와 To-Do List의 디스크 저장은 디바운스(노트 800ms, 투두 500m
 
 ---
 
+## 46. Web Query 기본 엔진에 Naver·Naver Map·YouTube 추가 *(2026-06-06)*
+
+Web Query 위젯의 **Query Engine** 드롭다운(빌트인 검색 엔진 목록)에 한국 사용자가 자주 쓰는 세 개를 기본 제공 항목으로 추가했다. 더 이상 Custom Engine으로 직접 URL을 넣지 않아도 된다.
+
+| 엔진 | URL 템플릿 |
+|---|---|
+| Naver | `https://search.naver.com/search.naver?query=QUERY` |
+| Naver (Maps) | `https://map.naver.com/p/search/QUERY` |
+| YouTube | `https://www.youtube.com/results?search_query=QUERY` |
+
+기존 엔진 배열(`engines`)에 항목만 추가하는 순수 가산 변경 — `enginesById`는 자동 파생되고, 기존 위젯은 엔진 id로 참조하므로 영향 없음. (목록 정렬에 맞춰 Naver는 Google 다음, YouTube는 맨 끝에 배치.)
+
+### 수정 파일
+
+- **수정**: `widgets/web-query/settings.tsx`(`engines` 배열에 3개 추가)
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)
