@@ -85,6 +85,7 @@ import { createIconProvider } from '@/infra/iconProvider/iconProvider';
 import { createGetFileIconUseCase } from '@/application/useCases/icon/getFileIcon';
 import { createGetFaviconUseCase } from '@/application/useCases/icon/getFavicon';
 import { createIconControllers } from '@/controllers/icon';
+import { createDownloadManager } from '@/infra/downloads/downloadManager';
 
 let appWindow: BrowserWindow | null = null; // ref to the app window
 
@@ -146,6 +147,11 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(async () => {
     const ipcMainEventValidator = createIpcMainEventValidator(channelPrefix, hostFreeterApp);
     const ipcMain = createIpcMain(ipcMainEventValidator);
+
+    // Route downloads (app window + every webview partition) to a folder instead
+    // of prompting each time. Created before any window/webview so its
+    // session-created listener catches partition sessions. Default = OS Downloads.
+    createDownloadManager();
 
     const appDataDir = join(app.getPath('appData'), 'freeter-swh', 'freeter-data');
     const appDataStorage = await createFileDataStorage('string', appDataDir);
