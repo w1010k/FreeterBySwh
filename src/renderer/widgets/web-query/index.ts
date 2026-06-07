@@ -20,7 +20,7 @@ const widgetType: WidgetType<Settings> = {
   createSettingsState,
   settingsEditorComp,
   widgetComp,
-  requiresApi: ['shell', 'widgets']
+  requiresApi: ['shell', 'widgets', 'dataStorage']
 }
 
 export default widgetType;

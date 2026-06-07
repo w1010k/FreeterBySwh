@@ -5,7 +5,7 @@
 
 import { Settings, SettingsMode, defaultEngine, enginePlaceholder, enginesById } from '@/widgets/web-query/settings';
 import { widgetComp } from '@/widgets/web-query/widget'
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { fixtureEntry, fixtureSettings1 } from './fixtures';
 import { WebpageExposedApi } from '@/widgets/interfaces';
@@ -66,14 +66,14 @@ describe('Web Query Widget', () => {
     it('should render a text input and a button, when there are not any warning notes', () => {
       setupSut(fixtureSettings1(SettingsMode.Browser, { engine: '', url: 'https://freeter.io/QUERY', query: '' }));
 
-      expect(screen.getByRole('textbox')).toBeInTheDocument();
+      expect(screen.getByRole('combobox')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /query/i })).toBeInTheDocument();
     })
 
     it('should not render a text input and a button, when there is a warning notes', () => {
       setupSut(fixtureSettings1(SettingsMode.Browser, { engine: '', url: '', query: '' }));
 
-      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+      expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /query/i })).not.toBeInTheDocument();
     })
 
@@ -81,25 +81,25 @@ describe('Web Query Widget', () => {
       const descr = 'Descr';
       setupSut(fixtureSettings1(SettingsMode.Browser, { engine: '', url: 'https://freeter.io/QUERY', query: '', descr }));
 
-      expect(screen.getByRole('textbox')).toHaveProperty('placeholder', descr);
+      expect(screen.getByRole('combobox')).toHaveProperty('placeholder', descr);
     })
 
     it('should set the engine-specific placeholder (descr + name), when engine!=custom', () => {
       setupSut(fixtureSettings1(SettingsMode.Browser, { engine: 'ovrs', query: '', descr: 'Descr' }));
 
-      expect(screen.getByRole('textbox')).toHaveProperty('placeholder', enginePlaceholder(enginesById['ovrs']));
+      expect(screen.getByRole('combobox')).toHaveProperty('placeholder', enginePlaceholder(enginesById['ovrs']));
     })
 
     it('should set the default engine placeholder, when engine does not exist', () => {
       setupSut(fixtureSettings1(SettingsMode.Browser, { engine: 'NO-SUCH-ID', query: '', descr: 'Descr' }));
 
-      expect(screen.getByRole('textbox')).toHaveProperty('placeholder', enginePlaceholder(defaultEngine));
+      expect(screen.getByRole('combobox')).toHaveProperty('placeholder', enginePlaceholder(defaultEngine));
     })
 
     it('should include the engine name in the placeholder (e.g. "Search Google")', () => {
       setupSut(fixtureSettings1(SettingsMode.Browser, { engine: 'goog', query: '' }));
 
-      expect(screen.getByRole('textbox')).toHaveProperty('placeholder', 'Search Google');
+      expect(screen.getByRole('combobox')).toHaveProperty('placeholder', 'Search Google');
     })
 
     it('should call openExternalUrl with right args on ENTER keypress in the text input', async () => {
@@ -115,7 +115,7 @@ describe('Web Query Widget', () => {
           }
         }
       );
-      const textbox = screen.getByRole('textbox');
+      const textbox = screen.getByRole('combobox');
 
       expect(openExternalUrl).not.toHaveBeenCalled();
 
@@ -138,7 +138,7 @@ describe('Web Query Widget', () => {
           }
         }
       );
-      const textbox = screen.getByRole('textbox');
+      const textbox = screen.getByRole('combobox');
       const button = screen.getByRole('button', { name: /query/i });
       await userEvent.type(textbox, someQuery);
 
@@ -168,7 +168,7 @@ describe('Web Query Widget', () => {
           }
         }
       );
-      const textbox = screen.getByRole('textbox');
+      const textbox = screen.getByRole('combobox');
       await userEvent.type(textbox, someQuery + '[enter]');
 
       expect(getWidgetsInCurrentWorkflow).not.toHaveBeenCalled();
@@ -192,7 +192,7 @@ describe('Web Query Widget', () => {
           }
         }
       );
-      const textbox = screen.getByRole('textbox');
+      const textbox = screen.getByRole('combobox');
       const button = screen.getByRole('button', { name: /query/i });
 
       await userEvent.type(textbox, someQuery);
@@ -214,7 +214,7 @@ describe('Web Query Widget', () => {
           }
         }
       );
-      const textbox = screen.getByRole('textbox');
+      const textbox = screen.getByRole('combobox');
 
       await userEvent.type(textbox, someQuery + '[enter]');
 
@@ -234,7 +234,7 @@ describe('Web Query Widget', () => {
           }
         }
       );
-      const textbox = screen.getByRole('textbox');
+      const textbox = screen.getByRole('combobox');
 
       await userEvent.type(textbox, someQuery + '[enter]');
 
@@ -259,7 +259,7 @@ describe('Web Query Widget', () => {
           }
         }
       );
-      const textboxes = screen.getAllByRole('textbox');
+      const textboxes = screen.getAllByRole('combobox');
       expect(textboxes).toHaveLength(2);
 
       await userEvent.type(textboxes[1], 'hello[enter]');
@@ -304,14 +304,14 @@ describe('Web Query Widget', () => {
     it('should render a text input and a button, when there are not any warning notes', () => {
       setupSut(fixtureSettings1(SettingsMode.Webpages, { engine: '', url: '', query: '' }));
 
-      expect(screen.getByRole('textbox')).toBeInTheDocument();
+      expect(screen.getByRole('combobox')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /query/i })).toBeInTheDocument();
     })
 
     it('should not render a text input and a button, when there is a warning note', () => {
       setupSut(fixtureSettings1(SettingsMode.Browser, { engine: '', url: '', query: 'non-uppercase-query' }));
 
-      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+      expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /query/i })).not.toBeInTheDocument();
     })
 
@@ -319,21 +319,21 @@ describe('Web Query Widget', () => {
       const descr = 'Descr';
       setupSut(fixtureSettings1(SettingsMode.Webpages, { engine: '', url: '', query: '', descr }));
 
-      expect(screen.getByRole('textbox')).toHaveProperty('placeholder', descr);
+      expect(screen.getByRole('combobox')).toHaveProperty('placeholder', descr);
     })
 
     it('should set the descr setting value as a text input placeholder, when engine!=custom', () => {
       const descr = 'Descr';
       setupSut(fixtureSettings1(SettingsMode.Webpages, { engine: 'ovrs', query: '', descr }));
 
-      expect(screen.getByRole('textbox')).toHaveProperty('placeholder', descr);
+      expect(screen.getByRole('combobox')).toHaveProperty('placeholder', descr);
     })
 
     it('should set the descr setting value as a text input placeholder, when engine does not exist', () => {
       const descr = 'Descr';
       setupSut(fixtureSettings1(SettingsMode.Webpages, { engine: 'NO-SUCH-ID', query: '', descr }));
 
-      expect(screen.getByRole('textbox')).toHaveProperty('placeholder', descr);
+      expect(screen.getByRole('combobox')).toHaveProperty('placeholder', descr);
     })
 
     it('should not call openExternalUrl on ENTER keypress in the text input', async () => {
@@ -358,7 +358,7 @@ describe('Web Query Widget', () => {
           }
         }
       );
-      const textbox = screen.getByRole('textbox');
+      const textbox = screen.getByRole('combobox');
 
       await userEvent.type(textbox, someQuery + '[enter]');
 
@@ -387,7 +387,7 @@ describe('Web Query Widget', () => {
           }
         }
       );
-      const textbox = screen.getByRole('textbox');
+      const textbox = screen.getByRole('combobox');
       const button = screen.getByRole('button', { name: /query/i });
       await userEvent.type(textbox, someQuery);
 
@@ -417,7 +417,7 @@ describe('Web Query Widget', () => {
           }
         }
       );
-      const textbox = screen.getByRole('textbox');
+      const textbox = screen.getByRole('combobox');
 
       expect(getWidgetsInCurrentWorkflow).not.toHaveBeenCalled();
 
@@ -450,7 +450,7 @@ describe('Web Query Widget', () => {
           }
         }
       );
-      const textbox = screen.getByRole('textbox');
+      const textbox = screen.getByRole('combobox');
       const button = screen.getByRole('button', { name: /query/i });
       await userEvent.type(textbox, someQuery);
 
@@ -484,7 +484,7 @@ describe('Web Query Widget', () => {
           }
         }
       );
-      const textbox = screen.getByRole('textbox');
+      const textbox = screen.getByRole('combobox');
 
       await userEvent.type(textbox, 'some query' + '[enter]');
 
@@ -529,7 +529,7 @@ describe('Web Query Widget', () => {
           }
         }
       );
-      const textbox = screen.getByRole('textbox');
+      const textbox = screen.getByRole('combobox');
 
       await userEvent.type(textbox, someQuery + '[enter]');
 
@@ -538,6 +538,45 @@ describe('Web Query Widget', () => {
       expect(webpageWidgets[2].api.openUrl).toHaveBeenCalledTimes(1);
       expect(webpageWidgets[2].api.openUrl).toHaveBeenCalledWith('https://freeter.io/query%20some%20query/2');
       expect(webpageWidgets[3].api.openUrl).not.toHaveBeenCalled();
+    })
+  })
+
+  describe('search history', () => {
+    function setupHistory(getJson: jest.Mock, setJson: jest.Mock = jest.fn()) {
+      return setupSut(
+        fixtureSettings1(SettingsMode.Browser, { engine: defaultEngine.id }),
+        { mockWidgetApi: { shell: { openExternalUrl: jest.fn() }, dataStorage: { getJson, setJson } } }
+      );
+    }
+
+    function historyOptions(): (string | null)[] {
+      const list = screen.getByTestId('web-query-history');
+      return Array.from(list.querySelectorAll('option')).map(o => o.getAttribute('value'));
+    }
+
+    it('saves a submitted query to history', async () => {
+      const setJson = jest.fn();
+      const { userEvent } = setupHistory(jest.fn().mockResolvedValue([]), setJson);
+
+      await userEvent.type(screen.getByRole('combobox'), 'hello[enter]');
+
+      expect(setJson).toHaveBeenCalledWith('history', ['hello']);
+    })
+
+    it('offers the loaded history as input suggestions', async () => {
+      setupHistory(jest.fn().mockResolvedValue(['foo', 'bar']));
+
+      await waitFor(() => expect(historyOptions()).toEqual(['foo', 'bar']));
+    })
+
+    it('de-duplicates a repeated query and moves it to the front', async () => {
+      const setJson = jest.fn();
+      const { userEvent } = setupHistory(jest.fn().mockResolvedValue(['a', 'b']), setJson);
+      await waitFor(() => expect(historyOptions()).toEqual(['a', 'b']));
+
+      await userEvent.type(screen.getByRole('combobox'), 'b[enter]');
+
+      expect(setJson).toHaveBeenLastCalledWith('history', ['b', 'a']);
     })
   })
 })

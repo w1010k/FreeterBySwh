@@ -6,12 +6,14 @@
 import { Button, ReactComponent, WidgetReactComponentProps } from '@/widgets/appModules';
 import { Settings, SettingsMode, QueryEntry, defaultEngine, enginesById, enginePlaceholder } from './settings';
 import styles from './widget.module.scss';
-import { SubmitEvent, useMemo, useState } from 'react';
+import { SubmitEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { querySvg } from '@/widgets/web-query/icons';
 import { sanitizeUrl } from '@common/helpers/sanitizeUrl';
 import { WebpageExposedApi } from '@/widgets/interfaces';
 
 const queryPlaceholder = 'QUERY';
+const historyKey = 'history';
+const maxHistory = 15;
 
 const replaceQueryPlaceholder = (strWithQuery: string, queryVal: string) => strWithQuery.replaceAll(queryPlaceholder, queryVal);
 
@@ -48,7 +50,15 @@ function computeEntry(entry: QueryEntry, mode: SettingsMode) {
   return { descr, urlTpl, queryTpl, notConfigNotes };
 }
 
-function QueryRow({ entry, mode, widgetApi }: { entry: QueryEntry; mode: SettingsMode; widgetApi: WidgetApi }) {
+interface QueryRowProps {
+  entry: QueryEntry;
+  mode: SettingsMode;
+  widgetApi: WidgetApi;
+  historyListId: string;
+  onSubmitted: (typed: string) => void;
+}
+
+function QueryRow({ entry, mode, widgetApi, historyListId, onSubmitted }: QueryRowProps) {
   const [typedQuery, setTypedQuery] = useState('');
   const { descr, urlTpl, queryTpl, notConfigNotes } = useMemo(() => computeEntry(entry, mode), [entry, mode]);
 
@@ -60,6 +70,7 @@ function QueryRow({ entry, mode, widgetApi }: { entry: QueryEntry; mode: Setting
     e.preventDefault();
     const finalQuery = queryTpl === '' ? typedQuery : replaceQueryPlaceholder(queryTpl, typedQuery);
     const queryForUrl = encodeURIComponent(finalQuery);
+    onSubmitted(typedQuery);
     setTypedQuery('');
     switch (mode) {
       case SettingsMode.Browser: {
@@ -84,18 +95,67 @@ function QueryRow({ entry, mode, widgetApi }: { entry: QueryEntry; mode: Setting
 
   return (
     <form onSubmit={onQuerySubmit} className={styles['web-query-row']}>
-      <input className={styles['web-query-input']} type='text' placeholder={descr} value={typedQuery} onChange={(e) => setTypedQuery(e.target.value)} />
+      <input
+        className={styles['web-query-input']}
+        type='text'
+        placeholder={descr}
+        value={typedQuery}
+        list={historyListId}
+        onChange={(e) => setTypedQuery(e.target.value)}
+      />
       <Button type='submit' iconSvg={querySvg} title='Query' />
     </form>
   );
 }
 
 function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) {
+  const { dataStorage } = widgetApi;
+  const [history, setHistory] = useState<string[]>([]);
+  // Source of truth so addToHistory can compute the next list without doing
+  // side effects inside a setState updater (which can double-fire).
+  const historyRef = useRef<string[]>([]);
+  // One datalist per widget instance, shared by all of its query boxes.
+  const listId = useId();
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const data = await dataStorage.getJson(historyKey);
+      if (!cancelled && Array.isArray(data)) {
+        const loaded = data.filter((x): x is string => typeof x === 'string').slice(0, maxHistory);
+        historyRef.current = loaded;
+        setHistory(loaded);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [dataStorage]);
+
+  const addToHistory = useCallback((typed: string) => {
+    const query = typed.trim();
+    if (query === '') {
+      return;
+    }
+    const next = [query, ...historyRef.current.filter(q => q !== query)].slice(0, maxHistory);
+    historyRef.current = next;
+    setHistory(next);
+    dataStorage.setJson(historyKey, next);
+  }, [dataStorage]);
+
   return (
     <div className={styles['web-query']}>
       {settings.entries.map(entry => (
-        <QueryRow key={entry.id} entry={entry} mode={settings.mode} widgetApi={widgetApi} />
+        <QueryRow
+          key={entry.id}
+          entry={entry}
+          mode={settings.mode}
+          widgetApi={widgetApi}
+          historyListId={listId}
+          onSubmitted={addToHistory}
+        />
       ))}
+      <datalist id={listId} data-testid="web-query-history">
+        {history.map(h => <option key={h} value={h} />)}
+      </datalist>
     </div>
   )
 }
