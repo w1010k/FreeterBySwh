@@ -142,6 +142,10 @@ export function setupWidgetSut<T>(reactComp: ReactComponent<WidgetReactComponent
     widgets: {
       getWidgetsInCurrentWorkflow: jest.fn(),
       ...mockWidgetApi.widgets
+    },
+    systemStats: {
+      getStats: jest.fn(),
+      ...mockWidgetApi.systemStats
     }
   };
   return {

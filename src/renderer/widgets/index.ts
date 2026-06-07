@@ -14,6 +14,7 @@ import linkOpener from './link-opener';
 import note from './note';
 import pomodoro from './pomodoro';
 import stopwatch from './stopwatch';
+import systemMonitor from './system-monitor';
 import timer from './timer';
 import toDoList from './to-do-list';
 import webpage from './webpage';
@@ -30,6 +31,7 @@ const widgetTypes = [
   note,
   pomodoro,
   stopwatch,
+  systemMonitor,
   timer,
   toDoList,
   webpage,

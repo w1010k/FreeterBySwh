@@ -13,6 +13,7 @@ import { EntityId } from '@/base/entity';
 import { WidgetApiExposeApiHandler, WidgetApiModuleName, WidgetApiSetContextMenuFactoryHandler, WidgetApiSetDynamicTitleHandler, WidgetApiUpdateActionBarHandler, createWidgetApiFactory } from '@/base/widgetApi';
 import { ObjectManager } from '@common/base/objectManager';
 import { TerminalProvider } from '@/application/interfaces/terminalProvider';
+import { SystemStatsProvider } from '@/application/interfaces/systemStatsProvider';
 import { GetWidgetsInCurrentWorkflowUseCase } from '@/application/useCases/widget/widgetApiWidgets/getWidgetsInCurrentWorkflow';
 import { AppStore } from '@/application/interfaces/store';
 import { resolveWidgetSharedKeyId } from '@/base/widget';
@@ -54,6 +55,7 @@ interface Deps {
   fsProvider: FsProvider;
   iconProvider: IconProvider;
   terminalProvider: TerminalProvider;
+  systemStatsProvider: SystemStatsProvider;
   getWidgetsInCurrentWorkflowUseCase: GetWidgetsInCurrentWorkflowUseCase;
 }
 function _createWidgetApiFactory({
@@ -66,6 +68,7 @@ function _createWidgetApiFactory({
   widgetDataStorageManager,
   sharedDataStorageManager,
   terminalProvider,
+  systemStatsProvider,
   getWidgetsInCurrentWorkflowUseCase,
 }: Deps, forPreview: boolean) {
   return createWidgetApiFactory(
@@ -142,6 +145,9 @@ function _createWidgetApiFactory({
       }),
       widgets: () => ({
         getWidgetsInCurrentWorkflow: (widgetTypeId) => getWidgetsInCurrentWorkflowUseCase(widgetTypeId)
+      }),
+      systemStats: () => ({
+        getStats: () => systemStatsProvider.getStats()
       })
     }
   )

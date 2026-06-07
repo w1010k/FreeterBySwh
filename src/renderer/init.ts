@@ -56,6 +56,7 @@ import { createShellProvider } from '@/infra/shellProvider/shellProvider';
 import { createFsProvider } from '@/infra/fsProvider/fsProvider';
 import { createIconProvider } from '@/infra/iconProvider/iconProvider';
 import { createProcessProvider } from '@/infra/processProvider/processProvider';
+import { createSystemStatsProvider } from '@/infra/systemStatsProvider/systemStatsProvider';
 import { createGetWidgetApiUseCase } from '@/application/useCases/widget/getWidgetApi';
 import { DataStorageRenderer } from '@/application/interfaces/dataStorage';
 import { DataStorage } from '@common/application/interfaces/dataStorage';
@@ -303,6 +304,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     deleteSharedDataKeyUseCase,
   });
   const terminalProvider = createTerminalProvider();
+  const systemStatsProvider = createSystemStatsProvider();
   const getWidgetApiUseCase = createGetWidgetApiUseCase({
     appStore: store.appStore,
     clipboardProvider,
@@ -313,6 +315,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     widgetDataStorageManager,
     sharedDataStorageManager,
     terminalProvider,
+    systemStatsProvider,
     getWidgetsInCurrentWorkflowUseCase,
   })
   const deleteWidgetUseCase = createDeleteWidgetUseCase({

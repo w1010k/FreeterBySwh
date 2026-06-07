@@ -6,6 +6,7 @@
 import { MenuItemsIpc } from '@common/base/menu';
 import { ProcessInfo } from '@common/base/process';
 import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
+import { SystemStats } from '@common/base/systemStats';
 import { makeIpcChannelName } from '@common/ipc/ipc';
 import { MessageBoxConfig, MessageBoxResult, OpenDialogResult, OpenDirDialogConfig, OpenFileDialogConfig, SaveDialogResult, SaveFileDialogConfig } from '@common/base/dialog';
 
@@ -194,3 +195,7 @@ export type IpcFsGetHomeDirRes = string;
 export const ipcFsGetImageDataUrlChannel = makeIpcChannelName('fs-get-image-data-url');
 export type IpcFsGetImageDataUrlArgs = [path: string];
 export type IpcFsGetImageDataUrlRes = string | null;
+
+export const ipcGetSystemStatsChannel = makeIpcChannelName('get-system-stats');
+export type IpcGetSystemStatsArgs = [];
+export type IpcGetSystemStatsRes = SystemStats;

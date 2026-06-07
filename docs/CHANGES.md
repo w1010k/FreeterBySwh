@@ -1744,6 +1744,31 @@ Webpage 위젯의 자동 리로드가 **사용자가 그 페이지를 쓰고 있
 
 ---
 
+## 60. 새 위젯: System Monitor (CPU/RAM) *(2026-06-07)*
+
+내 컴퓨터의 **CPU·RAM 사용량을 실시간**으로 보여주는 위젯. 2초마다 갱신, 막대 그래프 + 퍼센트, RAM은 사용량/전체(예: `8.0 GB / 16.0 GB`)도 표시.
+
+### 아키텍처 (지금까지 위젯 중 유일하게 메인 프로세스 작업)
+
+시스템 메트릭은 렌더러(샌드박스)에서 못 읽으므로 **메인 프로세스 IPC**를 거친다 — 클린 아키텍처대로 전 구간 배선:
+- **공유**: `common/base/systemStats.ts`(타입), `common/ipc/channels.ts`(`get-system-stats` 채널)
+- **메인**: `systemStatsProvider`(`node:os`의 cpus/totalmem/freemem; CPU%는 직전 샘플과의 누적 cpu times 차이로 계산) → `getSystemStats` use case → `systemStats` 컨트롤러 → `index.ts` 등록
+- **렌더러**: `systemStatsProvider` infra(IPC invoke) → **새 위젯 capability `systemStats`** 를 `WidgetApi`에 추가하고 `getWidgetApi`/`init.ts`에 배선 → 위젯이 `widgetApi.systemStats.getStats()`로 폴링
+
+### 까다로웠던 포인트
+
+- 새 capability를 추가하면 `WidgetApi`의 필수 필드가 되므로, 테스트 하니스(`setupSut`)와 `getWidgetApi.spec`의 mock에도 `systemStats`를 더해야 타입체크가 통과한다.
+- CPU%는 순간값이 아니라 **샘플 간 구간 사용률** — provider가 직전 cpu times를 들고 있다가 다음 호출과의 차이로 계산.
+
+### 수정 파일
+
+- **신규(메인)**: `application/interfaces/systemStatsProvider.ts`, `infra/systemStatsProvider/`, `application/useCases/systemStats/getSystemStats.ts`, `controllers/systemStats.ts`
+- **신규(공유/렌더러)**: `common/base/systemStats.ts`, `renderer/application/interfaces/systemStatsProvider.ts`, `renderer/infra/systemStatsProvider/`, `widgets/system-monitor/`(`systemMonitor.ts` 포맷 분리)
+- **수정**: `common/ipc/channels.ts`, `main/index.ts`, `renderer/base/widgetApi.ts`, `renderer/.../getWidgetApi.ts`, `renderer/init.ts`, `widgets/index.ts`, `base/state/ui.ts`(팔레트)
+- **테스트**: `system-monitor/`(포맷·위젯), `main/.../getSystemStats.spec.ts`, `getWidgetApi.spec`·`setupSut`(capability)
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

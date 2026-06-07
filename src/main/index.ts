@@ -33,6 +33,9 @@ import { createShellProvider } from '@/infra/shellProvider/shellProvider';
 import { createProcessControllers } from '@/controllers/process';
 import { createGetProcessInfoUseCase } from '@/application/useCases/process/getProcessInfo';
 import { createProcessProvider } from '@/infra/processProvider/processProvider';
+import { createSystemStatsProvider } from '@/infra/systemStatsProvider/systemStatsProvider';
+import { createGetSystemStatsUseCase } from '@/application/useCases/systemStats/getSystemStats';
+import { createSystemStatsControllers } from '@/controllers/systemStats';
 import { createWriteBookmarkIntoClipboardUseCase } from '@/application/useCases/clipboard/writeBookmarkIntoClipboard';
 import { createObjectManager } from '@common/base/objectManager';
 import { createGetTextFromWidgetDataStorageUseCase } from '@/application/useCases/widgetDataStorage/getTextFromWidgetDataStorage';
@@ -212,6 +215,9 @@ if (!app.requestSingleInstanceLock()) {
     const getProcessInfoUseCase = createGetProcessInfoUseCase({ processProvider });
     const { isLinux } = await getProcessInfoUseCase();
 
+    const systemStatsProvider = createSystemStatsProvider();
+    const getSystemStatsUseCase = createGetSystemStatsUseCase({ systemStatsProvider });
+
     const dialogProvider = createDialogProvider();
     const dialogShowMessageBoxUseCase = createShowMessageBoxUseCase({ dialogProvider });
     const showOpenFileDialogUseCase = createShowOpenFileDialogUseCase({ dialogProvider });
@@ -255,6 +261,7 @@ if (!app.requestSingleInstanceLock()) {
       ...createShellControllers({ openExternalUrlUseCase, openPathUseCase, openAppUseCase, openAppDataDirUseCase }),
       ...createFsControllers({ readDirUseCase, getHomeDirUseCase, getImageDataUrlUseCase }),
       ...createProcessControllers({ getProcessInfoUseCase }),
+      ...createSystemStatsControllers({ getSystemStatsUseCase }),
       ...createDialogControllers({
         showMessageBoxUseCase: dialogShowMessageBoxUseCase,
         showOpenDirDialogUseCase,

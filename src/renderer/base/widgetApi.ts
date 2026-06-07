@@ -8,6 +8,7 @@ import { WidgetContextMenuFactory } from '@/base/widget';
 import { ActionBarItems } from './actionBar';
 import { ProcessInfo } from '@common/base/process';
 import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
+import { SystemStats } from '@common/base/systemStats';
 import { OpenDialogResult, OpenDirDialogConfig, OpenFileDialogConfig } from '@common/base/dialog';
 
 interface WidgetApiCommon {
@@ -81,6 +82,10 @@ interface WidgetApiModules {
   }
   readonly widgets: {
     getWidgetsInCurrentWorkflow<T extends object>(widgetTypeId: string): ReadonlyArray<WidgetApiWidget<T>>;
+  }
+  readonly systemStats: {
+    /** Current system CPU usage (%) and RAM used/total (bytes). */
+    getStats: () => Promise<SystemStats>;
   }
 }
 

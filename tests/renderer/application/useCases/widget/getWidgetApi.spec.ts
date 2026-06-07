@@ -7,6 +7,7 @@ import { ClipboardProvider } from '@/application/interfaces/clipboardProvider';
 import { DataStorageRenderer } from '@/application/interfaces/dataStorage';
 import { ProcessProvider } from '@/application/interfaces/processProvider';
 import { TerminalProvider } from '@/application/interfaces/terminalProvider';
+import { SystemStatsProvider } from '@/application/interfaces/systemStatsProvider';
 import { createGetWidgetApiUseCase } from '@/application/useCases/widget/getWidgetApi';
 import { ActionBarItems } from '@/base/actionBar';
 import { WidgetContextMenuFactory } from '@/base/widget';
@@ -75,6 +76,10 @@ async function setup() {
     execCmdLines: jest.fn()
   }
 
+  const systemStatsProvider: jest.MockedObject<SystemStatsProvider> = {
+    getStats: jest.fn()
+  }
+
   const getWidgetsInCurrentWorkflowUseCase = jest.fn();
 
   const [appStore] = await fixtureAppStore(fixtureAppState({}));
@@ -89,6 +94,7 @@ async function setup() {
     widgetDataStorageManager,
     sharedDataStorageManager,
     terminalProvider,
+    systemStatsProvider,
     getWidgetsInCurrentWorkflowUseCase,
   });
   return {
