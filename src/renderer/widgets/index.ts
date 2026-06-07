@@ -4,12 +4,15 @@
  */
 
 import { WidgetSettings, WidgetType } from '@/widgets/appModules'
+import calculator from './calculator';
+import clock from './clock';
 import commander from './commander';
 import dDay from './d-day';
 import fileExplorer from './file-explorer';
 import fileOpener from './file-opener';
 import linkOpener from './link-opener';
 import note from './note';
+import pomodoro from './pomodoro';
 import stopwatch from './stopwatch';
 import timer from './timer';
 import toDoList from './to-do-list';
@@ -17,12 +20,15 @@ import webpage from './webpage';
 import webQuery from './web-query';
 
 const widgetTypes = [
+  calculator,
+  clock,
   commander,
   dDay,
   fileExplorer,
   fileOpener,
   linkOpener,
   note,
+  pomodoro,
   stopwatch,
   timer,
   toDoList,
