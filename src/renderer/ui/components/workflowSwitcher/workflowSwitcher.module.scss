@@ -87,6 +87,10 @@
     width: 100%;
     box-sizing: border-box;
     height: auto;
+    // Keep a normal one-line height even when the workflow name is empty —
+    // otherwise the tab collapses to just its vertical padding. Wraps/grows for
+    // longer names.
+    min-height: 38px;
     min-width: 0;
     line-height: 1.4;
     padding: 8px 36px 8px 12px;
