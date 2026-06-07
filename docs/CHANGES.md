@@ -1693,6 +1693,57 @@ Webpage 위젯의 자동 리로드가 **사용자가 그 페이지를 쓰고 있
 
 ---
 
+## 54. Timer 위젯: 일시정지/재개 + 남은시간 헤더 표시 *(2026-06-07)*
+
+- 실행 중 **Pause/Resume** 추가(남은 시간 보존). 기존엔 Reset(처음부터)만 가능했다 — Stopwatch엔 있는데 Timer엔 없던 비대칭 해소.
+- 실행/일시정지 중 남은 시간을 **위젯 헤더(dynamic title)에 표시**해, 위젯이 작거나 배경 워크플로우에 있어도 남은 시간이 보인다(유휴 시 해제).
+
+**수정 파일**: `widgets/timer/widget.tsx`·`widget.module.scss` / **테스트**: `timer/widget.spec.ts`(pause/resume)
+
+---
+
+## 55. 새 위젯: Pomodoro *(2026-06-07)*
+
+작업/휴식 카운트다운을 자동으로 번갈아 도는 뽀모도로 타이머. 각 전환 시 소리(Timer의 사운드 인프라 재사용), 시작·일시정지/재개·리셋, 완료한 작업 세션 수(🍅) 표시. 남은 시간은 헤더에도 표시.
+
+**신규**: `widgets/pomodoro/`(설정에서 작업/휴식 분·사운드·볼륨) / **수정**: `widgets/index.ts` / **테스트**: `pomodoro/`(설정·위젯 phase 전환)
+
+---
+
+## 56. 새 위젯: Clock (멀티 타임존 = 세계시계) *(2026-06-07)*
+
+현재 시각 표시. 한 위젯에 **여러 시계(라벨 + IANA 타임존)**를 둘 수 있어 단일 시계이자 세계시계로 동작. 12/24시간·초·날짜 표시 토글. `Intl.DateTimeFormat`로 로케일·타임존 처리(잘못된 타임존은 로컬로 폴백).
+
+**신규**: `widgets/clock/`(`clock.ts` 순수 포맷 분리) / **수정**: `widgets/index.ts` / **테스트**: `clock/`(포맷·유효성·위젯)
+
+---
+
+## 57. 새 위젯: Calculator *(2026-06-07)*
+
+간단한 4칙연산 계산기. 버튼 + 키보드 입력, `±`·`%`·백스페이스, 0 나누기 시 Error 표시. `eval` 없이 **순수 상태머신(reducer)**으로 구현해 안전·테스트 용이.
+
+**신규**: `widgets/calculator/`(`calc.ts` reducer 분리) / **수정**: `widgets/index.ts` / **테스트**: `calculator/`(reducer·위젯)
+
+---
+
+## 58. 에딧 모드 위젯 액션바 "..." 메뉴에 설정·삭제 추가 *(2026-06-07)*
+
+에딧 모드에서 위젯이 작으면 액션바(설정·삭제·"...")가 잘려 버튼에 닿기 어려웠다. 이제 **"More Actions..." 메뉴 안에도 Widget Settings·Delete Widget**을 넣어(+ 기존 Copy Widget), 공간이 부족해도 항상 접근 가능.
+
+**수정 파일**: `ui/components/widget/widgetViewModel.ts`(`showMoreActions`에 env 전달 + 항목 추가) / **테스트**: `widget.spec.tsx`(More 메뉴 항목)
+
+---
+
+## 59. Web Query: 검색 기록 *(2026-06-07)*
+
+검색창에서 제출한 최근 검색어를 **위젯별로 저장**하고(최대 15개, 중복 제거·최신 우선), 입력 시 네이티브 자동완성(`<datalist>`)으로 다시 고를 수 있다. 한 위젯의 여러 검색창이 기록을 공유.
+
+까다로웠던 포인트: 입력에 `list`(datalist)를 달면 ARIA role이 `textbox`→`combobox`로 바뀐다(자동완성 입력의 표준). 기능엔 영향 없고 관련 테스트의 role 단언을 `combobox`로 맞췄다.
+
+**수정 파일**: `widgets/web-query/widget.tsx`(기록 상태·datalist), `widgets/web-query/index.ts`(`requiresApi`에 `dataStorage` 추가) / **테스트**: `web-query/widget.spec.ts`(기록 저장·로드·중복제거, role)
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)
