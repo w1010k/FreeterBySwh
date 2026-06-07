@@ -21,6 +21,13 @@
   }
 }
 
+// Project switcher + manage-projects button: pinned to exactly 200px (border-box,
+// so padding is included). No grow/shrink in the top-bar flex row.
+.top-bar-project-switcher-section {
+  flex: 0 0 200px;
+  width: 200px;
+}
+
 .top-bar-palette-section, .top-bar-shelf-section {
   padding: 0;
 }

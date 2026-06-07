@@ -32,7 +32,7 @@ export function createTopBarComponent({
     return (
       <div className={styles['top-bar']}>
         {showPrjSwitcher &&
-          <div className={styles['top-bar-section']}>
+          <div className={clsx(styles['top-bar-section'], styles['top-bar-project-switcher-section'])}>
             <ProjectSwitcher className={styles['project-switcher']} />
             <ManageProjectsButton />
           </div>
