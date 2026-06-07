@@ -1,0 +1,44 @@
+/*
+ * Copyright: (c) 2024, Alex Kaul
+ * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+ */
+
+.entries {
+  display: flex;
+  flex-direction: column;
+}
+
+.entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+}
+.entry:not(:last-child) {
+  border-bottom: 1px solid var(--freeter-widgetHeaderBorder);
+}
+
+.entries .entry input[type=text] {
+  display: inline-block;
+  width: auto;
+  margin: 0;
+}
+
+.entries .entry .label {
+  flex: 1 1 100px;
+  min-width: 70px;
+}
+.entries .entry .tz {
+  flex: 1 1 140px;
+  min-width: 90px;
+}
+
+.num {
+  opacity: 0.6;
+  min-width: 24px;
+}
+
+.add {
+  margin-top: 12px;
+}
