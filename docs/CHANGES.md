@@ -1638,6 +1638,35 @@ Web Query 위젯의 **Query Engine** 드롭다운(빌트인 검색 엔진 목록
 
 ---
 
+## 52. 새 위젯: Stopwatch *(2026-06-07)*
+
+기존 Timer(카운트다운)와 짝이 되는 **스톱워치(카운트업)** 위젯. 0부터 경과 시간을 1/100초까지 표시한다.
+
+### 사용자 가시적 효과
+
+- **시작 → 일시정지/재개 → 리셋**. (Timer엔 없는) 일시정지/재개가 스톱워치의 핵심이라 기본 제공.
+- 표시 형식 `mm:ss.cc`, 1시간을 넘으면 `h:mm:ss.cc`.
+- Timer와 동일하게 **위젯 상태**라 워크플로우 전환/재시작 시 초기화된다(영구 저장 안 함). 설정 없음.
+
+### 아키텍처
+
+- `_template` 기반 표준 위젯(`widgets/stopwatch/`). 데이터 저장·`requiresApi` 불필요.
+- 경과 시간은 **항상 `Date.now()` 기준으로 계산**(`accumulated + (now - startTs)`) — 틱이 느려지거나 누락돼도 시계가 **드리프트하지 않는다**. 실행 중에만 ~30ms 간격으로 갱신해 1/100초가 부드럽게 흐르고, 멈추면 타이머를 정리한다.
+- 표시 포맷은 순수 함수 `formatStopwatch(ms)`로 분리(테스트 가능).
+
+### 까다로웠던 포인트
+
+- 일시정지/재개: 누적 경과(`accumulatedRef`)와 현재 구간 시작시각(`startTsRef`)을 분리해, 재개 시 `startTs`만 새로 잡으면 자연히 이어진다.
+- `tabular-nums`로 자릿수 폭을 고정해 1/100초가 바뀔 때 숫자가 흔들리지 않게 했다.
+
+### 수정 파일
+
+- **신규**: `widgets/stopwatch/`(`index.ts`·`settings.tsx`·`widget.tsx`·`widget.module.scss`·`stopwatch.ts`·`icons/`)
+- **수정**: `widgets/index.ts`(등록)
+- **테스트**: `stopwatch/stopwatch.spec.ts`(포맷), `widget.spec.tsx`(시작·일시정지·재개·리셋)
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

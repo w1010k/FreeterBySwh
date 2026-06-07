@@ -1,0 +1,79 @@
+/*
+ * Copyright: (c) 2024, Alex Kaul
+ * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+ */
+
+import { widgetComp } from '@/widgets/stopwatch/widget';
+import { Settings } from '@/widgets/stopwatch/settings';
+import { act, screen } from '@testing-library/react';
+import { setupWidgetSut } from '@tests/widgets/setupSut';
+
+jest.useFakeTimers();
+
+function setup() {
+  return setupWidgetSut(widgetComp, {} as Settings);
+}
+
+describe('Stopwatch Widget', () => {
+  it('starts at 00:00.00 with only a Start button', () => {
+    setup();
+
+    expect(screen.getByText('00:00.00')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /start/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /pause/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /reset/i })).not.toBeInTheDocument();
+  });
+
+  it('counts up after Start and shows Pause/Reset', async () => {
+    const { userEvent } = setup();
+    const user = userEvent.setup({ delay: null });
+
+    await user.click(screen.getByRole('button', { name: /start/i }));
+    act(() => jest.advanceTimersByTime(1230));
+
+    expect(screen.getByText('00:01.23')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /pause/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reset/i })).toBeInTheDocument();
+  });
+
+  it('freezes the elapsed time while paused', async () => {
+    const { userEvent } = setup();
+    const user = userEvent.setup({ delay: null });
+
+    await user.click(screen.getByRole('button', { name: /start/i }));
+    act(() => jest.advanceTimersByTime(1230));
+    await user.click(screen.getByRole('button', { name: /pause/i }));
+
+    act(() => jest.advanceTimersByTime(5000)); // time passes, but we're paused
+
+    expect(screen.getByText('00:01.23')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /resume/i })).toBeInTheDocument();
+  });
+
+  it('continues from the paused time on Resume', async () => {
+    const { userEvent } = setup();
+    const user = userEvent.setup({ delay: null });
+
+    await user.click(screen.getByRole('button', { name: /start/i }));
+    act(() => jest.advanceTimersByTime(1230));
+    await user.click(screen.getByRole('button', { name: /pause/i }));
+    await user.click(screen.getByRole('button', { name: /resume/i }));
+    act(() => jest.advanceTimersByTime(1230)); // multiple of the 30ms tick so the last tick lands exactly
+
+    expect(screen.getByText('00:02.46')).toBeInTheDocument();
+  });
+
+  it('resets back to 00:00.00 and the Start button', async () => {
+    const { userEvent } = setup();
+    const user = userEvent.setup({ delay: null });
+
+    await user.click(screen.getByRole('button', { name: /start/i }));
+    act(() => jest.advanceTimersByTime(1230));
+    await user.click(screen.getByRole('button', { name: /reset/i }));
+
+    expect(screen.getByText('00:00.00')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /start/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /pause/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /reset/i })).not.toBeInTheDocument();
+  });
+});

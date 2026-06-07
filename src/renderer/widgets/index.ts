@@ -10,6 +10,7 @@ import fileExplorer from './file-explorer';
 import fileOpener from './file-opener';
 import linkOpener from './link-opener';
 import note from './note';
+import stopwatch from './stopwatch';
 import timer from './timer';
 import toDoList from './to-do-list';
 import webpage from './webpage';
@@ -22,6 +23,7 @@ const widgetTypes = [
   fileOpener,
   linkOpener,
   note,
+  stopwatch,
   timer,
   toDoList,
   webpage,
