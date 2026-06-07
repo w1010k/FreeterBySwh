@@ -178,4 +178,61 @@ describe('Webpage Widget', () => {
       }
     )
   })
+
+  describe('auto-reload', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    function setupAutoReload(seconds: number) {
+      const sut = setupWebpageWidgetSut(fixtureSettings({ url: 'https://x/', autoReload: seconds }));
+      const reload = jest.fn();
+      const wv = sut.webview as unknown as { reload: jest.Mock; isLoading: () => boolean };
+      wv.reload = reload;
+      wv.isLoading = () => false;
+      return { ...sut, reload };
+    }
+
+    it('reloads every interval while the webview is not focused', () => {
+      const { reload } = setupAutoReload(10);
+
+      act(() => jest.advanceTimersByTime(10000));
+      expect(reload).toHaveBeenCalledTimes(1);
+
+      act(() => jest.advanceTimersByTime(10000));
+      expect(reload).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not reload while the webview is focused', () => {
+      const { webview, reload } = setupAutoReload(10);
+
+      act(() => { webview.dispatchEvent(new Event('focus')); });
+      act(() => jest.advanceTimersByTime(30000));
+
+      expect(reload).not.toHaveBeenCalled();
+    });
+
+    it('cancels a pending reload when the page is focused mid-countdown', () => {
+      const { webview, reload } = setupAutoReload(10);
+
+      act(() => jest.advanceTimersByTime(5000)); // halfway through the countdown
+      act(() => { webview.dispatchEvent(new Event('focus')); });
+      act(() => jest.advanceTimersByTime(10000));
+
+      expect(reload).not.toHaveBeenCalled();
+    });
+
+    it('restarts the countdown from zero when focus leaves (blur)', () => {
+      const { webview, reload } = setupAutoReload(10);
+
+      act(() => { webview.dispatchEvent(new Event('focus')); });
+      act(() => jest.advanceTimersByTime(30000));
+      expect(reload).not.toHaveBeenCalled();
+
+      act(() => { webview.dispatchEvent(new Event('blur')); });
+      act(() => jest.advanceTimersByTime(9000));
+      expect(reload).not.toHaveBeenCalled(); // 10s not elapsed yet
+      act(() => jest.advanceTimersByTime(1000));
+      expect(reload).toHaveBeenCalledTimes(1);
+    });
+  })
 })

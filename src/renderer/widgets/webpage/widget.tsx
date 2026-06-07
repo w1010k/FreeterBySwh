@@ -438,13 +438,48 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
     return () => window.removeEventListener(WEBPAGE_GO_HOME_EVENT, onGoHome);
   }, [webviewIsReady, url]);
 
+  // Auto-reload counts down ONLY while the webview is NOT focused, so a scheduled
+  // reload never wipes out what the user is actively doing on the page (typing in
+  // a form, etc.). Focusing the page clears the timer; blurring (re)starts a fresh
+  // interval — so the countdown begins from the moment focus leaves, and while it
+  // stays unfocused the page keeps reloading every `autoReload` seconds.
   useEffect(() => {
-    if (autoReload>0 && !autoReloadStopped) {
-      const interval = setInterval(() => webviewRef.current && reload(webviewRef.current), autoReload*1000)
-
-      return () => clearInterval(interval)
+    const webviewEl = webviewRef.current;
+    if (!webviewEl || autoReload <= 0 || autoReloadStopped) {
+      return undefined;
     }
-    return undefined;
+
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const stop = () => {
+      if (interval !== undefined) {
+        clearInterval(interval);
+        interval = undefined;
+      }
+    };
+    const start = () => {
+      stop();
+      interval = setInterval(() => {
+        if (webviewRef.current) {
+          reload(webviewRef.current);
+        }
+      }, autoReload * 1000);
+    };
+
+    const onFocus = () => stop(); // user entered the page → pause + reset the countdown
+    const onBlur = () => start(); // focus left → start counting from zero
+    webviewEl.addEventListener('focus', onFocus);
+    webviewEl.addEventListener('blur', onBlur);
+
+    // Begin immediately unless the page already has focus.
+    if (document.activeElement !== webviewEl) {
+      start();
+    }
+
+    return () => {
+      stop();
+      webviewEl.removeEventListener('focus', onFocus);
+      webviewEl.removeEventListener('blur', onBlur);
+    };
   }, [autoReload, autoReloadStopped])
 
   return <>
