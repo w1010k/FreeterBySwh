@@ -155,4 +155,22 @@ describe('Timer Widget', () => {
 
     expect(screen.getByText('05:00')).toBeInTheDocument();
   })
+
+  it('should pause (freezing the remaining time) and resume from where it left off', async () => {
+    const { userEvent } = setupTimerWidgetSut(fixtureSettings({ mins: 90 }));
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByRole('button', { name: /start/i }));
+
+    act(() => jest.advanceTimersByTime(5000));
+    expect(screen.getByText('89:55')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /pause/i }));
+    act(() => jest.advanceTimersByTime(10000)); // time passes, but we're paused
+    expect(screen.getByText('89:55')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /resume/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /resume/i }));
+    act(() => jest.advanceTimersByTime(5000));
+    expect(screen.getByText('89:50')).toBeInTheDocument();
+  })
 })

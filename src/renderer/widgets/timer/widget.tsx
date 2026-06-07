@@ -21,8 +21,12 @@ function msecsToMMSS(msecs: number) {
   return `${padTime(m)}:${padTime(s)}`;
 }
 
-function WidgetComp({settings}: WidgetReactComponentProps<Settings>) {
+function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) {
+  const { setDynamicTitle } = widgetApi;
   const [endMsecs, setEndMsecs] = useState(0);
+  // Remaining ms captured on pause (null when not paused). Lets Resume continue
+  // exactly where it left off.
+  const [pausedLeft, setPausedLeft] = useState<number | null>(null);
   const [mmss, setMmss] = useState(msecsToMMSS(0));
 
   const msecs = settings.mins*60000
@@ -34,6 +38,7 @@ function WidgetComp({settings}: WidgetReactComponentProps<Settings>) {
     setMmss(msecsToMMSS(msecsLeft));
     if(msecsLeft<=0) {
       setEndMsecs(0);
+      setPausedLeft(null);
       endSound.play();
     }
   }, [endMsecs, endSound])
@@ -46,28 +51,61 @@ function WidgetComp({settings}: WidgetReactComponentProps<Settings>) {
     return undefined;
   }, [endMsecs, tick])
 
+  const isRunning = endMsecs > 0;
+  const isPaused = !isRunning && pausedLeft !== null;
+  const isActive = isRunning || isPaused;
+
+  // Surface the remaining time in the widget header while active, so it's
+  // visible even when the widget is tiny or in a background workflow.
+  useEffect(() => {
+    setDynamicTitle(isActive ? mmss : null);
+  }, [isActive, mmss, setDynamicTitle])
+  useEffect(() => () => setDynamicTitle(null), [setDynamicTitle])
+
   const totalMmss = useMemo(()=>msecsToMMSS(msecs), [msecs])
   const start = useCallback(() => {
     setEndMsecs(Date.now() + msecs + 500 /* A bit more to not have -2secs mmss on a first tick */ );
+    setPausedLeft(null);
     setMmss(msecsToMMSS(msecs));
   }, [msecs])
 
+  const pause = useCallback(() => {
+    const left = Math.max(0, endMsecs - Date.now());
+    setPausedLeft(left);
+    setMmss(msecsToMMSS(left));
+    setEndMsecs(0);
+  }, [endMsecs])
+
+  const resume = useCallback(() => {
+    if (pausedLeft !== null) {
+      setEndMsecs(Date.now() + pausedLeft);
+      setPausedLeft(null);
+    }
+  }, [pausedLeft])
+
   const reset = useCallback(() => {
     setEndMsecs(0);
+    setPausedLeft(null);
   }, [])
 
-  return endMsecs===0
-    ? <Button
-        onClick={start}
-        caption={totalMmss}
-        title='Start'
-        size='Fill'
-        className={styles['timer-button']}
-      />
-    : <div className={styles['timer-run-screen']}>
-        <div className={styles['timer-run-screen-mmss']}>{mmss}</div>
-        <Button caption='Reset' onClick={reset} size='M'/>
-      </div>
+  if (!isActive) {
+    return <Button
+      onClick={start}
+      caption={totalMmss}
+      title='Start'
+      size='Fill'
+      className={styles['timer-button']}
+    />
+  }
+  return <div className={styles['timer-run-screen']}>
+    <div className={styles['timer-run-screen-mmss']}>{mmss}</div>
+    <div className={styles['timer-run-buttons']}>
+      {isRunning
+        ? <Button caption='Pause' onClick={pause} size='M'/>
+        : <Button caption='Resume' onClick={resume} size='M'/>}
+      <Button caption='Reset' onClick={reset} size='M'/>
+    </div>
+  </div>
 }
 
 export const widgetComp: ReactComponent<WidgetReactComponentProps<Settings>> = {
