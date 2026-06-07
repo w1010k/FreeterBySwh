@@ -5,11 +5,11 @@
 
 import { StateStorage, createStateStorage, appStateDataStoragKey } from '@common/data/stateStorage';
 import { DataStorageJson } from '@common/application/interfaces/dataStorage';
-import { AppState, createPersistentAppState, currentAppStateVersion, migrateAppState, PersistentAppState } from '@/base/state/app';
+import { AppState, createPersistentAppState, currentAppStateVersion, migrateAppState, PersistentAppState, isPersistentAppState } from '@/base/state/app';
 
 export type AppStateStorage = StateStorage<AppState, PersistentAppState>
 export function createAppStateStorage(
   dataStorage: DataStorageJson,
 ): AppStateStorage {
-  return createStateStorage(dataStorage, appStateDataStoragKey, currentAppStateVersion, 5000, migrateAppState, createPersistentAppState);
+  return createStateStorage(dataStorage, appStateDataStoragKey, currentAppStateVersion, 5000, migrateAppState, createPersistentAppState, isPersistentAppState);
 }

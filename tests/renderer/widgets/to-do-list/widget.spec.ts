@@ -360,5 +360,33 @@ describe('To-Do List Widget — cross-widget sync within a scope', () => {
     });
     expect(getJsonB).not.toHaveBeenCalled();
   });
+
+  it('should show the done/total item count', async () => {
+    const testState: ToDoListState = {
+      items: [
+        { id: 1, isDone: false, text: 'Task 1' },
+        { id: 2, isDone: true, text: 'Task 2' },
+        { id: 3, isDone: false, text: 'Task 3' },
+      ],
+      nextItemId: 99
+    };
+    setupToDoListWidgetSut(fixtureSettings({}), {
+      mockWidgetApi: { dataStorage: { getJson: jest.fn().mockResolvedValue(testState) } }
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('1 / 3 done')).toBeInTheDocument();
+    });
+  })
+
+  it('should show "No items" when the list is empty', async () => {
+    setupToDoListWidgetSut(fixtureSettings({}), {
+      mockWidgetApi: { dataStorage: { getJson: jest.fn().mockResolvedValue(undefined) } }
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('No items')).toBeInTheDocument();
+    });
+  })
 })
 

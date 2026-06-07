@@ -4,7 +4,7 @@
  */
 
 import { StateStorage, createStateStorage, windowStateDataStoragKey } from '@common/data/stateStorage';
-import { createPersistentWindowState, currentWindowStateVersion, migrateWindowState } from '@/base/state/window';
+import { createPersistentWindowState, currentWindowStateVersion, migrateWindowState, isPersistentWindowState } from '@/base/state/window';
 import { createWindowStateStorage } from '@/data/windowStateStorage'
 import { DataStorageJson } from '@common/application/interfaces/dataStorage';
 
@@ -30,7 +30,8 @@ describe('WindowStateStorage', () => {
         currentWindowStateVersion,
         5000,
         migrateWindowState,
-        createPersistentWindowState
+        createPersistentWindowState,
+        isPersistentWindowState
       );
       expect(gotVal).toBe(retVal);
     })

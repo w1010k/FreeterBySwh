@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { AppState, initAppStateWidgets, createPersistentAppState, mergeAppStateWithPersistentAppState, PersistentAppState } from '@/base/state/app';
+import { AppState, initAppStateWidgets, createPersistentAppState, mergeAppStateWithPersistentAppState, PersistentAppState, isPersistentAppState } from '@/base/state/app';
 import { CreateSettingsState } from '@/widgets/appModules';
 import { fixtureWidgetA } from '@tests/base/fixtures/widget';
 import { fixtureAppConfig } from '@tests/base/fixtures/appConfig';
@@ -196,6 +196,22 @@ describe('AppState', () => {
       const gotState = mergeAppStateWithPersistentAppState(state, persistentState);
 
       expect(gotState).toEqual(expectState);
+    })
+  })
+
+  describe('isPersistentAppState', () => {
+    it('should return true for a well-formed persistent state', () => {
+      expect(isPersistentAppState(createPersistentAppState(fixtureAppState({})))).toBe(true);
+    })
+
+    it('should return false when entities or ui is missing', () => {
+      expect(isPersistentAppState({ ui: {} } as unknown as PersistentAppState)).toBe(false);
+      expect(isPersistentAppState({ entities: {} } as unknown as PersistentAppState)).toBe(false);
+    })
+
+    it('should return false when a top-level key is not a plain object', () => {
+      expect(isPersistentAppState({ entities: [], ui: {} } as unknown as PersistentAppState)).toBe(false);
+      expect(isPersistentAppState({ entities: {}, ui: null } as unknown as PersistentAppState)).toBe(false);
     })
   })
 })

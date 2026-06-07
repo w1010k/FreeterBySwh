@@ -1,0 +1,47 @@
+/*
+ * Copyright: (c) 2024, Alex Kaul
+ * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+ */
+
+.d-day {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 4px 0;
+}
+
+.entry {
+  padding: 4px 10px;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.date {
+  font-size: 11px;
+  opacity: 0.6;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.count {
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}
+
+.count.is-today {
+  color: var(--freeter-primary60);
+}

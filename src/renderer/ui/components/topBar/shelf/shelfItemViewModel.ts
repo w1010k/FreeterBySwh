@@ -11,6 +11,37 @@ import { useWindowSize } from '@/ui/hooks/useWindowSize';
 import { CSSProperties, DragEvent, MouseEvent, useCallback, useMemo } from 'react';
 import { shelfWidgetDefaultH, shelfWidgetDefaultW } from '@/application/useCases/shelf/setShelfItemSize';
 
+// The popup box is positioned `top: 46px` in shelf.module.scss (just below the
+// top bar). Mirror it here so the box can be kept inside the window vertically.
+const shelfPopupTopPx = 46;
+
+/**
+ * Clamp a shelf popup box to the current window so it never spills off-screen.
+ * Only the *displayed* size is clamped — the stored w/h (user's chosen size) is
+ * preserved by the caller, so the box restores once the window grows back.
+ * Previously only the left edge was clamped, so a popup wider/taller than the
+ * window (e.g. after shrinking the window) overflowed to the right/bottom.
+ */
+export function clampShelfPopupBox(
+  itemLeftPx: number,
+  wPx: number,
+  hPx: number,
+  windowWPx: number,
+  windowHPx: number,
+  topPx: number
+): { leftPx: number; wPx: number; hPx: number } {
+  const boxWPx = Math.min(wPx, windowWPx);
+  const boxHPx = Math.max(0, Math.min(hPx, windowHPx - topPx));
+  let leftPx = itemLeftPx;
+  if (leftPx + boxWPx > windowWPx) {
+    leftPx = windowWPx - boxWPx;
+  }
+  if (leftPx < 0) {
+    leftPx = 0;
+  }
+  return { leftPx, wPx: boxWPx, hPx: boxHPx };
+}
+
 export interface ShelfItemProps {
   id: EntityId;
   env: WidgetEnvAreaShelf;
@@ -80,20 +111,13 @@ export function useShelfItemViewModel(props: ShelfItemProps) {
 
   const windowSize = useWindowSize();
   const itemWidgetElRectStyle = useMemo(() => {
-    let xPx = itemElRect.xPx;
-    if (xPx + wPx > windowSize.wPx) {
-      xPx = windowSize.wPx - wPx;
-    }
-    if (xPx < 0) {
-      xPx = 0;
-    }
-
+    const box = clampShelfPopupBox(itemElRect.xPx, wPx, hPx, windowSize.wPx, windowSize.hPx, shelfPopupTopPx);
     return {
-      left: xPx + 'px',
-      width: wPx + 'px',
-      height: hPx + 'px'
+      left: box.leftPx + 'px',
+      width: box.wPx + 'px',
+      height: box.hPx + 'px'
     } as CSSProperties;
-  }, [itemElRect.xPx, windowSize.wPx, wPx, hPx])
+  }, [itemElRect.xPx, windowSize.wPx, windowSize.hPx, wPx, hPx])
 
   const onResizeHandler = useCallback((newW: number, newH: number) => {
     onResize(id, newW, newH);

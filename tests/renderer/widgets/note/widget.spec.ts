@@ -216,4 +216,27 @@ describe('Note Widget', () => {
     // Not focused → reload runs and pushes content into the editor (not just the textarea).
     await waitFor(() => expect(editor.getContent()).toBe('NEW'));
   })
+
+  it('should show the word/char count of the loaded note', async () => {
+    setupNoteWidgetSut({
+      mockWidgetApi: { dataStorage: { getText: jest.fn().mockResolvedValue('Hello world') } }
+    });
+
+    await waitFor(() => expect(screen.getByText('2 words · 11 chars')).toBeInTheDocument());
+  })
+
+  it('should live-update the word/char count after typing (debounced)', async () => {
+    const { userEvent } = setupNoteWidgetSut({
+      mockWidgetApi: { dataStorage: { getText: jest.fn().mockResolvedValue('') } }
+    });
+    const user = userEvent.setup({ delay: null });
+
+    await waitFor(() => expect(screen.getByRole('textbox')).toBeInTheDocument());
+    expect(screen.getByText('0 words · 0 chars')).toBeInTheDocument();
+
+    await user.type(screen.getByRole('textbox'), 'one two three');
+    act(() => jest.advanceTimersByTime(250));
+
+    expect(screen.getByText('3 words · 13 chars')).toBeInTheDocument();
+  })
 })

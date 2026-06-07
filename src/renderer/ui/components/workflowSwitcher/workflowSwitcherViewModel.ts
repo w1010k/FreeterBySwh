@@ -275,7 +275,14 @@ export function createWorkflowSwitcherViewModelHook({
       }
     })
 
-    const copiedWorkflows = mapIdListToEntityList(copiedWorkflowsEntitites, copiedWorkflowsList);
+    // Memoize like the sibling view models (palette/projectManager/appManager):
+    // mapIdListToEntityList allocates a new array, and copiedWorkflows is a dep of
+    // the action-bar and context-menu useMemos below — recomputing it every render
+    // would defeat their memoization.
+    const copiedWorkflows = useMemo(
+      () => mapIdListToEntityList(copiedWorkflowsEntitites, copiedWorkflowsList),
+      [copiedWorkflowsEntitites, copiedWorkflowsList]
+    );
 
     const [itemIdInEditNameMode, setItemIdInEditNameMode] = useState<string | undefined>(undefined);
 

@@ -69,11 +69,14 @@ describe('Store', () => {
       });
     })
 
-    it.skip('should keep init state, if StateStorage has invalid data', done => {
+    it('should keep init state, if StateStorage has invalid data', done => {
       const initState = { state: 'init state' };
+      // A merge that actually folds in the persisted state, so the test fails if
+      // loadState lets invalid data through instead of falling back to defaults.
+      const merge = (s: typeof initState, ps: object) => ({ ...s, ...ps });
       const [store] = createStore({
         stateStorage: fixtureStateStorageWithInvalidData({ 'invalid': 'data' })
-      }, initState, s => s, s => s, () => {
+      }, initState, s => s, merge, () => {
         try {
           expect(store.get()).toEqual(initState);
           done();

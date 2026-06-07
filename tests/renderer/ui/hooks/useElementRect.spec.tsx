@@ -40,18 +40,18 @@ describe('useElementRect', () => {
 
   it('measures the element position on mount', () => {
     render(<Harness />);
-    expect(screen.getByTestId('x').textContent).toBe('100');
+    expect(screen.getByTestId('x')).toHaveTextContent(/^100$/);
   });
 
   it('re-measures via the returned callback when the element shifts without a resize', () => {
     // This is the Top Bar popup bug: deleting a sibling tab moves this element
     // horizontally without changing its size, so a ResizeObserver never fires.
     render(<Harness />);
-    expect(screen.getByTestId('x').textContent).toBe('100');
+    expect(screen.getByTestId('x')).toHaveTextContent(/^100$/);
 
     currentRect = { ...currentRect, left: 40 };
     fireEvent.click(screen.getByTestId('remeasure'));
 
-    expect(screen.getByTestId('x').textContent).toBe('40');
+    expect(screen.getByTestId('x')).toHaveTextContent(/^40$/);
   });
 });

@@ -880,4 +880,51 @@ describe('<Shelf />', () => {
     expect(dropOnTopBarListUseCase).toHaveBeenCalledWith(overItemId);
   });
 
+  describe('resizing the popup box', () => {
+    it('should remove the window drag listeners on unmount, if a resize drag is still in progress', async () => {
+      const removeSpy = jest.spyOn(window, 'removeEventListener');
+      const { comp } = await setup(fixtureAppState({
+        ui: {
+          editMode: true,
+          shelf: fixtureShelf({
+            widgetList: [fixtureWidgetListItemA()]
+          })
+        },
+      }));
+      const resizer = screen.getByRole('separator');
+
+      // Start a drag (attaches window mousemove/mouseup listeners) but never
+      // release the mouse, then unmount mid-drag.
+      fireEvent.mouseDown(resizer);
+      removeSpy.mockClear();
+
+      comp.unmount();
+
+      expect(removeSpy).toHaveBeenCalledWith('mousemove', expect.any(Function));
+      expect(removeSpy).toHaveBeenCalledWith('mouseup', expect.any(Function));
+
+      removeSpy.mockRestore();
+    });
+
+    it('should not remove mousemove/mouseup listeners on unmount, if no resize drag was started', async () => {
+      const removeSpy = jest.spyOn(window, 'removeEventListener');
+      const { comp } = await setup(fixtureAppState({
+        ui: {
+          editMode: true,
+          shelf: fixtureShelf({
+            widgetList: [fixtureWidgetListItemA()]
+          })
+        },
+      }));
+      removeSpy.mockClear();
+
+      comp.unmount();
+
+      expect(removeSpy).not.toHaveBeenCalledWith('mousemove', expect.any(Function));
+      expect(removeSpy).not.toHaveBeenCalledWith('mouseup', expect.any(Function));
+
+      removeSpy.mockRestore();
+    });
+  });
+
 })

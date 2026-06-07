@@ -4,7 +4,7 @@
  */
 
 import { StateStorage, createStateStorage, appStateDataStoragKey } from '@common/data/stateStorage';
-import { createPersistentAppState, currentAppStateVersion, migrateAppState } from '@/base/state/app';
+import { createPersistentAppState, currentAppStateVersion, migrateAppState, isPersistentAppState } from '@/base/state/app';
 import { createAppStateStorage } from '@/data/appStateStorage'
 import { DataStorageJson } from '@common/application/interfaces/dataStorage';
 
@@ -30,7 +30,8 @@ describe('AppStateStorage', () => {
         currentAppStateVersion,
         5000,
         migrateAppState,
-        createPersistentAppState
+        createPersistentAppState,
+        isPersistentAppState
       );
       expect(gotVal).toBe(retVal);
     })

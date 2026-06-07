@@ -218,9 +218,13 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
     }
   }, [dragState, toDoList, setToDoListAndSave])
 
+  const doneCount = toDoList ? toDoList.items.filter(item => item.isDone).length : 0;
+  const totalCount = toDoList ? toDoList.items.length : 0;
+
   return (
     toDoList
-    ? <div className={styles['todo-list-viewport']} data-widget-context="">
+    ? <div className={styles['todo-list-widget']}>
+      <div className={styles['todo-list-viewport']} data-widget-context="">
         {activeItemEditorState?.id==='add-top' && <input
           type="text"
           placeholder="Add an item"
@@ -289,6 +293,10 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
           maxLength={maxTextLength}
         />
       </div>
+      <div className={styles['todo-list-count']}>
+        {totalCount === 0 ? 'No items' : `${doneCount} / ${totalCount} done`}
+      </div>
+    </div>
     : <>Loading To-Do List...</>
   )
 }

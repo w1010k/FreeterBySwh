@@ -61,6 +61,15 @@ export function createPersistentAppState(appState: AppState) {
 
 export type PersistentAppState = ReturnType<typeof createPersistentAppState>;
 
+function isPlainObject(val: unknown): val is object {
+  return typeof val === 'object' && val !== null && !Array.isArray(val);
+}
+
+export function isPersistentAppState(state: PersistentAppState): boolean {
+  const s = state as Partial<PersistentAppState>;
+  return isPlainObject(s.entities) && isPlainObject(s.ui);
+}
+
 export function mergeAppStateWithPersistentAppState(
   appState: AppState,
   persistentAppState: PersistentAppState

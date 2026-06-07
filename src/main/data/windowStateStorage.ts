@@ -5,11 +5,19 @@
 
 import { StateStorage, createStateStorage, windowStateDataStoragKey } from '@common/data/stateStorage';
 import { DataStorageJson } from '@common/application/interfaces/dataStorage';
-import { WindowState, createPersistentWindowState, currentWindowStateVersion, migrateWindowState, PersistentWindowState } from '@/base/state/window';
+import { WindowState, createPersistentWindowState, currentWindowStateVersion, migrateWindowState, PersistentWindowState, isPersistentWindowState } from '@/base/state/window';
 
 export type WindowStateStorage = StateStorage<WindowState, PersistentWindowState>
 export function createWindowStateStorage(
   dataStorage: DataStorageJson,
 ): WindowStateStorage {
-  return createStateStorage(dataStorage, windowStateDataStoragKey, currentWindowStateVersion, 5000, migrateWindowState, createPersistentWindowState);
+  return createStateStorage(
+    dataStorage,
+    windowStateDataStoragKey,
+    currentWindowStateVersion,
+    5000,
+    migrateWindowState,
+    createPersistentWindowState,
+    isPersistentWindowState
+  );
 }

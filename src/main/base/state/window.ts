@@ -27,6 +27,13 @@ export function createPersistentWindowState(windowState: WindowState): WindowSta
 
 export type PersistentWindowState = ReturnType<typeof createPersistentWindowState>;
 
+export function isPersistentWindowState(state: PersistentWindowState): boolean {
+  const s = state as Partial<PersistentWindowState>;
+  return typeof s.x === 'number' && typeof s.y === 'number'
+    && typeof s.w === 'number' && typeof s.h === 'number'
+    && typeof s.isMaxi === 'boolean' && typeof s.isMini === 'boolean' && typeof s.isFull === 'boolean';
+}
+
 export function mergeWindowStateWithPersistentWindowState(
   windowState: WindowState,
   persistentWindowState: PersistentWindowState

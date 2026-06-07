@@ -16,6 +16,11 @@ import { useSharedDataChangedEffect } from '@/widgets/sharedDataSync';
 const keyNote = 'note';
 const noteWidgetType = 'note';
 
+function computeCounts(text: string) {
+  const trimmed = text.trim();
+  return { words: trimmed === '' ? 0 : trimmed.split(/\s+/).length, chars: text.length };
+}
+
 function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
   const {updateActionBar, setContextMenuFactory, dataStorage} = widgetApi;
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
@@ -28,6 +33,12 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
   // alone wouldn't update the editor's own rendered DOM.
   const editorRef = useRef<Editor | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [counts, setCounts] = useState({ words: 0, chars: 0 });
+
+  // Update the word/char count off the keystroke path: the textarea is
+  // uncontrolled (defaultValue + ref) precisely to avoid a re-render per
+  // keystroke, so we debounce the count's setState to keep that property.
+  const updateCounts = useMemo(() => debounce((text: string) => setCounts(computeCounts(text)), 250), []);
 
   useEffect(() => {
     if (isLoaded) {
@@ -42,12 +53,14 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
   const updNote = useCallback((note: string) => {
     loadedNote.current = note;
     saveNote(note);
-  }, [saveNote])
+    updateCounts(note);
+  }, [saveNote, updateCounts])
 
   const loadNote = useCallback(async function () {
     pendingReload.current = false;
     const next = await dataStorage.getText(keyNote) || '';
     loadedNote.current = next;
+    setCounts(computeCounts(next));
     if (editorRef.current) {
       // Markdown mode: drive the editor so its rendered view updates too.
       if (editorRef.current.getContent() !== next) {
@@ -142,17 +155,20 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
 
   return (
     isLoaded
-    ? <textarea
-        key={settings.markdown?'md':undefined} // resets element after disabling markdown
-        ref={textAreaRef}
-        className={styles['textarea']}
-        defaultValue={loadedNote.current}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        placeholder='Write a note here'
-        data-widget-context={textAreaContextId}
-        spellCheck={settings.spellCheck}
-      ></textarea>
+    ? <>
+        <textarea
+          key={settings.markdown?'md':undefined} // resets element after disabling markdown
+          ref={textAreaRef}
+          className={styles['textarea']}
+          defaultValue={loadedNote.current}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          placeholder='Write a note here'
+          data-widget-context={textAreaContextId}
+          spellCheck={settings.spellCheck}
+        ></textarea>
+        <div className={styles['note-count']}>{counts.words} words · {counts.chars} chars</div>
+      </>
     : <>Loading Note...</>
   )
 }

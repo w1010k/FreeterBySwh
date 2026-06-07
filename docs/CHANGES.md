@@ -1542,11 +1542,99 @@ Web Query 위젯의 **Query Engine** 드롭다운(빌트인 검색 엔진 목록
 - shelf 팝업은 평소 `:hover`/`:focus-within`으로만 보이는데, 리사이즈 드래그 중 커서가 탭 밖으로 나가면 팝업이 숨어 드래그가 끊긴다. 드래그 중엔 `is-resizing` 클래스로 **강제 표시**하고, 전체화면 투명 오버레이로 webview 위에서도 이벤트가 끊기지 않게 했다(#38·#45와 동일 원리).
 - worktable 크기는 그리드 단위라 px 변환에 뷰포트가 필요 → use case(상태 레벨)에서 못 구한다. 그래서 렌더러의 드래그 시작 시점에 실측 px를 캡처해 드래그 상태로 전달하는 방식으로 해결.
 
+### 후속 보완
+
+- **팝업이 창 밖으로 넘치지 않게 클램프 보완**: 기존엔 팝업의 좌측 x좌표만 창 안으로 보정하고 너비·높이는 그대로여서, 저장된 팝업이 현재 창보다 크면(창을 줄였을 때 등) 오른쪽/아래로 삐져나갔다. 이제 *표시* 크기를 창 경계 안으로 클램프한다(저장 크기는 유지 → 창이 다시 커지면 원래 크기로 복원). 클램프 수학은 순수 함수 `clampShelfPopupBox`로 분리해 단위 테스트.
+- **리사이즈 드래그 리스너 누수 수정(내부)**: 드래그 도중(마우스 떼기 전) 컴포넌트가 언마운트되면 `window`의 `mousemove`/`mouseup` 리스너가 정리되지 않던 문제를 언마운트 cleanup으로 해소.
+
 ### 수정 파일
 
 - **신규**: `application/useCases/shelf/setShelfItemSize.ts`
-- **수정**: `base/widgetList.ts`(`w`/`h`), `base/state/ui.ts`(`sizePx`), `init.ts`, `topBar/shelf`(viewModel·item·shelf·scss), `dragDrop/dragWidgetFromWorktableLayout.ts`·`dropOnTopBarList.ts`, `widgetLayoutViewModel.ts`(px 캡처)
-- **테스트**: `setShelfItemSize.spec.ts`(신규), `dropOnTopBarList.spec.ts`(sizePx 시드), `shelf.spec.tsx`(deps)
+- **수정**: `base/widgetList.ts`(`w`/`h`), `base/state/ui.ts`(`sizePx`), `init.ts`, `topBar/shelf`(viewModel·item·shelf·scss; 후속: `clampShelfPopupBox` 클램프 + 리스너 cleanup), `dragDrop/dragWidgetFromWorktableLayout.ts`·`dropOnTopBarList.ts`, `widgetLayoutViewModel.ts`(px 캡처)
+- **테스트**: `setShelfItemSize.spec.ts`(신규), `dropOnTopBarList.spec.ts`(sizePx 시드), `shelf.spec.tsx`(deps + 언마운트 리스너 정리), `shelfItemViewModel.spec.ts`(신규: 클램프)
+
+---
+
+## 49. 손상된 영구 상태(persistent state) 안전 폴백 *(2026-06-07)*
+
+디스크에 저장된 앱/윈도우 상태 파일(`freeter-data`)이 손상되었거나 구조가 깨졌을 때, 깨진 데이터를 그대로 불러와 UI가 잘못 뜨거나 마이그레이션이 터지는 대신 **기본값으로 안전하게 폴백**한다. 매 변경마다 자동 저장하는 구조라 한 번 깨진 상태가 다시 저장돼 굳는 것을 막는 의미도 있다.
+
+### 사용자 가시적 효과
+
+- 정상 사용 시엔 변화 없음. 평소에는 드러나지 않지만, 데이터 파일이 손상된 경우(수동 편집, 부분 기록, 디스크 손상 등) 앱이 깨진 상태로 뜨지 않고 초기 상태로 복구되어 계속 사용 가능하다.
+
+### 아키텍처
+
+- `createStateStorage`에 선택적 검증기 `validatePersistentState?`를 추가. `loadState`는 (1) 버전 래퍼(`isVersionedObject`) 확인 후, (2) `migrate`/unwrap을 `try/catch`로 감싸 손상 데이터가 던지면 `null` 반환, (3) 검증기가 있고 통과하지 못하면 `null` 반환 → 상위 store가 기본값으로 시작.
+- 검증기는 마이그레이션 *후* 형태를 검사: `isPersistentWindowState`(7개 숫자/불리언 필드), `isPersistentAppState`(`entities`·`ui`가 plain object). 현재 버전의 형태만 보므로 정상 데이터를 거르지 않는다.
+
+### 까다로웠던 포인트
+
+- `createStateStorage`는 제네릭이라 영구 상태의 형태를 모른다 → 형태 검증을 호출부에서 주입하는 검증기로 위임. store 레벨엔 이미 `loadState` 실패 시 기본값 폴백하는 `.catch`가 있었지만, **구조는 정상이나 내용이 깨진** 데이터는 통과하던 빈틈을 이 검증기가 메운다.
+- 이전부터 `store.spec.ts`에 `it.skip`으로 막혀 있던 "invalid data면 기본값 유지" 테스트가 검증 로직 부재로 의미가 없던 것을, 실제로 영구 상태를 병합하는 merge로 바꿔 **검증 동작을 실증하도록 살림**. `stateStorage.spec.ts`의 주석 처리된 TODO 테스트도 검증/throw 케이스로 부활.
+
+### 수정 파일
+
+- **수정**: `common/data/stateStorage.ts`(검증기·try/catch), `main/base/state/window.ts`(`isPersistentWindowState`), `renderer/base/state/app.ts`(`isPersistentAppState`), `main/data/windowStateStorage.ts`·`renderer/data/appStateStorage.ts`(검증기 주입)
+- **테스트**: `stateStorage.spec.ts`(검증/throw), `store.spec.ts`(skip 해제), `window.spec.ts`·`app.spec.ts`(검증기), `windowStateStorage.spec.ts`·`appStateStorage.spec.ts`(인자), `fixtures/stateStorage.ts`(validate 지원)
+
+---
+
+## 50. 위젯 카운트 표시 — To-Do 완료/전체, Note 단어/글자 *(2026-06-07)*
+
+위젯 하단에 작은 상태바를 두어 한눈에 분량을 파악할 수 있게 했다.
+
+### 사용자 가시적 효과
+
+- **To-Do List**: 하단에 `완료 / 전체`(예: `1 / 3 done`, 비었으면 `No items`)를 표시.
+- **Note**: 하단에 `단어 수 · 글자 수`(예: `3 words · 13 chars`)를 표시. 입력하면 (약간의 디바운스 뒤) 실시간 갱신.
+- 둘 다 위젯에 이름을 지정해도 항상 보인다(헤더 타이틀이 아니라 위젯 본문 하단 바).
+
+### 아키텍처
+
+- 표시를 위젯 **본문 내부 로컬 상태**로 계산 — 앱 스토어(`ui.widgetDynamicTitles`)를 건드리지 않아 동적 타이틀 경로의 저장/리렌더 부하가 없다.
+- **To-Do**: 카운트는 discrete 액션(추가/체크/삭제)에서만 바뀌므로 렌더 시 동기 계산. 뷰포트를 flex 컬럼으로 감싸 스크롤 영역과 카운트 바를 분리.
+- **Note**: textarea가 uncontrolled(`defaultValue`+ref, 키 입력당 리렌더 회피)라, 카운트 `setState`를 **250ms 디바운스**해 그 설계를 유지. plain·markdown(TinyMDE) 모드 모두 하단 18px 여백을 둬 바를 띄운다.
+
+### 까다로웠던 포인트
+
+- Note 글자 수를 `setDynamicTitle`(헤더)로 하면 **키 입력마다 앱 스토어 write**가 발생해 부적절 → 로컬 상태 + 디바운스로 해결.
+- Note는 markdown 모드에서 `:global .TinyMDE`가 절대배치(bottom:0)라, 카운트 바 자리를 위해 textarea와 TinyMDE 양쪽의 `bottom`을 함께 조정해야 했다.
+
+### 수정 파일
+
+- **수정**: `widgets/to-do-list/widget.tsx`·`widget.module.scss`, `widgets/note/widget.tsx`·`widget.module.scss`
+- **테스트**: `to-do-list/widget.spec.ts`(카운트·빈 목록), `note/widget.spec.ts`(로드 카운트·타이핑 갱신)
+
+---
+
+## 51. 새 위젯: D-Day *(2026-06-07)*
+
+목표일까지/이후의 날짜 수를 세는 **디데이 위젯**을 추가. 시험·마감·기념일 같은 카운트다운을 워크플로우에 올려둘 수 있다.
+
+### 사용자 가시적 효과
+
+- 한 위젯에 **여러 개의 디데이**를 둘 수 있다(설정에서 라벨 + 날짜를 행으로 추가/삭제/순서이동). 위젯에는 `라벨 … D-카운트`가 목록으로 표시된다.
+- 한국식 표기: 목표일은 **D-DAY**, 이전은 **D-30**, 이후는 **D+15**. 당일 항목은 강조색으로 표시.
+- 자정이 지나면 카운트가 **자동으로 갱신**된다(앱을 켜둔 채 날짜가 바뀌어도 정확).
+- 설정의 **"날짜 표시" 토글**을 켜면 각 카운트 아래에 실제 날짜+요일(`2026-07-07 (화)`)이 표시된다(기본 꺼짐). 요일 표기는 OS 로케일을 따라간다(한글/영문 자동).
+
+### 아키텍처
+
+- `_template` 스캐폴드를 복사해 만든 표준 위젯(`widgets/d-day/`). 데이터 저장·`requiresApi` 불필요(설정의 날짜만 사용).
+- 멀티 엔트리 설정 에디터는 Web Query(#47)의 add/remove/reorder 패턴을 그대로 따른다.
+- 날짜 계산은 순수 함수 `formatDDay`/`formatDateWithWeekday`로 분리 — **로컬 캘린더 일자 기준**으로 차이를 계산(부분 시간·DST가 결과를 흔들지 않음). 요일은 `toLocaleDateString(locale, {weekday:'short'})`로 로케일 적용. `widgets/index.ts`에 등록.
+
+### 까다로웠던 포인트
+
+- `type="date"` 입력은 항상 유효 날짜를 주지만, 디스크에서 로드된 설정은 손상될 수 있어 `createSettingsState`에서 `parseLocalDate`로 **실제 유효성**까지 검사(형식만 맞는 `2026-99-99` 같은 값도 제거).
+- 자정 롤오버: 매초/매분 갱신은 낭비라, 다음 로컬 자정에 한 번 `setState`하도록 effect가 스스로 재예약한다.
+
+### 수정 파일
+
+- **신규**: `widgets/d-day/`(`index.ts`·`settings.tsx`·`settings.module.scss`·`widget.tsx`·`widget.module.scss`·`dDay.ts`·`icons/`)
+- **수정**: `widgets/index.ts`(등록)
+- **테스트**: `d-day/dDay.spec.ts`(계산·유효성), `settings.spec.ts`(sanitize·에디터), `widget.spec.tsx`(표시)
 
 ---
 

@@ -23,7 +23,14 @@ export function createStateStorage<TState extends object, TPersistentState exten
   version: number,
   debounceMsec: number,
   migrate: MigrateVersionedObject<object, TPersistentState>,
-  persistentStateFactory: (state: TState) => TPersistentState
+  persistentStateFactory: (state: TState) => TPersistentState,
+  /**
+   * Optional shape guard for the unwrapped (post-migration) persistent state.
+   * When it returns false — or when migrate/unwrap throws on corrupt data — the
+   * stored state is discarded and `loadState` resolves to null, so the store
+   * falls back to defaults instead of hydrating from a broken object.
+   */
+  validatePersistentState?: (state: TPersistentState) => boolean
 ): StateStorage<TState, TPersistentState> {
   const saveState = (state: TState) => {
     dataStorage.setJson(stateDataStoragKey, createVersionedObject(persistentStateFactory(state), version));
@@ -35,8 +42,17 @@ export function createStateStorage<TState extends object, TPersistentState exten
       if (!gotData || !isVersionedObject(gotData)) {
         return null;
       }
-      // TODO: validate PersistentState data
-      return unwrapVersionedObject(gotData, version, migrate)
+      try {
+        const state = unwrapVersionedObject(gotData, version, migrate);
+        if (validatePersistentState && !validatePersistentState(state)) {
+          console.warn(`Persisted state "${stateDataStoragKey}" failed validation; falling back to defaults.`);
+          return null;
+        }
+        return state;
+      } catch (err) {
+        console.warn(`Could not load persisted state "${stateDataStoragKey}"; falling back to defaults.`, err);
+        return null;
+      }
     },
     saveState: debouncedSaveState ?? saveState,
     flush: () => debouncedSaveState?.flush()

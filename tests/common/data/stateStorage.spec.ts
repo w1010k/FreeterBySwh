@@ -95,9 +95,68 @@ describe('StateStorage', () => {
       expect(gotState).toBeNull();
     })
 
-    // TODO
-    // it('should return undefined, when DataStorage has an invalid AppState object', () => {
-    // })
+    it('should return null, when the unwrapped state fails the validatePersistentState guard', async () => {
+      const curVer = 1;
+      const validate = jest.fn(() => false);
+      const stateStorage = createStateStorage(
+        withJson(createInMemoryDataStorage({
+          [stateKeyInDataStorage]: JSON.stringify(createVersionedObject({ state: 'invalid' }, curVer))
+        })),
+        stateKeyInDataStorage,
+        curVer,
+        5000,
+        state => state,
+        state => state,
+        validate
+      )
+
+      const gotState = await stateStorage.loadState();
+
+      expect(gotState).toBeNull();
+      expect(validate).toHaveBeenCalledWith({ state: 'invalid' });
+    })
+
+    it('should return the unwrapped state, when the validatePersistentState guard passes', async () => {
+      const state = { state: 'valid' };
+      const curVer = 1;
+      const validate = jest.fn(() => true);
+      const stateStorage = createStateStorage(
+        withJson(createInMemoryDataStorage({
+          [stateKeyInDataStorage]: JSON.stringify(createVersionedObject(state, curVer))
+        })),
+        stateKeyInDataStorage,
+        curVer,
+        5000,
+        s => s,
+        s => s,
+        validate
+      )
+
+      const gotState = await stateStorage.loadState();
+
+      expect(gotState).toEqual(state);
+      expect(validate).toHaveBeenCalledWith(state);
+    })
+
+    it('should return null, when the migrate function throws on corrupt data', async () => {
+      const stateVer = 1;
+      const curVer = 2;
+      const migrate: MigrateVersionedObject<object, { state: string }> = () => { throw new Error('corrupt'); };
+      const stateStorage = createStateStorage(
+        withJson(createInMemoryDataStorage({
+          [stateKeyInDataStorage]: JSON.stringify(createVersionedObject({ broken: true }, stateVer))
+        })),
+        stateKeyInDataStorage,
+        curVer,
+        5000,
+        migrate,
+        s => s
+      )
+
+      const gotState = await stateStorage.loadState();
+
+      expect(gotState).toBeNull();
+    })
   })
 
   describe('saveState', () => {

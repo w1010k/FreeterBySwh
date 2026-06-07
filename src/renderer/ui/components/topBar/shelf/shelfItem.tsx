@@ -7,7 +7,7 @@ import { ShelfItemProps, useShelfItemViewModel } from '@/ui/components/topBar/sh
 import { WidgetComponent } from '@/ui/components/widget';
 import clsx from 'clsx';
 import styles from './shelf.module.scss';
-import { memo, useCallback, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 type Deps = {
   Widget: WidgetComponent;
@@ -44,6 +44,10 @@ export function createShelfItemComponent({
     // drag keeps tracking over <webview> widgets below.
     const [isResizing, setIsResizing] = useState(false);
     const dragRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null);
+    // Detaches the window-level drag listeners. Held in a ref so that an unmount
+    // mid-drag (before mouseup fires) can still remove them — otherwise the
+    // listeners would leak past the component's lifetime.
+    const detachResizeRef = useRef<(() => void) | null>(null);
     const onResizerMouseDown = useCallback((e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -56,15 +60,25 @@ export function createShelfItemComponent({
         }
         onResizeHandler(drag.startW + (ev.clientX - drag.startX), drag.startH + (ev.clientY - drag.startY));
       };
-      const onUp = () => {
+      function onUp() {
         dragRef.current = null;
         setIsResizing(false);
+        // Remove *this* drag's own listeners (not whatever the ref currently
+        // points at) so overlapping drags can't leave a stray pair attached.
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        detachResizeRef.current = null;
+      }
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+      detachResizeRef.current = () => {
         window.removeEventListener('mousemove', onMove);
         window.removeEventListener('mouseup', onUp);
       };
-      window.addEventListener('mousemove', onMove);
-      window.addEventListener('mouseup', onUp);
     }, [widgetBoxWidth, widgetBoxHeight, onResizeHandler]);
+
+    // Safety net: drop any still-attached drag listeners if we unmount mid-drag.
+    useEffect(() => () => detachResizeRef.current?.(), []);
 
     return (
       <li

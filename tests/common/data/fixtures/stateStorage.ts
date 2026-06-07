@@ -9,7 +9,12 @@ import { withJson } from '@common/infra/dataStorage/withJson';
 import { createInMemoryDataStorage } from '@common/infra/dataStorage/inMemoryDataStorage'
 
 function fixtureStateStorageWithData<TState extends object = object>(
-  opts?: { dataInDataStorage?: Record<string, VersionedObject<TState>>, stateKeyInDataStorage?: string, currentVer?: number }
+  opts?: {
+    dataInDataStorage?: Record<string, VersionedObject<TState>>,
+    stateKeyInDataStorage?: string,
+    currentVer?: number,
+    validate?: (state: TState) => boolean
+  }
 ) {
   const dataInDataStorage = opts?.dataInDataStorage || {};
   const stateKeyInDataStorage = opts?.stateKeyInDataStorage || 'some-key';
@@ -26,7 +31,8 @@ function fixtureStateStorageWithData<TState extends object = object>(
     currentVer,
     0,
     data => data as TState,
-    data => data
+    data => data,
+    opts?.validate
   )
 }
 
@@ -44,7 +50,10 @@ export function fixtureStateStorageWithInvalidData(
     stateKeyInDataStorage: stateKey,
     dataInDataStorage: {
       [stateKey]: createVersionedObject(initData, curVer)
-    }
+    },
+    // Structurally a valid VersionedObject, but its content fails validation —
+    // loadState must discard it so the store keeps its init state.
+    validate: () => false
   })
 }
 
