@@ -65,13 +65,33 @@ export function createWidgetViewModelHook({
 }: Deps) {
   function showMoreActions(
     id: EntityId,
+    env: WidgetEnv,
   ) {
+    // Mirror the action-bar buttons here too: on a small widget the bar truncates
+    // and Settings/Delete may not fit, so they must stay reachable from "...".
     showContextMenuUseCase([
+      {
+        enabled: true,
+        label: 'Widget Settings',
+        doAction: async () => {
+          openWidgetSettingsUseCase(id, env);
+        }
+      },
       {
         enabled: true,
         label: 'Copy Widget',
         doAction: async () => {
           copyWidgetUseCase(id)
+        }
+      },
+      {
+        type: 'separator'
+      },
+      {
+        enabled: true,
+        label: 'Delete Widget',
+        doAction: async () => {
+          deleteWidgetUseCase(id, env);
         }
       }
     ])
@@ -98,7 +118,7 @@ export function createWidgetViewModelHook({
     id: 'MORE-ACTIONS',
     title: 'More Actions...',
     doAction: async () => {
-      showMoreActions(id);
+      showMoreActions(id, env);
     }
   }]
 

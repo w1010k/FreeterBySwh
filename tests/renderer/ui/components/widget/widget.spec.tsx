@@ -91,6 +91,7 @@ async function setup({
     openWidgetSettingsUseCase,
     deleteWidgetUseCase,
     showWidgetContextMenuUseCase,
+    showContextMenuUseCase,
     getWidgetApiUseCase,
   }
 }
@@ -679,6 +680,31 @@ describe('<Widget />', () => {
 
     expect(deleteWidgetUseCase).toHaveBeenCalledTimes(1);
     expect(deleteWidgetUseCase).toHaveBeenCalledWith(widgetId, env);
+  })
+
+  it('should include Widget Settings and Delete Widget in the More Actions menu (reachable when the bar is too small)', async () => {
+    const env = fixtureWidgetEnvAreaShelf();
+    const { showContextMenuUseCase } = await setup({
+      appState: fixtureAppState({
+        entities: {
+          widgetTypes: {
+            ...fixtureWidgetTypeAInColl({ id: widgetTypeId1 }),
+          }
+        },
+        ui: {
+          editMode: true
+        }
+      }),
+      widget: fixtureWidgetA({ id: widgetId, type: widgetTypeId1 }),
+      env
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /more actions/i }));
+
+    expect(showContextMenuUseCase).toHaveBeenCalledTimes(1);
+    const items = showContextMenuUseCase.mock.calls[0][0] as Array<{ label?: string }>;
+    const labels = items.map(i => i.label).filter(Boolean);
+    expect(labels).toEqual(expect.arrayContaining(['Widget Settings', 'Copy Widget', 'Delete Widget']));
   })
 
   it('should display a warning and nothing else, if the widget has an unexisting type', async () => {
