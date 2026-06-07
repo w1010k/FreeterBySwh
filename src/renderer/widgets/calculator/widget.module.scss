@@ -1,0 +1,66 @@
+/*
+ * Copyright: (c) 2024, Alex Kaul
+ * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+ */
+
+.calculator {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  outline: none;
+}
+
+.display {
+  flex: 0 0 auto;
+  text-align: right;
+  font-family: 'Roboto Condensed';
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  padding: 4px 8px;
+  min-height: 30px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background-color: var(--freeter-textareaBackground);
+  color: var(--freeter-textareaColor);
+  border: 1px solid var(--freeter-textareaBorder);
+  border-radius: 3px;
+}
+
+.keys {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+  min-height: 0;
+}
+
+.key {
+  border: 1px solid var(--freeter-buttonBorder, var(--freeter-textareaBorder));
+  background-color: var(--freeter-buttonBackground);
+  color: var(--freeter-buttonColor);
+  border-radius: 3px;
+  font-size: 16px;
+  cursor: pointer;
+  min-width: 0;
+  &:hover {
+    background-color: var(--freeter-buttonHoverBackground);
+  }
+}
+
+.key.is-wide {
+  grid-column: span 2;
+}
+
+.key.is-op, .key.is-eq {
+  font-weight: 600;
+  color: var(--freeter-primary60);
+}
+
+.key.is-fn {
+  opacity: 0.85;
+}
