@@ -27,19 +27,41 @@
   width: 200px;
   flex: 0 0 auto;
   border-bottom: none;
-  border-right: 1px solid var(--freeter-workflowSwitcherBorder);
+  // No continuous worktable-side bar border: each tab button draws its own edge,
+  // and the selected tab drops it so it visually connects to the worktable — a
+  // real tab-view look. Non-tab sections keep the edge so they stay framed.
+  border-right: none;
   overflow-y: auto;
   overflow-x: hidden;
-
-  &.is-right {
-    border-right: none;
-    border-left: 1px solid var(--freeter-workflowSwitcherBorder);
-  }
 
   .workflow-switcher-bar-section {
     &:not(:last-child) {
       border-right: none;
       border-bottom: 1px solid var(--freeter-workflowSwitcherBorder);
+    }
+    &:not(.workflow-switcher) {
+      border-right: 1px solid var(--freeter-workflowSwitcherBorder);
+    }
+  }
+
+  // Selected tab connects to the worktable on the right. Restore the inter-tab
+  // separator (bottom) that the shared horizontal rule had recolored.
+  .workflow-switcher-item:has(> .workflow-switcher-item-button[aria-selected="true"]) > .workflow-switcher-item-button {
+    border-bottom-color: var(--freeter-workflowSwitcherBorder);
+    border-right-color: var(--freeter-workflowSwitcherTabOpenBackground);
+  }
+
+  // Right-side bar: the worktable is on the left, so mirror the edge handling.
+  &.is-right {
+    border-left: none;
+
+    .workflow-switcher-bar-section:not(.workflow-switcher) {
+      border-right: none;
+      border-left: 1px solid var(--freeter-workflowSwitcherBorder);
+    }
+    .workflow-switcher-item:has(> .workflow-switcher-item-button[aria-selected="true"]) > .workflow-switcher-item-button {
+      border-right-color: var(--freeter-workflowSwitcherBorder);
+      border-left-color: var(--freeter-workflowSwitcherTabOpenBackground);
     }
   }
 
