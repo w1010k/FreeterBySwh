@@ -113,7 +113,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   return <div className={clsx(styles['pomodoro'], phase === 'work' ? styles['is-work'] : styles['is-break'])}>
     <div className={styles['phase']}>{phase === 'work' ? 'Work' : 'Break'}</div>
     <div className={styles['mmss']}>{mmss}</div>
-    <div className={styles['count']}>🍅 {doneWork}</div>
+    {doneWork > 0 && <div className={styles['count']}>🍅 {doneWork}</div>}
     <div className={styles['buttons']}>
       {isRunning
         ? <Button caption='Pause' onClick={pause} size='M'/>
