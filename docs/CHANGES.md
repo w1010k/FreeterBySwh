@@ -1769,6 +1769,32 @@ Webpage 위젯의 자동 리로드가 **사용자가 그 페이지를 쓰고 있
 
 ---
 
+## 61. File Explorer: 액션바 유틸 버튼 (새로고침 · 전부 접기) *(2026-06-15)*
+
+File Explorer 위젯 액션바에 유틸 버튼 두 개 추가.
+
+- **새로고침(Refresh)**: 파일시스템을 다시 읽어 트리를 갱신. 디렉터리 내용은 첫 펼침 때 읽고 `loadedDirs`에 캐시되므로, 외부에서 파일이 추가·삭제돼도 그동안은 반영되지 않았다. 이 버튼이 그 공백을 메운다. (트리는 즐겨찾기 루트 상태로 돌아가고, 다시 펼치면 디스크에서 새로 읽음.)
+- **전부 접기(Collapse all)**: 깊게 펼쳐 둔 트리를 한 번에 즐겨찾기 루트 상태로 되돌린다.
+
+### 아키텍처
+
+- 아이콘 `icons/refresh.svg`(원형 화살표), `icons/collapse-all.svg`(이중 ^ 셰브론) → `icons/index.ts` export.
+- **새로고침**: 기존에 effect 안에 있던 루트 재빌드 로직(설정 변경 시 트리를 루트로 리셋 + 캐시 clear)을 `rebuildRoots` 콜백으로 추출해, 설정-변경 effect와 버튼이 함께 호출. `loadEpoch` 증가로 진행 중이던 지연 로드 결과는 버려진다.
+- **전부 접기**: 위젯이 이미 들고 있는 `dirTreePaths` 맵을 순회하며 `@pierre/trees`의 `FileTreeDirectoryHandle.collapse()` 호출. 루트만이 아니라 **알려진 모든 디렉터리**를 접어, 루트를 다시 펼쳐도 그 하위가 접힌 상태로 보인다.
+- note 위젯과 동일한 `widgetApi.updateActionBar(...)` 패턴으로 등록. 폴더 미설정 시 빈 배열을 넘겨 버튼을 숨김.
+
+### 까다로웠던 포인트
+
+- **전부 접기**는 접기만 하고 `loadedDirs`는 건드리지 않는다 — 자식 노드는 트리에 그대로 남아 재펼침이 즉시(재읽기 없이) 이뤄지고, 지연 로드 effect가 이미 있는 경로를 다시 `add`하는 중복도 피한다. 반대로 **새로고침**은 의도적으로 캐시를 비워 디스크를 다시 읽는다 — 두 버튼의 캐시 처리가 정반대.
+- `getItem`은 파일/디렉터리 union을 반환하므로 `'collapse' in item`으로 디렉터리 핸들만 좁혀서 호출.
+
+### 수정 파일
+
+- **신규**: `widgets/file-explorer/icons/collapse-all.svg`, `widgets/file-explorer/icons/refresh.svg`
+- **수정**: `widgets/file-explorer/icons/index.ts`, `widgets/file-explorer/widget.tsx`
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

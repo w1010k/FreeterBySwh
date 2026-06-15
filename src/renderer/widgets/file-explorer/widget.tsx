@@ -11,6 +11,7 @@ import { FileTree, useFileTree } from '@pierre/trees/react';
 import { preparePresortedFileTreeInput } from '@pierre/trees';
 import type { ContextMenuItem, ContextMenuOpenContext, FileTreeRowDecoration, FileTreeRowDecorationContext } from '@pierre/trees';
 import { basenameOf, buildEntryPaths, buildRootEntries, dirnameOf, humanFileSize, toMapKey, toTreePath } from './treeModel';
+import { collapseAllSvg, refreshSvg } from './icons';
 import styles from './widget.module.scss';
 
 // Bind the tree's theme custom properties to Freeter's theme vars so the tree
@@ -36,7 +37,7 @@ const treeThemeStyle = {
 } as CSSProperties;
 
 function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) {
-  const { fs, shell, clipboard } = widgetApi;
+  const { fs, shell, clipboard, updateActionBar } = widgetApi;
   const { paths, showFileSize, showHiddenFiles } = settings;
 
   // Stable string key for the configured folders. The effects depend on this
@@ -96,11 +97,10 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     }
   }, []);
 
-  // Rebuild the root from the configured favorite folders whenever they change.
-  // Also re-runs when `showFileSize` / `showHiddenFiles` toggle so the tree
-  // collapses to roots and reloads children with the new decoration / filter
-  // (acceptable churn for rarely-toggled settings).
-  useEffect(() => {
+  // Collapse the tree back to its favorite roots and drop all cached children,
+  // so the next expansion re-reads from disk. Reused by both the settings-change
+  // effect and the Refresh action.
+  const rebuildRoots = useCallback(() => {
     showFileSizeRef.current = showFileSize;
     showHiddenFilesRef.current = showHiddenFiles;
     loadEpoch.current += 1;
@@ -116,6 +116,14 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     // default (natural, folders-first) sibling sort, which respects `sort: 'default'`.
     model.resetPaths(undefined as unknown as readonly string[], { preparedInput: preparePresortedFileTreeInput(built.treePaths) });
   }, [pathsKey, showFileSize, showHiddenFiles, model, registerEntries]);
+
+  // Rebuild the root from the configured favorite folders whenever they change.
+  // Also re-runs when `showFileSize` / `showHiddenFiles` toggle so the tree
+  // collapses to roots and reloads children with the new decoration / filter
+  // (acceptable churn for rarely-toggled settings).
+  useEffect(() => {
+    rebuildRoots();
+  }, [rebuildRoots]);
 
   // Lazily read a directory's children the first time it gets expanded.
   useEffect(() => {
@@ -197,6 +205,37 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
       document.body
     );
   }, [shell, clipboard]);
+
+  // Collapse every known (loaded) directory back to its roots. Collapsing each
+  // dir — not just the roots — means re-expanding a root shows its children
+  // collapsed too. Children stay loaded, so re-expanding is instant (no re-read).
+  const collapseAll = useCallback(() => {
+    dirTreePaths.current.forEach(treePath => {
+      const item = model.getItem(treePath);
+      if (item && 'collapse' in item) {
+        item.collapse();
+      }
+    });
+  }, [model]);
+
+  useEffect(() => {
+    updateActionBar(!hasFolders ? [] : [
+      {
+        enabled: true,
+        icon: refreshSvg,
+        id: 'REFRESH',
+        title: 'Refresh',
+        doAction: async () => rebuildRoots()
+      },
+      {
+        enabled: true,
+        icon: collapseAllSvg,
+        id: 'COLLAPSE-ALL',
+        title: 'Collapse all',
+        doAction: async () => collapseAll()
+      }
+    ]);
+  }, [updateActionBar, hasFolders, collapseAll, rebuildRoots]);
 
   if (!hasFolders) {
     return <div className={styles['message']}>No folders configured. Add folders in the widget settings.</div>;
