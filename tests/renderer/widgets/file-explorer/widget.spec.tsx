@@ -5,7 +5,7 @@
 
 import { Settings } from '@/widgets/file-explorer/settings';
 import { widgetComp } from '@/widgets/file-explorer/widget';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut';
 // moduleNameMapper redirects this to the manual mock; a plain import (not
 // jest.requireMock, which would auto-mock it) yields the same model instance
@@ -136,6 +136,54 @@ describe('File Explorer Widget', () => {
     loadExpanded();
     await waitFor(() => expect(model.add).toHaveBeenCalledWith('Downloads/a.txt'));
     expect(readDir).toHaveBeenCalledTimes(2);
+  })
+
+  it('should re-read directories from disk when Refresh is clicked', async () => {
+    const updateActionBar = jest.fn();
+    const readDir = jest.fn(async () => [{ name: 'a.txt', path: '/home/user/Downloads/a.txt', isDirectory: false, size: 1 }]);
+    const model = treesMock.__getModel();
+    model.getItem.mockImplementation((p: string) => (p === 'Downloads/' ? { isDirectory: () => true, isExpanded: () => true } : null));
+
+    setupSut(fixtureSettings({ paths: ['/home/user/Downloads'] }), { mockWidgetApi: { updateActionBar, fs: { readDir } } });
+
+    await waitFor(() => expect(model.resetPaths).toHaveBeenCalled());
+    const loadExpanded = model.subscribe.mock.calls[0][0];
+
+    // First expansion reads from disk; a second expansion alone does NOT (cached as loaded).
+    loadExpanded();
+    await waitFor(() => expect(readDir).toHaveBeenCalledTimes(1));
+    loadExpanded();
+    expect(readDir).toHaveBeenCalledTimes(1);
+
+    // Refresh clears the cache, so the next expansion reads from disk again.
+    const refresh = updateActionBar.mock.calls.at(-1)![0].find((i: { id: string }) => i.id === 'REFRESH');
+    await act(async () => { await refresh.doAction(); });
+    loadExpanded();
+    await waitFor(() => expect(readDir).toHaveBeenCalledTimes(2));
+  })
+
+  it('should collapse known directories when Collapse all is clicked', async () => {
+    const updateActionBar = jest.fn();
+    const collapse = jest.fn();
+    const model = treesMock.__getModel();
+    model.getItem.mockImplementation((p: string) => (p === 'Downloads/' ? { collapse, isExpanded: () => true } : null));
+
+    setupSut(fixtureSettings({ paths: ['/home/user/Downloads'] }), { mockWidgetApi: { updateActionBar } });
+
+    await waitFor(() => expect(model.resetPaths).toHaveBeenCalled());
+
+    const collapseAll = updateActionBar.mock.calls.at(-1)![0].find((i: { id: string }) => i.id === 'COLLAPSE-ALL');
+    await act(async () => { await collapseAll.doAction(); });
+
+    expect(collapse).toHaveBeenCalled();
+  })
+
+  it('should not register action bar buttons when no folders are configured', () => {
+    const updateActionBar = jest.fn();
+
+    setupSut(fixtureSettings({ paths: ['', ''] }), { mockWidgetApi: { updateActionBar } });
+
+    expect(updateActionBar).toHaveBeenLastCalledWith([]);
   })
 
   it('should not open anything on double-click when no row is focused', async () => {
