@@ -77,6 +77,7 @@ async function setup({
     showContextMenuUseCase,
     setExposedApiUseCase,
     setWidgetDynamicTitleUseCase,
+    logTelemetryActivityUseCase: jest.fn(),
   })
   const Widget = createWidgetComponent({
     useWidgetViewModel
@@ -885,6 +886,7 @@ describe('<Widget />', () => {
     expect(getWidgetApiUseCase).toHaveBeenCalledWith(
       widgetId,
       false,
+      expect.any(Function),
       expect.any(Function),
       expect.any(Function),
       expect.any(Function),

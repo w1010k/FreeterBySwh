@@ -10,6 +10,7 @@ import { ProcessInfo } from '@common/base/process';
 import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
 import { SystemStats } from '@common/base/systemStats';
 import { OpenDialogResult, OpenDirDialogConfig, OpenFileDialogConfig } from '@common/base/dialog';
+import { TelemetryActivityPayload, TelemetryActivityType } from '@common/base/telemetry';
 
 interface WidgetApiCommon {
   readonly updateActionBar: (actionBarItems: ActionBarItems) => void;
@@ -21,6 +22,12 @@ interface WidgetApiCommon {
    * clear.
    */
   readonly setDynamicTitle: (title: string | null) => void;
+  /**
+   * Record a semantic activity-timeline event (search, page visit, file open,
+   * to-do done) for local usage analytics. No-op unless the user opted in.
+   * Never pass secrets — text is stored as-is on disk (locally).
+   */
+  readonly logActivity: (type: TelemetryActivityType, payload?: TelemetryActivityPayload) => void;
 }
 
 // Widget things available for use by other widgets via WidgetAPI.widgets
@@ -97,12 +104,14 @@ export type WidgetApiUpdateActionBarHandler = (actionBarItems: ActionBarItems) =
 export type WidgetApiSetContextMenuFactoryHandler = (factory: WidgetContextMenuFactory) => void;
 export type WidgetApiExposeApiHandler = (api: object) => void;
 export type WidgetApiSetDynamicTitleHandler = (title: string | null) => void;
+export type WidgetApiLogActivityHandler = (type: TelemetryActivityType, payload?: TelemetryActivityPayload) => void;
 export type WidgetApiCommonFactory = (
   widgetId: EntityId,
   updateActionBarHandler: WidgetApiUpdateActionBarHandler,
   setContextMenuFactoryHandler: WidgetApiSetContextMenuFactoryHandler,
   exposeApiHandler: WidgetApiExposeApiHandler,
-  setDynamicTitleHandler: WidgetApiSetDynamicTitleHandler
+  setDynamicTitleHandler: WidgetApiSetDynamicTitleHandler,
+  logActivityHandler: WidgetApiLogActivityHandler
 ) => WidgetApiCommon;
 type WidgetApiModuleFactory<N extends WidgetApiModuleName> = (widgetId: EntityId) => WidgetApiModules[N];
 export type WidgetApiModuleFactories = {
@@ -115,6 +124,7 @@ export type WidgetApiFactory = (
   setContextMenuFactoryHandler: WidgetApiSetContextMenuFactoryHandler,
   exposeApiHandler: WidgetApiExposeApiHandler,
   setDynamicTitleHandler: WidgetApiSetDynamicTitleHandler,
+  logActivityHandler: WidgetApiLogActivityHandler,
   availableModules: WidgetApiModuleName[]
 ) => WidgetApi;
 
@@ -125,9 +135,10 @@ export function createWidgetApiFactory(commonFactory: WidgetApiCommonFactory, mo
     setContextMenuFactoryHandler: WidgetApiSetContextMenuFactoryHandler,
     exposeApiHandler: WidgetApiExposeApiHandler,
     setDynamicTitleHandler: WidgetApiSetDynamicTitleHandler,
+    logActivityHandler: WidgetApiLogActivityHandler,
     availableModules: WidgetApiModuleName[]
   ) => ({
-    ...commonFactory(widgetId, updateActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler, setDynamicTitleHandler),
+    ...commonFactory(widgetId, updateActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler, setDynamicTitleHandler, logActivityHandler),
     ...Object.fromEntries(availableModules.map(featName => ([featName, moduleFactories[featName](widgetId)])))
   } as WidgetApi);
 }

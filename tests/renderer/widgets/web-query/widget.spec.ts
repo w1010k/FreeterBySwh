@@ -579,4 +579,30 @@ describe('Web Query Widget', () => {
       expect(setJson).toHaveBeenLastCalledWith('history', ['b', 'a']);
     })
   })
+
+  describe('activity logging', () => {
+    it('logs a web_search activity with the typed query on submit', async () => {
+      const logActivity = jest.fn();
+      const { userEvent } = setupSut(
+        fixtureSettings1(SettingsMode.Browser, { engine: defaultEngine.id }),
+        { mockWidgetApi: { shell: { openExternalUrl: jest.fn() }, logActivity } }
+      );
+
+      await userEvent.type(screen.getByRole('combobox'), 'rust traits[enter]');
+
+      expect(logActivity).toHaveBeenCalledWith('web_search', { text: 'rust traits' });
+    })
+
+    it('does not log when the query is empty/whitespace', async () => {
+      const logActivity = jest.fn();
+      const { userEvent } = setupSut(
+        fixtureSettings1(SettingsMode.Browser, { engine: defaultEngine.id }),
+        { mockWidgetApi: { shell: { openExternalUrl: jest.fn() }, logActivity } }
+      );
+
+      await userEvent.type(screen.getByRole('combobox'), '   [enter]');
+
+      expect(logActivity).not.toHaveBeenCalled();
+    })
+  })
 })

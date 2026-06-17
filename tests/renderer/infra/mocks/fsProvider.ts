@@ -9,6 +9,7 @@ const fsProvider: FsProvider = {
   readDir: jest.fn(async () => []),
   getHomeDir: jest.fn(async () => ''),
   getImageDataUrl: jest.fn(async () => null),
+  writeTextFile: jest.fn(async () => true),
 }
 
 export const mockFsProvider = (props: Partial<FsProvider>) => ({ ...fsProvider, ...props });

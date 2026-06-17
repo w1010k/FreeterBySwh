@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { hostFreeterApp, schemeFreeterFile } from '@common/infra/network';
 import { channelPrefix } from '@common/ipc/ipc';
 import { createIpcMain } from '@/infra/ipcMain/ipcMain';
-import { app } from 'electron';
+import { app, powerMonitor, BrowserWindow as ElectronBrowserWindow } from 'electron';
 import { createRendererWindow } from '@/infra/browserWindow/browserWindow';
 import { createIpcMainEventValidator } from '@/infra/ipcMain/ipcMainEventValidator';
 import { registerAppFileProtocol } from '@/infra/protocolHandler/registerAppFileProtocol';
@@ -26,6 +26,7 @@ import { createFsProvider } from '@/infra/fsProvider/fsProvider';
 import { createReadDirUseCase } from '@/application/useCases/fs/readDir';
 import { createGetHomeDirUseCase } from '@/application/useCases/fs/getHomeDir';
 import { createGetImageDataUrlUseCase } from '@/application/useCases/fs/getImageDataUrl';
+import { createWriteTextFileUseCase } from '@/application/useCases/fs/writeTextFile';
 import { createWriteTextIntoClipboardUseCase } from '@/application/useCases/clipboard/writeTextIntoClipboard';
 import { createClipboardProvider } from '@/infra/clipboardProvider/clipboardProvider';
 import { createOpenExternalUrlUseCase } from '@/application/useCases/shell/openExternalUrl';
@@ -92,6 +93,17 @@ import { createIconControllers } from '@/controllers/icon';
 import { createDownloadManager } from '@/infra/downloads/downloadManager';
 import { createSetDownloadDirUseCase } from '@/application/useCases/download/setDownloadDir';
 import { createDownloadControllers } from '@/controllers/download';
+import { createGetTextFromTelemetryDataStorageUseCase } from '@/application/useCases/telemetryDataStorage/getTextFromTelemetryDataStorage';
+import { createSetTextInTelemetryDataStorageUseCase } from '@/application/useCases/telemetryDataStorage/setTextInTelemetryDataStorage';
+import { createDeleteInTelemetryDataStorageUseCase } from '@/application/useCases/telemetryDataStorage/deleteInTelemetryDataStorage';
+import { createClearTelemetryDataStorageUseCase } from '@/application/useCases/telemetryDataStorage/clearTelemetryDataStorage';
+import { createGetKeysFromTelemetryDataStorageUseCase } from '@/application/useCases/telemetryDataStorage/getKeysFromTelemetryDataStorage';
+import { createTelemetryDataStorageControllers } from '@/controllers/telemetryDataStorage';
+import { createForegroundWindowReader } from '@/infra/osActivity/foregroundWindow';
+import { createOsActivityMonitor } from '@/application/osActivity/osActivityMonitor';
+import { createSetOsMonitoringUseCase } from '@/application/useCases/osActivity/setOsMonitoring';
+import { createOsActivityControllers } from '@/controllers/osActivity';
+import { ipcOsActivityEventChannel } from '@common/ipc/channels';
 
 let appWindow: BrowserWindow | null = null; // ref to the app window
 
@@ -118,6 +130,11 @@ if (!app.requestSingleInstanceLock()) {
   // async and not awaited, but flushing here shrinks the loss window from the
   // debounce delay (~5s) to a few ms.
   let flushWindowStore: (() => void) | undefined;
+
+  // Set after the OS activity monitor is created; stopped on quit so the
+  // long-lived PowerShell foreground-window reader isn't left orphaned (Windows
+  // does not auto-kill child processes when the parent exits).
+  let stopOsMonitor: (() => void) | undefined;
 
   const processProvider = createProcessProvider();
   const processInfo = processProvider.getProcessInfo();
@@ -146,6 +163,8 @@ if (!app.requestSingleInstanceLock()) {
   app.on('will-quit', () => {
     // Persist any pending (debounced) window state before exiting.
     flushWindowStore?.();
+    // Stop the OS activity monitor (kills its PowerShell child process).
+    stopOsMonitor?.();
     // Unregister global shortcuts
     globalShortcutProvider.destroy();
   })
@@ -195,6 +214,35 @@ if (!app.requestSingleInstanceLock()) {
     const clearSharedDataStorageUseCase = createClearSharedDataStorageUseCase({ sharedDataStorageManager });
     const getKeysFromSharedDataStorageUseCase = createGetKeysFromSharedDataStorageUseCase({ sharedDataStorageManager });
 
+    // Local usage telemetry lives in its own dir, isolated from app/widget data,
+    // so the user can wipe it independently (and inspect it as plain files).
+    const telemetryDataStorage = await createFileDataStorage('string', join(appDataDir, 'telemetry'));
+    const getTextFromTelemetryDataStorageUseCase = createGetTextFromTelemetryDataStorageUseCase({ telemetryDataStorage });
+    const setTextInTelemetryDataStorageUseCase = createSetTextInTelemetryDataStorageUseCase({ telemetryDataStorage });
+    const deleteInTelemetryDataStorageUseCase = createDeleteInTelemetryDataStorageUseCase({ telemetryDataStorage });
+    const clearTelemetryDataStorageUseCase = createClearTelemetryDataStorageUseCase({ telemetryDataStorage });
+    const getKeysFromTelemetryDataStorageUseCase = createGetKeysFromTelemetryDataStorageUseCase({ telemetryDataStorage });
+
+    // OS-wide activity monitor (foreground app/window + power/idle). Started only
+    // when the renderer reports consent is on. Events are pushed to the renderer,
+    // which records them through the same consent-gated telemetry pipeline.
+    const osActivityMonitor = createOsActivityMonitor({
+      reader: createForegroundWindowReader(),
+      powerMonitor,
+      now: () => Date.now(),
+      emit: (event) => {
+        for (const win of ElectronBrowserWindow.getAllWindows()) {
+          if (!win.isDestroyed()) {
+            // A window can be torn down between the guard and send; isolate each
+            // so one dead window can't abort delivery to the others.
+            try { win.webContents.send(ipcOsActivityEventChannel, event); } catch { /* window gone */ }
+          }
+        }
+      },
+    });
+    const setOsMonitoringUseCase = createSetOsMonitoringUseCase({ osActivityMonitor });
+    stopOsMonitor = () => osActivityMonitor.stop();
+
     const contextMenuProvider = createContextMenuProvider();
     const popupContextMenuUseCase = createPopupContextMenuUseCase({ contextMenuProvider });
 
@@ -211,6 +259,7 @@ if (!app.requestSingleInstanceLock()) {
     const readDirUseCase = createReadDirUseCase({ fsProvider });
     const getHomeDirUseCase = createGetHomeDirUseCase({ fsProvider });
     const getImageDataUrlUseCase = createGetImageDataUrlUseCase({ fsProvider });
+    const writeTextFileUseCase = createWriteTextFileUseCase({ fsProvider });
 
     const getProcessInfoUseCase = createGetProcessInfoUseCase({ processProvider });
     const { isLinux } = await getProcessInfoUseCase();
@@ -259,7 +308,7 @@ if (!app.requestSingleInstanceLock()) {
       ...createContextMenuControllers({ popupContextMenuUseCase }),
       ...createClipboardControllers({ writeBookmarkIntoClipboardUseCase, writeTextIntoClipboardUseCase }),
       ...createShellControllers({ openExternalUrlUseCase, openPathUseCase, openAppUseCase, openAppDataDirUseCase }),
-      ...createFsControllers({ readDirUseCase, getHomeDirUseCase, getImageDataUrlUseCase }),
+      ...createFsControllers({ readDirUseCase, getHomeDirUseCase, getImageDataUrlUseCase, writeTextFileUseCase }),
       ...createProcessControllers({ getProcessInfoUseCase }),
       ...createSystemStatsControllers({ getSystemStatsUseCase }),
       ...createDialogControllers({
@@ -281,7 +330,15 @@ if (!app.requestSingleInstanceLock()) {
         getKeysFromSharedDataStorageUseCase,
       }),
       ...createIconControllers({ getFileIconUseCase, getFaviconUseCase }),
-      ...createDownloadControllers({ setDownloadDirUseCase })
+      ...createDownloadControllers({ setDownloadDirUseCase }),
+      ...createTelemetryDataStorageControllers({
+        getTextFromTelemetryDataStorageUseCase,
+        setTextInTelemetryDataStorageUseCase,
+        deleteInTelemetryDataStorageUseCase,
+        clearTelemetryDataStorageUseCase,
+        getKeysFromTelemetryDataStorageUseCase,
+      }),
+      ...createOsActivityControllers({ setOsMonitoringUseCase })
     ])
 
     const [windowStore] = createWindowStore({

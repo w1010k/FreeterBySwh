@@ -54,6 +54,26 @@ export const ipcCopyWidgetDataStorageChannel = makeIpcChannelName('copt-widget-d
 export type IpcCopyWidgetDataStorageArgs = [srcWidgetId: string, toWidgetId: string];
 export type IpcCopyWidgetDataStorageRes = boolean;
 
+export const ipcTelemetryDataStorageGetTextChannel = makeIpcChannelName('telemetry-data-storage-get-text');
+export type IpcTelemetryDataStorageGetTextArgs = [key: string];
+export type IpcTelemetryDataStorageGetTextRes = string | undefined;
+
+export const ipcTelemetryDataStorageSetTextChannel = makeIpcChannelName('telemetry-data-storage-set-text');
+export type IpcTelemetryDataStorageSetTextArgs = [key: string, text: string];
+export type IpcTelemetryDataStorageSetTextRes = void;
+
+export const ipcTelemetryDataStorageDeleteChannel = makeIpcChannelName('telemetry-data-storage-delete');
+export type IpcTelemetryDataStorageDeleteArgs = [key: string];
+export type IpcTelemetryDataStorageDeleteRes = void;
+
+export const ipcTelemetryDataStorageClearChannel = makeIpcChannelName('telemetry-data-storage-clear');
+export type IpcTelemetryDataStorageClearArgs = [];
+export type IpcTelemetryDataStorageClearRes = void;
+
+export const ipcTelemetryDataStorageGetKeysChannel = makeIpcChannelName('telemetry-data-storage-get-keys');
+export type IpcTelemetryDataStorageGetKeysArgs = [];
+export type IpcTelemetryDataStorageGetKeysRes = string[];
+
 export const ipcSharedDataGetTextChannel = makeIpcChannelName('shared-data-get-text');
 export type IpcSharedDataGetTextArgs = [widgetType: string, sharedKeyId: string, key: string];
 export type IpcSharedDataGetTextRes = string | undefined;
@@ -171,6 +191,19 @@ export const ipcShowBrowserWindowChannel = makeIpcChannelName('show-browser-wind
 export type IpcShowBrowserWindowArgs = [];
 export type IpcShowBrowserWindowRes = void;
 
+/** main → renderer: the app window gained (true) or lost (false) focus. */
+export const ipcAppFocusChangedChannel = makeIpcChannelName('app-focus-changed');
+export type IpcAppFocusChangedArgs = [focused: boolean];
+
+/** renderer → main: start/stop OS-wide activity monitoring (gated on consent). */
+export const ipcSetOsMonitoringChannel = makeIpcChannelName('set-os-monitoring');
+export type IpcSetOsMonitoringArgs = [enabled: boolean];
+export type IpcSetOsMonitoringRes = void;
+
+/** main → renderer: an OS-wide activity event (foreground app/window or power event). */
+export const ipcOsActivityEventChannel = makeIpcChannelName('os-activity-event');
+export type IpcOsActivityEventArgs = [event: { type: 'os_window' | 'system_event'; text: string; detail?: string; durationMs?: number }];
+
 
 export const ipcExecCmdLinesInTerminalChannel = makeIpcChannelName('exec-cmd-lines-in-terminal');
 export type IpcExecCmdLinesInTerminalArgs = [cmdLines: ReadonlyArray<string>, cwd?: string];
@@ -195,6 +228,10 @@ export type IpcFsGetHomeDirRes = string;
 export const ipcFsGetImageDataUrlChannel = makeIpcChannelName('fs-get-image-data-url');
 export type IpcFsGetImageDataUrlArgs = [path: string];
 export type IpcFsGetImageDataUrlRes = string | null;
+
+export const ipcFsWriteTextFileChannel = makeIpcChannelName('fs-write-text-file');
+export type IpcFsWriteTextFileArgs = [path: string, text: string];
+export type IpcFsWriteTextFileRes = boolean;
 
 export const ipcGetSystemStatsChannel = makeIpcChannelName('get-system-stats');
 export type IpcGetSystemStatsArgs = [];

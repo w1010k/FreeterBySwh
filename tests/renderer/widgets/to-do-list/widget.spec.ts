@@ -240,6 +240,31 @@ describe('To-Do List Widget', () => {
     });
   })
 
+  it('should log a todo_done activity when an item is checked complete', async () => {
+    const testState: ToDoListState = {
+      items: [
+        { id: 1, isDone: false, text: 'Ship the release' },
+        { id: 2, isDone: true, text: 'Already done' },
+      ],
+      nextItemId: 99
+    };
+    const logActivity = jest.fn();
+    const { userEvent } = setupToDoListWidgetSut(fixtureSettings({}), {
+      mockWidgetApi: { dataStorage: { getJson: jest.fn().mockResolvedValue(testState) }, logActivity }
+    });
+    const user = userEvent.setup({ delay: null });
+
+    await waitFor(() => expect(screen.getByRole('list')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('checkbox', { name: 'Ship the release' }));
+    expect(logActivity).toHaveBeenCalledWith('todo_done', { text: 'Ship the release' });
+
+    // Un-checking an already-done item must NOT log.
+    logActivity.mockClear();
+    await user.click(screen.getByRole('checkbox', { name: 'Already done' }));
+    expect(logActivity).not.toHaveBeenCalled();
+  })
+
   // TODO: more tests needed for the rest features
 })
 

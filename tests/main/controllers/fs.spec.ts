@@ -15,24 +15,29 @@ function setup() {
   const readDirUseCase = jest.fn(async () => readDirUseCaseRes);
   const getHomeDirUseCase = jest.fn(() => getHomeDirUseCaseRes);
   const getImageDataUrlUseCase = jest.fn(async () => null);
+  const writeTextFileUseCase = jest.fn(async () => true);
 
   const [
     readDirController,
     getHomeDirController,
-    getImageDataUrlController
+    getImageDataUrlController,
+    writeTextFileController
   ] = createFsControllers({
     readDirUseCase,
     getHomeDirUseCase,
-    getImageDataUrlUseCase
+    getImageDataUrlUseCase,
+    writeTextFileUseCase
   })
 
   return {
     readDirUseCase,
     getHomeDirUseCase,
     getImageDataUrlUseCase,
+    writeTextFileUseCase,
     readDirController,
     getHomeDirController,
     getImageDataUrlController,
+    writeTextFileController,
   }
 }
 

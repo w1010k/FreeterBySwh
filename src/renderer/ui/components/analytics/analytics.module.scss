@@ -1,0 +1,180 @@
+.analytics {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 520px;
+  max-width: 760px;
+}
+
+.msg {
+  padding: 16px 0;
+  line-height: 1.6;
+}
+
+.muted {
+  opacity: 0.6;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: rgba(127, 127, 127, 0.12);
+}
+
+.card-value {
+  font-size: 1.4em;
+  font-weight: 600;
+}
+
+.card-label {
+  font-size: 0.85em;
+  opacity: 0.7;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  h3 {
+    margin: 0;
+    font-size: 1em;
+  }
+}
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 64px;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85em;
+}
+
+.bar-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-track {
+  height: 14px;
+  border-radius: 7px;
+  background: rgba(127, 127, 127, 0.15);
+  overflow: hidden;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 7px;
+  background: #4a90d9;
+  min-width: 2px;
+}
+
+.bar-value {
+  text-align: right;
+  opacity: 0.8;
+}
+
+.heatmap {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 100px;
+}
+
+.heat-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  gap: 3px;
+}
+
+.heat-bar {
+  width: 100%;
+  background: #4a90d9;
+  border-radius: 2px 2px 0 0;
+  min-height: 1px;
+}
+
+.heat-label {
+  font-size: 0.7em;
+  opacity: 0.6;
+  height: 1em;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.timeline-day {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.timeline-date {
+  font-size: 0.8em;
+  font-weight: 600;
+  opacity: 0.7;
+  margin-bottom: 2px;
+}
+
+.timeline-entry {
+  display: grid;
+  grid-template-columns: 44px 40px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85em;
+  padding: 2px 0;
+}
+
+.timeline-time {
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-kind {
+  font-size: 0.8em;
+  text-align: center;
+  padding: 1px 0;
+  border-radius: 4px;
+  background: rgba(74, 144, 217, 0.18);
+}
+
+.timeline-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-wfl {
+  font-size: 0.78em;
+  opacity: 0.55;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

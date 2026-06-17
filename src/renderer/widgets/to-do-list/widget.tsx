@@ -256,9 +256,16 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
                     type='checkbox'
                     checked={item.isDone}
                     onChange={
-                      _ => item.isDone
-                        ? markIncomplete(item.id, getToDoList, setToDoListAndSave)
-                        : markComplete(item.id, settings.doneToBottom, getToDoList, setToDoListAndSave)
+                      _ => {
+                        if (item.isDone) {
+                          markIncomplete(item.id, getToDoList, setToDoListAndSave);
+                        } else {
+                          markComplete(item.id, settings.doneToBottom, getToDoList, setToDoListAndSave);
+                          if (item.text.trim() !== '') {
+                            widgetApi.logActivity('todo_done', { text: item.text.trim() });
+                          }
+                        }
+                      }
                     }/>
                 </span>
                 {activeItemEditorState?.id === item.id

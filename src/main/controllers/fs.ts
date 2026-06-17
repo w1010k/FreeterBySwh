@@ -4,25 +4,29 @@
  */
 
 import { Controller } from '@/controllers/controller';
-import { IpcFsReadDirArgs, ipcFsReadDirChannel, IpcFsReadDirRes, IpcFsGetHomeDirArgs, ipcFsGetHomeDirChannel, IpcFsGetHomeDirRes, IpcFsGetImageDataUrlArgs, ipcFsGetImageDataUrlChannel, IpcFsGetImageDataUrlRes } from '@common/ipc/channels';
+import { IpcFsReadDirArgs, ipcFsReadDirChannel, IpcFsReadDirRes, IpcFsGetHomeDirArgs, ipcFsGetHomeDirChannel, IpcFsGetHomeDirRes, IpcFsGetImageDataUrlArgs, ipcFsGetImageDataUrlChannel, IpcFsGetImageDataUrlRes, IpcFsWriteTextFileArgs, ipcFsWriteTextFileChannel, IpcFsWriteTextFileRes } from '@common/ipc/channels';
 import { ReadDirUseCase } from '@/application/useCases/fs/readDir';
 import { GetHomeDirUseCase } from '@/application/useCases/fs/getHomeDir';
 import { GetImageDataUrlUseCase } from '@/application/useCases/fs/getImageDataUrl';
+import { WriteTextFileUseCase } from '@/application/useCases/fs/writeTextFile';
 
 type Deps = {
   readDirUseCase: ReadDirUseCase;
   getHomeDirUseCase: GetHomeDirUseCase;
   getImageDataUrlUseCase: GetImageDataUrlUseCase;
+  writeTextFileUseCase: WriteTextFileUseCase;
 }
 
 export function createFsControllers({
   readDirUseCase,
   getHomeDirUseCase,
   getImageDataUrlUseCase,
+  writeTextFileUseCase,
 }: Deps): [
     Controller<IpcFsReadDirArgs, IpcFsReadDirRes>,
     Controller<IpcFsGetHomeDirArgs, IpcFsGetHomeDirRes>,
     Controller<IpcFsGetImageDataUrlArgs, IpcFsGetImageDataUrlRes>,
+    Controller<IpcFsWriteTextFileArgs, IpcFsWriteTextFileRes>,
   ] {
   return [{
     channel: ipcFsReadDirChannel,
@@ -33,5 +37,8 @@ export function createFsControllers({
   }, {
     channel: ipcFsGetImageDataUrlChannel,
     handle: async (_event, path) => getImageDataUrlUseCase(path)
+  }, {
+    channel: ipcFsWriteTextFileChannel,
+    handle: async (_event, path, text) => writeTextFileUseCase(path, text)
   }]
 }

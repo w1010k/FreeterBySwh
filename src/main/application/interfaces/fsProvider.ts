@@ -10,4 +10,6 @@ export interface FsProvider {
   getHomeDir: () => string;
   /** Read an image file as a base64 data URL, or null if unreadable/unsupported/too large. */
   getImageDataUrl: (path: string) => Promise<string | null>;
+  /** Write UTF-8 text to a path, creating parent dirs. Returns false on failure. */
+  writeTextFile: (path: string, text: string) => Promise<boolean>;
 }

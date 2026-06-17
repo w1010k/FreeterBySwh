@@ -291,4 +291,17 @@ describe('File Opener Widget', () => {
     expect(openApp).toHaveBeenCalledTimes(1);
     expect(openApp).toHaveBeenCalledWith(app.settings.execPath, [app.settings.cmdArgs, 'folder/path1', 'folder/path2']);
   })
+
+  it('should log a file_open activity for each opened file', async () => {
+    const logActivity = jest.fn();
+    const { userEvent } = setupSut(
+      fixtureSettings({ type: SettingsType.File, files: ['/a/report.pdf', '/b/notes.txt'], folders: [], openIn: '' }),
+      { mockWidgetApi: { shell: { openPath: jest.fn() }, logActivity } }
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /open files/i }));
+
+    expect(logActivity).toHaveBeenCalledWith('file_open', { text: 'report.pdf', detail: '/a/report.pdf' });
+    expect(logActivity).toHaveBeenCalledWith('file_open', { text: 'notes.txt', detail: '/b/notes.txt' });
+  })
 })

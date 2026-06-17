@@ -33,6 +33,7 @@ async function setup(initState: AppState, opts?: {
   const setProjectSwitcherPositionUseCase = jest.fn();
   const setEditTogglePositionUseCase = jest.fn();
   const openApplicationSettingsUseCase = jest.fn();
+  const openAnalyticsUseCase = jest.fn();
   const openAboutUseCase = jest.fn();
   const openAppManagerUseCase = jest.fn();
   const openProjectManagerUseCase = jest.fn();
@@ -48,6 +49,7 @@ async function setup(initState: AppState, opts?: {
     setProjectSwitcherPositionUseCase,
     setEditTogglePositionUseCase,
     openApplicationSettingsUseCase,
+    openAnalyticsUseCase,
     openAboutUseCase,
     openAppManagerUseCase,
     openProjectManagerUseCase,

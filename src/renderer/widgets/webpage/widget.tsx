@@ -85,6 +85,8 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
 
   const {updateActionBar, setContextMenuFactory, exposeApi, setDynamicTitle} = widgetApi;
   const webviewRef = useRef<Electron.WebviewTag>(null);
+  // Last URL logged to the activity timeline, to dedupe repeated title/navigate events.
+  const lastLoggedUrlRef = useRef<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [webviewIsReady, setWebviewIsReady] = useState(false);
@@ -254,6 +256,11 @@ function Webview({settings, widgetApi, onRequireRestart, env, id}: WebviewProps)
       const curTitle = webviewEl.getTitle ? webviewEl.getTitle() : '';
       const parts = [curTitle, curUrl].filter(s => s && s.trim() !== '');
       setDynamicTitle(parts.length > 0 ? parts.join(' — ') : null);
+      // Record a page_visit once per distinct URL for the activity timeline.
+      if (curUrl && curUrl !== lastLoggedUrlRef.current) {
+        lastLoggedUrlRef.current = curUrl;
+        widgetApi.logActivity('page_visit', { text: curTitle || curUrl, detail: curUrl });
+      }
     }
     const handlePageTitleUpdated = () => publishTitle();
     const handleDidNavigateForTitle = () => publishTitle();

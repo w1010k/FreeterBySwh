@@ -9,6 +9,13 @@ export type WorktableBgImageMode = 'cover' | 'contain' | 'center' | 'tile';
 
 export type WorkflowBarPos = 'top' | 'bottom' | 'left' | 'right';
 
+export interface TelemetryConfig {
+  /** Master opt-in. When false, nothing is ever collected. Default false. */
+  enabled: boolean;
+  /** No activity/keystrokes for this long (ms) ends the active interval. */
+  idleTimeoutMs: number;
+}
+
 export interface AppConfig {
   mainHotkey: string;
   memSaver: MemSaverConfigApp;
@@ -27,4 +34,6 @@ export interface AppConfig {
   workflowBarPos: WorkflowBarPos;
   /** Width (px) of the workflow bar when positioned on the left/right. */
   workflowBarWidth: number;
+  /** Local usage-analytics collection settings. */
+  telemetry: TelemetryConfig;
 }

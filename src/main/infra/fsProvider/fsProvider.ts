@@ -3,8 +3,8 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { readdir, stat, readFile } from 'node:fs/promises';
-import { join, extname } from 'node:path';
+import { readdir, stat, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { join, extname, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { FsProvider } from '@/application/interfaces/fsProvider';
 import { FsDirEntry } from '@common/base/fs';
@@ -56,6 +56,15 @@ export function createFsProvider(): FsProvider {
         return `data:${mime};base64,${buf.toString('base64')}`;
       } catch {
         return null;
+      }
+    },
+    writeTextFile: async (path, text): Promise<boolean> => {
+      try {
+        await mkdir(dirname(path), { recursive: true });
+        await writeFile(path, text, { encoding: 'utf-8' });
+        return true;
+      } catch {
+        return false;
       }
     }
   }

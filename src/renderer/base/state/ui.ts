@@ -160,6 +160,7 @@ export interface WorktableState {
 
 export interface ModalScreensDataState {
   about?: void; // no data - key is used for consistency
+  analytics?: void; // no data - the screen fetches its own rollups via use case
   appManager: AppManagerState;
   applicationSettings: ApplicationSettingsState;
   projectManager: ProjectManagerState;
@@ -251,7 +252,11 @@ export function createUiState(): UiState {
       bgImageMode: 'cover',
       bgOpacity: 100,
       workflowBarPos: 'left',
-      workflowBarWidth: 200
+      workflowBarWidth: 200,
+      telemetry: {
+        enabled: false,
+        idleTimeoutMs: 300000
+      }
     },
     apps: {
       appIds: []

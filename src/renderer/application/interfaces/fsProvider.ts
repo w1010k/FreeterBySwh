@@ -9,4 +9,5 @@ export interface FsProvider {
   readDir: (dirPath: string, opts?: ReadDirOptions) => Promise<FsDirEntry[]>;
   getHomeDir: () => Promise<string>;
   getImageDataUrl: (path: string) => Promise<string | null>;
+  writeTextFile: (path: string, text: string) => Promise<boolean>;
 }

@@ -7,7 +7,7 @@ import { BrowserWindowConstructorOptions, BrowserWindow as ElectronBrowserWindow
 import { BrowserWindow } from '@/application/interfaces/browserWindow'
 import { GetWindowStateUseCase } from '@/application/useCases/browserWindow/getWindowState';
 import { SetWindowStateUseCase } from '@/application/useCases/browserWindow/setWindowState';
-import { IpcZoomWebpageDirection, ipcGoHomeWebpageChannel, ipcSwitchWorkflowByOffsetChannel, ipcZoomWebpageChannel } from '@common/ipc/channels';
+import { IpcZoomWebpageDirection, ipcAppFocusChangedChannel, ipcGoHomeWebpageChannel, ipcSwitchWorkflowByOffsetChannel, ipcZoomWebpageChannel } from '@common/ipc/channels';
 import { sanitizeUrl } from '@common/helpers/sanitizeUrl';
 
 const minWidth = 1200;
@@ -123,6 +123,11 @@ export function createRendererWindow(
   win.on('unmaximize', winStateUpdateHandler);
   win.on('enter-full-screen', winStateUpdateHandler);
   win.on('leave-full-screen', winStateUpdateHandler);
+
+  // Foreground/background signal for local usage telemetry. Best-effort: if the
+  // renderer isn't listening (telemetry off) it's simply ignored.
+  win.on('focus', () => win.webContents.send(ipcAppFocusChangedChannel, true));
+  win.on('blur', () => win.webContents.send(ipcAppFocusChangedChannel, false));
 
   // prevent leaving the app page (by dragging an image for example)
   win.webContents.on('will-navigate', evt => evt.preventDefault());

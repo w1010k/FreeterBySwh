@@ -21,6 +21,7 @@ import { ShowContextMenuUseCase } from '@/application/useCases/contextMenu/showC
 import { createSharedState, sharedStateEquals } from '@/base/state/shared';
 import { SetExposedApiUseCase } from '@/application/useCases/widget/setExposedApi';
 import { SetWidgetDynamicTitleUseCase } from '@/application/useCases/widget/setWidgetDynamicTitle';
+import { LogTelemetryActivityUseCase } from '@/application/useCases/telemetry/logTelemetryActivity';
 
 type Deps = {
   useAppState: UseAppState;
@@ -32,6 +33,7 @@ type Deps = {
   copyWidgetUseCase: CopyWidgetUseCase;
   setExposedApiUseCase: SetExposedApiUseCase;
   setWidgetDynamicTitleUseCase: SetWidgetDynamicTitleUseCase;
+  logTelemetryActivityUseCase: LogTelemetryActivityUseCase;
 }
 
 export interface WidgetProps {
@@ -62,6 +64,7 @@ export function createWidgetViewModelHook({
   copyWidgetUseCase,
   setExposedApiUseCase,
   setWidgetDynamicTitleUseCase,
+  logTelemetryActivityUseCase,
 }: Deps) {
   function showMoreActions(
     id: EntityId,
@@ -185,6 +188,7 @@ export function createWidgetViewModelHook({
       (factory: WidgetContextMenuFactory | undefined) => setContextMenuFactoryViewMode(() => factory),
       (api) => setExposedApiUseCase(widget.id, api),
       (title) => setWidgetDynamicTitleUseCase(widget.id, title),
+      (type, payload) => logTelemetryActivityUseCase(type, { ...payload, widgetId: widget.id }),
       widgetType?.requiresApi || []
     ), [env.isPreview, maximizeAction, widget.id, widgetType?.maximizable, widgetType?.requiresApi])
 

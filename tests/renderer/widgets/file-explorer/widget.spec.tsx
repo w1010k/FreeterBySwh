@@ -96,6 +96,25 @@ describe('File Explorer Widget', () => {
     expect(openPath).toHaveBeenCalledWith('/home/user/Downloads/a.txt');
   })
 
+  it('should log a file_open activity when a file is opened on double-click', async () => {
+    const openPath = jest.fn(async () => '');
+    const logActivity = jest.fn();
+    const readDir = jest.fn(async () => [{ name: 'a.txt', path: '/home/user/Downloads/a.txt', isDirectory: false, size: 12 }]);
+    const model = treesMock.__getModel();
+    model.getItem.mockImplementation((p: string) => (p === 'Downloads/' ? { isDirectory: () => true, isExpanded: () => true } : null));
+
+    setupSut(fixtureSettings({ paths: ['/home/user/Downloads'] }), { mockWidgetApi: { fs: { readDir }, shell: { openPath }, logActivity } });
+
+    await waitFor(() => expect(model.resetPaths).toHaveBeenCalled());
+    model.subscribe.mock.calls[0][0]();
+    await waitFor(() => expect(model.add).toHaveBeenCalledWith('Downloads/a.txt'));
+
+    model.getFocusedPath.mockReturnValue('Downloads/a.txt');
+    fireEvent.doubleClick(screen.getByTestId('file-tree'));
+
+    expect(logActivity).toHaveBeenCalledWith('file_open', { text: 'a.txt', detail: '/home/user/Downloads/a.txt' });
+  })
+
   it('should read children with hidden/size options derived from settings', async () => {
     const readDir = jest.fn(async () => []);
     const model = treesMock.__getModel();

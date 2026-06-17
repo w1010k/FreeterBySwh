@@ -10,6 +10,7 @@ import { AppStore } from '@/application/interfaces/store';
 import { ToggleEditModeUseCase } from '@/application/useCases/toggleEditMode';
 import { ToggleMenuBarUseCase } from '@/application/useCases/toggleMenuBar';
 import { OpenApplicationSettingsUseCase } from '@/application/useCases/applicationSettings/openApplicationSettings';
+import { OpenAnalyticsUseCase } from '@/application/useCases/analytics/openAnalytics';
 import { OpenAboutUseCase } from '@/application/useCases/about/openAbout';
 import { ShellProvider } from '@/application/interfaces/shellProvider';
 import { OpenProjectManagerUseCase } from '@/application/useCases/projectManager/openProjectManager';
@@ -37,6 +38,7 @@ type Deps = {
   setProjectSwitcherPositionUseCase: SetProjectSwitcherPositionUseCase;
   setEditTogglePositionUseCase: SetEditTogglePositionUseCase;
   openApplicationSettingsUseCase: OpenApplicationSettingsUseCase;
+  openAnalyticsUseCase: OpenAnalyticsUseCase;
   openAboutUseCase: OpenAboutUseCase;
   openProjectManagerUseCase: OpenProjectManagerUseCase;
   openAppManagerUseCase: OpenAppManagerUseCase;
@@ -55,6 +57,7 @@ export function createInitAppMenuUseCase({
   setProjectSwitcherPositionUseCase,
   setEditTogglePositionUseCase,
   openApplicationSettingsUseCase,
+  openAnalyticsUseCase,
   openAboutUseCase,
   openProjectManagerUseCase,
   openAppManagerUseCase,
@@ -240,6 +243,12 @@ export function createInitAppMenuUseCase({
         accelerator: 'CmdOrCtrl+Shift+Tab',
         label: 'Previous Workflow',
         doAction: async () => switchWorkflowByOffsetUseCase(-1)
+      },
+      itemSeparator,
+      {
+        accelerator: 'CmdOrCtrl+Shift+A',
+        label: 'Analytics',
+        doAction: async () => openAnalyticsUseCase()
       },
       itemSeparator,
       {

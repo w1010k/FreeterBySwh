@@ -1795,6 +1795,116 @@ File Explorer 위젯 액션바에 유틸 버튼 두 개 추가.
 
 ---
 
+## 62. 로컬 사용 통계(Analytics) + AI-ready Export *(2026-06-17)*
+
+Freeter 사용 패턴을 **로컬에만** 수집해 보여주고, AI가 바로 해석할 수 있는 형태로 내보내는 기능. 기본 **OFF**, 명시적 동의(opt-in) 시에만 동작하며, **키 내용 등 콘텐츠는 일절 저장하지 않는다**(키 입력은 횟수만 카운트).
+
+### 사용자 관점
+
+- **동의 토글**: 설정 → "Usage analytics (local only)" Off/On. 켜기 전엔 한 줄도 수집하지 않음.
+- **수집 항목**: 어떤 프로젝트/워크플로를 언제·얼마나 썼는지(포커스 기준 체류 시간), 앱 포그라운드 활성 시간, 세션 수, 활성(비유휴) 시간, 키 입력 **횟수**·활성 타이핑 시간.
+- **Analytics 화면**: 메뉴 **View → Analytics**(`Ctrl/Cmd+Shift+A`). 설정 화면과 동일한 위상의 독립 모달. 총 활성 시간·세션·키 입력·타이핑 카드, 일별 활성 시간 바, 워크플로별 사용 시간 Top N, 시간대별 활동 히트맵.
+- **데이터 통제**: 화면에서 **Export…**(자기서술적 JSON 번들 저장) · **Delete all**(전체 삭제, 확인 다이얼로그) · **Reload**.
+- **AI-ready Export**: `manifest`(스키마 버전·타임존·필드 사전·이벤트 타입 설명·주의사항) + `entities`(id→현재 이름 스냅샷, 개명/삭제돼도 의미 보존) + `events`(raw 로그) + `daily`(일별 집계) + `readme`(사람·AI 겸용 안내 + 권장 프롬프트)를 한 파일에 담아, 맥락 없이도 LLM이 해석 가능.
+
+### 아키텍처
+
+- **저장 격리**: `freeter-data/telemetry/`에 별도 FileDataStorage로 보관(앱/위젯 데이터와 분리, 사용자가 파일째 삭제 가능). main에 전용 use case 5종 + 컨트롤러 + IPC 채널 5종, renderer infra `telemetryDataStorage`.
+- **수집 코어** `telemetryCollector`(stateful): 전환은 use case를 고치지 않고 **appStore.subscribe**로 current project/workflow 변화를 한 곳에서 포착. 앱 포커스/블러는 main `win.on('focus'/'blur')` → IPC `app-focus-changed`. DOM 활동 리스너(keydown/mousedown/wheel/throttled mousemove) + visibilitychange 백업. heartbeat(60s)·flush(15s) 타이머, blur/beforeunload flush. `telemetryBuffer`가 일자별 키로 append하며 read-modify-write를 promise 체인으로 직렬화.
+- **집계**: raw 이벤트 → `DailyRollup`을 **읽을 때 계산**(on-read; 항상 정확, 데이터량 작음). 화면용 순수 요약 `telemetrySummary` + `formatDuration`.
+- **Analytics 화면**: 범용 modalScreens 시스템에 `analytics`(About식 void 스크린) 한 칸 추가 — `openModalScreen`/`closeModalScreen` 그대로, 특수 처리 없음.
+- **Export 쓰기**: 임의 경로 쓰기용 `fsProvider.writeTextFile` 신설(main/renderer 양쪽 + IPC `fs-write-text-file`), 저장 다이얼로그로 경로 선택 후 기록.
+
+### 까다로웠던 포인트
+
+- **유휴 trim**: blur/유휴 시 active 구간을 "마지막 활동 시각"까지로 보수적으로 종료해 시간 과대 계상을 방지. 장시간 연속 활동은 heartbeat가 분할해 시간대 버킷 정확도 유지.
+- **워크플로 presence를 포커스에 종속**: 야간 방치로 인한 시간 부풀림 차단. 같은 워크플로 blur→focus 시 `workflow_open`을 재발행하지 않음(rollup은 `workflow_close.durationMs`만 합산하므로 무관).
+- **콘텐츠 미저장은 설계 불변식**: 키는 횟수만(`activity_tick.count`), webview 내부 입력은 캡처 대상 아님(외부 콘텐츠). 영구 비범위로 문서화.
+- **이름 해석 분리**: 저장은 id만, export 시점에 현재 이름 스냅샷을 함께 담아 개명/삭제에도 의미 복원.
+
+### 수정 파일
+
+- **신규(공통)**: `common/base/telemetry.ts`
+- **신규(main)**: `application/useCases/telemetryDataStorage/{getText,setText,deleteItem,clear,getKeys}.ts`, `controllers/telemetryDataStorage.ts`, `application/useCases/fs/writeTextFile.ts`
+- **신규(renderer)**: `base/{telemetryRollup,telemetrySummary,telemetryExport}.ts`, `infra/dataStorage/telemetryDataStorage.ts`, `infra/telemetry/telemetryBuffer.ts`, `application/telemetry/{telemetryCollector,startTelemetry}.ts`, `application/useCases/telemetry/{readTelemetryEvents,getTelemetryRollups,getTelemetryEntities,exportTelemetryData,clearTelemetryData}.ts`, `application/useCases/analytics/{openAnalytics,closeAnalytics}.ts`, `ui/components/analytics/{analytics.tsx,analyticsViewModel.ts,analytics.module.scss,index.ts}`
+- **수정(main)**: `index.ts`, `infra/browserWindow/browserWindow.ts`, `infra/fsProvider/fsProvider.ts`, `application/interfaces/fsProvider.ts`, `controllers/fs.ts`
+- **수정(공통)**: `common/ipc/channels.ts`
+- **수정(renderer)**: `base/appConfig.ts`, `base/state/ui.ts`, `application/interfaces/fsProvider.ts`, `infra/fsProvider/fsProvider.ts`, `application/useCases/appMenu/initAppMenu.ts`, `ui/components/applicationSettings/applicationSettings.tsx`, `ui/components/app/appViewModel.ts`, `init.ts`
+- **테스트**: `tests/main/.../telemetryDataStorage`, `tests/renderer/.../telemetry*`, `tests/renderer/.../analytics`, `tests/renderer/base/telemetry{Rollup,Summary,Export}.spec.ts` 등
+
+---
+
+## 63. 활동 타임라인 — "오늘 뭐 했지"를 위한 의미 단위 기록 *(2026-06-17)*
+
+62번의 통계가 "얼마나"라면, 이건 "무엇을"이다. 키 입력을 통째로 수집(키로깅)하는 대신, **이미 의미가 있는 위젯 행동만** 골라 타임라인으로 남긴다. 동의(62번과 동일한 단일 토글) 시에만 동작.
+
+### 사용자 관점
+
+- **기록 대상 4종**: Web Query **검색어**, Webpage **방문 페이지 제목/URL**, File Explorer·File Opener로 **연 파일**, To-Do **완료 항목**. (노트 본문은 본인이 직접 적은 것이라 의도적으로 제외.)
+- **Analytics 화면**에 "활동 타임라인" 섹션 추가: 날짜별로 묶어 시간·종류(검색/방문/파일/완료)·내용·워크플로를 시간 역순으로 표시.
+- **Export 번들에 자동 포함** → AI에게 "오늘 일지 써줘 / 이번 주 뭐 했는지 요약해줘"가 바로 됨. (검색어·페이지·파일·완료가 맥락으로 들어가므로.)
+- 동의 OFF면 한 건도 기록 안 함. 키 입력 내용·노트 본문은 여전히 비수집.
+
+### 아키텍처
+
+- **이벤트 모델 확장**: `web_search`/`page_visit`/`file_open`/`todo_done` 타입 + `text`(검색어·제목·파일명·할일) / `detail`(URL·전체경로) 필드. `isTelemetryActivityEvent` 헬퍼.
+- **widget API에 `logActivity(type, {text, detail})` 추가** (setDynamicTitle과 동일 플러밍): widgetApi.ts → getWidgetApi.ts(미리보기는 no-op) → widgetViewModel이 widget.id를 자동 태깅 → `logTelemetryActivityUseCase` → collector.recordActivity(현재 prj/wfl로 태깅, 동의 게이트).
+- **collector를 컴포지션 루트로 승격**: `init.ts`에서 collector를 한 번 만들어 (a) 앱 리스너(`startTelemetry`)와 (b) 위젯 활동 API가 **같은 인스턴스**(같은 버퍼·flush)를 공유. `startTelemetry`는 collector를 주입받도록 리팩토링.
+- **위젯 5곳 훅**: web-query(검색 submit), to-do(완료 시), file-explorer(더블클릭·컨텍스트 Open), file-opener(열기 버튼), webpage(navigate 시 URL 변할 때만 — `lastLoggedUrlRef`로 디듀프).
+- **타임라인 빌더** `telemetryTimeline.ts`(순수): 활동 이벤트만 필터 + 워크플로명 해석 + 날짜·시각 역순. Analytics 뷰모델이 rollup과 함께 raw 이벤트도 읽어 구성.
+
+### 까다로웠던 포인트
+
+- **collector 인스턴스 공유**가 핵심: 위젯 활동과 앱 리스너가 따로 collector를 만들면 버퍼가 갈려 flush가 어긋난다. 그래서 getWidgetApiUseCase 생성보다 **먼저** collector를 만들어 양쪽에 주입(생성 순서 의존).
+- **webpage page_visit 디듀프**: `page-title-updated`/`did-navigate`/`did-navigate-in-page`가 한 페이지에 여러 번 발화 → URL이 바뀔 때만 1건 기록.
+- **프라이버시 문구 갱신**: "콘텐츠 미저장"이 더 이상 전부 참이 아니므로 설정 설명·export manifest/README를 "키 입력·노트 본문은 비수집, 단 활동(검색·페이지·파일·할일)은 동의 시 기록"으로 정정.
+
+### 수정 파일
+
+- **신규(renderer)**: `base/telemetryTimeline.ts`, `application/useCases/telemetry/logTelemetryActivity.ts`
+- **수정(공통)**: `common/base/telemetry.ts`(활동 타입·필드·헬퍼)
+- **수정(renderer)**: `base/widgetApi.ts`, `application/useCases/widget/getWidgetApi.ts`, `ui/components/widget/widgetViewModel.ts`, `application/telemetry/{telemetryCollector,startTelemetry}.ts`, `ui/components/analytics/{analytics.tsx,analyticsViewModel.ts,analytics.module.scss}`, `base/telemetryExport.ts`, `ui/components/applicationSettings/applicationSettings.tsx`, `init.ts`, 위젯 5종(`web-query`/`to-do-list`/`file-explorer`/`file-opener`/`webpage`)
+- **테스트**: `telemetryTimeline.spec.ts`, `telemetryCollector.spec.ts`(활동 케이스 추가), widgetApi/getWidgetApi/widget 스펙 시그니처 갱신
+
+---
+
+## 64. OS 전역 활동 모니터링 — 앱·창 사용 시간 + 유휴/잠금 *(2026-06-17)*
+
+63번이 "Freeter 안에서 뭘 했나"라면, 이건 **Freeter가 켜진 동안 컴퓨터에서 뭘 했나**. 동의(63·62와 동일한 단일 토글) 시에만, 100% 로컬. 키 입력 "내용"·노트 본문은 여전히 비수집 — 키로거가 아니라 *어떤 앱/창에 얼마나*를 잡는다.
+
+### 사용자 관점
+
+- **포그라운드 앱·창 추적**: 지금 어떤 프로그램(VS Code·Chrome 등)·어떤 창 제목에 있는지 5초 주기로 감지해, 앱이 바뀔 때 직전 구간을 `os_window`(앱·창·체류시간)로 기록 → Analytics에 **앱별 사용 시간 Top N**.
+- **시스템 유휴/잠금/절전**: `powerMonitor`로 자리 비움·복귀를 잡아(기본 3분 유휴 시 구간 종료) 시간 과대계상 방지. lock/unlock/suspend/resume는 `system_event`로 타임라인에 표시.
+- Analytics 타임라인에 앱 전환·시스템 이벤트가 함께 흐르고, export 번들에도 포함(`os_window`/`system_event`, `daily.perAppMs`).
+- 동의 OFF면 모니터가 시작되지 않고 **PowerShell 프로세스 자체가 안 뜬다**(부팅 스모크로 확인).
+
+### 아키텍처
+
+- **네이티브 의존성 0**: main에서 장수 PowerShell 1개(user32 P/Invoke 루프)가 포그라운드 {앱,제목}을 JSON 한 줄씩 stdout으로. 패키징 안전.
+- **collector 재사용**: main이 감지→IPC(`os-activity-event`)→renderer의 `collector.recordActivity`로 흘려보내, 기존 동의 게이트·버퍼·flush·export를 그대로 탄다. main은 데이터를 *기록*하지 않고 신호만 보냄(기록은 renderer가 동의 확인 후).
+- **start/stop은 renderer가 주도**: 동의 변경을 `appStore.subscribe`로 감지해 `set-os-monitoring` IPC로 main 모니터를 켜고 끔. `osActivityMonitor`는 주입형(reader/powerMonitor/now/emit)이라 단위 테스트 가능.
+- `DailyRollup.perAppMs` 추가, summary `topApps`, 타임라인에 `os_window`/`system_event` 포함.
+
+### 까다로웠던 포인트
+
+- **PowerShell 자식 프로세스 누수 방지**(Windows는 부모 사망 시그널이 없음): ① `app.will-quit`에서 stop, ② `process.on('exit')` 최후 킬, ③ PS 루프에 **부모 PID 워치독**(부모가 사라지면 self-exit) — 크래시/강제종료에도 고아가 안 남게 3중.
+- **idle 종료 클램프**: 유휴 시작 추정 시각이 구간 시작보다 앞서면 음수 duration이 안 나오게 클램프(테스트로 고정).
+- **flush 내구성**: 디스크 쓰기 실패 시 배치를 잃지 않도록 `pending`에 되돌림(언핸들드 리젝션 제거).
+- **포커스 종속 금지**: "Freeter가 백그라운드일 때 다른 앱 추적"이 핵심이라, Freeter blur 시 모니터를 멈추면 안 됨(검토 중 나온 잘못된 최적화 제안을 기각).
+- 검증: 4개 lens(정확성·성능·안정성·프라이버시) 병렬 리뷰로 발견한 실제 결함(Analytics 이중 읽기, flush 내구성, PS 고아, emit broadcast 예외, 언마운트 setState)을 수정. 프라이버시 리뷰는 위반 0(동의 게이트 전 경로 차단, 키 내용·노트 미수집, 네트워크 없음, PS 정적 스크립트).
+
+### 수정 파일
+
+- **신규(main)**: `infra/osActivity/foregroundWindow.ts`, `application/osActivity/osActivityMonitor.ts`, `application/useCases/osActivity/setOsMonitoring.ts`, `controllers/osActivity.ts`
+- **신규(renderer)**: `infra/osActivity/osMonitoring.ts`
+- **수정(공통)**: `common/base/telemetry.ts`(os_window/system_event 타입·라벨, perAppMs), `common/ipc/channels.ts`
+- **수정(main)**: `index.ts`(powerMonitor·모니터 배선·will-quit·exit 정리)
+- **수정(renderer)**: `application/telemetry/{telemetryCollector(durationMs·flush 내구성),startTelemetry(OS 이벤트 수신·동의 토글)}.ts`, `base/{telemetryRollup,telemetrySummary,telemetryExport}.ts`, `ui/components/analytics/{analytics.tsx,analyticsViewModel.ts(단일 읽기·언마운트 가드)}`, `ui/components/applicationSettings/applicationSettings.tsx`, `application/useCases/telemetry/readTelemetryEvents.ts`(날짜 키 검증)
+- **테스트**: `tests/main/application/osActivity/*`, `tests/main/application/useCases/osActivity/*`, rollup/summary/viewModel 갱신
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

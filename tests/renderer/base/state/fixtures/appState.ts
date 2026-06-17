@@ -30,7 +30,11 @@ const appState: AppState = {
       bgImageMode: 'cover',
       bgOpacity: 100,
       workflowBarPos: 'top',
-      workflowBarWidth: 200
+      workflowBarWidth: 200,
+      telemetry: {
+        enabled: false,
+        idleTimeoutMs: 300000
+      }
     },
     apps: {
       appIds: [],

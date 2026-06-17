@@ -48,8 +48,9 @@ function WidgetComp({settings, widgetApi, sharedState}: WidgetReactComponentProp
     } else {
       paths.forEach(path => shell.openPath(path))
     }
+    paths.forEach(path => widgetApi.logActivity('file_open', { text: basenameOf(path), detail: path }));
     retryIfMissing();
-  }, [openInApp, paths, shell, retryIfMissing])
+  }, [openInApp, paths, shell, retryIfMissing, widgetApi])
 
   return paths.length>0
     ? <Button

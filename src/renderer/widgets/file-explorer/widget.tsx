@@ -178,8 +178,9 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     const abs = absByKey.current.get(mapKey);
     if (abs) {
       shell.openPath(abs);
+      widgetApi.logActivity('file_open', { text: basenameOf(abs), detail: abs });
     }
-  }, [model, shell]);
+  }, [model, shell, widgetApi]);
 
   const renderContextMenu = useCallback((item: ContextMenuItem, context: ContextMenuOpenContext) => {
     const abs = absByKey.current.get(toMapKey(item.path));
@@ -197,14 +198,14 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     const openLabel = isDir ? 'Open in File Explorer' : 'Open';
     return createPortal(
       <div className={styles['menu']} style={menuPos} data-file-tree-context-menu-root="true">
-        <button onClick={() => { shell.openPath(abs); context.close(); }}>{openLabel}</button>
+        <button onClick={() => { shell.openPath(abs); if (!isDir) { widgetApi.logActivity('file_open', { text: basenameOf(abs), detail: abs }); } context.close(); }}>{openLabel}</button>
         {!isDir && <button onClick={() => { shell.openPath(dirnameOf(abs)); context.close(); }}>Open containing folder</button>}
         <button onClick={() => { clipboard.writeText(abs); context.close(); }}>Copy Path</button>
         <button onClick={() => { clipboard.writeText(basenameOf(abs)); context.close(); }}>Copy name</button>
       </div>,
       document.body
     );
-  }, [shell, clipboard]);
+  }, [shell, clipboard, widgetApi]);
 
   // Collapse every known (loaded) directory back to its roots. Collapsing each
   // dir — not just the roots — means re-expanding a root shows its children

@@ -123,6 +123,29 @@ describe('Webpage Widget', () => {
     })
   })
 
+  describe('activity logging', () => {
+    it('logs a page_visit on navigation, deduped by URL', () => {
+      const logActivity = jest.fn();
+      const { webview } = setupWebpageWidgetSut(fixtureSettings({ url: 'https://x.com' }), { mockWidgetApi: { logActivity } });
+      // Stub the webview's title/URL accessors (not present in jsdom).
+      (webview as unknown as { getURL: () => string; getTitle: () => string }).getURL = () => 'https://x.com/page';
+      (webview as unknown as { getURL: () => string; getTitle: () => string }).getTitle = () => 'Page Title';
+
+      act(() => { webview.dispatchEvent(new Event('did-navigate')); });
+      expect(logActivity).toHaveBeenCalledTimes(1);
+      expect(logActivity).toHaveBeenCalledWith('page_visit', { text: 'Page Title', detail: 'https://x.com/page' });
+
+      // Same URL again → no new entry.
+      act(() => { webview.dispatchEvent(new Event('did-navigate')); });
+      expect(logActivity).toHaveBeenCalledTimes(1);
+
+      // New URL → a new entry.
+      (webview as unknown as { getURL: () => string }).getURL = () => 'https://x.com/other';
+      act(() => { webview.dispatchEvent(new Event('did-navigate')); });
+      expect(logActivity).toHaveBeenCalledTimes(2);
+    })
+  })
+
   describe('webview src attribute', () => {
     it('should be as specified by the url setting', () => {
       const testUrl = 'http://127.0.0.1/';

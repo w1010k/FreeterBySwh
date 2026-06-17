@@ -71,6 +71,9 @@ function QueryRow({ entry, mode, widgetApi, historyListId, onSubmitted }: QueryR
     const finalQuery = queryTpl === '' ? typedQuery : replaceQueryPlaceholder(queryTpl, typedQuery);
     const queryForUrl = encodeURIComponent(finalQuery);
     onSubmitted(typedQuery);
+    if (typedQuery.trim() !== '') {
+      widgetApi.logActivity('web_search', { text: typedQuery.trim() });
+    }
     setTypedQuery('');
     switch (mode) {
       case SettingsMode.Browser: {
