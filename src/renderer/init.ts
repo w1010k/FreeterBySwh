@@ -167,6 +167,7 @@ import { startTelemetry } from '@/application/telemetry/startTelemetry';
 import { createTelemetryCollector } from '@/application/telemetry/telemetryCollector';
 import { createTelemetryBuffer } from '@/infra/telemetry/telemetryBuffer';
 import { createLogTelemetryActivityUseCase } from '@/application/useCases/telemetry/logTelemetryActivity';
+import { createFlushTelemetryUseCase } from '@/application/useCases/telemetry/flushTelemetry';
 import { createTelemetryDataStorage } from '@/infra/dataStorage/telemetryDataStorage';
 import { createReadTelemetryEventsUseCase } from '@/application/useCases/telemetry/readTelemetryEvents';
 import { createGetTelemetryRollupsUseCase } from '@/application/useCases/telemetry/getTelemetryRollups';
@@ -329,6 +330,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     buffer: createTelemetryBuffer({ storage: telemetryStorage }),
   });
   const logTelemetryActivityUseCase = createLogTelemetryActivityUseCase({ telemetryCollector });
+  const flushTelemetryUseCase = createFlushTelemetryUseCase({ telemetryCollector });
 
   const getWidgetApiUseCase = createGetWidgetApiUseCase({
     appStore: store.appStore,
@@ -635,6 +637,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     clearTelemetryDataUseCase,
     telemetryCollector,
     logTelemetryActivityUseCase,
+    flushTelemetryUseCase,
 
     showContextMenuUseCase,
 

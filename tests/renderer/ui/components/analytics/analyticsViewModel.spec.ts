@@ -27,6 +27,7 @@ const days: TelemetryDay[] = [{
 function setup(over?: { exportResult?: 'saved' | 'canceled' | 'error'; confirmClear?: boolean }) {
   const closeAnalyticsUseCase = jest.fn();
   const getTelemetryEntitiesUseCase = jest.fn(() => entities);
+  const flushTelemetryUseCase = jest.fn(async () => undefined);
   const readTelemetryEventsUseCase = jest.fn(async () => days);
   const exportTelemetryDataUseCase = jest.fn(async () =>
     over?.exportResult === 'canceled' ? { status: 'canceled' as const }
@@ -37,12 +38,12 @@ function setup(over?: { exportResult?: 'saved' | 'canceled' | 'error'; confirmCl
     showMessageBox: jest.fn(async () => ({ response: over?.confirmClear ? 0 : 1, checkboxChecked: false })),
   });
   const useViewModel = createAnalyticsViewModelHook({
-    closeAnalyticsUseCase, getTelemetryEntitiesUseCase,
+    closeAnalyticsUseCase, getTelemetryEntitiesUseCase, flushTelemetryUseCase,
     readTelemetryEventsUseCase, exportTelemetryDataUseCase, clearTelemetryDataUseCase, dialogProvider,
   });
   return {
     useViewModel, closeAnalyticsUseCase, exportTelemetryDataUseCase,
-    clearTelemetryDataUseCase, readTelemetryEventsUseCase, dialogProvider,
+    clearTelemetryDataUseCase, readTelemetryEventsUseCase, flushTelemetryUseCase, dialogProvider,
   };
 }
 
@@ -56,6 +57,18 @@ describe('analyticsViewModel', () => {
     expect(result.current.summary?.totalActiveMs).toBe(1000);
     expect(result.current.summary?.topWorkflows[0]).toMatchObject({ name: 'Dev', ms: 800 });
     expect(result.current.timeline[0].entries[0]).toMatchObject({ type: 'web_search', text: 'hello', workflowName: 'Dev' });
+  });
+
+  it('flushes buffered events before reading so just-recorded activity shows', async () => {
+    const { useViewModel, flushTelemetryUseCase, readTelemetryEventsUseCase } = setup();
+    const { result } = renderHook(() => useViewModel());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(flushTelemetryUseCase).toHaveBeenCalled();
+    // flush resolved before the read ran
+    expect(flushTelemetryUseCase.mock.invocationCallOrder[0])
+      .toBeLessThan(readTelemetryEventsUseCase.mock.invocationCallOrder[0]);
   });
 
   it('onCloseClick closes the screen', async () => {
@@ -105,6 +118,7 @@ describe('analyticsViewModel', () => {
     const broken = createAnalyticsViewModelHook({
       closeAnalyticsUseCase: jest.fn(),
       getTelemetryEntitiesUseCase: jest.fn(() => entities),
+      flushTelemetryUseCase: jest.fn(async () => undefined),
       readTelemetryEventsUseCase: jest.fn(async () => { throw new Error('boom'); }),
       exportTelemetryDataUseCase: jest.fn(),
       clearTelemetryDataUseCase: jest.fn(),

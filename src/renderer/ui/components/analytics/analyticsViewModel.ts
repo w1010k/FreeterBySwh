@@ -5,6 +5,7 @@
 
 import { CloseAnalyticsUseCase } from '@/application/useCases/analytics/closeAnalytics';
 import { GetTelemetryEntitiesUseCase } from '@/application/useCases/telemetry/getTelemetryEntities';
+import { FlushTelemetryUseCase } from '@/application/useCases/telemetry/flushTelemetry';
 import { ReadTelemetryEventsUseCase } from '@/application/useCases/telemetry/readTelemetryEvents';
 import { ExportTelemetryDataUseCase } from '@/application/useCases/telemetry/exportTelemetryData';
 import { ClearTelemetryDataUseCase } from '@/application/useCases/telemetry/clearTelemetryData';
@@ -17,6 +18,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 type Deps = {
   closeAnalyticsUseCase: CloseAnalyticsUseCase;
   getTelemetryEntitiesUseCase: GetTelemetryEntitiesUseCase;
+  flushTelemetryUseCase: FlushTelemetryUseCase;
   readTelemetryEventsUseCase: ReadTelemetryEventsUseCase;
   exportTelemetryDataUseCase: ExportTelemetryDataUseCase;
   clearTelemetryDataUseCase: ClearTelemetryDataUseCase;
@@ -33,6 +35,7 @@ interface State {
 export function createAnalyticsViewModelHook({
   closeAnalyticsUseCase,
   getTelemetryEntitiesUseCase,
+  flushTelemetryUseCase,
   readTelemetryEventsUseCase,
   exportTelemetryDataUseCase,
   clearTelemetryDataUseCase,
@@ -45,6 +48,10 @@ export function createAnalyticsViewModelHook({
     const load = useCallback(async () => {
       setState({ loading: true, summary: null, timeline: [], error: null });
       try {
+        // Persist anything still buffered in memory so just-recorded activity
+        // shows immediately (the periodic flush runs every 15s / on blur, which
+        // opening this in-app modal doesn't trigger).
+        await flushTelemetryUseCase();
         // Read the raw day files once and derive both rollups and the timeline
         // locally — avoids reading + parsing every history file twice per open.
         const days = await readTelemetryEventsUseCase();

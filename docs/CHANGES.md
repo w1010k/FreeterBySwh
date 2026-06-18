@@ -1905,6 +1905,27 @@ Freeter 사용 패턴을 **로컬에만** 수집해 보여주고, AI가 바로 �
 
 ---
 
+## 65. Analytics 기록 즉시 반영 + 실시간 활성 시간 *(2026-06-18)*
+
+64번까지 넣고 보니 "기록이 안 쌓이는" 것처럼 보이는 문제가 있었다. 원인과 수정:
+
+- **원인**: Analytics 화면은 디스크에 저장된 이벤트만 읽는데, 방금 한 활동은 아직 메모리 버퍼에 있었다. 버퍼→디스크 flush는 15초 주기·창 blur·앱 종료 때만 일어나는데, Analytics는 앱 내부 모달이라 열어도 blur가 안 나 flush가 안 됐다 → 방금 한 활동이 화면에 안 보임.
+- **수정 1 (즉시 반영)**: Analytics를 열거나 Reload할 때 **읽기 직전에 flush**하도록 함(`flushTelemetryUseCase`). 버퍼에 있던 이벤트가 바로 보인다.
+- **수정 2 (실시간 활성 시간)**: 읽기 직전에 현재 진행 중인 활성 구간을 "경계 마감"(`collector.markActiveBoundary`)해, 아직 안 닫힌 활성 시간도 *지금까지의 분량*만큼 반영. 15초 타이머 flush는 순수 저장만 유지(이벤트 폭증 방지) — 경계 마감은 화면을 열 때만.
+
+### 까다로웠던 포인트
+
+- 경계 마감은 `[구간시작, now]`를 방출하고 시작점을 now로 리셋해 **중복·누락 없이** 이어붙임. 유휴 상태면 마지막 활동 시각까지만 방출(과대계상 방지).
+- 동의 토글은 OK/저장을 눌러야 적용됨(Cancel이면 미적용) — 저장 로직 자체는 정상.
+
+### 수정 파일
+
+- **신규**: `application/useCases/telemetry/flushTelemetry.ts`
+- **수정**: `application/telemetry/telemetryCollector.ts`(markActiveBoundary), `ui/components/analytics/analyticsViewModel.ts`(읽기 전 flush), `init.ts`
+- **테스트**: collector/flush/viewModel 스펙 갱신
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

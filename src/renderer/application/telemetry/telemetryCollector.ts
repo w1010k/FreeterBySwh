@@ -34,6 +34,12 @@ export interface TelemetryCollector {
   recordActivity(type: TelemetryEventType, opts?: TelemetryActivityOpts): void;
   /** Periodic tick: trims idle and splits long active intervals. */
   heartbeat(): void;
+  /**
+   * Close the current active interval up to now (emitting its elapsed time) and
+   * continue a fresh one — so an on-demand read (Analytics open) reflects active
+   * time accrued in the still-open interval, without waiting for blur/idle/split.
+   */
+  markActiveBoundary(): void;
   /** Persist buffered events. Best-effort. */
   flush(): Promise<void>;
   /** Test/diagnostic: number of events buffered but not yet flushed. */
@@ -202,6 +208,25 @@ export function createTelemetryCollector({
         intervalStartTs = n;
         intervalKeystrokes = 0;
       }
+    },
+
+    markActiveBoundary: () => {
+      if (!focused || intervalStartTs === null) {
+        return;
+      }
+      const n = now();
+      const { idleTimeoutMs } = getConfig();
+      if (n - lastActivityTs > idleTimeoutMs) {
+        // Idle since last input — close at the last activity and stop.
+        emitTick(lastActivityTs);
+        intervalStartTs = null;
+        intervalKeystrokes = 0;
+        return;
+      }
+      // Active — emit elapsed up to now and continue from here (no gap, no overlap).
+      emitTick(n);
+      intervalStartTs = n;
+      intervalKeystrokes = 0;
     },
 
     flush: async () => {

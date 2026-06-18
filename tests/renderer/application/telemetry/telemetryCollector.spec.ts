@@ -131,6 +131,29 @@ describe('telemetryCollector', () => {
     expect(total).toBe(70_000);
   });
 
+  it('markActiveBoundary emits in-progress active time and continues the interval', async () => {
+    const { collector, advance, flushAndGet } = setup();
+    collector.onAppFocus(); // interval starts at t0
+    advance(2000);
+    collector.onActivity(false); // last activity t0+2000
+    advance(1000); // now t0+3000, still within idle window
+
+    collector.markActiveBoundary(); // should emit [t0, t0+3000] = 3000ms and continue
+
+    advance(1000);
+    collector.onActivity(false); // last activity t0+4000
+    collector.onAppBlur(); // closes [t0+3000, t0+4000] = 1000ms
+
+    const ticks = (await flushAndGet()).filter(e => e.type === 'activity_tick');
+    expect(ticks.map(t => t.durationMs)).toEqual([3000, 1000]); // no overlap, no lost time
+  });
+
+  it('markActiveBoundary is a no-op when blurred or idle-with-no-interval', async () => {
+    const { collector, flushAndGet } = setup();
+    collector.markActiveBoundary(); // not focused
+    expect(await flushAndGet()).toEqual([]);
+  });
+
   it('flush clears pending and forwards to the buffer', async () => {
     const { collector, appended } = setup();
     collector.syncCurrent('p1', 'w1');
