@@ -1926,6 +1926,26 @@ Freeter 사용 패턴을 **로컬에만** 수집해 보여주고, AI가 바로 �
 
 ---
 
+## 66. Web Query 최근 검색어 지우기 *(2026-06-22)*
+
+Web Query 위젯은 제출한 검색어를 위젯별로 최대 15개까지 기억해 입력창 드롭다운(`datalist`)으로 다시 제안한다. 그런데 네이티브 `datalist`는 항목을 지우는 방법이 없어, 한번 쌓인 최근 검색어를 사용자가 비울 길이 아예 없었다.
+
+- **동작**: 위젯 **컨텍스트 메뉴**에 *Clear recent searches* 항목을 추가. 누르면 그 위젯의 최근 검색어 기록을 한 번에 비운다(드롭다운 즉시 갱신 + 디스크 반영). 기록이 없을 땐 항목이 보이지 않는다.
+- **범위**: 위젯 인스턴스 단위. 개별 항목 삭제나 전역 토글은 범위에서 제외(최소 구현).
+
+### 까다로웠던 포인트
+
+- 컨텍스트 메뉴 팩토리는 React 밖에서 실행되므로, 비우기 동작은 `historyRef`/`setHistory`/`dataStorage`를 함께 건드리는 콜백으로 넘겨 상태와 디스크·드롭다운이 한 번에 동기화되게 함.
+- "기록 있을 때만 표시"는 팩토리가 **메뉴를 열 때** `historyRef.current`를 읽도록 해, 검색어가 바뀔 때마다 팩토리를 재등록하지 않아도 정확하게 반영.
+
+### 수정 파일
+
+- **신규**: `widgets/web-query/contextMenu.ts`
+- **수정**: `widgets/web-query/widget.tsx`(clearHistory + setContextMenuFactory 배선)
+- **테스트**: `tests/renderer/widgets/web-query/widget.spec.ts`(비우기/미표시 케이스)
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

@@ -10,6 +10,7 @@ import { SubmitEvent, useCallback, useEffect, useId, useMemo, useRef, useState }
 import { querySvg } from '@/widgets/web-query/icons';
 import { sanitizeUrl } from '@common/helpers/sanitizeUrl';
 import { WebpageExposedApi } from '@/widgets/interfaces';
+import { createContextMenuFactory } from '@/widgets/web-query/contextMenu';
 
 const queryPlaceholder = 'QUERY';
 const historyKey = 'history';
@@ -112,7 +113,7 @@ function QueryRow({ entry, mode, widgetApi, historyListId, onSubmitted }: QueryR
 }
 
 function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) {
-  const { dataStorage } = widgetApi;
+  const { dataStorage, setContextMenuFactory } = widgetApi;
   const [history, setHistory] = useState<string[]>([]);
   // Source of truth so addToHistory can compute the next list without doing
   // side effects inside a setState updater (which can double-fire).
@@ -143,6 +144,19 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     setHistory(next);
     dataStorage.setJson(historyKey, next);
   }, [dataStorage]);
+
+  const clearHistory = useCallback(() => {
+    historyRef.current = [];
+    setHistory([]);
+    dataStorage.setJson(historyKey, []);
+  }, [dataStorage]);
+
+  // Register a context-menu item to clear the recent-search history. The factory
+  // reads historyRef at menu-open time, so it stays correct without re-running
+  // this effect on every history change.
+  useEffect(() => {
+    setContextMenuFactory(createContextMenuFactory(() => historyRef.current.length > 0, clearHistory));
+  }, [setContextMenuFactory, clearHistory]);
 
   return (
     <div className={styles['web-query']}>

@@ -5,11 +5,12 @@
 
 import { Settings, SettingsMode, defaultEngine, enginePlaceholder, enginesById } from '@/widgets/web-query/settings';
 import { widgetComp } from '@/widgets/web-query/widget'
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { fixtureEntry, fixtureSettings1 } from './fixtures';
 import { WebpageExposedApi } from '@/widgets/interfaces';
-import { WidgetApiWidget } from '@/widgets/appModules';
+import { WidgetApiWidget, WidgetContextMenuFactory } from '@/widgets/appModules';
+import { labelClearHistory } from '@/widgets/web-query/contextMenu';
 
 function setupSut(settings: Settings, optional?: SetupWidgetSutOptional) {
   const { comp, ...rest } = setupWidgetSut(widgetComp, settings, optional);
@@ -577,6 +578,49 @@ describe('Web Query Widget', () => {
       await userEvent.type(screen.getByRole('combobox'), 'b[enter]');
 
       expect(setJson).toHaveBeenLastCalledWith('history', ['b', 'a']);
+    })
+
+    it('offers a "clear recent searches" menu item that empties the history', async () => {
+      const setJson = jest.fn();
+      const setContextMenuFactory = jest.fn();
+      setupSut(
+        fixtureSettings1(SettingsMode.Browser, { engine: defaultEngine.id }),
+        {
+          mockWidgetApi: {
+            shell: { openExternalUrl: jest.fn() },
+            dataStorage: { getJson: jest.fn().mockResolvedValue(['foo', 'bar']), setJson },
+            setContextMenuFactory
+          }
+        }
+      );
+      await waitFor(() => expect(historyOptions()).toEqual(['foo', 'bar']));
+
+      const factory = setContextMenuFactory.mock.calls[0][0] as WidgetContextMenuFactory;
+      const clearItem = factory('', undefined).find(i => 'label' in i && i.label === labelClearHistory);
+      expect(clearItem).toBeDefined();
+
+      await act(async () => { await (clearItem as { doAction: () => Promise<void> }).doAction(); });
+
+      expect(setJson).toHaveBeenLastCalledWith('history', []);
+      expect(historyOptions()).toEqual([]);
+    })
+
+    it('does not offer the clear item when there is no history', async () => {
+      const setContextMenuFactory = jest.fn();
+      setupSut(
+        fixtureSettings1(SettingsMode.Browser, { engine: defaultEngine.id }),
+        {
+          mockWidgetApi: {
+            shell: { openExternalUrl: jest.fn() },
+            dataStorage: { getJson: jest.fn().mockResolvedValue([]) },
+            setContextMenuFactory
+          }
+        }
+      );
+      await waitFor(() => expect(setContextMenuFactory).toHaveBeenCalled());
+
+      const factory = setContextMenuFactory.mock.calls[0][0] as WidgetContextMenuFactory;
+      expect(factory('', undefined)).toEqual([]);
     })
   })
 
