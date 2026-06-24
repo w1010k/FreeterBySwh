@@ -10,6 +10,14 @@ permissions:
   contents: write
   packages: read
 
+# NOTE: the three OS jobs are deliberately SERIALIZED via `needs:` (linux →
+# windows → macOS), not run in parallel. Each job runs `electron-builder
+# --publish always`, which find-or-creates the GitHub draft release for the tag.
+# Run concurrently, all three race on "no draft yet → create one", and GitHub
+# happily makes MULTIPLE drafts with the same tag, splitting the assets across
+# them (hit on swh.10). Serializing means the first job creates the draft and the
+# rest reuse it. Trade-off: ~3x wall-clock. Do NOT re-parallelize without a
+# single-publisher design (build with --publish never + one release job).
 jobs:
   linux:
     name: Linux
@@ -40,6 +48,7 @@ jobs:
 
   windows:
     name: Windows
+    needs: linux
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,6 +76,7 @@ jobs:
 
   darwin:
     name: macOS
+    needs: windows
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
