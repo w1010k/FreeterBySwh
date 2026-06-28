@@ -106,10 +106,13 @@ function _fixCollisions(
 }
 
 function _fixRect(rect: WidgetLayoutItemRect): WidgetLayoutItemRect {
-  const x = Math.max(0, rect.x);
-  const y = Math.max(0, rect.y);
-  const w = Math.max(0, rect.w);
+  // Horizontal axis is clamped to the grid so a widget can never extend past the
+  // right edge (x + w <= cols). Vertical overflow is intentional — the worktable
+  // scrolls and collision-stacking pushes items below the fold.
+  const w = Math.min(Math.max(0, rect.w), widgetLayoutVisibleCols);
   const h = Math.max(0, rect.h);
+  const x = Math.min(Math.max(0, rect.x), widgetLayoutVisibleCols - w);
+  const y = Math.max(0, rect.y);
   return {
     x,
     y,
@@ -251,7 +254,9 @@ export function resizeLayoutItemByEdges(
     h += deltaTop;
   }
   if (delta.right) {
-    const deltaRight = Math.max(minSize.w - w, delta.right);
+    // Cap growth so the right edge stays within the grid (x + w <= cols).
+    const maxRight = widgetLayoutVisibleCols - x - w;
+    const deltaRight = Math.max(minSize.w - w, Math.min(delta.right, maxRight));
     w += deltaRight;
   }
   if (delta.bottom) {

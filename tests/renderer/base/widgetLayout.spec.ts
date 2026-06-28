@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { createLayoutItem, createLayoutItemAtFreeArea, moveLayoutItem, removeLayoutItem, resizeLayoutItemByEdges, WidgetLayout, WidgetLayoutItem, WidgetLayoutItemRect } from '@/base/widgetLayout';
+import { createLayoutItem, createLayoutItemAtFreeArea, moveLayoutItem, removeLayoutItem, resizeLayoutItemByEdges, widgetLayoutVisibleCols, WidgetLayout, WidgetLayoutItem, WidgetLayoutItemRect } from '@/base/widgetLayout';
 import { fixtureWidgetLayoutItemA, fixtureWidgetLayoutItemB, fixtureWidgetLayoutItemC, fixtureWidgetLayoutItemD } from '@tests/base/fixtures/widgetLayout';
 
 describe('WidgetLayout', () => {
@@ -280,6 +280,19 @@ describe('WidgetLayout', () => {
       expect(newLayout).toContainEqual(expectLayout[2]);
       expect(newLayout).toContainEqual(expectLayout[3]);
     })
+
+    it('should clamp x so the item stays within the right grid edge (x + w <= cols)', () => {
+      const id = 'TEST-ID';
+      const w = 4;
+      const origLayout: WidgetLayout = [
+        fixtureWidgetLayoutItemA({ id, rect: { x: 0, y: 0, w, h: 2 } })
+      ];
+
+      const newLayout = moveLayoutItem(origLayout, id, { x: widgetLayoutVisibleCols, y: 0 });
+
+      expect(newLayout[0].rect.x).toBe(widgetLayoutVisibleCols - w);
+      expect(newLayout[0].rect.w).toBe(w);
+    })
   })
 
   describe('removeLayoutItem()', () => {
@@ -504,6 +517,19 @@ describe('WidgetLayout', () => {
       expect(newLayout).toContainEqual(expectLayout[1]);
       expect(newLayout).toContainEqual(expectLayout[2]);
       expect(newLayout).toContainEqual(expectLayout[3]);
+    })
+
+    it('should cap right-edge growth so the item stays within the grid (x + w <= cols)', () => {
+      const id = 'TEST-ID';
+      const origXW = { x: widgetLayoutVisibleCols - 4, w: 2 };
+      const origLayout: WidgetLayout = [
+        fixtureWidgetLayoutItemA({ id, rect: { ...origXW, y: 0, h: 2 } })
+      ];
+
+      const newLayout = resizeLayoutItemByEdges(origLayout, id, { right: 999 }, { w: 1, h: 1 });
+
+      expect(newLayout[0].rect.x).toBe(origXW.x);
+      expect(newLayout[0].rect.w).toBe(widgetLayoutVisibleCols - origXW.x);
     })
   })
 

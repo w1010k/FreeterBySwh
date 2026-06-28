@@ -132,7 +132,10 @@ export function useWidgetLayoutItemViewModel(props: WidgetLayoutItemProps) {
         newRectPx.wPx = clamp(initialItemRectPx.wPx - deltaPx.x, minWPx, initialItemRightPx);
         newRectPx.xPx = clamp(initialItemRectPx.xPx + deltaPx.x, 0, initialItemRightPx - minWPx);
       } else {
-        newRectPx.wPx = Math.max(initialItemRectPx.wPx + deltaPx.x, minWPx);
+        // Cap the live width so the right edge can't visibly overshoot the grid
+        // (x + w <= cols), mirroring the committed-state clamp in resizeLayoutItemByEdges.
+        const maxWPx = itemWUnitsToPx(widgetLayoutVisibleCols - x, colWidth);
+        newRectPx.wPx = clamp(initialItemRectPx.wPx + deltaPx.x, minWPx, maxWPx);
       }
     }
     if (resizing.draggingEdges.y) {

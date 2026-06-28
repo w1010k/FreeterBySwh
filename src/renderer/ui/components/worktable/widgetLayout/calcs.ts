@@ -46,7 +46,7 @@ export function itemWUnitsToPx(wUnits: number, colWidthPx: number): number {
 }
 
 export function itemHUnitsToPx(hUnits: number, rowHeightPx: number): number {
-  return _itemWHUnitsToPx(hUnits, rowHeightPx, itemMargin.xPx)
+  return _itemWHUnitsToPx(hUnits, rowHeightPx, itemMargin.yPx)
 }
 
 export function itemXUnitsToPx(xUnits: number, colWidthPx: number): number {
