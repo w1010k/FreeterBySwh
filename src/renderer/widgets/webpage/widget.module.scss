@@ -25,6 +25,53 @@
   background: var(--freeter-componentBackground);
   color:  var(--freeter-componentColor);
 }
+.tabs {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+.tabs-bar {
+  flex: none;
+  display: flex;
+  overflow-x: auto;
+  background: var(--freeter-componentBackground);
+  border-bottom: 1px solid var(--freeter-componentBorder);
+}
+.tab {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 10px;
+  border: none;
+  border-right: 1px solid var(--freeter-componentBorder);
+  background: transparent;
+  color: var(--freeter-componentColor);
+  cursor: pointer;
+  opacity: 0.7;
+}
+.tab:hover {
+  opacity: 1;
+}
+.tab-active {
+  opacity: 1;
+  font-weight: 600;
+  background: var(--freeter-widgetBackground);
+}
+.tabs-panes {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.tab-pane {
+  position: absolute;
+  inset: 0;
+}
 .not-configured {
   display: block;
   padding: 6px;

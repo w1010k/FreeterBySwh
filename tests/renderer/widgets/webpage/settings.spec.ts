@@ -114,6 +114,29 @@ describe('Webpage Widget Settings', () => {
     });
   })
 
+  it('should fill the "tabs" textarea with one url per line', () => {
+    const settings = fixtureSettings({ tabs: ['https://a/', 'https://b/'] });
+    setupSettingsSut(settingsEditorComp, settings);
+
+    expect(screen.getByRole('textbox', { name: /tabs/i })).toHaveValue('https://a/\nhttps://b/');
+  })
+
+  it('should update "tabs" setting on blur, splitting lines, trimming and dropping blanks', async () => {
+    const settings = fixtureSettings({ tabs: [] });
+    const { fireEvent, userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+    const user = userEvent.setup({ delay: null });
+    const input = screen.getByRole('textbox', { name: /tabs/i })
+
+    await user.type(input, '  https://a/  \n\nhttps://b/');
+    expect(getSettings()).toEqual(settings);
+
+    fireEvent.blur(input);
+    expect(getSettings()).toEqual({
+      ...settings,
+      tabs: ['https://a/', 'https://b/']
+    });
+  })
+
   it('should immediately update "injected css" setting on input type', async () => {
     const css = 'some css';
     const settings = fixtureSettings({ injectedCSS: '' });

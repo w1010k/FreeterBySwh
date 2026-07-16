@@ -1947,6 +1947,27 @@ Web Query 위젯은 제출한 검색어를 위젯별로 최대 15개까지 기�
 
 ---
 
+## 67. Webpage 위젯 탭 지원 *(2026-07-16)*
+
+Webpage 위젯 하나에 여러 URL을 등록해 브라우저처럼 탭으로 전환할 수 있다. 별도 위젯을 만들지 않고 기존 Webpage 위젯을 확장했으므로, 기존 위젯은 설정 그대로 동작한다.
+
+- **동작**: 설정에 **Tabs** 항목(줄당 URL 하나)을 추가. URL이 총 2개 이상이면 위젯 상단에 탭 바가 나타나고, 기존 URL 필드가 첫 탭이 된다. 탭 라벨은 페이지 타이틀(로드 전엔 호스트명), 위젯 헤더의 동적 타이틀은 활성 탭을 따라간다. URL이 1개 이하면 지금과 완전히 동일(탭 바 없음).
+- **상태 유지**: 비활성 탭의 `<webview>`를 언마운트하지 않고 `visibility: hidden` + `inert`로만 숨겨(업스트림이 비활성 워크플로를 숨기는 것과 동일한 계약), 탭을 오가도 스크롤·입력·로그인 상태가 유지된다. 세션 파티션은 위젯 단위 그대로(같은 위젯의 탭끼리 세션 공유).
+- **의도된 차이(별개 위젯 2개 대비)**: ① 탭들은 세션을 공유한다 — Widget 세션 범위도 위젯 단위라 탭 간 격리는 없음(실제 브라우저 탭과 같은 의미론). ② 액션바·컨텍스트 메뉴·헤더 타이틀·`exposeApi`(web-query의 Webpages 모드 타깃 포함)는 **활성 탭 기준** — 위젯당 하나뿐인 표면이므로. ③ Inject CSS/JS·User Agent·Auto-Reload 등 설정은 모든 탭에 공통 적용(위젯 설정이므로). 그 외(자동 새로고침 카운트다운, 페이지 내 찾기, 로드 실패 오버레이, 단축키 라우팅, 활동 기록)는 탭별로 독립 동작해 별개 위젯과 동등하다.
+
+### 까다로웠던 포인트
+
+- `Webview` 내부가 `updateActionBar`/`setContextMenuFactory`/`exposeApi`/`setDynamicTitle`을 위젯 단위로 등록하므로, 탭 여러 개가 동시에 마운트되면 서로 덮어쓴다. 활성 탭에만 실제 `widgetApi`를 주고 비활성 탭에는 no-op으로 게이팅한 API를 주입해 해결 — 활성 전환 시 함수 identity가 바뀌면서 기존 effect들이 자연스럽게 재등록된다.
+- 동적 타이틀만은 게이팅으로 부족했다. 탭 전환 시 비활성화되는 탭의 effect cleanup(`setDynamicTitle(null)`)이 새 활성 탭의 발행 **뒤에** 실행되는 순서가 존재해 타이틀이 지워질 수 있다. 그래서 멀티탭 모드에선 모든 탭의 `setDynamicTitle`을 no-op으로 만들고, 각 탭이 `onTitleInfo` 콜백으로 타이틀을 보고하면 부모(`WidgetComp`)가 활성 탭의 타이틀을 단독으로 발행한다.
+- `display: none`은 Electron `<webview>`를 언로드시키는 것으로 알려진 함정이라, `visibility: hidden` + absolute 겹치기로 숨김.
+
+### 수정 파일
+
+- **수정**: `widgets/webpage/settings.tsx`(tabs 설정 + 편집 UI), `widgets/webpage/widget.tsx`(탭 바·다중 Webview·API 게이팅), `widgets/webpage/widget.module.scss`
+- **테스트**: `tests/renderer/widgets/webpage/widget.spec.ts`(탭 렌더·전환·클램프 등 6케이스), `settings.spec.ts`(tabs 파싱 2케이스), `fixtures.ts`
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

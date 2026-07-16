@@ -202,6 +202,65 @@ describe('Webpage Widget', () => {
     )
   })
 
+  describe('tabs', () => {
+    it('should not render a tab bar when tabs setting is empty', () => {
+      setupWebpageWidgetSut(fixtureSettings({ url: 'https://a/', tabs: [] }));
+
+      expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    })
+    it('should render a tab bar and one webview per url when tabs are set', () => {
+      const { comp } = setupWebpageWidgetSut(fixtureSettings({ url: 'https://a/', tabs: ['https://b/', 'https://c/'] }));
+
+      expect(screen.getByRole('tablist')).toBeInTheDocument();
+      expect(screen.getAllByRole('tab').length).toBe(3);
+      expect(comp.container.getElementsByTagName('webview').length).toBe(3);
+    })
+    it('should render a webview without a tab bar when url is empty and tabs has a single url', () => {
+      const { comp } = setupWebpageWidgetSut(fixtureSettings({ url: '', tabs: ['https://b/'] }));
+
+      expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+      expect(comp.container.getElementsByTagName('webview')[0]).toHaveAttribute('src', 'https://b/');
+    })
+    it('should show the first tab initially and switch panes on tab click, keeping inactive webviews mounted', () => {
+      const { comp } = setupWebpageWidgetSut(fixtureSettings({ url: 'https://a/', tabs: ['https://b/'] }));
+      const tabs = screen.getAllByRole('tab');
+      const panes = () => Array.from(comp.container.getElementsByTagName('webview')).map(wv => wv.parentElement as HTMLElement);
+
+      expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
+      expect(panes()[0].style.visibility).not.toBe('hidden');
+      expect(panes()[0]).not.toHaveAttribute('inert');
+      expect(panes()[1].style.visibility).toBe('hidden');
+      expect(panes()[1]).toHaveAttribute('inert');
+
+      const secondWebview = comp.container.getElementsByTagName('webview')[1];
+      fireEvent.click(tabs[1]);
+
+      expect(tabs[1]).toHaveAttribute('aria-selected', 'true');
+      expect(panes()[1].style.visibility).not.toBe('hidden');
+      expect(panes()[0].style.visibility).toBe('hidden');
+      // the webview element survived the switch (state preserved)
+      expect(comp.container.getElementsByTagName('webview')[1]).toBe(secondWebview);
+    })
+    it('should label tabs with the url hostname until a page title is known', () => {
+      setupWebpageWidgetSut(fixtureSettings({ url: 'https://first.host/path', tabs: ['second.host'] }));
+
+      const tabs = screen.getAllByRole('tab');
+      expect(tabs[0]).toHaveTextContent('first.host');
+      expect(tabs[1]).toHaveTextContent('second.host');
+    })
+    it('should clamp the active tab when the tab list shrinks', () => {
+      const { comp, setSettings } = setupWebpageWidgetSut(fixtureSettings({ url: 'https://a/', tabs: ['https://b/', 'https://c/'] }));
+      fireEvent.click(screen.getAllByRole('tab')[2]);
+
+      setSettings(fixtureSettings({ url: 'https://a/', tabs: ['https://b/'] }));
+
+      const tabs = screen.getAllByRole('tab');
+      expect(tabs.length).toBe(2);
+      expect(tabs[1]).toHaveAttribute('aria-selected', 'true');
+      expect(comp.container.getElementsByTagName('webview').length).toBe(2);
+    })
+  })
+
   describe('auto-reload', () => {
     beforeEach(() => jest.useFakeTimers());
     afterEach(() => jest.useRealTimers());

@@ -40,6 +40,7 @@ export interface Settings {
   sessionPersist: SettingsSessionPersist;
   sessionScope: SettingsSessionScope;
   url: string;
+  tabs: string[];
   injectedCSS: string;
   injectedJS: string;
   userAgent: string;
@@ -50,6 +51,7 @@ export const createSettingsState: CreateSettingsState<Settings> = (settings) => 
   sessionPersist: isSettingsSessionPersist(settings.sessionPersist) ? settings.sessionPersist : 'persist',
   sessionScope: isSettingsSessionScope(settings.sessionScope) ? settings.sessionScope : 'prj',
   url: typeof settings.url === 'string' ? settings.url : '',
+  tabs: Array.isArray(settings.tabs) ? settings.tabs.filter((t): t is string => typeof t === 'string') : [],
   injectedCSS: typeof settings.injectedCSS === 'string' ? settings.injectedCSS : '',
   injectedJS: typeof settings.injectedJS === 'string' ? settings.injectedJS : '',
   userAgent: typeof settings.userAgent === 'string' ? settings.userAgent : '',
@@ -87,6 +89,22 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
   const {updateSettings} = settingsApi;
 
   const [url, setUrl] = useState(settings.url);
+  const [tabsText, setTabsText] = useState(settings.tabs.join('\n'));
+  // Same debounce instance as the text fields below, so switching fields
+  // flushes the pending write via blur.
+  const updateTabs = useCallback((newVal: string, shouldDebounce: boolean) => {
+    setTabsText(newVal);
+    const updateValInSettings = () => updateSettings({
+      ...settings,
+      tabs: newVal.split('\n').map(s => s.trim()).filter(s => s !== '')
+    })
+    if (shouldDebounce) {
+      debounceUpdate3s(updateValInSettings);
+    } else {
+      debounceUpdate3s.cancel();
+      updateValInSettings();
+    }
+  }, [settings, updateSettings])
   const [injectedJs, setInjectedJs] = useState(settings.injectedJS);
   const [userAgent, setUserAgent] = useState(settings.userAgent);
   const updateUrl = useDebouncedTextSettingUpdater('url', setUrl, settings, updateSettings);
@@ -100,6 +118,14 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
         moreInfo='Type a URL of a webpage or a web app to open in the widget.'
       >
         <input id="webpage-url" type="text" value={url} onChange={e => updateUrl(e.target.value, true)} onBlur={e=>updateUrl(e.target.value, false)} placeholder="Type a URL" />
+      </SettingBlock>
+
+      <SettingBlock
+        titleForId='webpage-tabs'
+        title='Tabs'
+        moreInfo='Add more URLs (one per line) to show multiple webpages as switchable tabs inside the widget. The URL above becomes the first tab.'
+      >
+        <textarea id="webpage-tabs" value={tabsText} onChange={e => updateTabs(e.target.value, true)} onBlur={e=>updateTabs(e.target.value, false)} placeholder="Type URLs, one per line"></textarea>
       </SettingBlock>
 
       <SettingBlock
