@@ -14,7 +14,7 @@ import { fixtureWidgetTypeAInColl, fixtureWidgetTypeBInColl } from '@tests/base/
 import { fixtureAppStore } from '@tests/data/fixtures/appStore';
 import { ActionBarItem, ActionBarItems, ContextMenuEvent, WidgetReactComponent } from '@/widgets/appModules';
 import { AppState } from '@/base/state/app';
-import { WidgetApi, WidgetApiModuleName } from '@/base/widgetApi';
+import { WidgetApi, WidgetApiLogActivityHandler, WidgetApiModuleName, WidgetApiSetDynamicTitleHandler, WidgetHeaderTabs } from '@/base/widgetApi';
 import { useEffect } from 'react';
 import { fixtureActionBarItemA, fixtureActionBarItemB, fixtureActionBarItemC, fixtureActionBarItemD } from '@tests/base/fixtures/actionBar';
 import { fixtureDragDropNotDragging } from '@tests/base/state/fixtures/dragDropState';
@@ -55,13 +55,17 @@ async function setup({
       _previewMode: boolean,
       updateActionBarHandler: (actionBarItems: ActionBarItems)=>void,
       setContextMenuFactoryHandler: (contextMenuFactory: WidgetContextMenuFactory)=>void,
-      exposeApiHandler: (api: object)=>void
+      exposeApiHandler: (api: object)=>void,
+      _setDynamicTitleHandler: WidgetApiSetDynamicTitleHandler,
+      _logActivityHandler: WidgetApiLogActivityHandler,
+      setHeaderTabsHandler: (tabs: WidgetHeaderTabs | null)=>void
     ) => {
       const widgetApi: Partial<WidgetApi> = {
         updateActionBar: (actionBarItems) => act(() => updateActionBarHandler(actionBarItems)),
         setContextMenuFactory: (factory) => act(() => setContextMenuFactoryHandler(factory)),
         exposeApi: (api) => act(()=>exposeApiHandler(api)),
-        setDynamicTitle: () => undefined
+        setDynamicTitle: () => undefined,
+        setHeaderTabs: (tabs) => act(() => setHeaderTabsHandler(tabs))
       }
       return widgetApi as WidgetApi;
     }
@@ -155,6 +159,81 @@ describe('<Widget />', () => {
       }),
     });
 
+    expect(screen.queryAllByText(widgetName).length).toBe(1);
+  })
+
+  it('should display header tabs instead of the widget name when the widget publishes them, and call onSelect on tab click', async () => {
+    const widgetName = 'Widget Name';
+    const onSelect = jest.fn();
+    await setup({
+      appState: fixtureAppState({
+        entities: {
+          widgetTypes: {
+            ...fixtureWidgetTypeAInColl({
+              id: widgetTypeId1,
+              widgetComp: {
+                type: 'react',
+                Comp: ({widgetApi}) => {
+                  useEffect(() => {
+                    widgetApi.setHeaderTabs({
+                      tabs: [{label: 'Tab One'}, {label: 'Tab Two', title: 'https://two/'}],
+                      active: 1,
+                      onSelect
+                    });
+                  }, [widgetApi])
+                  return <></>;
+                }
+              } as WidgetReactComponent
+            }),
+          }
+        }
+      }),
+      widget: fixtureWidgetA({
+        type: widgetTypeId1,
+        coreSettings: fixtureWidgetCoreSettingsA({ name: widgetName })
+      }),
+    });
+
+    expect(screen.queryByText(widgetName)).not.toBeInTheDocument();
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.length).toBe(2);
+    expect(tabs[0]).toHaveTextContent('Tab One');
+    expect(tabs[1]).toHaveTextContent('Tab Two');
+    expect(tabs[1]).toHaveAttribute('aria-selected', 'true');
+
+    fireEvent.click(tabs[0]);
+    expect(onSelect).toHaveBeenCalledWith(0);
+  })
+
+  it('should display the widget name instead of header tabs in edit mode', async () => {
+    const widgetName = 'Widget Name';
+    await setup({
+      appState: fixtureAppState({
+        ui: { editMode: true },
+        entities: {
+          widgetTypes: {
+            ...fixtureWidgetTypeAInColl({
+              id: widgetTypeId1,
+              widgetComp: {
+                type: 'react',
+                Comp: ({widgetApi}) => {
+                  useEffect(() => {
+                    widgetApi.setHeaderTabs({ tabs: [{label: 'Tab One'}, {label: 'Tab Two'}], active: 0, onSelect: () => undefined });
+                  }, [widgetApi])
+                  return <></>;
+                }
+              } as WidgetReactComponent
+            }),
+          }
+        }
+      }),
+      widget: fixtureWidgetA({
+        type: widgetTypeId1,
+        coreSettings: fixtureWidgetCoreSettingsA({ name: widgetName })
+      }),
+    });
+
+    expect(screen.queryAllByRole('tab').length).toBe(0);
     expect(screen.queryAllByText(widgetName).length).toBe(1);
   })
 
@@ -886,6 +965,7 @@ describe('<Widget />', () => {
     expect(getWidgetApiUseCase).toHaveBeenCalledWith(
       widgetId,
       false,
+      expect.any(Function),
       expect.any(Function),
       expect.any(Function),
       expect.any(Function),

@@ -7,6 +7,7 @@ import { ShowWidgetContextMenuUseCase } from '@/application/useCases/widget/show
 import { entityStateActions } from '@/base/state/actions';
 import { Widget, WidgetContextMenuFactory, WidgetEnv, getWidgetDisplayName } from '@/base/widget';
 import { ActionBarItem, ActionBarItems } from '@/base/actionBar';
+import { WidgetHeaderTabs } from '@/base/widgetApi';
 import { UseAppState } from '@/ui/hooks/appState';
 import { useWidgetTypeComp } from '@/ui/hooks/useWidgetTypeComp';
 import { useCallback, useMemo, useState } from 'react';
@@ -175,6 +176,7 @@ export function createWidgetViewModelHook({
       state.ui.worktable.resizingItem
     ])
     const [actionBarItemsViewMode, setActionBarItemsViewMode] = useState<ActionBarItems>([]);
+    const [headerTabs, setHeaderTabs] = useState<WidgetHeaderTabs | null>(null);
     const [contextMenuFactoryViewMode, setContextMenuFactoryViewMode] = useState<WidgetContextMenuFactory | undefined>(undefined);
 
     const widgetType = useAppState.useWithStrictEq(state => entityStateActions.widgetTypes.getOne(state, widget.type));
@@ -189,6 +191,7 @@ export function createWidgetViewModelHook({
       (api) => setExposedApiUseCase(widget.id, api),
       (title) => setWidgetDynamicTitleUseCase(widget.id, title),
       (type, payload) => logTelemetryActivityUseCase(type, { ...payload, widgetId: widget.id }),
+      (tabs) => setHeaderTabs(tabs),
       widgetType?.requiresApi || []
     ), [env.isPreview, maximizeAction, widget.id, widgetType?.maximizable, widgetType?.requiresApi])
 
@@ -221,6 +224,7 @@ export function createWidgetViewModelHook({
       env,
       widget,
       widgetName,
+      headerTabs,
       widgetApi,
       WidgetComp,
       sharedState,

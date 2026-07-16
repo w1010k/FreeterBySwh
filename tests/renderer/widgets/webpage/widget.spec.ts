@@ -203,60 +203,93 @@ describe('Webpage Widget', () => {
   })
 
   describe('tabs', () => {
-    it('should not render a tab bar when tabs setting is empty', () => {
-      setupWebpageWidgetSut(fixtureSettings({ url: 'https://a/', tabs: [] }));
+    // The tab bar itself is rendered by the widget shell header; the widget
+    // publishes it via widgetApi.setHeaderTabs.
+    type HeaderTabs = {
+      tabs: Array<{ label: string; title?: string }>;
+      active: number;
+      onSelect: (i: number) => void;
+    } | null;
+    const lastHeaderTabs = (mock: jest.Mock): HeaderTabs => mock.mock.calls[mock.mock.calls.length - 1][0];
 
-      expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    it('should publish no header tabs when tabs setting is empty', () => {
+      const setHeaderTabs = jest.fn();
+      setupWebpageWidgetSut(fixtureSettings({ url: 'https://a/', tabs: [] }), { mockWidgetApi: { setHeaderTabs } });
+
+      expect(lastHeaderTabs(setHeaderTabs)).toBeNull();
     })
-    it('should render a tab bar and one webview per url when tabs are set', () => {
-      const { comp } = setupWebpageWidgetSut(fixtureSettings({ url: 'https://a/', tabs: ['https://b/', 'https://c/'] }));
+    it('should publish header tabs and render one webview per url when tabs are set', () => {
+      const setHeaderTabs = jest.fn();
+      const { comp } = setupWebpageWidgetSut(
+        fixtureSettings({ url: 'https://a/', tabs: ['https://b/', 'https://c/'] }),
+        { mockWidgetApi: { setHeaderTabs } }
+      );
 
-      expect(screen.getByRole('tablist')).toBeInTheDocument();
-      expect(screen.getAllByRole('tab').length).toBe(3);
+      expect(lastHeaderTabs(setHeaderTabs)?.tabs.length).toBe(3);
+      expect(lastHeaderTabs(setHeaderTabs)?.active).toBe(0);
       expect(comp.container.getElementsByTagName('webview').length).toBe(3);
     })
-    it('should render a webview without a tab bar when url is empty and tabs has a single url', () => {
-      const { comp } = setupWebpageWidgetSut(fixtureSettings({ url: '', tabs: ['https://b/'] }));
+    it('should render a webview without header tabs when url is empty and tabs has a single url', () => {
+      const setHeaderTabs = jest.fn();
+      const { comp } = setupWebpageWidgetSut(fixtureSettings({ url: '', tabs: ['https://b/'] }), { mockWidgetApi: { setHeaderTabs } });
 
-      expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+      expect(lastHeaderTabs(setHeaderTabs)).toBeNull();
       expect(comp.container.getElementsByTagName('webview')[0]).toHaveAttribute('src', 'https://b/');
     })
-    it('should show the first tab initially and switch panes on tab click, keeping inactive webviews mounted', () => {
-      const { comp } = setupWebpageWidgetSut(fixtureSettings({ url: 'https://a/', tabs: ['https://b/'] }));
-      const tabs = screen.getAllByRole('tab');
+    it('should show the first tab initially and switch panes on select, keeping inactive webviews mounted', () => {
+      const setHeaderTabs = jest.fn();
+      const { comp } = setupWebpageWidgetSut(fixtureSettings({ url: 'https://a/', tabs: ['https://b/'] }), { mockWidgetApi: { setHeaderTabs } });
       const panes = () => Array.from(comp.container.getElementsByTagName('webview')).map(wv => wv.parentElement as HTMLElement);
 
-      expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
-      expect(panes()[0].style.visibility).not.toBe('hidden');
+      expect(lastHeaderTabs(setHeaderTabs)?.active).toBe(0);
+      expect(panes()[0]).not.toHaveStyle({ visibility: 'hidden' });
       expect(panes()[0]).not.toHaveAttribute('inert');
-      expect(panes()[1].style.visibility).toBe('hidden');
+      expect(panes()[1]).toHaveStyle({ visibility: 'hidden' });
       expect(panes()[1]).toHaveAttribute('inert');
 
       const secondWebview = comp.container.getElementsByTagName('webview')[1];
-      fireEvent.click(tabs[1]);
+      act(() => lastHeaderTabs(setHeaderTabs)?.onSelect(1));
 
-      expect(tabs[1]).toHaveAttribute('aria-selected', 'true');
-      expect(panes()[1].style.visibility).not.toBe('hidden');
-      expect(panes()[0].style.visibility).toBe('hidden');
+      expect(lastHeaderTabs(setHeaderTabs)?.active).toBe(1);
+      expect(panes()[1]).not.toHaveStyle({ visibility: 'hidden' });
+      expect(panes()[0]).toHaveStyle({ visibility: 'hidden' });
       // the webview element survived the switch (state preserved)
       expect(comp.container.getElementsByTagName('webview')[1]).toBe(secondWebview);
     })
     it('should label tabs with the url hostname until a page title is known', () => {
-      setupWebpageWidgetSut(fixtureSettings({ url: 'https://first.host/path', tabs: ['second.host'] }));
+      const setHeaderTabs = jest.fn();
+      setupWebpageWidgetSut(fixtureSettings({ url: 'https://first.host/path', tabs: ['second.host'] }), { mockWidgetApi: { setHeaderTabs } });
 
-      const tabs = screen.getAllByRole('tab');
-      expect(tabs[0]).toHaveTextContent('first.host');
-      expect(tabs[1]).toHaveTextContent('second.host');
+      const tabs = lastHeaderTabs(setHeaderTabs)?.tabs;
+      expect(tabs?.[0].label).toBe('first.host');
+      expect(tabs?.[1].label).toBe('second.host');
+    })
+    it('should label tabs with the custom name set after a pipe, stripping it from the url', () => {
+      const setHeaderTabs = jest.fn();
+      const { comp } = setupWebpageWidgetSut(
+        fixtureSettings({ url: 'https://a/ | First', tabs: ['https://b/|Second'] }),
+        { mockWidgetApi: { setHeaderTabs } }
+      );
+
+      const tabs = lastHeaderTabs(setHeaderTabs)?.tabs;
+      expect(tabs?.[0].label).toBe('First');
+      expect(tabs?.[1].label).toBe('Second');
+      const webviews = comp.container.getElementsByTagName('webview');
+      expect(webviews[0]).toHaveAttribute('src', 'https://a/');
+      expect(webviews[1]).toHaveAttribute('src', 'https://b/');
     })
     it('should clamp the active tab when the tab list shrinks', () => {
-      const { comp, setSettings } = setupWebpageWidgetSut(fixtureSettings({ url: 'https://a/', tabs: ['https://b/', 'https://c/'] }));
-      fireEvent.click(screen.getAllByRole('tab')[2]);
+      const setHeaderTabs = jest.fn();
+      const { comp, setSettings } = setupWebpageWidgetSut(
+        fixtureSettings({ url: 'https://a/', tabs: ['https://b/', 'https://c/'] }),
+        { mockWidgetApi: { setHeaderTabs } }
+      );
+      act(() => lastHeaderTabs(setHeaderTabs)?.onSelect(2));
 
       setSettings(fixtureSettings({ url: 'https://a/', tabs: ['https://b/'] }));
 
-      const tabs = screen.getAllByRole('tab');
-      expect(tabs.length).toBe(2);
-      expect(tabs[1]).toHaveAttribute('aria-selected', 'true');
+      expect(lastHeaderTabs(setHeaderTabs)?.tabs.length).toBe(2);
+      expect(lastHeaderTabs(setHeaderTabs)?.active).toBe(1);
       expect(comp.container.getElementsByTagName('webview').length).toBe(2);
     })
   })

@@ -123,7 +123,8 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
       <SettingBlock
         titleForId='webpage-tabs'
         title='Tabs'
-        moreInfo='Add more URLs (one per line) to show multiple webpages as switchable tabs inside the widget. The URL above becomes the first tab.'
+        moreInfo='Add more URLs (one per line) to show multiple webpages as switchable tabs in the widget header. The URL above becomes
+                  the first tab. Add an optional tab name after a pipe: "https://example.com | My Tab" (works for the URL above too).'
       >
         <textarea id="webpage-tabs" value={tabsText} onChange={e => updateTabs(e.target.value, true)} onBlur={e=>updateTabs(e.target.value, false)} placeholder="Type URLs, one per line"></textarea>
       </SettingBlock>

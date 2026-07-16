@@ -10,7 +10,7 @@ import { FsProvider } from '@/application/interfaces/fsProvider';
 import { IconProvider } from '@/application/interfaces/iconProvider';
 import { DataStorageRenderer } from '@/application/interfaces/dataStorage';
 import { EntityId } from '@/base/entity';
-import { WidgetApiExposeApiHandler, WidgetApiLogActivityHandler, WidgetApiModuleName, WidgetApiSetContextMenuFactoryHandler, WidgetApiSetDynamicTitleHandler, WidgetApiUpdateActionBarHandler, createWidgetApiFactory } from '@/base/widgetApi';
+import { WidgetApiExposeApiHandler, WidgetApiLogActivityHandler, WidgetApiModuleName, WidgetApiSetContextMenuFactoryHandler, WidgetApiSetDynamicTitleHandler, WidgetApiSetHeaderTabsHandler, WidgetApiUpdateActionBarHandler, createWidgetApiFactory } from '@/base/widgetApi';
 import { ObjectManager } from '@common/base/objectManager';
 import { TerminalProvider } from '@/application/interfaces/terminalProvider';
 import { SystemStatsProvider } from '@/application/interfaces/systemStatsProvider';
@@ -72,9 +72,20 @@ function _createWidgetApiFactory({
   getWidgetsInCurrentWorkflowUseCase,
 }: Deps, forPreview: boolean) {
   return createWidgetApiFactory(
-    (_widgetId, updateActionBarHandler, setWidgetContextMenuFactoryHandler, exposeApiHandler, setDynamicTitleHandler, logActivityHandler) => ({
+    (
+      _widgetId,
+      updateActionBarHandler,
+      setWidgetContextMenuFactoryHandler,
+      exposeApiHandler,
+      setDynamicTitleHandler,
+      logActivityHandler,
+      setHeaderTabsHandler
+    ) => ({
       updateActionBar: !forPreview ? (actionBarItems) => {
         updateActionBarHandler(actionBarItems);
+      } : () => undefined,
+      setHeaderTabs: !forPreview ? (tabs) => {
+        setHeaderTabsHandler(tabs);
       } : () => undefined,
       setContextMenuFactory: !forPreview ? (factory) => {
         setWidgetContextMenuFactoryHandler(factory);
@@ -168,6 +179,7 @@ export function createGetWidgetApiUseCase(deps: Deps) {
     exposeApiHandler: WidgetApiExposeApiHandler,
     setDynamicTitleHandler: WidgetApiSetDynamicTitleHandler,
     logActivityHandler: WidgetApiLogActivityHandler,
+    setHeaderTabsHandler: WidgetApiSetHeaderTabsHandler,
     requiredModules: WidgetApiModuleName[]
   ) {
     const factory = forPreview ? widgetApiPreviewFactory : widgetApiFactory;
@@ -178,6 +190,7 @@ export function createGetWidgetApiUseCase(deps: Deps) {
       exposeApiHandler,
       setDynamicTitleHandler,
       logActivityHandler,
+      setHeaderTabsHandler,
       requiredModules
     );
   }

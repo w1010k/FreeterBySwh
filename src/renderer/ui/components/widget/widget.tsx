@@ -24,6 +24,7 @@ export function createWidgetComponent({
       widget,
       actionBarItems,
       widgetName,
+      headerTabs,
       widgetApi,
       WidgetComp,
       sharedState,
@@ -51,7 +52,21 @@ export function createWidgetComponent({
       onContextMenu={onContextMenuHandler}
     >
       <div className={styles['widget-header']}>
-        <div className={styles['widget-header-name']}>{widgetName}</div>
+        {/* In edit mode the header is the drag handle, so tabs yield to the name. */}
+        {(!editMode && headerTabs && headerTabs.tabs.length > 0)
+          ? <div className={styles['widget-header-tabs']} role="tablist">
+              {headerTabs.tabs.map((tab, i) => (
+                <button
+                  key={i}
+                  role="tab"
+                  aria-selected={i === headerTabs.active}
+                  title={tab.title}
+                  className={clsx(styles['widget-header-tab'], i === headerTabs.active && styles['widget-header-tab-active'])}
+                  onClick={() => headerTabs.onSelect(i)}
+                >{tab.label}</button>
+              ))}
+            </div>
+          : <div className={styles['widget-header-name']}>{widgetName}</div>}
         <ActionBar
           actionBarItems={actionBarItems}
           className={styles['widget-header-action-bar']}

@@ -560,29 +560,45 @@ const noopApiFn = () => undefined;
 
 interface TabTitleInfo { pageTitle: string; dynamicTitle: string | null }
 
-function tabLabel(url: string, info: TabTitleInfo | undefined): string {
+interface TabEntry { url: string; name: string }
+
+// Each URL line (and the main URL field) accepts an optional custom tab name
+// after a pipe: `https://example.com | My name`.
+function parseTabEntry(line: string): TabEntry {
+  const sep = line.indexOf('|');
+  if (sep < 0) {
+    return { url: line.trim(), name: '' };
+  }
+  return { url: line.slice(0, sep).trim(), name: line.slice(sep + 1).trim() };
+}
+
+// Label priority: user-set name → page title → URL hostname.
+function tabLabel(entry: TabEntry, info: TabTitleInfo | undefined): string {
+  if (entry.name !== '') {
+    return entry.name;
+  }
   if (info?.pageTitle && info.pageTitle.trim() !== '') {
     return info.pageTitle;
   }
   try {
-    return new URL(sanitizeUrl(url)).hostname || url;
+    return new URL(sanitizeUrl(entry.url)).hostname || entry.url;
   } catch {
-    return url;
+    return entry.url;
   }
 }
 
 export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
   const {settings, widgetApi} = props;
-  const urls = useMemo(
-    () => [settings.url, ...settings.tabs].map(u => u.trim()).filter(u => u !== ''),
+  const entries = useMemo(
+    () => [settings.url, ...settings.tabs].map(parseTabEntry).filter(e => e.url !== ''),
     [settings.url, settings.tabs]
   );
-  const multiTab = urls.length > 1;
+  const multiTab = entries.length > 1;
   const [requireRestart, setRequireRestart] = useState(1);
   const doRestart = useCallback(() => setRequireRestart(n => n + 1), [])
   const [activeTab, setActiveTab] = useState(0);
   // Clamp instead of resetting state so removing a middle tab keeps a sane selection.
-  const active = Math.min(activeTab, Math.max(urls.length - 1, 0));
+  const active = Math.min(activeTab, Math.max(entries.length - 1, 0));
   const [tabTitles, setTabTitles] = useState<Record<number, TabTitleInfo>>({});
 
   // Multi-tab mode mounts one <Webview> per tab (inactive ones stay alive,
@@ -600,52 +616,54 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
     exposeApi: noopApiFn
   }), [widgetApi]);
   const titleHandlers = useMemo(
-    () => urls.map((_, i) => (info: TabTitleInfo) => setTabTitles(prev => ({...prev, [i]: info}))),
+    () => entries.map((_, i) => (info: TabTitleInfo) => setTabTitles(prev => ({...prev, [i]: info}))),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [urls.length]
+    [entries.length]
   );
 
-  const {setDynamicTitle} = widgetApi;
+  const {setDynamicTitle, setHeaderTabs} = widgetApi;
   useEffect(() => {
     if (multiTab) {
       setDynamicTitle(tabTitles[active]?.dynamicTitle ?? null);
     }
   }, [multiTab, setDynamicTitle, tabTitles, active]);
 
+  // The tab bar lives in the widget shell header (replacing the widget name),
+  // published via widgetApi like the action bar.
+  useEffect(() => {
+    if (!multiTab) {
+      setHeaderTabs(null);
+      return undefined;
+    }
+    setHeaderTabs({
+      tabs: entries.map((e, i) => ({label: tabLabel(e, tabTitles[i]), title: e.url})),
+      active,
+      onSelect: setActiveTab
+    });
+    return () => setHeaderTabs(null);
+  }, [multiTab, setHeaderTabs, entries, tabTitles, active]);
+
   useEffect(()=> {
-    if(urls.length === 0) {
+    if(entries.length === 0) {
       const {updateActionBar, setContextMenuFactory, setDynamicTitle} = widgetApi;
       setContextMenuFactory(createContextMenuFactory(null, widgetApi, '', 0, false, () => undefined));
       updateActionBar(createActionBarItems(null, widgetApi, '', 0, false, () => undefined));
       setDynamicTitle(null);
     }
-  }, [widgetApi, urls.length]);
+  }, [widgetApi, entries.length]);
 
-  if (urls.length === 0) {
+  if (entries.length === 0) {
     return <div className={styles['not-configured']}>
       Webpage URL not specified.
     </div>
   }
 
   if (!multiTab) {
-    return <Webview key={requireRestart} onRequireRestart={doRestart} {...props} settings={{...settings, url: urls[0]}}></Webview>
+    return <Webview key={requireRestart} onRequireRestart={doRestart} {...props} settings={{...settings, url: entries[0].url}}></Webview>
   }
 
-  return <div className={styles['tabs']}>
-    <div className={styles['tabs-bar']} role="tablist">
-      {urls.map((u, i) => (
-        <button
-          key={i}
-          role="tab"
-          aria-selected={i === active}
-          title={u}
-          className={i === active ? `${styles['tab']} ${styles['tab-active']}` : styles['tab']}
-          onClick={() => setActiveTab(i)}
-        >{tabLabel(u, tabTitles[i])}</button>
-      ))}
-    </div>
-    <div className={styles['tabs-panes']}>
-      {urls.map((u, i) => (
+  return <div className={styles['tabs-panes']}>
+      {entries.map(({url: u}, i) => (
         // visibility (not display:none) keeps hidden webviews alive so tab
         // state (scroll, forms, logins) survives switching.
         <div
@@ -667,7 +685,6 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
         </div>
       ))}
     </div>
-  </div>
 }
 
 export const widgetComp: ReactComponent<WidgetReactComponentProps<Settings>> = {

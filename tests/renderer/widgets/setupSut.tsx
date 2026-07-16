@@ -97,6 +97,7 @@ export function setupWidgetSut<T>(reactComp: ReactComponent<WidgetReactComponent
   const {Comp} = reactComp;
   const widgetApi: WidgetApi = {
     updateActionBar: mockWidgetApi.updateActionBar || jest.fn(),
+    setHeaderTabs: mockWidgetApi.setHeaderTabs || jest.fn(),
     setContextMenuFactory: mockWidgetApi.setContextMenuFactory || jest.fn(),
     exposeApi: mockWidgetApi.exposeApi || jest.fn(),
     setDynamicTitle: mockWidgetApi.setDynamicTitle || jest.fn(),

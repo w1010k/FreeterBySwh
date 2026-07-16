@@ -12,8 +12,19 @@ import { SystemStats } from '@common/base/systemStats';
 import { OpenDialogResult, OpenDirDialogConfig, OpenFileDialogConfig } from '@common/base/dialog';
 import { TelemetryActivityPayload, TelemetryActivityType } from '@common/base/telemetry';
 
+/**
+ * Tabs rendered by the widget shell in the header, replacing the widget name.
+ * The action bar stays on the right. Pass `null` to restore the name display.
+ */
+export interface WidgetHeaderTabs {
+  tabs: ReadonlyArray<{ label: string; title?: string }>;
+  active: number;
+  onSelect: (index: number) => void;
+}
+
 interface WidgetApiCommon {
   readonly updateActionBar: (actionBarItems: ActionBarItems) => void;
+  readonly setHeaderTabs: (tabs: WidgetHeaderTabs | null) => void;
   readonly setContextMenuFactory: (factory: WidgetContextMenuFactory) => void;
   readonly exposeApi: <T extends object>(api: T) => void; // exposes api for consumption by other widgets via WidgetAPI.widgets
   /**
@@ -101,6 +112,7 @@ export type WidgetApiModuleName = keyof WidgetApiModules;
 export interface WidgetApi extends WidgetApiCommon, WidgetApiModules { }
 
 export type WidgetApiUpdateActionBarHandler = (actionBarItems: ActionBarItems) => void;
+export type WidgetApiSetHeaderTabsHandler = (tabs: WidgetHeaderTabs | null) => void;
 export type WidgetApiSetContextMenuFactoryHandler = (factory: WidgetContextMenuFactory) => void;
 export type WidgetApiExposeApiHandler = (api: object) => void;
 export type WidgetApiSetDynamicTitleHandler = (title: string | null) => void;
@@ -111,7 +123,8 @@ export type WidgetApiCommonFactory = (
   setContextMenuFactoryHandler: WidgetApiSetContextMenuFactoryHandler,
   exposeApiHandler: WidgetApiExposeApiHandler,
   setDynamicTitleHandler: WidgetApiSetDynamicTitleHandler,
-  logActivityHandler: WidgetApiLogActivityHandler
+  logActivityHandler: WidgetApiLogActivityHandler,
+  setHeaderTabsHandler: WidgetApiSetHeaderTabsHandler
 ) => WidgetApiCommon;
 type WidgetApiModuleFactory<N extends WidgetApiModuleName> = (widgetId: EntityId) => WidgetApiModules[N];
 export type WidgetApiModuleFactories = {
@@ -125,6 +138,7 @@ export type WidgetApiFactory = (
   exposeApiHandler: WidgetApiExposeApiHandler,
   setDynamicTitleHandler: WidgetApiSetDynamicTitleHandler,
   logActivityHandler: WidgetApiLogActivityHandler,
+  setHeaderTabsHandler: WidgetApiSetHeaderTabsHandler,
   availableModules: WidgetApiModuleName[]
 ) => WidgetApi;
 
@@ -136,9 +150,18 @@ export function createWidgetApiFactory(commonFactory: WidgetApiCommonFactory, mo
     exposeApiHandler: WidgetApiExposeApiHandler,
     setDynamicTitleHandler: WidgetApiSetDynamicTitleHandler,
     logActivityHandler: WidgetApiLogActivityHandler,
+    setHeaderTabsHandler: WidgetApiSetHeaderTabsHandler,
     availableModules: WidgetApiModuleName[]
   ) => ({
-    ...commonFactory(widgetId, updateActionBarHandler, setContextMenuFactoryHandler, exposeApiHandler, setDynamicTitleHandler, logActivityHandler),
+    ...commonFactory(
+      widgetId,
+      updateActionBarHandler,
+      setContextMenuFactoryHandler,
+      exposeApiHandler,
+      setDynamicTitleHandler,
+      logActivityHandler,
+      setHeaderTabsHandler
+    ),
     ...Object.fromEntries(availableModules.map(featName => ([featName, moduleFactories[featName](widgetId)])))
   } as WidgetApi);
 }
