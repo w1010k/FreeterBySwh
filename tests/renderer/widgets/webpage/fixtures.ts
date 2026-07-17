@@ -12,6 +12,7 @@ export function fixtureSettings(settings: Partial<Settings>): Settings {
     url: 'https://some.url/',
     urlName: '',
     tabs: [],
+    customActions: [],
     autoReload: 0,
     injectedCSS: '',
     injectedJS: '',

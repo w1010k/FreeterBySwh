@@ -59,6 +59,22 @@ function sanitizeTabSetting(val: unknown): TabSettings | null {
   return null;
 }
 
+export interface CustomActionSettings {
+  name: string;
+  js: string;
+}
+
+function sanitizeCustomAction(val: unknown): CustomActionSettings | null {
+  if (typeof val !== 'object' || val === null) {
+    return null;
+  }
+  const { name, js } = val as { name?: unknown; js?: unknown };
+  return {
+    name: typeof name === 'string' ? name : '',
+    js: typeof js === 'string' ? js : ''
+  };
+}
+
 export interface Settings {
   autoReload: number;
   sessionPersist: SettingsSessionPersist;
@@ -66,6 +82,7 @@ export interface Settings {
   url: string;
   urlName: string;
   tabs: TabSettings[];
+  customActions: CustomActionSettings[];
   injectedCSS: string;
   injectedJS: string;
   userAgent: string;
@@ -86,6 +103,9 @@ export const createSettingsState: CreateSettingsState<Settings> = (settings) => 
     urlName: typeof settings.urlName === 'string' ? settings.urlName : (legacyUrl?.name ?? ''),
     tabs: Array.isArray(settings.tabs)
       ? settings.tabs.map(sanitizeTabSetting).filter((t): t is TabSettings => t !== null)
+      : [],
+    customActions: Array.isArray(settings.customActions)
+      ? settings.customActions.map(sanitizeCustomAction).filter((a): a is CustomActionSettings => a !== null)
       : [],
     injectedCSS: typeof settings.injectedCSS === 'string' ? settings.injectedCSS : '',
     injectedJS: typeof settings.injectedJS === 'string' ? settings.injectedJS : '',
@@ -148,6 +168,25 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
     updateTabs(tabs.map((tab, _i) => i !== _i ? tab : { ...tab, ...patch }), shouldDebounce);
   const addTab = () => updateTabs([...tabs, { url: '', name: '' }], false);
   const deleteTab = (i: number) => updateTabs(tabs.filter((_tab, _i) => i !== _i), false);
+
+  // Custom action rows: same mirror-and-debounce contract as the tab rows.
+  const [customActions, setCustomActions] = useState(settings.customActions);
+  const updateCustomActions = useCallback((newActions: CustomActionSettings[], shouldDebounce: boolean) => {
+    setCustomActions(newActions);
+    const updateValInSettings = () => updateSettings({
+      ...settings,
+      customActions: newActions
+    })
+    if (shouldDebounce) {
+      debounceUpdate3s(updateValInSettings);
+    } else {
+      updateValInSettings();
+    }
+  }, [settings, updateSettings])
+  const updAction = (i: number, patch: Partial<CustomActionSettings>, shouldDebounce: boolean) =>
+    updateCustomActions(customActions.map((a, _i) => i !== _i ? a : { ...a, ...patch }), shouldDebounce);
+  const addAction = () => updateCustomActions([...customActions, { name: '', js: '' }], false);
+  const deleteAction = (i: number) => updateCustomActions(customActions.filter((_a, _i) => i !== _i), false);
 
   const tabUrlRefs = useRef<Array<HTMLInputElement | null>>([]);
   const shouldFocusLastTabRef = useRef(false);
@@ -222,6 +261,52 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
               shouldFocusLastTabRef.current = true;
             }}
             caption='Add a tab'
+            primary={true}
+          ></Button>
+        </div>
+      </SettingBlock>
+
+      <SettingBlock
+        titleForId='webpage-action-name0'
+        title='Custom Actions'
+        moreInfo='Add buttons to the widget action bar that run a JavaScript snippet on the current page when clicked —
+                  like browser bookmarklets. Useful for repeated page tasks (mark all read, toggle a view, click a button).'
+      >
+        {customActions.map((a, i) => (
+          <SettingRow key={i}>
+            <input
+              id={'webpage-action-name' + i}
+              type="text"
+              style={{flex: 1}}
+              aria-label={'Action Name ' + (i + 1)}
+              value={a.name}
+              placeholder='Name'
+              onChange={e => updAction(i, { name: e.target.value }, true)}
+              onBlur={e => updAction(i, { name: e.target.value }, false)}
+            />
+            <input
+              type="text"
+              style={{flex: 2}}
+              aria-label={'Action JS ' + (i + 1)}
+              value={a.js}
+              placeholder='JavaScript code'
+              onChange={e => updAction(i, { js: e.target.value }, true)}
+              onBlur={e => updAction(i, { js: e.target.value }, false)}
+            />
+            <SettingActions
+              actions={[{
+                id: 'DELETE',
+                icon: delete14Svg,
+                title: 'Delete Action',
+                doAction: async () => deleteAction(i)
+              }]}
+            />
+          </SettingRow>
+        ))}
+        <div>
+          <Button
+            onClick={_ => addAction()}
+            caption='Add an action'
             primary={true}
           ></Button>
         </div>

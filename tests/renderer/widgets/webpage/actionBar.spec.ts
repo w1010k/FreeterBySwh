@@ -52,6 +52,26 @@ describe('Webpage action bar', () => {
     expect(openIdx).toBe(copyIdx + 1);
   })
 
+  it('should add a button per custom action with a non-empty js, running the js on click', async () => {
+    const { elWebview, widgetApi } = setupMocks();
+    const executeJavaScript = jest.fn(() => Promise.resolve());
+    (elWebview as unknown as { executeJavaScript: jest.Mock }).executeJavaScript = executeJavaScript;
+
+    const items = createActionBarItems(elWebview, widgetApi, 'https://example.com', 0, false, () => undefined, false, undefined, undefined, [
+      { name: 'Mark all read', js: 'markAllRead()' },
+      { name: 'Empty js is skipped', js: '  ' },
+      { name: '', js: 'doStuff()' }
+    ]);
+
+    const customItems = items.filter(item => item.id.startsWith('CUSTOM-ACTION-'));
+    expect(customItems.length).toBe(2);
+    expect(customItems[0].title).toBe('Mark all read');
+    expect(customItems[1].title).toBe('Custom action 3');
+
+    await customItems[0].doAction();
+    expect(executeJavaScript).toHaveBeenCalledWith('markAllRead()');
+  })
+
   it('should return an empty array when the webview is null', () => {
     const { widgetApi } = setupMocks();
     const items = createActionBarItems(null, widgetApi, 'https://example.com', 0, false, () => undefined);

@@ -17,6 +17,7 @@ import { canGoHome, goHome, reload, setAudioMuted, zoomReset, zoomStepIn, zoomSt
 import { WebpageExposedApi } from '@/widgets/interfaces';
 import { WEBPAGE_ZOOM_EVENT, WebpageZoomEventDetail } from '@/widgets/webpage/zoomEvents';
 import { WEBPAGE_GO_HOME_EVENT, WebpageGoHomeEventDetail } from '@/widgets/webpage/homeEvents';
+import { volumeOffSvg, volumeOnSvg } from '@/widgets/webpage/icons';
 
 // Injected into each webview on dom-ready. Intercepts Ctrl/Cmd + wheel before
 // the guest page sees it (`capture: true, passive: false` — passive must be
@@ -63,15 +64,16 @@ interface WebviewProps extends WidgetReactComponentProps<Settings> {
    */
   onRequireRestart: () => void;
   /**
-   * Multi-tab mode: reports the page title so the parent can label the tab
-   * and own the widget's dynamic title (setDynamicTitle is no-op'ed per tab
-   * to avoid cross-tab overwrite races).
+   * Multi-tab mode: reports per-tab info (page title, favicon, loading state)
+   * as partial patches so the parent can label the tab and own the widget's
+   * dynamic title (setDynamicTitle is no-op'ed per tab to avoid cross-tab
+   * overwrite races).
    */
-  onTitleInfo?: (info: {pageTitle: string; dynamicTitle: string | null}) => void;
+  onTabInfo?: (patch: Partial<TabInfo>) => void;
 }
 
-function Webview({settings, widgetApi, onRequireRestart, onTitleInfo, env, id}: WebviewProps) {
-  const {url, sessionScope, sessionPersist, autoReload, injectedCSS, injectedJS, userAgent} = settings;
+function Webview({settings, widgetApi, onRequireRestart, onTabInfo, env, id}: WebviewProps) {
+  const {url, sessionScope, sessionPersist, autoReload, injectedCSS, injectedJS, userAgent, customActions} = settings;
 
   const partition = useMemo(() => createPartition(sessionPersist, sessionScope, env, id), [
     env, id, sessionScope, sessionPersist
@@ -125,7 +127,8 @@ function Webview({settings, widgetApi, onRequireRestart, onTitleInfo, env, id}: 
         setAudioMuted(webviewEl, audioMuted);
       }
     }
-  }, [audioMuted, webviewIsReady])
+    onTabInfo?.({muted: audioMuted});
+  }, [audioMuted, webviewIsReady, onTabInfo])
 
   // In-page find (Ctrl/Cmd+F or action-bar button). The find bar lives in the
   // host; results come back via the webview's 'found-in-page' event (wired below).
@@ -179,10 +182,11 @@ function Webview({settings, widgetApi, onRequireRestart, onTitleInfo, env, id}: 
         setAutoReloadStopped,
         audioMuted,
         toggleMute,
-        openFind
+        openFind,
+        customActions
       )
     ),
-    [autoReload, autoReloadStopped, updateActionBar, url, webviewIsReady, widgetApi, audioMuted, toggleMute, openFind]
+    [autoReload, autoReloadStopped, updateActionBar, url, webviewIsReady, widgetApi, audioMuted, toggleMute, openFind, customActions]
   );
 
   const injectCSSInDOM = useCallback(
@@ -237,9 +241,11 @@ function Webview({settings, widgetApi, onRequireRestart, onTitleInfo, env, id}: 
       setIsLoading(true);
       // A fresh load attempt clears any previous failure overlay.
       setLoadError(null);
+      onTabInfo?.({loading: true});
     }
     const handleDidStopLoading = () => {
       setIsLoading(false);
+      onTabInfo?.({loading: false});
     }
 
     // Electron creates a 'context-menu' event for Webview element. We should turn it
@@ -263,7 +269,7 @@ function Webview({settings, widgetApi, onRequireRestart, onTitleInfo, env, id}: 
       const parts = [curTitle, curUrl].filter(s => s && s.trim() !== '');
       const dynTitle = parts.length > 0 ? parts.join(' — ') : null;
       setDynamicTitle(dynTitle);
-      onTitleInfo?.({pageTitle: curTitle, dynamicTitle: dynTitle});
+      onTabInfo?.({pageTitle: curTitle, dynamicTitle: dynTitle});
       // Record a page_visit once per distinct URL for the activity timeline.
       if (curUrl && curUrl !== lastLoggedUrlRef.current) {
         lastLoggedUrlRef.current = curUrl;
@@ -272,6 +278,11 @@ function Webview({settings, widgetApi, onRequireRestart, onTitleInfo, env, id}: 
     }
     const handlePageTitleUpdated = () => publishTitle();
     const handleDidNavigateForTitle = () => publishTitle();
+    const handleFaviconUpdated = (e: Electron.PageFaviconUpdatedEvent) => {
+      onTabInfo?.({favicon: e.favicons?.[0] ?? null});
+    };
+    const handleMediaStartedPlaying = () => onTabInfo?.({audible: true});
+    const handleMediaPaused = () => onTabInfo?.({audible: false});
     const handleFoundInPage = (e: Electron.FoundInPageEvent) => {
       setFindResult({ active: e.result.activeMatchOrdinal, total: e.result.matches });
     };
@@ -293,6 +304,9 @@ function Webview({settings, widgetApi, onRequireRestart, onTitleInfo, env, id}: 
     webviewEl.addEventListener('page-title-updated', handlePageTitleUpdated);
     webviewEl.addEventListener('did-navigate', handleDidNavigateForTitle);
     webviewEl.addEventListener('did-navigate-in-page', handleDidNavigateForTitle);
+    webviewEl.addEventListener('page-favicon-updated', handleFaviconUpdated);
+    webviewEl.addEventListener('media-started-playing', handleMediaStartedPlaying);
+    webviewEl.addEventListener('media-paused', handleMediaPaused);
     webviewEl.addEventListener('found-in-page', handleFoundInPage);
 
     return () => {
@@ -304,12 +318,15 @@ function Webview({settings, widgetApi, onRequireRestart, onTitleInfo, env, id}: 
       webviewEl.removeEventListener('page-title-updated', handlePageTitleUpdated);
       webviewEl.removeEventListener('did-navigate', handleDidNavigateForTitle);
       webviewEl.removeEventListener('did-navigate-in-page', handleDidNavigateForTitle);
+      webviewEl.removeEventListener('page-favicon-updated', handleFaviconUpdated);
+      webviewEl.removeEventListener('media-started-playing', handleMediaStartedPlaying);
+      webviewEl.removeEventListener('media-paused', handleMediaPaused);
       webviewEl.removeEventListener('found-in-page', handleFoundInPage);
       // Clear the override so a fresh mount (e.g. after a required restart)
       // doesn't briefly show a stale title.
       setDynamicTitle(null);
     };
-  }, [setDynamicTitle, onTitleInfo]);
+  }, [setDynamicTitle, onTabInfo]);
 
   useEffect(() => {
     injectCSSInDOM(injectedCSS, false);
@@ -329,7 +346,8 @@ function Webview({settings, widgetApi, onRequireRestart, onTitleInfo, env, id}: 
       refreshActions();
       injectCSSInDOM(injectedCSS, true);
       if (injectedJS) {
-        webviewEl.executeJavaScript(injectedJS);
+        // A syntax error in user-provided JS must not surface as an unhandled rejection.
+        webviewEl.executeJavaScript(injectedJS).catch(() => undefined);
       }
       // Intercept Ctrl+wheel to zoom the page; see `zoomWheelInjectionJs`
       // for the rationale on using console.log as the signalling channel.
@@ -558,12 +576,22 @@ function Webview({settings, widgetApi, onRequireRestart, onTitleInfo, env, id}: 
 
 const noopApiFn = () => undefined;
 
-interface TabTitleInfo { pageTitle: string; dynamicTitle: string | null }
+interface TabInfo {
+  pageTitle: string;
+  dynamicTitle: string | null;
+  favicon: string | null;
+  loading: boolean;
+  audible: boolean;
+  muted: boolean;
+}
 
 interface TabEntry { url: string; name: string }
 
+// dataStorage key holding the last active tab index, so it survives restarts.
+const activeTabDataKey = 'activeTab';
+
 // Label priority: user-set name → page title → URL hostname.
-function tabLabel(entry: TabEntry, info: TabTitleInfo | undefined): string {
+function tabLabel(entry: TabEntry, info: Partial<TabInfo> | undefined): string {
   if (entry.name !== '') {
     return entry.name;
   }
@@ -594,7 +622,30 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
   // Keyed by url (not index) so removing/reordering tabs doesn't hand one tab
   // another tab's title. Duplicate-url tabs share an entry — acceptable, they
   // show the same page. Entries of removed urls linger — harmless.
-  const [tabTitles, setTabTitles] = useState<Record<string, TabTitleInfo>>({});
+  const [tabInfos, setTabInfos] = useState<Record<string, Partial<TabInfo>>>({});
+
+  // Restore the last active tab from widget data once on mount; a user click
+  // before the async read resolves wins over the restored value.
+  const {dataStorage} = widgetApi;
+  const userPickedTabRef = useRef(false);
+  const restoreTriedRef = useRef(false);
+  useEffect(() => {
+    if (!multiTab || restoreTriedRef.current) {
+      return;
+    }
+    restoreTriedRef.current = true;
+    (async () => {
+      const v = await dataStorage.getJson(activeTabDataKey);
+      if (typeof v === 'number' && v > 0 && !userPickedTabRef.current) {
+        setActiveTab(v);
+      }
+    })().catch(() => undefined);
+  }, [multiTab, dataStorage]);
+  const selectTab = useCallback((i: number) => {
+    userPickedTabRef.current = true;
+    setActiveTab(i);
+    dataStorage.setJson(activeTabDataKey, i);
+  }, [dataStorage]);
 
   // Multi-tab mode mounts one <Webview> per tab (inactive ones stay alive,
   // hidden via visibility). Only the active tab may own the widget-level API
@@ -610,8 +661,8 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
     setContextMenuFactory: noopApiFn,
     exposeApi: noopApiFn
   }), [widgetApi]);
-  const titleHandlers = useMemo(
-    () => entries.map(e => (info: TabTitleInfo) => setTabTitles(prev => ({...prev, [e.url]: info}))),
+  const tabInfoHandlers = useMemo(
+    () => entries.map(e => (patch: Partial<TabInfo>) => setTabInfos(prev => ({...prev, [e.url]: {...prev[e.url], ...patch}}))),
     [entries]
   );
 
@@ -619,9 +670,9 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
   const {setDynamicTitle, setHeaderTabs} = widgetApi;
   useEffect(() => {
     if (multiTab) {
-      setDynamicTitle(tabTitles[activeUrl]?.dynamicTitle ?? null);
+      setDynamicTitle(tabInfos[activeUrl]?.dynamicTitle ?? null);
     }
-  }, [multiTab, setDynamicTitle, tabTitles, activeUrl]);
+  }, [multiTab, setDynamicTitle, tabInfos, activeUrl]);
 
   // The tab bar lives in the widget shell header (replacing the widget name),
   // published via widgetApi like the action bar.
@@ -631,12 +682,22 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
       return undefined;
     }
     setHeaderTabs({
-      tabs: entries.map(e => ({label: tabLabel(e, tabTitles[e.url]), title: e.url})),
+      tabs: entries.map(e => {
+        const info = tabInfos[e.url];
+        return {
+          label: tabLabel(e, info),
+          title: e.url,
+          icon: info?.favicon ?? undefined,
+          loading: info?.loading === true,
+          // Muted wins over audible: a muted tab keeps "playing" silently.
+          audioIcon: info?.muted ? volumeOffSvg : (info?.audible ? volumeOnSvg : undefined)
+        };
+      }),
       active,
-      onSelect: setActiveTab
+      onSelect: selectTab
     });
     return () => setHeaderTabs(null);
-  }, [multiTab, setHeaderTabs, entries, tabTitles, active]);
+  }, [multiTab, setHeaderTabs, entries, tabInfos, active, selectTab]);
 
   useEffect(()=> {
     if(entries.length === 0) {
@@ -675,7 +736,7 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
             settings={{...settings, url: u}}
             widgetApi={i === active ? activeApi : inactiveApi}
             onRequireRestart={doRestart}
-            onTitleInfo={titleHandlers[i]}
+            onTabInfo={tabInfoHandlers[i]}
           ></Webview>
         </div>
       ))}

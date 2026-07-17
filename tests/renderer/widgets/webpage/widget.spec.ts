@@ -5,7 +5,7 @@
 
 import { Settings, SettingsSessionPersist, SettingsSessionScope } from '@/widgets/webpage/settings';
 import { widgetComp } from '@/widgets/webpage/widget'
-import { act, fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { fixtureSettings } from './fixtures';
 import { WidgetEnv, EntityId } from '@/widgets/appModules';
@@ -206,7 +206,7 @@ describe('Webpage Widget', () => {
     // The tab bar itself is rendered by the widget shell header; the widget
     // publishes it via widgetApi.setHeaderTabs.
     type HeaderTabs = {
-      tabs: Array<{ label: string; title?: string }>;
+      tabs: Array<{ label: string; title?: string; icon?: string; loading?: boolean; audioIcon?: string }>;
       active: number;
       onSelect: (i: number) => void;
     } | null;
@@ -304,6 +304,78 @@ describe('Webpage Widget', () => {
       expect(lastHeaderTabs(setHeaderTabs)?.tabs.length).toBe(2);
       expect(lastHeaderTabs(setHeaderTabs)?.active).toBe(1);
       expect(comp.container.getElementsByTagName('webview').length).toBe(2);
+    })
+    it('should save the selected tab to dataStorage and restore it on mount', async () => {
+      const setHeaderTabs = jest.fn();
+      const setJson = jest.fn();
+      const getJson = jest.fn(async () => 1);
+      const settings = fixtureSettings({ url: 'https://a/', tabs: [{ url: 'https://b/', name: '' }] });
+
+      setupWebpageWidgetSut(settings, { mockWidgetApi: { setHeaderTabs, dataStorage: { getJson, setJson } } });
+      expect(getJson).toHaveBeenCalledWith('activeTab');
+      await waitFor(() => expect(lastHeaderTabs(setHeaderTabs)?.active).toBe(1));
+
+      act(() => lastHeaderTabs(setHeaderTabs)?.onSelect(0));
+      expect(setJson).toHaveBeenCalledWith('activeTab', 0);
+    })
+    it('should not apply the restored tab over a selection the user already made', async () => {
+      const setHeaderTabs = jest.fn();
+      let resolveRestore: (v: number) => void;
+      const getJson = jest.fn(() => new Promise<number>(resolve => { resolveRestore = resolve; }));
+      const settings = fixtureSettings({ url: 'https://a/', tabs: [{ url: 'https://b/', name: '' }, { url: 'https://c/', name: '' }] });
+
+      setupWebpageWidgetSut(settings, { mockWidgetApi: { setHeaderTabs, dataStorage: { getJson, setJson: jest.fn() } } });
+      act(() => lastHeaderTabs(setHeaderTabs)?.onSelect(2));
+      await act(async () => { resolveRestore(1); });
+
+      expect(lastHeaderTabs(setHeaderTabs)?.active).toBe(2);
+    })
+    it('should publish the tab favicon reported by its webview', () => {
+      const setHeaderTabs = jest.fn();
+      const { comp } = setupWebpageWidgetSut(
+        fixtureSettings({ url: 'https://a/', tabs: [{ url: 'https://b/', name: '' }] }),
+        { mockWidgetApi: { setHeaderTabs } }
+      );
+      const webviews = comp.container.getElementsByTagName('webview');
+
+      const evt = new Event('page-favicon-updated') as Event & { favicons: string[] };
+      evt.favicons = ['https://b/favicon.ico'];
+      act(() => { webviews[1].dispatchEvent(evt); });
+
+      expect(lastHeaderTabs(setHeaderTabs)?.tabs[1].icon).toBe('https://b/favicon.ico');
+      expect(lastHeaderTabs(setHeaderTabs)?.tabs[0].icon).toBeUndefined();
+    })
+    it('should publish the tab loading state while its webview is loading', () => {
+      const setHeaderTabs = jest.fn();
+      const { comp } = setupWebpageWidgetSut(
+        fixtureSettings({ url: 'https://a/', tabs: [{ url: 'https://b/', name: '' }] }),
+        { mockWidgetApi: { setHeaderTabs } }
+      );
+      const webviews = comp.container.getElementsByTagName('webview');
+
+      act(() => { webviews[1].dispatchEvent(new Event('did-start-loading')); });
+      expect(lastHeaderTabs(setHeaderTabs)?.tabs[1].loading).toBe(true);
+      expect(lastHeaderTabs(setHeaderTabs)?.tabs[0].loading).toBe(false);
+
+      act(() => { webviews[1].dispatchEvent(new Event('did-stop-loading')); });
+      expect(lastHeaderTabs(setHeaderTabs)?.tabs[1].loading).toBe(false);
+    })
+    it('should publish an audio icon while the tab plays media, and clear it when paused', () => {
+      const setHeaderTabs = jest.fn();
+      const { comp } = setupWebpageWidgetSut(
+        fixtureSettings({ url: 'https://a/', tabs: [{ url: 'https://b/', name: '' }] }),
+        { mockWidgetApi: { setHeaderTabs } }
+      );
+      const webviews = comp.container.getElementsByTagName('webview');
+
+      expect(lastHeaderTabs(setHeaderTabs)?.tabs[1].audioIcon).toBeUndefined();
+
+      act(() => { webviews[1].dispatchEvent(new Event('media-started-playing')); });
+      expect(lastHeaderTabs(setHeaderTabs)?.tabs[1].audioIcon).toBeDefined();
+      expect(lastHeaderTabs(setHeaderTabs)?.tabs[0].audioIcon).toBeUndefined();
+
+      act(() => { webviews[1].dispatchEvent(new Event('media-paused')); });
+      expect(lastHeaderTabs(setHeaderTabs)?.tabs[1].audioIcon).toBeUndefined();
     })
   })
 

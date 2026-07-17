@@ -205,6 +205,76 @@ describe('<Widget />', () => {
     expect(onSelect).toHaveBeenCalledWith(0);
   })
 
+  it('should scroll the tab bar horizontally on wheel and scroll the active tab into view', async () => {
+    const scrollIntoView = jest.fn();
+    window.HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    await setup({
+      appState: fixtureAppState({
+        entities: {
+          widgetTypes: {
+            ...fixtureWidgetTypeAInColl({
+              id: widgetTypeId1,
+              widgetComp: {
+                type: 'react',
+                Comp: ({widgetApi}) => {
+                  useEffect(() => {
+                    widgetApi.setHeaderTabs({ tabs: [{label: 'Tab One'}, {label: 'Tab Two'}], active: 1, onSelect: () => undefined });
+                  }, [widgetApi])
+                  return <></>;
+                }
+              } as WidgetReactComponent
+            }),
+          }
+        }
+      }),
+      widget: fixtureWidgetA({ type: widgetTypeId1 }),
+    });
+
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
+
+    const tablist = screen.getAllByRole('tab')[0].parentElement as HTMLElement;
+    fireEvent.wheel(tablist, { deltaY: 40 });
+    expect(tablist.scrollLeft).toBe(40);
+  })
+
+  it('should display a favicon on a tab with an icon, and a spinner instead while loading', async () => {
+    await setup({
+      appState: fixtureAppState({
+        entities: {
+          widgetTypes: {
+            ...fixtureWidgetTypeAInColl({
+              id: widgetTypeId1,
+              widgetComp: {
+                type: 'react',
+                Comp: ({widgetApi}) => {
+                  useEffect(() => {
+                    widgetApi.setHeaderTabs({
+                      tabs: [
+                        {label: 'With Icon', icon: 'https://one/favicon.ico'},
+                        {label: 'Loading', icon: 'https://two/favicon.ico', loading: true}
+                      ],
+                      active: 0,
+                      onSelect: () => undefined
+                    });
+                  }, [widgetApi])
+                  return <></>;
+                }
+              } as WidgetReactComponent
+            }),
+          }
+        }
+      }),
+      widget: fixtureWidgetA({ type: widgetTypeId1 }),
+    });
+
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs[0].getElementsByTagName('img')[0]).toHaveAttribute('src', 'https://one/favicon.ico');
+    expect(tabs[0].querySelector('[role="progressbar"]')).toBeNull();
+    // loading replaces the favicon with a spinner
+    expect(tabs[1].getElementsByTagName('img').length).toBe(0);
+    expect(tabs[1].querySelector('[role="progressbar"]')).not.toBeNull();
+  })
+
   it('should display the widget name instead of header tabs in edit mode', async () => {
     const widgetName = 'Widget Name';
     await setup({

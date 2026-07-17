@@ -173,6 +173,23 @@ describe('Webpage Widget Settings', () => {
     expect(getSettings()).toEqual({ ...settings, urlName: 'First' });
   })
 
+  it('should add, edit (on blur) and delete custom action rows', async () => {
+    const settings = fixtureSettings({ customActions: [] });
+    const { fireEvent, userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+    const user = userEvent.setup({ delay: null });
+
+    await user.click(screen.getByRole('button', { name: /add an action/i }));
+    expect(getSettings()).toEqual({ ...settings, customActions: [{ name: '', js: '' }] });
+
+    const jsInput = screen.getByRole('textbox', { name: /action js 1/i });
+    await user.type(jsInput, 'doStuff()');
+    fireEvent.blur(jsInput);
+    expect(getSettings()).toEqual({ ...settings, customActions: [{ name: '', js: 'doStuff()' }] });
+
+    await user.click(screen.getByRole('button', { name: /delete action/i }));
+    expect(getSettings()).toEqual({ ...settings, customActions: [] });
+  })
+
   it('should immediately update "injected css" setting on input type', async () => {
     const css = 'some css';
     const settings = fixtureSettings({ injectedCSS: '' });

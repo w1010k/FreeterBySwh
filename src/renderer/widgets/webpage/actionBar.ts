@@ -5,8 +5,9 @@
 
 import { ActionBarItem, ActionBarItems } from '@/base/actionBar';
 import { canGoBack, canGoForward, canGoHome, canReload, copyCurrentAddress, goBack, goForward, goHome, labelAutoReloadStart, labelAutoReloadStop, labelCopyCurrentAddress, labelFindInPage, labelGoBack, labelGoForward, labelGoHome, labelMuteAudio, labelOpenInBrowser, labelReload, labelUnmuteAudio, labelZoomIn, labelZoomOut, openCurrentInBrowser, reload, zoomReset, zoomStepIn, zoomStepOut } from './actions';
-import { backSvg, copyUrlSvg, forwardSvg, homeSvg, openInBrowserSvg, reloadSvg, reloadStartSvg, reloadStopSvg, searchSvg, volumeOffSvg, volumeOnSvg, zoomInSvg, zoomOutSvg } from './icons';
+import { backSvg, copyUrlSvg, forwardSvg, homeSvg, openInBrowserSvg, reloadSvg, reloadStartSvg, reloadStopSvg, runScriptSvg, searchSvg, volumeOffSvg, volumeOnSvg, zoomInSvg, zoomOutSvg } from './icons';
 import { WidgetApi } from '@/base/widgetApi';
+import { CustomActionSettings } from './settings';
 
 export function createActionBarItems(
   elWebview: Electron.WebviewTag | null,
@@ -19,7 +20,8 @@ export function createActionBarItems(
   // unit tests of the core buttons) the corresponding button is not rendered.
   audioMuted = false,
   onToggleMute?: () => void,
-  onFind?: () => void
+  onFind?: () => void,
+  customActions: CustomActionSettings[] = []
 ): ActionBarItems {
   if (!elWebview || !homeUrl) {
     return []
@@ -104,6 +106,17 @@ export function createActionBarItems(
       title: withKeys(labelFindInPage, `${mod}+F`),
       doAction: async () => onFind()
     }] : []),
+    // Bookmarklet-style user actions: run a JS snippet on the current page.
+    ...customActions
+      .map((action, i) => ({action, i}))
+      .filter(({action}) => action.js.trim() !== '')
+      .map(({action, i}) => ({
+        enabled: true,
+        icon: runScriptSvg,
+        id: `CUSTOM-ACTION-${i}`,
+        title: action.name.trim() !== '' ? action.name : `Custom action ${i + 1}`,
+        doAction: async () => { elWebview.executeJavaScript(action.js).catch(() => undefined); }
+      })),
     ...(onToggleMute ? [{
       enabled: true,
       icon: audioMuted ? volumeOffSvg : volumeOnSvg,

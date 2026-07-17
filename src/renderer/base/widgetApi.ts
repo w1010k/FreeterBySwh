@@ -17,7 +17,15 @@ import { TelemetryActivityPayload, TelemetryActivityType } from '@common/base/te
  * The action bar stays on the right. Pass `null` to restore the name display.
  */
 export interface WidgetHeaderTabs {
-  tabs: ReadonlyArray<{ label: string; title?: string }>;
+  tabs: ReadonlyArray<{
+    label: string;
+    title?: string;
+    /** Favicon URL, shown before the label (replaced by a spinner while loading). */
+    icon?: string;
+    loading?: boolean;
+    /** Status icon (raw SVG string) shown after the label, e.g. audio playing/muted. */
+    audioIcon?: string;
+  }>;
   active: number;
   onSelect: (index: number) => void;
 }

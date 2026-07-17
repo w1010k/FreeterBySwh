@@ -4,10 +4,11 @@
  */
 
 import { ActionBar } from '@/ui/components/basic/actionBar';
+import { SvgIcon } from '@/ui/components/basic/svgIcon';
 import { WidgetProps, WidgetViewModelHook } from '@/ui/components/widget/widgetViewModel';
 import styles from './widget.module.scss';
 import clsx from 'clsx';
-import { memo } from 'react';
+import { memo, useEffect, useRef } from 'react';
 
 type Deps = {
   useWidgetViewModel: WidgetViewModelHook;
@@ -32,6 +33,19 @@ export function createWidgetComponent({
       onContextMenuHandler,
     } = useWidgetViewModel(props);
 
+    // The tab bar hides its scrollbar (26px header), so overflowed tabs need
+    // the active one scrolled into view and the vertical wheel mapped to
+    // horizontal scroll — otherwise they're unreachable with a mouse.
+    const headerTabsRef = useRef<HTMLDivElement>(null);
+    const activeTabIdx = headerTabs?.active;
+    const tabCount = headerTabs?.tabs.length;
+    useEffect(() => {
+      const el = activeTabIdx !== undefined ? headerTabsRef.current?.children[activeTabIdx] : undefined;
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({block: 'nearest', inline: 'nearest'});
+      }
+    }, [activeTabIdx, tabCount]);
+
     if (!widget) {
       return <div>Widget instance does not exist</div>
     }
@@ -54,7 +68,12 @@ export function createWidgetComponent({
       <div className={styles['widget-header']}>
         {/* In edit mode the header is the drag handle, so tabs yield to the name. */}
         {(!editMode && headerTabs && headerTabs.tabs.length > 0)
-          ? <div className={styles['widget-header-tabs']} role="tablist">
+          ? <div
+              className={styles['widget-header-tabs']}
+              role="tablist"
+              ref={headerTabsRef}
+              onWheel={e => { e.currentTarget.scrollLeft += e.deltaY + e.deltaX; }}
+            >
               {headerTabs.tabs.map((tab, i) => (
                 <button
                   key={i}
@@ -63,7 +82,14 @@ export function createWidgetComponent({
                   title={tab.title}
                   className={clsx(styles['widget-header-tab'], i === headerTabs.active && styles['widget-header-tab-active'])}
                   onClick={() => headerTabs.onSelect(i)}
-                >{tab.label}</button>
+                >
+                  {/* While loading, a spinner takes the favicon's slot (browser-tab convention). */}
+                  {tab.loading
+                    ? <span className={styles['widget-header-tab-spinner']} role="progressbar" aria-label="Loading"></span>
+                    : tab.icon && <img className={styles['widget-header-tab-icon']} src={tab.icon} alt="" />}
+                  <span className={styles['widget-header-tab-label']}>{tab.label}</span>
+                  {tab.audioIcon && <SvgIcon svg={tab.audioIcon} className={styles['widget-header-tab-audio']}></SvgIcon>}
+                </button>
               ))}
             </div>
           : <div className={styles['widget-header-name']}>{widgetName}</div>}
