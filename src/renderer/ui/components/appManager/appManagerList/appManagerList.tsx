@@ -7,6 +7,7 @@ import styles from './appManagerList.module.scss';
 import { Button } from '@/ui/components/basic/button';
 import { AppManagerListItem } from '@/ui/components/appManager/appManagerList/appManagerListItem';
 import { AppManagerListProps, useAppManagerListViewModel } from '@/ui/components/appManager/appManagerList/appManagerListViewModel';
+import { useState } from 'react';
 
 export function AppManagerList(props: AppManagerListProps) {
   const {
@@ -26,8 +27,24 @@ export function AppManagerList(props: AppManagerListProps) {
     deleteAppIds,
   } = useAppManagerListViewModel(props);
 
+  // Presentational name filter, local to the component. Note: drag-reorder
+  // while a filter is active reorders relative to the visible items only.
+  const [search, setSearch] = useState('');
+  const query = search.trim().toLowerCase();
+  const visibleList = query === '' ? appList : appList.filter(item => item.settings.name.toLowerCase().includes(query));
+
   return (<div role="tablist">
-    {appList.map(item=>(
+    {appList.length > 1 && <input
+      type="text"
+      className={styles['app-list-search']}
+      placeholder="Search apps"
+      aria-label="Search apps"
+      value={search}
+      onChange={e => setSearch(e.target.value)}
+    />}
+    {appList.length === 0 && <div className={styles['app-list-note']}>No apps yet — use “Add App” below to create one.</div>}
+    {appList.length > 0 && visibleList.length === 0 && <div className={styles['app-list-note']}>No apps found</div>}
+    {visibleList.map(item=>(
       <AppManagerListItem
         isCurrent={currentAppId===item.id}
         isDropArea={draggingOverAppId===item.id}

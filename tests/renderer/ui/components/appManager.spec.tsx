@@ -271,6 +271,54 @@ describe('<AppManager />', () => {
       expect(screen.getByText(nameB)).toBeInTheDocument();
     });
 
+    it('should show an empty-state note when there are 0 apps, without a search input', async () => {
+      await setup(fixtureAppState({
+        ui: {
+          modalScreens: fixtureModalScreens({
+            data: fixtureModalScreensData({
+              appManager: fixtureAppManager({
+                deleteAppIds: {},
+                apps: {},
+                appIds: []
+              })
+            })
+          })
+        }
+      }));
+      expect(screen.getByText(/no apps yet/i)).toBeInTheDocument();
+      expect(screen.queryByRole('textbox', { name: /search apps/i })).not.toBeInTheDocument();
+    });
+
+    it('should filter the app list with the search input', async () => {
+      const idA = 'P-A';
+      const idB = 'P-B';
+      await setup(fixtureAppState({
+        ui: {
+          modalScreens: fixtureModalScreens({
+            data: fixtureModalScreensData({
+              appManager: fixtureAppManager({
+                deleteAppIds: {},
+                apps: {
+                  ...fixtureAppAInColl({id: idA, settings: fixtureAppSettingsA({name: 'Editor'})}),
+                  ...fixtureAppBInColl({id: idB, settings: fixtureAppSettingsB({name: 'Browser'})}),
+                },
+                appIds: [idA, idB]
+              })
+            })
+          })
+        }
+      }));
+      const search = screen.getByRole('textbox', { name: /search apps/i });
+
+      fireEvent.change(search, { target: { value: 'brow' } });
+      expect(screen.getAllByRole('tab').length).toBe(1);
+      expect(screen.getByText('Browser')).toBeInTheDocument();
+
+      fireEvent.change(search, { target: { value: 'zzz' } });
+      expect(screen.queryAllByRole('tab').length).toBe(0);
+      expect(screen.getByText(/no apps found/i)).toBeInTheDocument();
+    });
+
     it('should display an action bar for each app', async () => {
       const idA = 'P-A';
       const idB = 'P-B';

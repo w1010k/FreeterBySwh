@@ -269,6 +269,54 @@ describe('<ProjectManager />', () => {
       expect(screen.getByText(nameB)).toBeInTheDocument();
     });
 
+    it('should show an empty-state note when there are 0 projects, without a search input', async () => {
+      await setup(fixtureAppState({
+        ui: {
+          modalScreens: fixtureModalScreens({
+            data: fixtureModalScreensData({
+              projectManager: fixtureProjectManager({
+                deleteProjectIds: {},
+                projects: {},
+                projectIds: []
+              })
+            })
+          })
+        }
+      }));
+      expect(screen.getByText(/no projects yet/i)).toBeInTheDocument();
+      expect(screen.queryByRole('textbox', { name: /search projects/i })).not.toBeInTheDocument();
+    });
+
+    it('should filter the project list with the search input', async () => {
+      const idA = 'P-A';
+      const idB = 'P-B';
+      await setup(fixtureAppState({
+        ui: {
+          modalScreens: fixtureModalScreens({
+            data: fixtureModalScreensData({
+              projectManager: fixtureProjectManager({
+                deleteProjectIds: {},
+                projects: {
+                  ...fixtureProjectAInColl({id: idA, settings: fixtureProjectSettingsA({name: 'Work'})}),
+                  ...fixtureProjectBInColl({id: idB, settings: fixtureProjectSettingsB({name: 'Home'})}),
+                },
+                projectIds: [idA, idB]
+              })
+            })
+          })
+        }
+      }));
+      const search = screen.getByRole('textbox', { name: /search projects/i });
+
+      fireEvent.change(search, { target: { value: 'ho' } });
+      expect(screen.getAllByRole('tab').length).toBe(1);
+      expect(screen.getByText('Home')).toBeInTheDocument();
+
+      fireEvent.change(search, { target: { value: 'zzz' } });
+      expect(screen.queryAllByRole('tab').length).toBe(0);
+      expect(screen.getByText(/no projects found/i)).toBeInTheDocument();
+    });
+
     it('should display an action bar for each project', async () => {
       const idA = 'P-A';
       const idB = 'P-B';
