@@ -27,7 +27,7 @@ const stateKey = 'state';
 
 function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) {
   const { setDynamicTitle, dataStorage } = widgetApi;
-  const { workMins, breakMins } = settings;
+  const { workMins, breakMins, longBreakMins, longBreakEvery } = settings;
 
   const [phase, setPhase] = useState<Phase>('work');
   const [endMsecs, setEndMsecs] = useState(0);
@@ -75,7 +75,9 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
 
   const endSound = useAudioFile(timerEndSoundFilesById[settings.endSound]?.path || '', settings.endSoundVol);
 
-  const phaseMsecs = useCallback((p: Phase) => (p === 'work' ? workMins : breakMins) * 60000, [workMins, breakMins]);
+  // A break is "long" when it follows every Nth completed work session.
+  // Derived from doneWork (not stored) so pause/restore can't desync it.
+  const isLongBreak = (done: number) => longBreakEvery > 0 && done > 0 && done % longBreakEvery === 0;
 
   const tick = useCallback(() => {
     const left = endMsecs - Date.now();
@@ -84,16 +86,24 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
       return;
     }
     // Phase finished: chime, count a completed work session, and roll into the
-    // next phase automatically.
+    // next phase automatically (a long break after every Nth work session).
     endSound.play();
+    let nextMins: number;
+    let next: Phase;
     if (phase === 'work') {
-      setDoneWork(n => n + 1);
+      const newDone = doneWork + 1;
+      setDoneWork(newDone);
+      next = 'break';
+      nextMins = isLongBreak(newDone) ? longBreakMins : breakMins;
+    } else {
+      next = 'work';
+      nextMins = workMins;
     }
-    const next: Phase = phase === 'work' ? 'break' : 'work';
     setPhase(next);
-    setEndMsecs(Date.now() + phaseMsecs(next) + 500);
-    setMmss(msecsToMMSS(phaseMsecs(next)));
-  }, [endMsecs, endSound, phase, phaseMsecs])
+    setEndMsecs(Date.now() + nextMins * 60000 + 500);
+    setMmss(msecsToMMSS(nextMins * 60000));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endMsecs, endSound, phase, doneWork, workMins, breakMins, longBreakMins, longBreakEvery])
 
   useEffect(() => {
     if (endMsecs > 0) {
@@ -107,9 +117,10 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   const isPaused = !isRunning && pausedLeft !== null;
   const isActive = isRunning || isPaused;
 
+  const phaseLabel = phase === 'work' ? 'Work' : (isLongBreak(doneWork) ? 'Long Break' : 'Break');
   useEffect(() => {
-    setDynamicTitle(isActive ? `${phase === 'work' ? 'Work' : 'Break'} ${mmss}` : null);
-  }, [isActive, phase, mmss, setDynamicTitle])
+    setDynamicTitle(isActive ? `${phaseLabel} ${mmss}` : null);
+  }, [isActive, phaseLabel, mmss, setDynamicTitle])
   useEffect(() => () => setDynamicTitle(null), [setDynamicTitle])
 
   const start = useCallback(() => {
@@ -157,7 +168,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     </div>
   }
   return <div className={clsx(styles['pomodoro'], phase === 'work' ? styles['is-work'] : styles['is-break'])}>
-    <div className={styles['phase']}>{phase === 'work' ? 'Work' : 'Break'}</div>
+    <div className={styles['phase']}>{phaseLabel}</div>
     <div className={styles['mmss']}>{mmss}</div>
     {doneWork > 0 && <div className={styles['count']}>🍅 {doneWork}</div>}
     <div className={styles['buttons']}>

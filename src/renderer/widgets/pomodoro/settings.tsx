@@ -13,6 +13,9 @@ import { useCallback } from 'react';
 export interface Settings {
   workMins: number;
   breakMins: number;
+  longBreakMins: number;
+  /** A long break replaces the short one after every N work sessions; 0 = off. */
+  longBreakEvery: number;
   endSound: string;
   endSoundVol: number;
 }
@@ -31,6 +34,11 @@ function minsOptions(from: number, to: number, step: number) {
 }
 const workMinsOptions = minsOptions(5, 60, 5);
 const breakMinsOptions = minsOptions(1, 30, 1);
+const longBreakMinsOptions = minsOptions(5, 60, 5);
+const longBreakEveryOptions = [
+  { value: 0, label: '(No long breaks)' },
+  ...[2, 3, 4, 5, 6].map(n => ({ value: n, label: `Every ${n} work sessions` }))
+];
 const volOptions = (() => {
   const opts: { value: number; label: string }[] = [];
   for (let v = 0; v <= 100; v += 10) {
@@ -42,6 +50,8 @@ const volOptions = (() => {
 export const createSettingsState: CreateSettingsState<Settings> = (settings) => ({
   workMins: typeof settings.workMins === 'number' ? settings.workMins : 25,
   breakMins: typeof settings.breakMins === 'number' ? settings.breakMins : 5,
+  longBreakMins: typeof settings.longBreakMins === 'number' ? settings.longBreakMins : 15,
+  longBreakEvery: typeof settings.longBreakEvery === 'number' ? settings.longBreakEvery : 4,
   endSound: isEndSoundValue(settings.endSound) ? settings.endSound : glockenspielArpeggioId,
   endSoundVol: typeof settings.endSoundVol === 'number' ? settings.endSoundVol : 70,
 })
@@ -63,6 +73,17 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
         <select id="pomodoro-break" value={settings.breakMins} onChange={e => updateSettings({ ...settings, breakMins: Number(e.target.value) || 5 })}>
           {breakMinsOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
+      </SettingBlock>
+
+      <SettingBlock titleForId='pomodoro-longBreakEvery' title='Long Break'>
+        <SettingRow>
+          <select id="pomodoro-longBreakEvery" aria-label='Long Break Frequency' value={settings.longBreakEvery} onChange={e => updateSettings({ ...settings, longBreakEvery: Number(e.target.value) || 0 })}>
+            {longBreakEveryOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          {settings.longBreakEvery > 0 && <select id="pomodoro-longBreakMins" aria-label='Long Break Duration' value={settings.longBreakMins} onChange={e => updateSettings({ ...settings, longBreakMins: Number(e.target.value) || 15 })}>
+            {longBreakMinsOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>}
+        </SettingRow>
       </SettingBlock>
 
       <SettingBlock titleForId='pomodoro-endSound' title='Phase-End Sound'>

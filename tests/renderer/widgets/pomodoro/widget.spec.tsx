@@ -60,6 +60,17 @@ describe('Pomodoro Widget', () => {
     expect(last[1].endMsecs).toBeGreaterThan(Date.now());
   });
 
+  it('rolls into a long break after every Nth completed work session', async () => {
+    const { userEvent } = setup({ workMins: 25, breakMins: 5, longBreakMins: 15, longBreakEvery: 1 });
+    const user = userEvent.setup({ delay: null });
+
+    await user.click(screen.getByRole('button', { name: /start/i }));
+    act(() => jest.advanceTimersByTime(25 * 60000 + 1000));
+
+    expect(screen.getByText('Long Break')).toBeInTheDocument();
+    expect(screen.getByText('15:00')).toBeInTheDocument();
+  });
+
   it('counts down the work phase after Start', async () => {
     const { userEvent } = setup({ workMins: 25 });
     const user = userEvent.setup({ delay: null });

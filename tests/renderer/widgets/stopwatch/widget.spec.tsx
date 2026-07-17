@@ -46,7 +46,28 @@ describe('Stopwatch Widget', () => {
 
     const user = userEvent.setup({ delay: null });
     await user.click(screen.getByRole('button', { name: /resume/i }));
-    expect(setJson).toHaveBeenLastCalledWith('state', { accumulated: 5000, startTs: Date.now() });
+    expect(setJson).toHaveBeenLastCalledWith('state', { accumulated: 5000, startTs: Date.now(), laps: [] });
+  });
+
+  it('records laps while running and clears them on Reset', async () => {
+    const { userEvent } = setup();
+    const user = userEvent.setup({ delay: null });
+
+    await user.click(screen.getByRole('button', { name: /start/i }));
+    act(() => jest.advanceTimersByTime(1230));
+    await user.click(screen.getByRole('button', { name: /lap/i }));
+    act(() => jest.advanceTimersByTime(1000));
+    await user.click(screen.getByRole('button', { name: /lap/i }));
+
+    const laps = screen.getAllByRole('listitem');
+    expect(laps.length).toBe(2);
+    // newest first: lap #2 delta 1.00s (total 2.23s), lap #1 total 1.23s
+    expect(laps[0]).toHaveTextContent('#2');
+    expect(laps[0]).toHaveTextContent('00:01.00');
+    expect(laps[1]).toHaveTextContent('00:01.23');
+
+    await user.click(screen.getByRole('button', { name: /reset/i }));
+    expect(screen.queryAllByRole('listitem').length).toBe(0);
   });
 
   it('counts up after Start and shows Pause/Reset', async () => {

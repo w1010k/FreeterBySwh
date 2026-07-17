@@ -9,6 +9,8 @@ export function fixtureSettings(settings: Partial<Settings>): Settings {
   return {
     workMins: 25,
     breakMins: 5,
+    longBreakMins: 15,
+    longBreakEvery: 0,
     endSound: '', // no sound in tests
     endSoundVol: 70,
     ...settings

@@ -8,7 +8,7 @@ import { Settings } from './settings';
 import { calcReducer, initialCalcState, CalcAction, Op } from './calc';
 import styles from './widget.module.scss';
 import clsx from 'clsx';
-import { KeyboardEvent, useReducer } from 'react';
+import { KeyboardEvent, useEffect, useReducer, useRef, useState } from 'react';
 
 interface Btn {
   label: string;
@@ -66,20 +66,50 @@ function keyToAction(key: string): CalcAction | null {
   return null;
 }
 
-function WidgetComp(_props: WidgetReactComponentProps<Settings>) {
+function WidgetComp({widgetApi}: WidgetReactComponentProps<Settings>) {
   const [state, dispatch] = useReducer(calcReducer, initialCalcState);
 
+  // Click on the display (or Ctrl/Cmd+C) copies the shown value; a brief
+  // "Copied" flash confirms it.
+  const [copied, setCopied] = useState(false);
+  const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(copiedTimeoutRef.current), []);
+  const copyResult = () => {
+    widgetApi.clipboard.writeText(state.display);
+    setCopied(true);
+    clearTimeout(copiedTimeoutRef.current);
+    copiedTimeoutRef.current = setTimeout(() => setCopied(false), 800);
+  };
+
+  // Any calc input cancels the "Copied" flash so the display shows the new value.
+  const dispatchInput = (action: CalcAction) => {
+    clearTimeout(copiedTimeoutRef.current);
+    setCopied(false);
+    dispatch(action);
+  };
+
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    // Before keyToAction: a plain 'c' means clear, Ctrl/Cmd+C means copy.
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
+      e.preventDefault();
+      copyResult();
+      return;
+    }
     const action = keyToAction(e.key);
     if (action) {
       e.preventDefault();
-      dispatch(action);
+      dispatchInput(action);
     }
   };
 
   return (
     <div className={styles['calculator']} tabIndex={0} onKeyDown={onKeyDown} data-widget-context="">
-      <div className={styles['display']} data-testid="calc-display">{state.display}</div>
+      <div
+        className={styles['display']}
+        data-testid="calc-display"
+        title="Copy result (Ctrl+C)"
+        onClick={copyResult}
+      >{copied ? 'Copied' : state.display}</div>
       <div className={styles['keys']}>
         {buttons.map(b => (
           <button
@@ -92,7 +122,7 @@ function WidgetComp(_props: WidgetReactComponentProps<Settings>) {
               b.kind === 'eq' && styles['is-eq'],
               b.wide && styles['is-wide'],
             )}
-            onClick={() => dispatch(b.action)}
+            onClick={() => dispatchInput(b.action)}
           >{b.label}</button>
         ))}
       </div>

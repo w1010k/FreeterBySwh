@@ -22,6 +22,8 @@ const stateKey = 'state';
 function WidgetComp({widgetApi}: WidgetReactComponentProps<Settings>) {
   const { dataStorage } = widgetApi;
   const [running, setRunning] = useState(false);
+  // Total elapsed at the moment of each lap, oldest first.
+  const [laps, setLaps] = useState<number[]>([]);
   // Elapsed time carried over from previous run segments (ms), plus the start
   // timestamp of the current segment when running.
   const accumulatedRef = useRef(0);
@@ -33,8 +35,8 @@ function WidgetComp({widgetApi}: WidgetReactComponentProps<Settings>) {
     []
   );
 
-  const persist = useCallback(() => {
-    dataStorage.setJson(stateKey, { accumulated: accumulatedRef.current, startTs: startTsRef.current });
+  const persist = useCallback((lapsToSave: number[]) => {
+    dataStorage.setJson(stateKey, { accumulated: accumulatedRef.current, startTs: startTsRef.current, laps: lapsToSave });
   }, [dataStorage]);
 
   // Restore once on mount; a user click before the async read resolves wins.
@@ -48,6 +50,10 @@ function WidgetComp({widgetApi}: WidgetReactComponentProps<Settings>) {
       }
       accumulatedRef.current = typeof v.accumulated === 'number' ? v.accumulated : 0;
       startTsRef.current = typeof v.startTs === 'number' ? v.startTs : null;
+      const { laps: savedLaps } = v as { laps?: unknown };
+      if (Array.isArray(savedLaps)) {
+        setLaps(savedLaps.filter((l): l is number => typeof l === 'number'));
+      }
       setElapsedMs(computeElapsed());
       setRunning(startTsRef.current !== null);
     })().catch(() => undefined);
@@ -67,8 +73,8 @@ function WidgetComp({widgetApi}: WidgetReactComponentProps<Settings>) {
     userActedRef.current = true;
     startTsRef.current = Date.now();
     setRunning(true);
-    persist();
-  }, [persist]);
+    persist(laps);
+  }, [persist, laps]);
 
   const pause = useCallback(() => {
     userActedRef.current = true;
@@ -76,8 +82,8 @@ function WidgetComp({widgetApi}: WidgetReactComponentProps<Settings>) {
     startTsRef.current = null;
     setRunning(false);
     setElapsedMs(accumulatedRef.current);
-    persist();
-  }, [computeElapsed, persist]);
+    persist(laps);
+  }, [computeElapsed, persist, laps]);
 
   const reset = useCallback(() => {
     userActedRef.current = true;
@@ -85,8 +91,16 @@ function WidgetComp({widgetApi}: WidgetReactComponentProps<Settings>) {
     startTsRef.current = null;
     setRunning(false);
     setElapsedMs(0);
-    persist();
+    setLaps([]);
+    persist([]);
   }, [persist]);
+
+  const lap = useCallback(() => {
+    userActedRef.current = true;
+    const newLaps = [...laps, computeElapsed()];
+    setLaps(newLaps);
+    persist(newLaps);
+  }, [laps, computeElapsed, persist]);
 
   const hasElapsed = elapsedMs > 0;
 
@@ -97,8 +111,19 @@ function WidgetComp({widgetApi}: WidgetReactComponentProps<Settings>) {
         {running
           ? <Button caption='Pause' onClick={pause} size='M' />
           : <Button caption={hasElapsed ? 'Resume' : 'Start'} onClick={start} size='M' />}
+        {running && <Button caption='Lap' onClick={lap} size='M' />}
         {hasElapsed && <Button caption='Reset' onClick={reset} size='M' />}
       </div>
+      {laps.length > 0 && <ol className={styles['laps']} reversed>
+        {/* newest first; each shows the lap's own time and the total at that point */}
+        {laps.map((total, i) => (
+          <li key={i} value={i + 1} className={styles['lap']}>
+            <span className={styles['lap-num']}>#{i + 1}</span>
+            <span className={styles['lap-delta']}>{formatStopwatch(total - (laps[i - 1] ?? 0))}</span>
+            <span className={styles['lap-total']}>{formatStopwatch(total)}</span>
+          </li>
+        )).reverse()}
+      </ol>}
     </div>
   );
 }

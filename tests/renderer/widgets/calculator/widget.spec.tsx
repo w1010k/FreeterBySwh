@@ -34,4 +34,15 @@ describe('Calculator Widget', () => {
 
     expect(screen.getByTestId('calc-display')).toHaveTextContent('0');
   });
+
+  it('copies the result to the clipboard on display click, flashing "Copied"', async () => {
+    const { userEvent, widgetApi } = setup();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: '7' }));
+    await user.click(screen.getByTestId('calc-display'));
+
+    expect(widgetApi.clipboard.writeText).toHaveBeenCalledWith('7');
+    expect(screen.getByTestId('calc-display')).toHaveTextContent('Copied');
+  });
 });

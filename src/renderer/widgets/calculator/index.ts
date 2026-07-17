@@ -20,6 +20,7 @@ const widgetType: WidgetType<Settings> = {
   createSettingsState,
   settingsEditorComp,
   widgetComp,
+  requiresApi: ['clipboard']
 }
 
 export default widgetType;
