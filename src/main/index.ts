@@ -91,6 +91,7 @@ import { createGetFileIconUseCase } from '@/application/useCases/icon/getFileIco
 import { createGetFaviconUseCase } from '@/application/useCases/icon/getFavicon';
 import { createIconControllers } from '@/controllers/icon';
 import { createDownloadManager } from '@/infra/downloads/downloadManager';
+import { registerHttpAuthHandler } from '@/infra/httpAuth/httpAuth';
 import { createSetDownloadDirUseCase } from '@/application/useCases/download/setDownloadDir';
 import { createDownloadControllers } from '@/controllers/download';
 import { createGetTextFromTelemetryDataStorageUseCase } from '@/application/useCases/telemetryDataStorage/getTextFromTelemetryDataStorage';
@@ -179,6 +180,10 @@ if (!app.requestSingleInstanceLock()) {
     // the renderer pushes the configured override via the download controller.
     const downloadManager = createDownloadManager();
     const setDownloadDirUseCase = createSetDownloadDirUseCase({ downloadManager });
+
+    // Prompt for credentials on HTTP Basic/Digest auth challenges from any
+    // webview; without this Electron cancels such requests outright.
+    registerHttpAuthHandler();
 
     const appDataDir = join(app.getPath('appData'), 'freeter-swh', 'freeter-data');
     const appDataStorage = await createFileDataStorage('string', appDataDir);
