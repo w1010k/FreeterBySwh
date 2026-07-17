@@ -34,7 +34,8 @@ export function ProjectManagerList(props: ProjectManagerListProps) {
   const visibleList = query === '' ? projectList : projectList.filter(item => item.settings.name.toLowerCase().includes(query));
 
   return (<div role="tablist">
-    {projectList.length > 1 && <input
+    {/* Keep the input while a query is active so the filter can always be cleared. */}
+    {(projectList.length > 1 || query !== '') && <input
       type="text"
       className={styles['project-list-search']}
       placeholder="Search projects"

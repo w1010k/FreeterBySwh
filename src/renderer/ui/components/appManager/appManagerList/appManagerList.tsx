@@ -34,7 +34,8 @@ export function AppManagerList(props: AppManagerListProps) {
   const visibleList = query === '' ? appList : appList.filter(item => item.settings.name.toLowerCase().includes(query));
 
   return (<div role="tablist">
-    {appList.length > 1 && <input
+    {/* Keep the input while a query is active so the filter can always be cleared. */}
+    {(appList.length > 1 || query !== '') && <input
       type="text"
       className={styles['app-list-search']}
       placeholder="Search apps"
