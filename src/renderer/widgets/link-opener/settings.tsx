@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { Button, CreateSettingsState, List, ReactComponent, SettingsEditorReactComponentProps, addItemToList, delete14Svg, removeItemFromList, SettingBlock, SettingRow, SettingActions } from '@/widgets/appModules';
+import { Button, CreateSettingsState, List, ReactComponent, SettingsEditorReactComponentProps, addItemToList, arrDown14Svg, arrUp14Svg, delete14Svg, removeItemFromList, SettingBlock, SettingRow, SettingActions } from '@/widgets/appModules';
 import { useLayoutEffect, useRef } from 'react';
 
 export interface Settings {
@@ -38,6 +38,11 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
     updateUrlsSetting(addItemToList(settings.urls, ''))
   const deletePath = (i: number) =>
     updateUrlsSetting(removeItemFromList(settings.urls, i))
+  const movePath = (i: number, dir: -1 | 1) => {
+    const urls = [...settings.urls];
+    [urls[i], urls[i + dir]] = [urls[i + dir], urls[i]];
+    updateUrlsSetting(urls);
+  }
 
   return (
     <>
@@ -58,6 +63,18 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
             />
             <SettingActions
               actions={[{
+                id: 'MOVE-UP',
+                icon: arrUp14Svg,
+                title: 'Move Up',
+                enabled: i > 0,
+                doAction: async () => movePath(i, -1)
+              }, {
+                id: 'MOVE-DOWN',
+                icon: arrDown14Svg,
+                title: 'Move Down',
+                enabled: i < settings.urls.length - 1,
+                doAction: async () => movePath(i, 1)
+              }, {
                 id: 'DELETE',
                 icon: delete14Svg,
                 title: 'Delete URL',

@@ -3,7 +3,9 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { createSettingsState, Settings } from '@/widgets/file-explorer/settings';
+import { createSettingsState, Settings, settingsEditorComp } from '@/widgets/file-explorer/settings';
+import { screen } from '@testing-library/react';
+import { setupSettingsSut } from '@tests/widgets/setupSut';
 
 // createSettingsState hardens against malformed persisted data, so some tests
 // deliberately pass values the Settings type forbids.
@@ -32,5 +34,15 @@ describe('file-explorer createSettingsState()', () => {
 
   it('should default showHiddenFiles to false when not a boolean', () => {
     expect(malformed({ showHiddenFiles: 'yes' }).showHiddenFiles).toBe(false);
+  })
+})
+
+describe('file-explorer Settings Editor', () => {
+  it('should allow to reorder "paths" with move up/down buttons', async () => {
+    const settings = createSettingsState({ paths: ['/a', '/b', '/c'] });
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+
+    await userEvent.click(screen.queryAllByRole('button', { name: 'Move Up' })[1]);
+    expect(getSettings().paths).toEqual(['/b', '/a', '/c']);
   })
 })

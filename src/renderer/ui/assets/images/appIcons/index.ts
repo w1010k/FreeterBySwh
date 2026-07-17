@@ -10,6 +10,7 @@
 
 import add14Svg from './add-14.svg';
 import arrDown14Svg from './arr-down-14.svg';
+import arrUp14Svg from './arr-up-14.svg';
 import browse14Svg from './browse-14.svg';
 import delete14Svg from './delete-14.svg';
 import duplicate14Svg from './duplicate-14.svg';
@@ -29,6 +30,7 @@ import logo150Svg from './logo-150.svg';
 export {
   add14Svg,
   arrDown14Svg,
+  arrUp14Svg,
   browse14Svg,
   delete14Svg,
   duplicate14Svg,

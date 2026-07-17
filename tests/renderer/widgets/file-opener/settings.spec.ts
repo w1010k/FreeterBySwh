@@ -192,6 +192,14 @@ describe('File Opener Widget Settings', () => {
     expect(getSettings().folders).toEqual([...testFolders, '']);
   })
 
+  it('should allow to reorder "files" with move up/down buttons', async () => {
+    const settings = fixtureSettings({ type: SettingsType.File, files: ['f1', 'f2', 'f3'] });
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+
+    await userEvent.click(screen.queryAllByRole('button', { name: 'Move Down' })[0]);
+    expect(getSettings().files).toEqual(['f2', 'f1', 'f3']);
+  })
+
   it('should allow to remove an item from "files" with a button', async () => {
     const testFiles = ['file/path1', 'file/path2', 'file/path3'];
     const settings = fixtureSettings({ type: SettingsType.File, files: testFiles });

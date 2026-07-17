@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { Button, CreateSettingsState, List, ReactComponent, SettingsEditorReactComponentProps, addItemToList, browse14Svg, delete14Svg, removeItemFromList, SettingBlock, SettingRow, SettingActions } from '@/widgets/appModules';
+import { Button, CreateSettingsState, List, ReactComponent, SettingsEditorReactComponentProps, addItemToList, arrDown14Svg, arrUp14Svg, browse14Svg, delete14Svg, removeItemFromList, SettingBlock, SettingRow, SettingActions } from '@/widgets/appModules';
 import { useLayoutEffect, useRef } from 'react';
 
 export interface Settings {
@@ -36,6 +36,11 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
   const updCmd = (settings: Settings, i: number, cmd: string) => updateSettings({...settings, cmds: settings.cmds.map((_cmd, _i) => i!==_i ? _cmd : cmd)})
   const addCmd = (settings: Settings) => updateSettings({...settings, cmds: addItemToList(settings.cmds, '')})
   const deleteCmd = (settings: Settings, i: number) => updateSettings({...settings, cmds: removeItemFromList(settings.cmds, i)})
+  const moveCmd = (settings: Settings, i: number, dir: -1 | 1) => {
+    const cmds = [...settings.cmds];
+    [cmds[i], cmds[i + dir]] = [cmds[i + dir], cmds[i]];
+    updateSettings({...settings, cmds});
+  }
 
   const pickDir = async (curDir: string) => {
     const { canceled, filePaths } = await dialog.showOpenDirDialog({defaultPath: curDir, multiSelect: false})
@@ -65,6 +70,18 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
             />
             <SettingActions
               actions={[{
+                id: 'MOVE-UP',
+                icon: arrUp14Svg,
+                title: 'Move Up',
+                enabled: i > 0,
+                doAction: async () => moveCmd(settings, i, -1)
+              }, {
+                id: 'MOVE-DOWN',
+                icon: arrDown14Svg,
+                title: 'Move Down',
+                enabled: i < settings.cmds.length - 1,
+                doAction: async () => moveCmd(settings, i, 1)
+              }, {
                 id: 'DELETE',
                 icon: delete14Svg,
                 title: 'Delete Command-line',

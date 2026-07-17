@@ -42,6 +42,14 @@ describe('Link Opener Widget Settings', () => {
     expect(getSettings().urls).toEqual([...testUrls, '']);
   })
 
+  it('should allow to reorder "urls" with move up/down buttons', async () => {
+    const settings = fixtureSettings({ urls: ['u1', 'u2', 'u3'] });
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+
+    await userEvent.click(screen.queryAllByRole('button', { name: 'Move Up' })[2]);
+    expect(getSettings().urls).toEqual(['u1', 'u3', 'u2']);
+  })
+
   it('should allow to remove an item from "urls" with a button', async () => {
     const testUrls = ['test://url1', 'test://url2', 'test://url3'];
     const settings = fixtureSettings({ urls: testUrls });

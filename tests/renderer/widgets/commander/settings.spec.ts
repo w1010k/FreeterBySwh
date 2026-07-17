@@ -55,6 +55,20 @@ describe('Commander Widget Settings', () => {
     expect(getSettings().cmds).toEqual(['cmd1', 'cmd3']);
   })
 
+  it('should allow to reorder "cmds" with move up/down buttons, disabling them at the edges', async () => {
+    const settings = fixtureSettings({ cmds: ['cmd1', 'cmd2', 'cmd3'] });
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+
+    expect(screen.queryAllByRole('button', { name: 'Move Up' })[0]).toBeDisabled();
+    expect(screen.queryAllByRole('button', { name: 'Move Down' })[2]).toBeDisabled();
+
+    await userEvent.click(screen.queryAllByRole('button', { name: 'Move Up' })[1]);
+    expect(getSettings().cmds).toEqual(['cmd2', 'cmd1', 'cmd3']);
+
+    await userEvent.click(screen.queryAllByRole('button', { name: 'Move Down' })[1]);
+    expect(getSettings().cmds).toEqual(['cmd2', 'cmd3', 'cmd1']);
+  })
+
   it('should allow to update "cwd" setting with a text input', async () => {
     const testCwd = 'test/dir';
     const settings = fixtureSettings({ cwd: testCwd });

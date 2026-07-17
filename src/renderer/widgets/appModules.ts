@@ -21,7 +21,7 @@ export type { ContextMenuEvent } from '@/ui/types/events';
 export type { List } from '@/base/list';
 export type { SettingActionsProps, SettingBlockProps, SettingRowProps } from '@/ui/components/basic/settingsScreen/setting';
 
-export { browse14Svg, delete14Svg, manage14Svg } from '@/ui/assets/images/appIcons';
+export { arrDown14Svg, arrUp14Svg, browse14Svg, delete14Svg, manage14Svg } from '@/ui/assets/images/appIcons';
 
 export { mapIdListToEntityList } from '@/base/entityList';
 export { getEntitiesArrayFromEntityCollection } from '@/base/entityCollection';

@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { Button, CreateSettingsState, List, ReactComponent, SettingsEditorReactComponentProps, addItemToList, browse14Svg, delete14Svg, removeItemFromList, SettingBlock, SettingRow, SettingActions, EntityId, mapIdListToEntityList, manage14Svg } from '@/widgets/appModules';
+import { Button, CreateSettingsState, List, ReactComponent, SettingsEditorReactComponentProps, addItemToList, arrDown14Svg, arrUp14Svg, browse14Svg, delete14Svg, removeItemFromList, SettingBlock, SettingRow, SettingActions, EntityId, mapIdListToEntityList, manage14Svg } from '@/widgets/appModules';
 import { SettingsType, isSettingsType, settingsTypeActionNames, settingsTypeNames, settingsTypeNamesCapital, settingsTypes } from '@/widgets/file-opener/settingsType';
 import { useLayoutEffect, useMemo, useRef } from 'react';
 
@@ -63,6 +63,11 @@ function SettingsEditorComp({settings, settingsApi, sharedState}: SettingsEditor
     updatePathsSetting(addItemToList(getPathsSetting(), ''))
   const deletePath = (i: number) =>
     updatePathsSetting(removeItemFromList(getPathsSetting(), i))
+  const movePath = (i: number, dir: -1 | 1) => {
+    const paths = [...getPathsSetting()];
+    [paths[i], paths[i + dir]] = [paths[i + dir], paths[i]];
+    updatePathsSetting(paths);
+  }
 
   let pickPath: (curPath: string) => Promise<string | null>;
   if (settings.type === SettingsType.Folder) {
@@ -139,6 +144,18 @@ function SettingsEditorComp({settings, settingsApi, sharedState}: SettingsEditor
                     updPath(i, pickedPath);
                   }
                 }
+              }, {
+                id: 'MOVE-UP',
+                icon: arrUp14Svg,
+                title: 'Move Up',
+                enabled: i > 0,
+                doAction: async () => movePath(i, -1)
+              }, {
+                id: 'MOVE-DOWN',
+                icon: arrDown14Svg,
+                title: 'Move Down',
+                enabled: i < getPathsSetting().length - 1,
+                doAction: async () => movePath(i, 1)
               }, {
                 id: 'DELETE',
                 icon: delete14Svg,

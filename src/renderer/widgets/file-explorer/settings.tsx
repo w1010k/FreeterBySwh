@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { Button, CreateSettingsState, List, ReactComponent, SettingsEditorReactComponentProps, SettingBlock, SettingRow, SettingActions, addItemToList, removeItemFromList, browse14Svg, delete14Svg } from '@/widgets/appModules';
+import { Button, CreateSettingsState, List, ReactComponent, SettingsEditorReactComponentProps, SettingBlock, SettingRow, SettingActions, addItemToList, removeItemFromList, arrDown14Svg, arrUp14Svg, browse14Svg, delete14Svg } from '@/widgets/appModules';
 import { useLayoutEffect, useRef } from 'react';
 
 export interface Settings {
@@ -34,6 +34,11 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
   const updPath = (i: number, path: string) => updateSettings({...settings, paths: paths.map((_path, _i) => i !== _i ? _path : path)});
   const addPath = () => updateSettings({...settings, paths: addItemToList(paths, '')});
   const deletePath = (i: number) => updateSettings({...settings, paths: removeItemFromList(paths, i)});
+  const movePath = (i: number, dir: -1 | 1) => {
+    const newPaths = [...paths];
+    [newPaths[i], newPaths[i + dir]] = [newPaths[i + dir], newPaths[i]];
+    updateSettings({...settings, paths: newPaths});
+  };
 
   const pickPath = async (curPath: string) => {
     const { canceled, filePaths } = await dialog.showOpenDirDialog({defaultPath: curPath, multiSelect: false});
@@ -68,6 +73,18 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
                   updPath(i, picked);
                 }
               }
+            }, {
+              id: 'MOVE-UP',
+              icon: arrUp14Svg,
+              title: 'Move Up',
+              enabled: i > 0,
+              doAction: async () => movePath(i, -1)
+            }, {
+              id: 'MOVE-DOWN',
+              icon: arrDown14Svg,
+              title: 'Move Down',
+              enabled: i < paths.length - 1,
+              doAction: async () => movePath(i, 1)
             }, {
               id: 'DELETE',
               icon: delete14Svg,
