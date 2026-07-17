@@ -182,6 +182,46 @@ describe('Timer Widget', () => {
     delete (window as unknown as { Notification?: jest.Mock }).Notification;
   })
 
+  it('should restore a running timer from dataStorage on mount', async () => {
+    const getJson = jest.fn(async () => ({ endMsecs: Date.now() + 60500, pausedLeft: null }));
+    setupTimerWidgetSut(fixtureSettings({}), { mockWidgetApi: { dataStorage: { getJson, setJson: jest.fn() } } });
+
+    await act(async () => undefined);
+
+    expect(screen.getByText('01:00')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /pause/i })).toBeInTheDocument();
+  })
+
+  it('should restore a paused timer, and idle when the saved timer already expired', async () => {
+    const getJson = jest.fn(async () => ({ endMsecs: 0, pausedLeft: 30000 }));
+    setupTimerWidgetSut(fixtureSettings({}), { mockWidgetApi: { dataStorage: { getJson, setJson: jest.fn() } } });
+    await act(async () => undefined);
+    expect(screen.getByText('00:30')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /resume/i })).toBeInTheDocument();
+  })
+
+  it('should idle when the saved timer expired while the app was closed', async () => {
+    const getJson = jest.fn(async () => ({ endMsecs: Date.now() - 1000, pausedLeft: null }));
+    setupTimerWidgetSut(fixtureSettings({ mins: 25 }), { mockWidgetApi: { dataStorage: { getJson, setJson: jest.fn() } } });
+    await act(async () => undefined);
+    expect(screen.getByRole('button', { name: /start/i })).toBeInTheDocument();
+  })
+
+  it('should persist the timer state when it changes', async () => {
+    const setJson = jest.fn();
+    const { userEvent } = setupTimerWidgetSut(fixtureSettings({ mins: 5 }), {
+      mockWidgetApi: { dataStorage: { getJson: jest.fn(async () => undefined), setJson } }
+    });
+    await act(async () => undefined);
+    const user = userEvent.setup({ delay: null });
+
+    await user.click(screen.getByRole('button', { name: /start/i }));
+
+    const lastState = setJson.mock.calls[setJson.mock.calls.length - 1];
+    expect(lastState[0]).toBe('state');
+    expect(lastState[1].endMsecs).toBeGreaterThan(Date.now());
+  })
+
   it('should pause (freezing the remaining time) and resume from where it left off', async () => {
     const { userEvent } = setupTimerWidgetSut(fixtureSettings({ mins: 90 }));
     const user = userEvent.setup({ delay: null });

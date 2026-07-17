@@ -2044,6 +2044,22 @@ Basic/Digest 인증(프록시 인증 포함)으로 보호된 페이지를 Webpag
 
 ---
 
+## 73. 타이머 계열 실행 상태 영속화 *(2026-07-17)*
+
+Timer·Stopwatch·Pomodoro의 실행 상태가 React state뿐이라 위젯 재마운트(프로젝트 전환 등)나 앱 재시작 시 돌아가던 타이머가 리셋되던 것을, 위젯별 dataStorage(`state` 키)에 저장해 복원하도록 했다.
+
+- **Timer**: 실행 중이면 종료 시각(절대 타임스탬프)을 저장 — 복원 시 앱이 꺼져 있던 시간만큼 차감된 잔여 시간으로 이어서 돌아간다. 일시정지는 잔여 ms로 복원. 앱이 꺼진 사이 만료된 타이머는 소급 사운드/알림 없이 대기 상태로 복원.
+- **Stopwatch**: 누적 시간 + 현재 구간 시작 타임스탬프를 저장 — 실행 중이었다면 꺼져 있던 시간도 계속 흐른 것으로 집계(실제 스톱워치 의미론).
+- **Pomodoro**: 페이즈·종료 시각·일시정지 잔여·완료 세션 수를 저장. 꺼진 사이 페이즈가 끝났으면 놓친 페이즈 전환을 재생하지 않고 세션 수만 유지한 채 대기 상태로 복원(ponytail 주석으로 한계 명시).
+- 공통: 복원은 마운트 시 1회 비동기이며, 그 전에 사용자가 버튼을 누르면 사용자 조작이 우선한다(webpage 활성 탭 복원과 같은 패턴). 세 위젯의 `requiresApi`에 `dataStorage` 추가.
+
+### 수정 파일
+
+- **수정**: `widgets/timer/widget.tsx`·`index.ts`, `widgets/stopwatch/widget.tsx`·`index.ts`, `widgets/pomodoro/widget.tsx`·`index.ts`
+- **테스트**: `tests/renderer/widgets/timer/widget.spec.ts`(복원 3케이스+저장 1), `stopwatch/widget.spec.tsx`(복원 2), `pomodoro/widget.spec.tsx`(복원 2+저장 1)
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

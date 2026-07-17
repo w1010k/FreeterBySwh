@@ -14,7 +14,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // or missed tick never makes the clock drift — it just updates less often.
 const tickMsec = 30;
 
-function WidgetComp() {
+// dataStorage key holding the running/paused state, so a running stopwatch
+// survives widget remounts and app restarts (startTs is an absolute timestamp,
+// so time keeps counting while the app is closed — real stopwatch semantics).
+const stateKey = 'state';
+
+function WidgetComp({widgetApi}: WidgetReactComponentProps<Settings>) {
+  const { dataStorage } = widgetApi;
   const [running, setRunning] = useState(false);
   // Elapsed time carried over from previous run segments (ms), plus the start
   // timestamp of the current segment when running.
@@ -27,6 +33,28 @@ function WidgetComp() {
     []
   );
 
+  const persist = useCallback(() => {
+    dataStorage.setJson(stateKey, { accumulated: accumulatedRef.current, startTs: startTsRef.current });
+  }, [dataStorage]);
+
+  // Restore once on mount; a user click before the async read resolves wins.
+  const userActedRef = useRef(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const v = await dataStorage.getJson(stateKey) as { accumulated?: unknown; startTs?: unknown } | undefined;
+      if (cancelled || userActedRef.current || !v || typeof v !== 'object') {
+        return;
+      }
+      accumulatedRef.current = typeof v.accumulated === 'number' ? v.accumulated : 0;
+      startTsRef.current = typeof v.startTs === 'number' ? v.startTs : null;
+      setElapsedMs(computeElapsed());
+      setRunning(startTsRef.current !== null);
+    })().catch(() => undefined);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!running) {
       return undefined;
@@ -36,23 +64,29 @@ function WidgetComp() {
   }, [running, computeElapsed]);
 
   const start = useCallback(() => {
+    userActedRef.current = true;
     startTsRef.current = Date.now();
     setRunning(true);
-  }, []);
+    persist();
+  }, [persist]);
 
   const pause = useCallback(() => {
+    userActedRef.current = true;
     accumulatedRef.current = computeElapsed();
     startTsRef.current = null;
     setRunning(false);
     setElapsedMs(accumulatedRef.current);
-  }, [computeElapsed]);
+    persist();
+  }, [computeElapsed, persist]);
 
   const reset = useCallback(() => {
+    userActedRef.current = true;
     accumulatedRef.current = 0;
     startTsRef.current = null;
     setRunning(false);
     setElapsedMs(0);
-  }, []);
+    persist();
+  }, [persist]);
 
   const hasElapsed = elapsedMs > 0;
 

@@ -5,7 +5,7 @@
 
 import { Button, ReactComponent, WidgetReactComponentProps } from '@/widgets/appModules';
 import { Settings } from './settings';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './widget.module.scss';
 import { useAudioFile } from '@/widgets/timer/useAudioFile';
 import { timerEndSoundFilesById } from '@/widgets/timer/audio/timer-end';
@@ -21,13 +21,49 @@ function msecsToMMSS(msecs: number) {
   return `${padTime(m)}:${padTime(s)}`;
 }
 
+// dataStorage key holding the running/paused state, so an active timer
+// survives widget remounts and app restarts (endMsecs is an absolute
+// timestamp, so elapsed wall-clock time is accounted for on restore).
+const stateKey = 'state';
+
 function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) {
-  const { setDynamicTitle } = widgetApi;
+  const { setDynamicTitle, dataStorage } = widgetApi;
   const [endMsecs, setEndMsecs] = useState(0);
   // Remaining ms captured on pause (null when not paused). Lets Resume continue
   // exactly where it left off.
   const [pausedLeft, setPausedLeft] = useState<number | null>(null);
   const [mmss, setMmss] = useState(msecsToMMSS(0));
+
+  // Restore once on mount; a user click before the async read resolves wins.
+  // A timer that expired while the app was closed restores as idle (no
+  // retroactive sound/notification).
+  const [restored, setRestored] = useState(false);
+  const userActedRef = useRef(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const v = await dataStorage.getJson(stateKey) as { endMsecs?: unknown; pausedLeft?: unknown } | undefined;
+      if (!cancelled && !userActedRef.current && v && typeof v === 'object') {
+        if (typeof v.endMsecs === 'number' && v.endMsecs > Date.now()) {
+          setEndMsecs(v.endMsecs);
+          setMmss(msecsToMMSS(v.endMsecs - Date.now()));
+        } else if (typeof v.pausedLeft === 'number' && v.pausedLeft > 0) {
+          setPausedLeft(v.pausedLeft);
+          setMmss(msecsToMMSS(v.pausedLeft));
+        }
+      }
+      if (!cancelled) {
+        setRestored(true);
+      }
+    })().catch(() => setRestored(true));
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (restored) {
+      dataStorage.setJson(stateKey, { endMsecs, pausedLeft });
+    }
+  }, [restored, endMsecs, pausedLeft, dataStorage]);
 
   const msecs = settings.mins*60000
 
@@ -72,12 +108,14 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
 
   const totalMmss = useMemo(()=>msecsToMMSS(msecs), [msecs])
   const start = useCallback(() => {
+    userActedRef.current = true;
     setEndMsecs(Date.now() + msecs + 500 /* A bit more to not have -2secs mmss on a first tick */ );
     setPausedLeft(null);
     setMmss(msecsToMMSS(msecs));
   }, [msecs])
 
   const pause = useCallback(() => {
+    userActedRef.current = true;
     const left = Math.max(0, endMsecs - Date.now());
     setPausedLeft(left);
     setMmss(msecsToMMSS(left));
@@ -85,6 +123,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   }, [endMsecs])
 
   const resume = useCallback(() => {
+    userActedRef.current = true;
     if (pausedLeft !== null) {
       setEndMsecs(Date.now() + pausedLeft);
       setPausedLeft(null);
@@ -92,6 +131,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   }, [pausedLeft])
 
   const reset = useCallback(() => {
+    userActedRef.current = true;
     setEndMsecs(0);
     setPausedLeft(null);
   }, [])

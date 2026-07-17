@@ -6,12 +6,12 @@
 import { widgetComp } from '@/widgets/stopwatch/widget';
 import { Settings } from '@/widgets/stopwatch/settings';
 import { act, screen } from '@testing-library/react';
-import { setupWidgetSut } from '@tests/widgets/setupSut';
+import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut';
 
 jest.useFakeTimers();
 
-function setup() {
-  return setupWidgetSut(widgetComp, {} as Settings);
+function setup(optional?: SetupWidgetSutOptional) {
+  return setupWidgetSut(widgetComp, {} as Settings, optional);
 }
 
 describe('Stopwatch Widget', () => {
@@ -22,6 +22,31 @@ describe('Stopwatch Widget', () => {
     expect(screen.getByRole('button', { name: /start/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /pause/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /reset/i })).not.toBeInTheDocument();
+  });
+
+  it('restores a running stopwatch from dataStorage, counting time passed while away', async () => {
+    const getJson = jest.fn(async () => ({ accumulated: 1000, startTs: Date.now() - 2000 }));
+    setup({ mockWidgetApi: { dataStorage: { getJson, setJson: jest.fn() } } });
+
+    await act(async () => undefined);
+    act(() => jest.advanceTimersByTime(30));
+
+    expect(screen.getByText('00:03.03')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /pause/i })).toBeInTheDocument();
+  });
+
+  it('restores a paused stopwatch and persists state on pause', async () => {
+    const setJson = jest.fn();
+    const getJson = jest.fn(async () => ({ accumulated: 5000, startTs: null }));
+    const { userEvent } = setup({ mockWidgetApi: { dataStorage: { getJson, setJson } } });
+    await act(async () => undefined);
+
+    expect(screen.getByText('00:05.00')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /resume/i })).toBeInTheDocument();
+
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByRole('button', { name: /resume/i }));
+    expect(setJson).toHaveBeenLastCalledWith('state', { accumulated: 5000, startTs: Date.now() });
   });
 
   it('counts up after Start and shows Pause/Reset', async () => {

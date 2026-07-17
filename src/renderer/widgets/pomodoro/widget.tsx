@@ -5,7 +5,7 @@
 
 import { Button, ReactComponent, WidgetReactComponentProps } from '@/widgets/appModules';
 import { Settings } from './settings';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import styles from './widget.module.scss';
 import clsx from 'clsx';
 import { useAudioFile } from '@/widgets/timer/useAudioFile';
@@ -21,8 +21,12 @@ function msecsToMMSS(msecs: number) {
   return `${pad2(Math.floor(secs / 60))}:${pad2(secs % 60)}`;
 }
 
+// dataStorage key holding the running/paused state and the session count, so
+// an active pomodoro survives widget remounts and app restarts.
+const stateKey = 'state';
+
 function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) {
-  const { setDynamicTitle } = widgetApi;
+  const { setDynamicTitle, dataStorage } = widgetApi;
   const { workMins, breakMins } = settings;
 
   const [phase, setPhase] = useState<Phase>('work');
@@ -30,6 +34,44 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   const [pausedLeft, setPausedLeft] = useState<number | null>(null);
   const [mmss, setMmss] = useState(msecsToMMSS(workMins * 60000));
   const [doneWork, setDoneWork] = useState(0); // completed work sessions
+
+  // Restore once on mount; a user click before the async read resolves wins.
+  // ponytail: a phase that expired while the app was closed restores as idle
+  // (keeping the session count) instead of replaying missed phase rolls.
+  const [restored, setRestored] = useState(false);
+  const userActedRef = useRef(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const v = await dataStorage.getJson(stateKey) as
+        { phase?: unknown; endMsecs?: unknown; pausedLeft?: unknown; doneWork?: unknown } | undefined;
+      if (!cancelled && !userActedRef.current && v && typeof v === 'object') {
+        const p: Phase = v.phase === 'break' ? 'break' : 'work';
+        if (typeof v.doneWork === 'number' && v.doneWork > 0) {
+          setDoneWork(v.doneWork);
+        }
+        if (typeof v.endMsecs === 'number' && v.endMsecs > Date.now()) {
+          setPhase(p);
+          setEndMsecs(v.endMsecs);
+          setMmss(msecsToMMSS(v.endMsecs - Date.now()));
+        } else if (typeof v.pausedLeft === 'number' && v.pausedLeft > 0) {
+          setPhase(p);
+          setPausedLeft(v.pausedLeft);
+          setMmss(msecsToMMSS(v.pausedLeft));
+        }
+      }
+      if (!cancelled) {
+        setRestored(true);
+      }
+    })().catch(() => setRestored(true));
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (restored) {
+      dataStorage.setJson(stateKey, { phase, endMsecs, pausedLeft, doneWork });
+    }
+  }, [restored, phase, endMsecs, pausedLeft, doneWork, dataStorage]);
 
   const endSound = useAudioFile(timerEndSoundFilesById[settings.endSound]?.path || '', settings.endSoundVol);
 
@@ -71,6 +113,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   useEffect(() => () => setDynamicTitle(null), [setDynamicTitle])
 
   const start = useCallback(() => {
+    userActedRef.current = true;
     setPhase('work');
     setEndMsecs(Date.now() + workMins * 60000 + 500);
     setPausedLeft(null);
@@ -78,6 +121,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   }, [workMins])
 
   const pause = useCallback(() => {
+    userActedRef.current = true;
     const left = Math.max(0, endMsecs - Date.now());
     setPausedLeft(left);
     setMmss(msecsToMMSS(left));
@@ -85,6 +129,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   }, [endMsecs])
 
   const resume = useCallback(() => {
+    userActedRef.current = true;
     if (pausedLeft !== null) {
       setEndMsecs(Date.now() + pausedLeft);
       setPausedLeft(null);
@@ -92,6 +137,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   }, [pausedLeft])
 
   const reset = useCallback(() => {
+    userActedRef.current = true;
     setEndMsecs(0);
     setPausedLeft(null);
     setPhase('work');
