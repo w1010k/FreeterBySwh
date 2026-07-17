@@ -104,6 +104,35 @@ describe('<Palette />', () => {
     expect(within(palAdd).queryAllByRole('listitem').length).toBe(4);
   });
 
+  it('should filter the Add Widget list with the search input, showing a note when nothing matches', async () => {
+    await setup(fixtureAppState({
+      entities: {
+        widgetTypes: {
+          ...fixtureWidgetTypeAInColl({id: 'WT-A'}),
+          ...fixtureWidgetTypeBInColl({id: 'WT-B'}),
+        }
+      },
+      ui: {
+        palette: fixturePalette({
+          widgetTypeIds: ['WT-A', 'WT-B']
+        })
+      }
+    }))
+    const palAdd = screen.getByTestId('palette-add');
+    const search = within(palAdd).getByRole('textbox', { name: /search widgets/i });
+
+    fireEvent.change(search, { target: { value: 'widget a' } });
+    expect(within(palAdd).queryAllByRole('listitem').length).toBe(1);
+    expect(within(palAdd).getByText('Widget A')).toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: 'zzz' } });
+    expect(within(palAdd).queryAllByRole('listitem').length).toBe(0);
+    expect(within(palAdd).getByText(/no widgets found/i)).toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: '' } });
+    expect(within(palAdd).queryAllByRole('listitem').length).toBe(2);
+  });
+
   it('should display "No widgets to paste" instead of the "Paste Widget" list, when there are no copied widgets', async () => {
     const widgetTypeA = fixtureWidgetTypeA();
     await setup(fixtureAppState({

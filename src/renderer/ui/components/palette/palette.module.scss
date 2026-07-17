@@ -54,6 +54,26 @@
   background-color: var(--freeter-paletteSectionBackground);
   box-shadow: 0 4px 8px 0 var(--freeter-paletteShadow);
 }
+.palette-search {
+  // The section scrolls (max-height above); keep the search reachable while scrolled.
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 18px;
+  border: none;
+  border-bottom: 1px solid var(--freeter-paletteBorder);
+  background-color: var(--freeter-paletteItemBackground);
+  color: var(--freeter-paletteItemColor);
+  font-size: 14px;
+  outline: none;
+}
+.palette-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 .palette-sectionnote {
   padding: 18px;
   font-size: 14px;
@@ -63,15 +83,20 @@
 
 $sections: 'add', 'paste';
 @each $section in $sections {
-  .palette-tab-#{$section}:hover ~ .palette-section-#{$section} {
+  .palette-tab-#{$section}:hover ~ .palette-section-#{$section},
+  .palette-tab-#{$section}:focus ~ .palette-section-#{$section} {
     display: block;
   }
 
-  .palette-section-#{$section}:hover {
+  // :focus-within keeps the section open while typing in the search input,
+  // even when the mouse leaves; it also makes the dropdown keyboard-reachable.
+  .palette-section-#{$section}:hover,
+  .palette-section-#{$section}:focus-within {
     display: block;
   }
 
-  .palette-tab-#{$section}:has(~ .palette-section-#{$section}:hover) {
+  .palette-tab-#{$section}:has(~ .palette-section-#{$section}:hover),
+  .palette-tab-#{$section}:has(~ .palette-section-#{$section}:focus-within) {
     @include palette-tab-hover;
   }
 }

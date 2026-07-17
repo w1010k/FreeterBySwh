@@ -7,7 +7,7 @@ import { PaletteViewModelHook } from './paletteViewModel';
 import clsx from 'clsx';
 import styles from './palette.module.scss';
 import PaletteItem from './paletteItem';
-import { memo } from 'react';
+import { memo, useState } from 'react';
 
 type Deps = {
   usePaletteViewModel: PaletteViewModelHook
@@ -42,6 +42,14 @@ export function createPaletteComponent({
       hideSections
     } = usePaletteViewModel();
 
+    // Client-side filter over the widget-type list. Kept as local component
+    // state — it's purely presentational.
+    const [search, setSearch] = useState('');
+    const query = search.trim().toLowerCase();
+    const visibleWidgetTypes = query === ''
+      ? widgetTypes
+      : widgetTypes.filter(item => item.name.toLowerCase().includes(query));
+
     return (
       <div
         className={clsx(
@@ -51,26 +59,39 @@ export function createPaletteComponent({
           pos === PalettePropsPos.TopBar && styles['pos-top-bar'],
         )}
       >
-        <span className={clsx(styles['palette-tab'], styles['palette-tab-add'])} tabIndex={0}>Add Widget</span>
-        <span className={clsx(styles['palette-tab'], styles['palette-tab-paste'])} tabIndex={0}>Paste Widget</span>
-        <ul
+        {/* The sections are CSS hover/focus dropdowns; the spans are their
+            triggers (focus also opens them — see the :focus rules in scss). */}
+        <span className={clsx(styles['palette-tab'], styles['palette-tab-add'])} tabIndex={0} role="button" aria-haspopup="true">Add Widget</span>
+        <span className={clsx(styles['palette-tab'], styles['palette-tab-paste'])} tabIndex={0} role="button" aria-haspopup="true">Paste Widget</span>
+        <div
           data-testid="palette-add"
           className={clsx(styles['palette-section'], styles['palette-section-add'])}
         >
-        {widgetTypes.map(item => (
-          <PaletteItem
-            key={item.id}
-            id={item.id}
-            icon={item.icon}
-            name={item.name}
-            moreInfo={item.description}
-            onDragStart={onAddItemDragStart}
-            onDragEnd={onAddItemDragEnd}
-            onClick={onAddItemClick}
-            onContextMenu={onAddContextMenu}
+          <input
+            type="text"
+            className={styles['palette-search']}
+            placeholder="Search widgets"
+            aria-label="Search widgets"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
           />
-        ))}
-        </ul>
+          <ul className={styles['palette-list']}>
+          {visibleWidgetTypes.map(item => (
+            <PaletteItem
+              key={item.id}
+              id={item.id}
+              icon={item.icon}
+              name={item.name}
+              moreInfo={item.description}
+              onDragStart={onAddItemDragStart}
+              onDragEnd={onAddItemDragEnd}
+              onClick={onAddItemClick}
+              onContextMenu={onAddContextMenu}
+            />
+          ))}
+          </ul>
+          {visibleWidgetTypes.length === 0 && <div className={styles['palette-sectionnote']}>No widgets found</div>}
+        </div>
         {
           copiedWidgets.length>0
             ? <ul
