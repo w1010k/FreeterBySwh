@@ -3,9 +3,9 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { CreateSettingsState, SettingsEditorReactComponentProps, ReactComponent, SettingBlock } from '@/widgets/appModules';
+import { Button, CreateSettingsState, SettingsEditorReactComponentProps, ReactComponent, SettingBlock, SettingRow, SettingActions, delete14Svg } from '@/widgets/appModules';
 import { debounce } from '@common/helpers/debounce';
-import { useCallback, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 const settingsSessionScopes = ['app', 'prj', 'wfl', 'wgt'] as const;
 export type SettingsSessionScope = typeof settingsSessionScopes[number];
@@ -35,34 +35,70 @@ function isSettingsSessionPersist(val: unknown): val is SettingsSessionPersist {
   return false;
 }
 
+export interface TabSettings {
+  url: string;
+  name: string;
+}
+
+function sanitizeTabSetting(val: unknown): TabSettings | null {
+  if (typeof val === 'string') {
+    // legacy format (pre object-tabs): plain url, optionally 'url | name'
+    const sep = val.indexOf('|');
+    if (sep < 0) {
+      return { url: val.trim(), name: '' };
+    }
+    return { url: val.slice(0, sep).trim(), name: val.slice(sep + 1).trim() };
+  }
+  if (typeof val === 'object' && val !== null) {
+    const { url, name } = val as { url?: unknown; name?: unknown };
+    return {
+      url: typeof url === 'string' ? url : '',
+      name: typeof name === 'string' ? name : ''
+    };
+  }
+  return null;
+}
+
 export interface Settings {
   autoReload: number;
   sessionPersist: SettingsSessionPersist;
   sessionScope: SettingsSessionScope;
   url: string;
-  tabs: string[];
+  urlName: string;
+  tabs: TabSettings[];
   injectedCSS: string;
   injectedJS: string;
   userAgent: string;
 }
 
-export const createSettingsState: CreateSettingsState<Settings> = (settings) => ({
-  autoReload: typeof settings.autoReload === 'number' ? settings.autoReload : 0,
-  sessionPersist: isSettingsSessionPersist(settings.sessionPersist) ? settings.sessionPersist : 'persist',
-  sessionScope: isSettingsSessionScope(settings.sessionScope) ? settings.sessionScope : 'prj',
-  url: typeof settings.url === 'string' ? settings.url : '',
-  tabs: Array.isArray(settings.tabs) ? settings.tabs.filter((t): t is string => typeof t === 'string') : [],
-  injectedCSS: typeof settings.injectedCSS === 'string' ? settings.injectedCSS : '',
-  injectedJS: typeof settings.injectedJS === 'string' ? settings.injectedJS : '',
-  userAgent: typeof settings.userAgent === 'string' ? settings.userAgent : '',
-})
+export const createSettingsState: CreateSettingsState<Settings> = (settings) => {
+  // Settings saved before urlName existed may carry a legacy 'url | name' in the
+  // url field; split it once. Settings saved with urlName never get re-parsed,
+  // so urls containing a literal pipe stay intact from then on.
+  const legacyUrl = typeof settings.urlName !== 'string' && typeof settings.url === 'string'
+    ? sanitizeTabSetting(settings.url)
+    : null;
+  return {
+    autoReload: typeof settings.autoReload === 'number' ? settings.autoReload : 0,
+    sessionPersist: isSettingsSessionPersist(settings.sessionPersist) ? settings.sessionPersist : 'persist',
+    sessionScope: isSettingsSessionScope(settings.sessionScope) ? settings.sessionScope : 'prj',
+    url: legacyUrl ? legacyUrl.url : (typeof settings.url === 'string' ? settings.url : ''),
+    urlName: typeof settings.urlName === 'string' ? settings.urlName : (legacyUrl?.name ?? ''),
+    tabs: Array.isArray(settings.tabs)
+      ? settings.tabs.map(sanitizeTabSetting).filter((t): t is TabSettings => t !== null)
+      : [],
+    injectedCSS: typeof settings.injectedCSS === 'string' ? settings.injectedCSS : '',
+    injectedJS: typeof settings.injectedJS === 'string' ? settings.injectedJS : '',
+    userAgent: typeof settings.userAgent === 'string' ? settings.userAgent : '',
+  };
+}
 
 const debounceUpdate3s = debounce((fn: () => void) => fn(), 3000);
 
 // Text settings that mirror their value in local state and write to settings debounced (3s)
 // while typing, immediately on blur. The three fields share one debounce instance so switching
 // fields flushes the previous one via blur — keep that behavior when changing this.
-type DebouncedTextField = 'url' | 'injectedJS' | 'userAgent';
+type DebouncedTextField = 'url' | 'urlName' | 'injectedJS' | 'userAgent';
 
 function useDebouncedTextSettingUpdater(
   field: DebouncedTextField,
@@ -89,14 +125,17 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
   const {updateSettings} = settingsApi;
 
   const [url, setUrl] = useState(settings.url);
-  const [tabsText, setTabsText] = useState(settings.tabs.join('\n'));
-  // Same debounce instance as the text fields below, so switching fields
-  // flushes the pending write via blur.
-  const updateTabs = useCallback((newVal: string, shouldDebounce: boolean) => {
-    setTabsText(newVal);
+  const [urlName, setUrlName] = useState(settings.urlName);
+  // Tab url/name edits mirror local state and write debounced (3s), immediately
+  // on blur — same debounce instance as the text fields below, so switching
+  // fields flushes the pending write. Typing a tab url live would otherwise
+  // reload its webview on every keystroke.
+  const [tabs, setTabs] = useState(settings.tabs);
+  const updateTabs = useCallback((newTabs: TabSettings[], shouldDebounce: boolean) => {
+    setTabs(newTabs);
     const updateValInSettings = () => updateSettings({
       ...settings,
-      tabs: newVal.split('\n').map(s => s.trim()).filter(s => s !== '')
+      tabs: newTabs
     })
     if (shouldDebounce) {
       debounceUpdate3s(updateValInSettings);
@@ -105,9 +144,23 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
       updateValInSettings();
     }
   }, [settings, updateSettings])
+  const updTab = (i: number, patch: Partial<TabSettings>, shouldDebounce: boolean) =>
+    updateTabs(tabs.map((tab, _i) => i !== _i ? tab : { ...tab, ...patch }), shouldDebounce);
+  const addTab = () => updateTabs([...tabs, { url: '', name: '' }], false);
+  const deleteTab = (i: number) => updateTabs(tabs.filter((_tab, _i) => i !== _i), false);
+
+  const tabUrlRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const shouldFocusLastTabRef = useRef(false);
+  useLayoutEffect(() => {
+    if (shouldFocusLastTabRef.current) {
+      tabUrlRefs.current[tabs.length - 1]?.focus();
+      shouldFocusLastTabRef.current = false;
+    }
+  }, [tabs.length]);
   const [injectedJs, setInjectedJs] = useState(settings.injectedJS);
   const [userAgent, setUserAgent] = useState(settings.userAgent);
   const updateUrl = useDebouncedTextSettingUpdater('url', setUrl, settings, updateSettings);
+  const updateUrlName = useDebouncedTextSettingUpdater('urlName', setUrlName, settings, updateSettings);
   const updateInjectedJs = useDebouncedTextSettingUpdater('injectedJS', setInjectedJs, settings, updateSettings);
   const updateUserAgent = useDebouncedTextSettingUpdater('userAgent', setUserAgent, settings, updateSettings);
   return (
@@ -115,18 +168,63 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
       <SettingBlock
         titleForId='webpage-url'
         title='URL'
-        moreInfo='Type a URL of a webpage or a web app to open in the widget.'
+        moreInfo='Type a URL of a webpage or a web app to open in the widget. The tab name is used when the widget shows
+                  multiple tabs; leave it empty to use the page title.'
       >
-        <input id="webpage-url" type="text" value={url} onChange={e => updateUrl(e.target.value, true)} onBlur={e=>updateUrl(e.target.value, false)} placeholder="Type a URL" />
+        <SettingRow>
+          <input id="webpage-url" type="text" style={{flex: 2}} value={url} onChange={e => updateUrl(e.target.value, true)} onBlur={e=>updateUrl(e.target.value, false)} placeholder="Type a URL" />
+          <input type="text" style={{flex: 1}} aria-label='Tab Name' value={urlName} onChange={e => updateUrlName(e.target.value, true)} onBlur={e=>updateUrlName(e.target.value, false)} placeholder="Tab name (optional)" />
+        </SettingRow>
       </SettingBlock>
 
       <SettingBlock
-        titleForId='webpage-tabs'
+        titleForId='webpage-tab-url0'
         title='Tabs'
-        moreInfo='Add more URLs (one per line) to show multiple webpages as switchable tabs in the widget header. The URL above becomes
-                  the first tab. Add an optional tab name after a pipe: "https://example.com | My Tab" (works for the URL above too).'
+        moreInfo='Add more URLs to show multiple webpages as switchable tabs in the widget header. The URL above becomes
+                  the first tab. Each tab can have an optional name; without one, the page title is used.'
       >
-        <textarea id="webpage-tabs" value={tabsText} onChange={e => updateTabs(e.target.value, true)} onBlur={e=>updateTabs(e.target.value, false)} placeholder="Type URLs, one per line"></textarea>
+        {tabs.map((tab, i) => (
+          <SettingRow key={i}>
+            <input
+              ref={el => {tabUrlRefs.current[i] = el}}
+              id={'webpage-tab-url' + i}
+              type="text"
+              style={{flex: 2}}
+              aria-label={'Tab URL ' + (i + 1)}
+              value={tab.url}
+              placeholder='Type a URL'
+              onChange={e => updTab(i, { url: e.target.value }, true)}
+              onBlur={e => updTab(i, { url: e.target.value }, false)}
+            />
+            <input
+              type="text"
+              style={{flex: 1}}
+              aria-label={'Tab Name ' + (i + 1)}
+              value={tab.name}
+              placeholder='Tab name (optional)'
+              onChange={e => updTab(i, { name: e.target.value }, true)}
+              onBlur={e => updTab(i, { name: e.target.value }, false)}
+            />
+            <SettingActions
+              actions={[{
+                id: 'DELETE',
+                icon: delete14Svg,
+                title: 'Delete Tab',
+                doAction: async () => deleteTab(i)
+              }]}
+            />
+          </SettingRow>
+        ))}
+        <div>
+          <Button
+            onClick={_ => {
+              addTab();
+              shouldFocusLastTabRef.current = true;
+            }}
+            caption='Add a tab'
+            primary={true}
+          ></Button>
+        </div>
       </SettingBlock>
 
       <SettingBlock

@@ -562,16 +562,6 @@ interface TabTitleInfo { pageTitle: string; dynamicTitle: string | null }
 
 interface TabEntry { url: string; name: string }
 
-// Each URL line (and the main URL field) accepts an optional custom tab name
-// after a pipe: `https://example.com | My name`.
-function parseTabEntry(line: string): TabEntry {
-  const sep = line.indexOf('|');
-  if (sep < 0) {
-    return { url: line.trim(), name: '' };
-  }
-  return { url: line.slice(0, sep).trim(), name: line.slice(sep + 1).trim() };
-}
-
 // Label priority: user-set name → page title → URL hostname.
 function tabLabel(entry: TabEntry, info: TabTitleInfo | undefined): string {
   if (entry.name !== '') {
@@ -590,8 +580,10 @@ function tabLabel(entry: TabEntry, info: TabTitleInfo | undefined): string {
 export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
   const {settings, widgetApi} = props;
   const entries = useMemo(
-    () => [settings.url, ...settings.tabs].map(parseTabEntry).filter(e => e.url !== ''),
-    [settings.url, settings.tabs]
+    () => [{url: settings.url, name: settings.urlName}, ...settings.tabs]
+      .map((t): TabEntry => ({url: t.url.trim(), name: t.name.trim()}))
+      .filter(e => e.url !== ''),
+    [settings.url, settings.urlName, settings.tabs]
   );
   const multiTab = entries.length > 1;
   const [requireRestart, setRequireRestart] = useState(1);
@@ -599,7 +591,10 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
   const [activeTab, setActiveTab] = useState(0);
   // Clamp instead of resetting state so removing a middle tab keeps a sane selection.
   const active = Math.min(activeTab, Math.max(entries.length - 1, 0));
-  const [tabTitles, setTabTitles] = useState<Record<number, TabTitleInfo>>({});
+  // Keyed by url (not index) so removing/reordering tabs doesn't hand one tab
+  // another tab's title. Duplicate-url tabs share an entry — acceptable, they
+  // show the same page. Entries of removed urls linger — harmless.
+  const [tabTitles, setTabTitles] = useState<Record<string, TabTitleInfo>>({});
 
   // Multi-tab mode mounts one <Webview> per tab (inactive ones stay alive,
   // hidden via visibility). Only the active tab may own the widget-level API
@@ -616,17 +611,17 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
     exposeApi: noopApiFn
   }), [widgetApi]);
   const titleHandlers = useMemo(
-    () => entries.map((_, i) => (info: TabTitleInfo) => setTabTitles(prev => ({...prev, [i]: info}))),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [entries.length]
+    () => entries.map(e => (info: TabTitleInfo) => setTabTitles(prev => ({...prev, [e.url]: info}))),
+    [entries]
   );
 
+  const activeUrl = entries[active]?.url ?? '';
   const {setDynamicTitle, setHeaderTabs} = widgetApi;
   useEffect(() => {
     if (multiTab) {
-      setDynamicTitle(tabTitles[active]?.dynamicTitle ?? null);
+      setDynamicTitle(tabTitles[activeUrl]?.dynamicTitle ?? null);
     }
-  }, [multiTab, setDynamicTitle, tabTitles, active]);
+  }, [multiTab, setDynamicTitle, tabTitles, activeUrl]);
 
   // The tab bar lives in the widget shell header (replacing the widget name),
   // published via widgetApi like the action bar.
@@ -636,7 +631,7 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
       return undefined;
     }
     setHeaderTabs({
-      tabs: entries.map((e, i) => ({label: tabLabel(e, tabTitles[i]), title: e.url})),
+      tabs: entries.map(e => ({label: tabLabel(e, tabTitles[e.url]), title: e.url})),
       active,
       onSelect: setActiveTab
     });

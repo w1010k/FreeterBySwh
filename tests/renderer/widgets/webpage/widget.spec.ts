@@ -221,7 +221,7 @@ describe('Webpage Widget', () => {
     it('should publish header tabs and render one webview per url when tabs are set', () => {
       const setHeaderTabs = jest.fn();
       const { comp } = setupWebpageWidgetSut(
-        fixtureSettings({ url: 'https://a/', tabs: ['https://b/', 'https://c/'] }),
+        fixtureSettings({ url: 'https://a/', tabs: [{ url: 'https://b/', name: '' }, { url: 'https://c/', name: '' }] }),
         { mockWidgetApi: { setHeaderTabs } }
       );
 
@@ -231,14 +231,14 @@ describe('Webpage Widget', () => {
     })
     it('should render a webview without header tabs when url is empty and tabs has a single url', () => {
       const setHeaderTabs = jest.fn();
-      const { comp } = setupWebpageWidgetSut(fixtureSettings({ url: '', tabs: ['https://b/'] }), { mockWidgetApi: { setHeaderTabs } });
+      const { comp } = setupWebpageWidgetSut(fixtureSettings({ url: '', tabs: [{ url: 'https://b/', name: '' }] }), { mockWidgetApi: { setHeaderTabs } });
 
       expect(lastHeaderTabs(setHeaderTabs)).toBeNull();
       expect(comp.container.getElementsByTagName('webview')[0]).toHaveAttribute('src', 'https://b/');
     })
     it('should show the first tab initially and switch panes on select, keeping inactive webviews mounted', () => {
       const setHeaderTabs = jest.fn();
-      const { comp } = setupWebpageWidgetSut(fixtureSettings({ url: 'https://a/', tabs: ['https://b/'] }), { mockWidgetApi: { setHeaderTabs } });
+      const { comp } = setupWebpageWidgetSut(fixtureSettings({ url: 'https://a/', tabs: [{ url: 'https://b/', name: '' }] }), { mockWidgetApi: { setHeaderTabs } });
       const panes = () => Array.from(comp.container.getElementsByTagName('webview')).map(wv => wv.parentElement as HTMLElement);
 
       expect(lastHeaderTabs(setHeaderTabs)?.active).toBe(0);
@@ -258,35 +258,48 @@ describe('Webpage Widget', () => {
     })
     it('should label tabs with the url hostname until a page title is known', () => {
       const setHeaderTabs = jest.fn();
-      setupWebpageWidgetSut(fixtureSettings({ url: 'https://first.host/path', tabs: ['second.host'] }), { mockWidgetApi: { setHeaderTabs } });
+      setupWebpageWidgetSut(fixtureSettings({ url: 'https://first.host/path', tabs: [{ url: 'second.host', name: '' }] }), { mockWidgetApi: { setHeaderTabs } });
 
       const tabs = lastHeaderTabs(setHeaderTabs)?.tabs;
       expect(tabs?.[0].label).toBe('first.host');
       expect(tabs?.[1].label).toBe('second.host');
     })
-    it('should label tabs with the custom name set after a pipe, stripping it from the url', () => {
+    it('should label tabs with the custom name settings when set', () => {
       const setHeaderTabs = jest.fn();
-      const { comp } = setupWebpageWidgetSut(
-        fixtureSettings({ url: 'https://a/ | First', tabs: ['https://b/|Second'] }),
+      setupWebpageWidgetSut(
+        fixtureSettings({ url: 'https://a/', urlName: 'First', tabs: [{ url: 'https://b/', name: 'Second' }] }),
         { mockWidgetApi: { setHeaderTabs } }
       );
 
       const tabs = lastHeaderTabs(setHeaderTabs)?.tabs;
       expect(tabs?.[0].label).toBe('First');
       expect(tabs?.[1].label).toBe('Second');
+    })
+    it('should keep page titles attached to their tab url when a middle tab is removed', () => {
+      const setHeaderTabs = jest.fn();
+      const { comp, setSettings } = setupWebpageWidgetSut(
+        fixtureSettings({ url: 'https://a/', tabs: [{ url: 'https://b/', name: '' }, { url: 'https://c/', name: '' }] }),
+        { mockWidgetApi: { setHeaderTabs } }
+      );
       const webviews = comp.container.getElementsByTagName('webview');
-      expect(webviews[0]).toHaveAttribute('src', 'https://a/');
-      expect(webviews[1]).toHaveAttribute('src', 'https://b/');
+      (webviews[1] as unknown as { getTitle: () => string }).getTitle = () => 'B Title';
+      act(() => { webviews[1].dispatchEvent(new Event('page-title-updated')); });
+      expect(lastHeaderTabs(setHeaderTabs)?.tabs[1].label).toBe('B Title');
+
+      setSettings(fixtureSettings({ url: 'https://a/', tabs: [{ url: 'https://c/', name: '' }] }));
+
+      // the remaining second tab is now c — it must not inherit b's title
+      expect(lastHeaderTabs(setHeaderTabs)?.tabs[1].label).toBe('c');
     })
     it('should clamp the active tab when the tab list shrinks', () => {
       const setHeaderTabs = jest.fn();
       const { comp, setSettings } = setupWebpageWidgetSut(
-        fixtureSettings({ url: 'https://a/', tabs: ['https://b/', 'https://c/'] }),
+        fixtureSettings({ url: 'https://a/', tabs: [{ url: 'https://b/', name: '' }, { url: 'https://c/', name: '' }] }),
         { mockWidgetApi: { setHeaderTabs } }
       );
       act(() => lastHeaderTabs(setHeaderTabs)?.onSelect(2));
 
-      setSettings(fixtureSettings({ url: 'https://a/', tabs: ['https://b/'] }));
+      setSettings(fixtureSettings({ url: 'https://a/', tabs: [{ url: 'https://b/', name: '' }] }));
 
       expect(lastHeaderTabs(setHeaderTabs)?.tabs.length).toBe(2);
       expect(lastHeaderTabs(setHeaderTabs)?.active).toBe(1);

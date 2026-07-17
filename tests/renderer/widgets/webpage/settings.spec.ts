@@ -114,27 +114,63 @@ describe('Webpage Widget Settings', () => {
     });
   })
 
-  it('should fill the "tabs" textarea with one url per line', () => {
-    const settings = fixtureSettings({ tabs: ['https://a/', 'https://b/'] });
+  it('should fill a url and a name input per tab', () => {
+    const settings = fixtureSettings({ tabs: [{ url: 'https://a/', name: 'A' }, { url: 'https://b/', name: '' }] });
     setupSettingsSut(settingsEditorComp, settings);
 
-    expect(screen.getByRole('textbox', { name: /tabs/i })).toHaveValue('https://a/\nhttps://b/');
+    const urlInputs = screen.getAllByRole('textbox', { name: /tab url/i });
+    expect(urlInputs[0]).toHaveValue('https://a/');
+    expect(urlInputs[1]).toHaveValue('https://b/');
+    expect(screen.getByRole('textbox', { name: /tab name 1/i })).toHaveValue('A');
+    expect(screen.getByRole('textbox', { name: /tab name 2/i })).toHaveValue('');
   })
 
-  it('should update "tabs" setting on blur, splitting lines, trimming and dropping blanks', async () => {
-    const settings = fixtureSettings({ tabs: [] });
+  it('should add and delete tab rows, updating the setting immediately', async () => {
+    const settings = fixtureSettings({ tabs: [{ url: 'https://a/', name: '' }] });
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+    const user = userEvent.setup({ delay: null });
+
+    await user.click(screen.getByRole('button', { name: /add a tab/i }));
+    expect(getSettings()).toEqual({
+      ...settings,
+      tabs: [{ url: 'https://a/', name: '' }, { url: '', name: '' }]
+    });
+
+    await user.click(screen.getAllByRole('button', { name: /delete tab/i })[0]);
+    expect(getSettings()).toEqual({
+      ...settings,
+      tabs: [{ url: '', name: '' }]
+    });
+  })
+
+  it('should update a tab url and name on blur', async () => {
+    const settings = fixtureSettings({ tabs: [{ url: '', name: '' }] });
     const { fireEvent, userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
     const user = userEvent.setup({ delay: null });
-    const input = screen.getByRole('textbox', { name: /tabs/i })
+    const urlInput = screen.getAllByRole('textbox', { name: /tab url/i })[0];
+    const nameInput = screen.getByRole('textbox', { name: /tab name 1/i });
 
-    await user.type(input, '  https://a/  \n\nhttps://b/');
+    await user.type(urlInput, 'https://a/');
+    expect(getSettings()).toEqual(settings);
+    fireEvent.blur(urlInput);
+    expect(getSettings()).toEqual({ ...settings, tabs: [{ url: 'https://a/', name: '' }] });
+
+    await user.type(nameInput, 'My Tab');
+    fireEvent.blur(nameInput);
+    expect(getSettings()).toEqual({ ...settings, tabs: [{ url: 'https://a/', name: 'My Tab' }] });
+  })
+
+  it('should update the "urlName" setting on blur of the tab name input next to the url', async () => {
+    const settings = fixtureSettings({ urlName: '' });
+    const { fireEvent, userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+    const user = userEvent.setup({ delay: null });
+    const input = screen.getByRole('textbox', { name: /^tab name$/i });
+
+    await user.type(input, 'First');
     expect(getSettings()).toEqual(settings);
 
     fireEvent.blur(input);
-    expect(getSettings()).toEqual({
-      ...settings,
-      tabs: ['https://a/', 'https://b/']
-    });
+    expect(getSettings()).toEqual({ ...settings, urlName: 'First' });
   })
 
   it('should immediately update "injected css" setting on input type', async () => {
