@@ -1969,6 +1969,16 @@ Webpage 위젯 하나에 여러 URL을 등록해 브라우저처럼 탭으로 �
 
 ---
 
+## 68. 설정 화면 폼 컨트롤 전체 폭 사용 *(2026-07-17)*
+
+설정 화면(위젯·워크플로우·앱 설정, 프로젝트/앱 매니저)의 우측 폼 패널에서 input/select/textarea가 `240px` 고정폭이라, 패널은 넓은데 폼만 좁게 몰려 있고 오른쪽이 빈 공간으로 남았다. 공통 스타일(`settingsScreen.module.scss`)의 고정폭을 `width: 100%`로 바꿔 폼 컨트롤이 패널 폭을 전부 쓰도록 했다. 다섯 화면 모두 이 공통 클래스를 쓰므로 한 줄 수정으로 일괄 적용된다.
+
+### 수정 파일
+
+- **수정**: `ui/components/basic/settingsScreen/settingsScreen.module.scss`
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)
