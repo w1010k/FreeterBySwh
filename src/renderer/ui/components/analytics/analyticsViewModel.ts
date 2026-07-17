@@ -32,6 +32,18 @@ interface State {
   error: string | null;
 }
 
+/** Number of days to show, 'all' for the full history. */
+export type AnalyticsRange = '7' | '30' | 'all';
+
+function rangeFromDate(range: AnalyticsRange): string | undefined {
+  if (range === 'all') {
+    return undefined;
+  }
+  const d = new Date();
+  d.setDate(d.getDate() - (Number(range) - 1));
+  return `${d.getFullYear()}-${`${d.getMonth() + 1}`.padStart(2, '0')}-${`${d.getDate()}`.padStart(2, '0')}`;
+}
+
 export function createAnalyticsViewModelHook({
   closeAnalyticsUseCase,
   getTelemetryEntitiesUseCase,
@@ -43,9 +55,14 @@ export function createAnalyticsViewModelHook({
 }: Deps) {
   function useViewModel() {
     const [state, setState] = useState<State>({ loading: true, summary: null, timeline: [], error: null });
+    const [range, setRange] = useState<AnalyticsRange>('all');
     const mountedRef = useRef(true);
+    // Monotonic token so a slow in-flight load can't overwrite the result of a
+    // newer one (e.g. after a quick range switch).
+    const loadSeqRef = useRef(0);
 
     const load = useCallback(async () => {
+      const seq = ++loadSeqRef.current;
       setState({ loading: true, summary: null, timeline: [], error: null });
       try {
         // Persist anything still buffered in memory so just-recorded activity
@@ -54,10 +71,11 @@ export function createAnalyticsViewModelHook({
         await flushTelemetryUseCase();
         // Read the raw day files once and derive both rollups and the timeline
         // locally — avoids reading + parsing every history file twice per open.
-        const days = await readTelemetryEventsUseCase();
+        // The range narrows the read at the source (day files outside it are skipped).
+        const days = await readTelemetryEventsUseCase(rangeFromDate(range));
         const entities = getTelemetryEntitiesUseCase();
         const rollups = days.map(({ date, events }) => computeDailyRollup(date, events));
-        if (!mountedRef.current) {
+        if (!mountedRef.current || seq !== loadSeqRef.current) {
           return;
         }
         setState({
@@ -67,12 +85,12 @@ export function createAnalyticsViewModelHook({
           error: null,
         });
       } catch (e) {
-        if (!mountedRef.current) {
+        if (!mountedRef.current || seq !== loadSeqRef.current) {
           return;
         }
         setState({ loading: false, summary: null, timeline: [], error: e instanceof Error ? e.message : String(e) });
       }
-    }, []);
+    }, [range]);
 
     useEffect(() => {
       mountedRef.current = true;
@@ -112,6 +130,8 @@ export function createAnalyticsViewModelHook({
       summary: state.summary,
       timeline: state.timeline,
       error: state.error,
+      range,
+      onRangeChange: setRange,
       reload: load,
       onCloseClick,
       onExportClick,

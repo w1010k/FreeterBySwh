@@ -2060,6 +2060,64 @@ Timer·Stopwatch·Pomodoro의 실행 상태가 React state뿐이라 위젯 재�
 
 ---
 
+## 74. 위젯 팔레트 검색 + 접근성 *(2026-07-17)*
+
+편집 모드의 Add Widget 팔레트에 **검색 인풋**을 추가 — 위젯 이름으로 즉시 필터링되고, 결과가 없으면 "No widgets found" 안내가 뜬다. 팔레트 드롭다운은 CSS hover 기반이라 검색 중 마우스가 벗어나면 닫히는 문제가 있는데, `:focus-within` 규칙을 추가해 입력 중에는 열려 있게 했다. 같은 규칙 덕에 Add/Paste 탭이 키보드 포커스로도 열린다(트리거 span에 `role="button"`·`aria-haspopup` 부여).
+
+### 수정 파일
+
+- **수정**: `ui/components/palette/palette.tsx`·`palette.module.scss`
+- **테스트**: `tests/renderer/ui/components/palette.spec.tsx`(검색 필터 1케이스)
+
+---
+
+## 75. 리스트형 위젯 설정 순서 변경 통일 *(2026-07-17)*
+
+web-query·d-day·clock에는 있는 항목 순서 변경이 commander(커맨드라인)·link-opener(URL)·file-opener(파일/폴더 경로)·file-explorer(루트 폴더)에는 없어서, 순서를 바꾸려면 내용을 손으로 맞바꿔 타이핑해야 했다. 네 위젯의 각 행에 ↑/↓(Move Up/Down) 액션 버튼을 추가 — 첫/마지막 행에서는 비활성화. 위 화살표 아이콘이 없어 기존 `arr-down-14.svg`를 뒤집은 `arr-up-14.svg`를 추가하고 둘 다 `appModules`로 노출했다.
+
+### 수정 파일
+
+- **신규**: `ui/assets/images/appIcons/arr-up-14.svg`
+- **수정**: `widgets/commander/settings.tsx`, `widgets/link-opener/settings.tsx`, `widgets/file-opener/settings.tsx`, `widgets/file-explorer/settings.tsx`, `ui/assets/images/appIcons/index.ts`, `widgets/appModules.ts`
+- **테스트**: 각 위젯 `settings.spec.ts`에 이동 케이스 4건
+
+---
+
+## 76. 앱/프로젝트 매니저 목록 검색 + 빈 상태 안내 *(2026-07-17)*
+
+App Manager와 Project Manager의 좌측 목록에 **이름 검색 인풋**을 추가(항목이 2개 이상일 때만 표시). 일치 항목이 없으면 "No apps/projects found", 목록 자체가 비어 있으면 "No apps/projects yet — use Add … below to create one" 안내를 보여준다. 필터는 컴포넌트 로컬 상태의 표시용 필터라 저장 데이터에는 영향이 없다. 한계: 필터가 걸린 상태의 드래그 재정렬은 보이는 항목 기준으로만 동작(코드 주석에 명시).
+
+### 수정 파일
+
+- **수정**: `ui/components/appManager/appManagerList/appManagerList.tsx`·`.module.scss`, `ui/components/projectManager/projectManagerList/projectManagerList.tsx`·`.module.scss`
+- **테스트**: `tests/renderer/ui/components/appManager.spec.tsx`·`projectManager.spec.tsx`(빈 상태·검색 각 2케이스)
+
+---
+
+## 77. 위젯 기능 3종 — Pomodoro 긴 휴식·Stopwatch 랩·Calculator 복사 *(2026-07-18)*
+
+- **Pomodoro 긴 휴식**: 설정에 **Long Break** 항목 추가 — "Every N work sessions"(2~6, 기본 4, 끄기 가능)마다 짧은 휴식 대신 긴 휴식(기본 15분)으로 전환. 긴 휴식 여부는 별도 상태가 아니라 완료 세션 수(`doneWork`)에서 파생되므로 일시정지·복원을 거쳐도 어긋나지 않는다. 진행 화면·헤더 타이틀에 "Long Break"로 표기.
+- **Stopwatch 랩**: 실행 중 **Lap** 버튼으로 랩 기록. 목록은 최신이 위이고 각 행에 랩 구간 시간과 그 시점의 총 시간을 함께 표시. Reset이 랩도 지우며, 랩 목록은 실행 상태와 함께 dataStorage에 저장돼 재시작 후에도 유지된다(73번의 영속화에 편승).
+- **Calculator 복사**: 디스플레이 클릭 또는 Ctrl/Cmd+C로 표시된 값을 클립보드에 복사(0.8초간 "Copied" 표시). 기존에 `c` 키가 Clear라서 Ctrl 조합을 먼저 검사한다. `requiresApi`에 `clipboard` 추가.
+
+### 수정 파일
+
+- **수정**: `widgets/pomodoro/settings.tsx`·`widget.tsx`, `widgets/stopwatch/widget.tsx`·`widget.module.scss`, `widgets/calculator/widget.tsx`·`index.ts`
+- **테스트**: `tests/renderer/widgets/pomodoro/widget.spec.tsx`·`fixtures.ts`, `stopwatch/widget.spec.tsx`, `calculator/widget.spec.tsx`
+
+---
+
+## 78. Analytics 기간 필터 *(2026-07-18)*
+
+Analytics 화면 상단에 **기간 선택**(전체/최근 30일/최근 7일, 기본 전체)을 추가. 요약 카드·타임라인·일별/워크플로별/앱별/시간대별 통계가 모두 선택한 기간 기준으로 다시 계산된다. 필터는 표시 단계가 아니라 **읽기 단계**에서 적용 — `readTelemetryEventsUseCase`가 이미 갖고 있던 `fromDate` 파라미터를 활용해 기간 밖의 일자 파일은 아예 읽지 않으므로, 기록이 수개월 쌓여도 좁은 기간 조회가 가볍다. 기간을 빠르게 전환할 때 이전 조회가 늦게 도착해 새 결과를 덮어쓰지 않도록 로드 시퀀스 토큰을 추가. 함께 타임라인 제목의 "오늘 무엇을 했나"를 "무엇을 했나"로 수정(실제로는 전체 일자를 보여주고 있었음).
+
+### 수정 파일
+
+- **수정**: `ui/components/analytics/analyticsViewModel.ts`·`analytics.tsx`·`analytics.module.scss`
+- **테스트**: `tests/renderer/ui/components/analytics/analyticsViewModel.spec.ts`(기간 변경 재조회 1케이스), `analytics.spec.tsx`(뷰모델 시그니처 반영)
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

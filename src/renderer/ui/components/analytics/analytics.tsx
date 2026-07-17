@@ -37,7 +37,7 @@ export function createAnalyticsComponent({
   useAnalyticsViewModel,
 }: Deps) {
   function Analytics() {
-    const { loading, summary, timeline, error, reload, onCloseClick, onExportClick, onClearClick } = useAnalyticsViewModel();
+    const { loading, summary, timeline, error, range, onRangeChange, reload, onCloseClick, onExportClick, onClearClick } = useAnalyticsViewModel();
 
     const hasData = !!summary && summary.dayCount > 0;
     const maxDay = hasData ? Math.max(1, ...summary.dailyActive.map(d => d.activeMs)) : 1;
@@ -56,16 +56,30 @@ export function createAnalyticsComponent({
         title="Analytics"
       >
         <div className={styles['analytics']}>
+          <div className={styles['range-row']}>
+            <label>
+              기간{' '}
+              <select aria-label="기간" value={range} onChange={e => onRangeChange(e.target.value as typeof range)}>
+                <option value="all">전체</option>
+                <option value="30">최근 30일</option>
+                <option value="7">최근 7일</option>
+              </select>
+            </label>
+          </div>
+
           {loading && <p className={styles['msg']}>불러오는 중…</p>}
 
           {!loading && error && <p className={styles['msg']}>통계를 불러오지 못했습니다: {error}</p>}
 
           {!loading && !error && !hasData && (
-            <div className={styles['msg']}>
-              <p>아직 수집된 사용 데이터가 없습니다.</p>
-              <p>설정 → <b>Usage analytics (local only)</b>를 켜면 이 화면에서 사용 통계를 볼 수 있어요.
-                 모든 데이터는 이 컴퓨터에만 저장됩니다.</p>
-            </div>
+            range !== 'all'
+              // Data may exist outside the narrowed range — don't tell the user to enable collection.
+              ? <p className={styles['msg']}>선택한 기간에 수집된 데이터가 없습니다.</p>
+              : <div className={styles['msg']}>
+                  <p>아직 수집된 사용 데이터가 없습니다.</p>
+                  <p>설정 → <b>Usage analytics (local only)</b>를 켜면 이 화면에서 사용 통계를 볼 수 있어요.
+                     모든 데이터는 이 컴퓨터에만 저장됩니다.</p>
+                </div>
           )}
 
           {!loading && !error && hasData && summary && (
@@ -79,7 +93,7 @@ export function createAnalyticsComponent({
               </div>
 
               <section className={styles['section']}>
-                <h3>활동 타임라인 — 오늘 무엇을 했나</h3>
+                <h3>활동 타임라인 — 무엇을 했나</h3>
                 {timeline.length === 0
                   ? <p className={styles['muted']}>기록된 활동이 없습니다. (검색·페이지 방문·파일 열기·할일 완료가 여기에 쌓입니다.)</p>
                   : (

@@ -71,6 +71,27 @@ describe('analyticsViewModel', () => {
       .toBeLessThan(readTelemetryEventsUseCase.mock.invocationCallOrder[0]);
   });
 
+  it('re-reads with a fromDate when the range changes, and without one for "all"', async () => {
+    const { useViewModel, readTelemetryEventsUseCase } = setup();
+    const { result } = renderHook(() => useViewModel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // initial load: full history
+    expect(readTelemetryEventsUseCase).toHaveBeenLastCalledWith(undefined);
+
+    act(() => result.current.onRangeChange('7'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const lastCall = readTelemetryEventsUseCase.mock.calls[readTelemetryEventsUseCase.mock.calls.length - 1] as unknown as [string?];
+    expect(lastCall[0]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    // 7-day range starts 6 days ago
+    const expected = new Date();
+    expected.setDate(expected.getDate() - 6);
+    expect(lastCall[0]).toBe(
+      `${expected.getFullYear()}-${`${expected.getMonth() + 1}`.padStart(2, '0')}-${`${expected.getDate()}`.padStart(2, '0')}`
+    );
+  });
+
   it('onCloseClick closes the screen', async () => {
     const { useViewModel, closeAnalyticsUseCase } = setup();
     const { result } = renderHook(() => useViewModel());

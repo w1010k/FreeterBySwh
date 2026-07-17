@@ -27,6 +27,8 @@ function setup(vm: Partial<AnalyticsViewModel>) {
     summary: null,
     timeline: [],
     error: null,
+    range: 'all',
+    onRangeChange: jest.fn(),
     reload: jest.fn(),
     onCloseClick: jest.fn(),
     onExportClick: jest.fn(),
@@ -47,6 +49,12 @@ describe('Analytics component', () => {
   it('shows the consent hint when there is no data', () => {
     setup({ loading: false, summary: { ...summary, dayCount: 0 } });
     expect(screen.getByText(/아직 수집된 사용 데이터가 없습니다/)).toBeInTheDocument();
+  });
+
+  it('shows a range-specific empty message (not the consent hint) when a narrowed range has no data', () => {
+    setup({ loading: false, summary: { ...summary, dayCount: 0 }, range: '7' });
+    expect(screen.getByText(/선택한 기간에 수집된 데이터가 없습니다/)).toBeInTheDocument();
+    expect(screen.queryByText(/아직 수집된 사용 데이터가 없습니다/)).not.toBeInTheDocument();
   });
 
   it('shows an error message on failure', () => {
