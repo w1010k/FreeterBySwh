@@ -1980,6 +1980,70 @@ Webpage 위젯 하나에 여러 URL을 등록해 브라우저처럼 탭으로 �
 
 ---
 
+## 69. Webpage 탭 사용성 개선 — 활성 탭 기억·파비콘·로딩 표시 *(2026-07-17)*
+
+67번(Webpage 탭 지원)의 후속 개선 3종. 모두 멀티탭 모드에서만 동작하며 단일 URL 위젯은 영향 없음.
+
+- **활성 탭 기억**: 마지막으로 선택한 탭 인덱스를 위젯별 dataStorage(`activeTab` 키)에 저장하고, 마운트 시 복원. 앱을 재시작해도 보던 탭이 유지된다. 복원은 비동기라 사용자가 그 사이 탭을 클릭하면 사용자 선택이 이긴다(복원값 무시). 탭 개수가 줄어든 경우는 기존 클램프 로직이 처리.
+- **탭 파비콘**: 각 탭의 `<webview>`가 보고하는 `page-favicon-updated` 이벤트로 파비콘 URL을 받아 탭 라벨 왼쪽에 14px 아이콘으로 표시. 탭이 여러 개일 때 텍스트보다 빨리 식별된다.
+- **탭 로딩 표시**: 탭의 페이지가 로딩 중이면 파비콘 자리에 회전 스피너를 표시(브라우저 탭 관례). `did-start-loading`/`did-stop-loading` 이벤트 기반.
+- **(후속) 오디오 탭 표시**: 소리를 내는 탭의 라벨 오른쪽에 스피커 아이콘(🔊), 음소거된 탭엔 음소거 아이콘을 표시(음소거가 재생보다 우선). webview의 `media-started-playing`/`media-paused` 이벤트를 `onTabInfo` 채널에 실어 보고하고, `WidgetHeaderTabs` 탭 항목의 `audioIcon`(SVG 문자열) 필드로 발행 — 셸이 `SvgIcon`으로 렌더한다.
+- **(후속) 탭 바 오버플로 수정**: 탭이 위젯 폭을 넘으면 스크롤바가 숨겨져 있어(26px 헤더) 밀려난 탭에 마우스로 도달할 방법이 없었다. 탭 바 위에서 세로 휠을 가로 스크롤로 변환하고, 활성 탭이 바뀌면 `scrollIntoView`로 보이게 했다. 함께 Inject JS의 `executeJavaScript` 호출에 `.catch`를 붙여 사용자 JS 문법 오류가 unhandled rejection으로 새지 않게 수정.
+
+아키텍처: 기존 탭별 `onTitleInfo` 콜백을 `onTabInfo`(부분 patch 방식) 하나로 통합해 타이틀·파비콘·로딩을 같은 채널로 부모(`WidgetComp`)에 보고하고, 부모는 URL 키 레코드(`tabInfos`)에 병합해 `setHeaderTabs`로 발행한다. `WidgetHeaderTabs` 탭 항목에 `icon`/`loading` 필드를 추가하고 셸(`ui/components/widget`)이 렌더. webpage 위젯의 `requiresApi`에 `dataStorage` 추가.
+
+### 수정 파일
+
+- **수정**: `widgets/webpage/widget.tsx`, `widgets/webpage/index.ts`(requiresApi), `base/widgetApi.ts`(WidgetHeaderTabs icon/loading), `ui/components/widget/widget.tsx`·`widget.module.scss`
+- **테스트**: `tests/renderer/widgets/webpage/widget.spec.ts`(저장·복원·경합·파비콘·로딩 4케이스), `tests/renderer/ui/components/widget/widget.spec.tsx`(파비콘/스피너 렌더 1케이스)
+
+---
+
+## 70. Webpage 커스텀 액션 버튼 (북마크릿) *(2026-07-17)*
+
+Webpage 위젯 설정에 **Custom Actions** 항목을 추가 — 행마다 이름 + JavaScript 코드(+삭제 버튼, "Add an action" 버튼). 등록하면 위젯 액션바에 버튼이 생기고, 클릭할 때마다 현재 페이지에서 그 JS를 실행한다(브라우저 북마크릿과 같은 개념). "모두 읽음 처리", 특정 요소 클릭, 뷰 토글 같은 반복 작업을 버튼 하나로 줄이는 용도.
+
+- JS가 비어 있는 행은 버튼을 만들지 않고, 이름이 비면 `Custom action N`으로 표시. 실행 오류는 무시(`.catch`).
+- 멀티탭 모드에선 액션바가 활성 탭 소유이므로 커스텀 액션도 활성 탭에서 실행된다.
+- 설정 편집 UI·디바운스 계약은 탭 행 편집과 동일 패턴. 아이콘은 commander의 exec-command.svg를 복사(`run-script.svg`).
+
+### 수정 파일
+
+- **수정**: `widgets/webpage/settings.tsx`, `widgets/webpage/actionBar.ts`, `widgets/webpage/widget.tsx`, `widgets/webpage/icons/`(run-script.svg 추가)
+- **테스트**: `tests/renderer/widgets/webpage/actionBar.spec.ts`, `settings.spec.ts`, `fixtures.ts`
+
+---
+
+## 71. HTTP Basic Auth 지원 *(2026-07-17)*
+
+Basic/Digest 인증(프록시 인증 포함)으로 보호된 페이지를 Webpage 위젯에서 열 수 있게 했다. 지금까지는 main 프로세스에 `app.on('login')` 핸들러가 없어 Electron이 인증 요청을 그대로 취소 — 사내 툴, 스테이징 서버, 공유기/NAS 관리 페이지 등이 자격증명 입력 기회도 없이 빈 401로 끝났다.
+
+- **동작**: 인증 챌린지가 오면 부모 창에 모달로 작은 로그인 창(호스트:포트, realm 표시 + 아이디/비밀번호 입력)을 띄우고, 입력하면 인증을 계속, 취소/창 닫기/Esc면 원래대로 실패시킨다.
+- **아키텍처**: `src/main/infra/httpAuth/httpAuth.ts` 단일 모듈, `index.ts`에서 `registerHttpAuthHandler()` 한 줄로 등록(downloadManager 선례를 따름). 프롬프트 창은 preload 번들 없이 data URL로 로드하고, 결과는 webpage 위젯의 줌/찾기와 같은 마커 prefix `console.message` 시그널링으로 회수. 서버가 보내는 host/realm은 HTML 이스케이프 처리. 판단 로직(`createLoginHandler`)은 프롬프트 주입식으로 분리해 단위 테스트.
+
+### 수정 파일
+
+- **신규**: `src/main/infra/httpAuth/httpAuth.ts`
+- **수정**: `src/main/index.ts`
+- **테스트**: `tests/main/infra/httpAuth/httpAuth.spec.ts`
+
+---
+
+## 72. 위젯 소소 개선 3종 — Timer 알림·Link Opener 기록·Note 단어 수 *(2026-07-17)*
+
+위젯 전반 스캔에서 나온 소규모 버그·불일치 묶음.
+
+- **Timer 데스크톱 알림**: 위젯 설명("notifies you when time is up")과 달리 실제론 사운드만 있었고, `createSettingsState`에는 인터페이스에도 없는 죽은 `endDesktop` 필드가 남아 있었다(미완성 흔적). 필드를 정식으로 살려 설정에 "Desktop Notification" 체크박스(기본 켬)를 추가하고, 타이머 종료 시 OS 알림(`new Notification`)을 띄운다.
+- **Link Opener 활동 기록**: file-opener(`file_open`)·web-query(`web_search`)·webpage(`page_visit`)는 활동 타임라인에 기록하는데 link-opener만 누락. 링크를 열 때 URL별로 `page_visit`(text=호스트, detail=URL)을 기록해 일관성 확보.
+- **Note 단어 수 CJK 보정**: 단어 수가 공백 분리 기반이라 한자·가나 텍스트는 통째로 1단어로 집계됐다. 한자·가나는 글자당 1단어로 세고(워드프로세서 관례) 나머지는 기존 공백 기준 유지 — 한국어는 띄어쓰기를 쓰므로 기존과 동일하게 집계된다.
+
+### 수정 파일
+
+- **수정**: `widgets/timer/settings.tsx`·`widget.tsx`, `widgets/link-opener/widget.tsx`, `widgets/note/widget.tsx`
+- **테스트**: `tests/renderer/widgets/timer/widget.spec.ts`·`settings.spec.ts`·`fixtures.ts`, `link-opener/widget.spec.ts`, `note/widget.spec.ts`
+
+---
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

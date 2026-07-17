@@ -16,9 +16,15 @@ import { useSharedDataChangedEffect } from '@/widgets/sharedDataSync';
 const keyNote = 'note';
 const noteWidgetType = 'note';
 
-function computeCounts(text: string) {
-  const trimmed = text.trim();
-  return { words: trimmed === '' ? 0 : trimmed.split(/\s+/).length, chars: text.length };
+// Han ideographs and kana aren't whitespace-separated, so each counts as one
+// word (the convention word processors use). Hangul stays whitespace-based —
+// Korean is written with spaces.
+const cjkCharRe = /[぀-ヿ㐀-䶿一-鿿豈-﫿]/g;
+
+export function computeCounts(text: string) {
+  const cjkChars = text.match(cjkCharRe)?.length ?? 0;
+  const rest = text.replace(cjkCharRe, ' ').trim();
+  return { words: (rest === '' ? 0 : rest.split(/\s+/).length) + cjkChars, chars: text.length };
 }
 
 function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {

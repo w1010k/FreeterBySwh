@@ -21,7 +21,7 @@ function hostFromUrl(raw: string): string {
 }
 
 function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) {
-  const { shell, icon, setDynamicTitle } = widgetApi;
+  const { shell, icon, setDynamicTitle, logActivity } = widgetApi;
 
   const urls = useMemo(() => settings.urls.filter(url => url !== ''), [settings.urls]);
   const { icon: favicon, retryIfMissing } = useDynamicIcon(icon.getFavicon, urls[0] ?? '');
@@ -39,9 +39,14 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   }, [urls, setDynamicTitle]);
 
   const onClick = useCallback(() => {
-    urls.forEach(url => shell.openExternalUrl(url));
+    urls.forEach(url => {
+      shell.openExternalUrl(url);
+      // Same activity type the webpage widget logs — opening in the external
+      // browser is still a page visit on the timeline.
+      logActivity('page_visit', { text: hostFromUrl(url), detail: url });
+    });
     retryIfMissing();
-  }, [urls, shell, retryIfMissing]);
+  }, [urls, shell, retryIfMissing, logActivity]);
 
   return urls.length>0
     ? <Button

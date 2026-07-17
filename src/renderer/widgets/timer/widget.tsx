@@ -33,6 +33,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
 
   const endSound = useAudioFile(timerEndSoundFilesById[settings.endSound]?.path || '', settings.endSoundVol);
 
+  const endDesktop = settings.endDesktop;
   const tick = useCallback(() => {
     const msecsLeft = endMsecs - Date.now();
     setMmss(msecsToMMSS(msecsLeft));
@@ -40,8 +41,15 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
       setEndMsecs(0);
       setPausedLeft(null);
       endSound.play();
+      if (endDesktop && typeof Notification !== 'undefined') {
+        try {
+          new Notification('Timer', { body: `Time is up! (${settings.mins} min)` });
+        } catch {
+          // Notifications unavailable (e.g. OS-level denial) — the sound already fired.
+        }
+      }
     }
-  }, [endMsecs, endSound])
+  }, [endMsecs, endSound, endDesktop, settings.mins])
 
   useEffect(() => {
     if (endMsecs>0) {

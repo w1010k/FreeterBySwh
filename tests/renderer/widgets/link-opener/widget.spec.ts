@@ -42,6 +42,20 @@ describe('Link Opener Widget', () => {
     expect(screen.getByRole('button', { name: /open links/i })).toBeInTheDocument();
   })
 
+  it('should log a page_visit activity per url on click', async () => {
+    const logActivity = jest.fn();
+    const { userEvent } = setupSut(
+      fixtureSettings({ urls: ['https://a.com/x', 'https://b.com/'] }),
+      { mockWidgetApi: { logActivity } }
+    );
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: /open links/i }));
+
+    expect(logActivity).toHaveBeenCalledWith('page_visit', { text: 'a.com', detail: 'https://a.com/x' });
+    expect(logActivity).toHaveBeenCalledWith('page_visit', { text: 'b.com', detail: 'https://b.com/' });
+  })
+
   describe('dynamic title', () => {
     it('should publish the host of the first URL as dynamic title', () => {
       const setDynamicTitle = jest.fn();

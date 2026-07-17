@@ -44,6 +44,20 @@ describe('Timer Widget Settings', () => {
     });
   })
 
+  it('should allow to toggle the "endDesktop" setting with a checkbox', async () => {
+    const settings = fixtureSettings({ endDesktop: false });
+    setupAudioMock();
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+    const checkbox = screen.getByRole('checkbox', { name: /desktop notification/i });
+
+    expect(checkbox).not.toBeChecked();
+    await userEvent.click(checkbox);
+    expect(getSettings()).toEqual({
+      ...settings,
+      endDesktop: true
+    });
+  })
+
   it('should allow to update "endSound" setting with an option select', async () => {
     const settings = fixtureSettings({ endSound: glockenspielArpeggioId });
     setupAudioMock();

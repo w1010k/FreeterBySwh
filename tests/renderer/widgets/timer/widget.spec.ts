@@ -156,6 +156,32 @@ describe('Timer Widget', () => {
     expect(screen.getByText('05:00')).toBeInTheDocument();
   })
 
+  it('should show a desktop notification when the timer ends and endDesktop is on', async () => {
+    const notification = jest.fn();
+    (window as unknown as { Notification: jest.Mock }).Notification = notification;
+    const { userEvent } = setupTimerWidgetSut(fixtureSettings({ mins: 5, endDesktop: true }));
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByRole('button', { name: /start/i }));
+
+    act(() => jest.advanceTimersByTime(301000));
+
+    expect(notification).toHaveBeenCalledTimes(1);
+    delete (window as unknown as { Notification?: jest.Mock }).Notification;
+  })
+
+  it('should not show a desktop notification when endDesktop is off', async () => {
+    const notification = jest.fn();
+    (window as unknown as { Notification: jest.Mock }).Notification = notification;
+    const { userEvent } = setupTimerWidgetSut(fixtureSettings({ mins: 5, endDesktop: false }));
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByRole('button', { name: /start/i }));
+
+    act(() => jest.advanceTimersByTime(301000));
+
+    expect(notification).not.toHaveBeenCalled();
+    delete (window as unknown as { Notification?: jest.Mock }).Notification;
+  })
+
   it('should pause (freezing the remaining time) and resume from where it left off', async () => {
     const { userEvent } = setupTimerWidgetSut(fixtureSettings({ mins: 90 }));
     const user = userEvent.setup({ delay: null });

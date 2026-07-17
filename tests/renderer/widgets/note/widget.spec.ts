@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { widgetComp } from '@/widgets/note/widget'
+import { computeCounts, widgetComp } from '@/widgets/note/widget'
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { SHARED_DATA_CHANGED_EVENT } from '@/base/sharedDataEvents';
@@ -35,6 +35,22 @@ jest.useFakeTimers();
 function setupNoteWidgetSut(optional?: SetupWidgetSutOptional) {
   return setupWidgetSut(widgetComp, { spellCheck: false, markdown: false, sharedKeyId: null }, optional);
 }
+
+describe('computeCounts()', () => {
+  it('should count whitespace-separated words and all chars', () => {
+    expect(computeCounts('hello world')).toEqual({ words: 2, chars: 11 });
+    expect(computeCounts('  ')).toEqual({ words: 0, chars: 2 });
+  })
+  it('should count each Han/kana character as a word (no whitespace segmentation)', () => {
+    expect(computeCounts('日本語のテスト')).toEqual({ words: 7, chars: 7 });
+  })
+  it('should keep counting Korean by spaces', () => {
+    expect(computeCounts('안녕하세요 세계')).toEqual({ words: 2, chars: 8 });
+  })
+  it('should count mixed CJK and latin text', () => {
+    expect(computeCounts('한국어 and 漢字')).toEqual({ words: 4, chars: 10 });
+  })
+})
 
 describe('Note Widget', () => {
   it('should show the loading status and hide the textbox on start', async () => {

@@ -11,6 +11,7 @@ import { useCallback } from 'react';
 
 export interface Settings {
   mins: number;
+  endDesktop: boolean;
   endSound: string;
   endSoundVol: number;
 }
@@ -98,6 +99,23 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
             ))
           }
         </select>
+      </SettingBlock>
+
+      <SettingBlock
+        titleForId='timer-endDesktop'
+        title='Desktop Notification'
+      >
+        <label>
+          <input
+            id="timer-endDesktop"
+            type="checkbox"
+            checked={settings.endDesktop}
+            onChange={e => updateSettings({
+              ...settings,
+              endDesktop: e.target.checked
+            })}
+          /> Show a desktop notification when the timer ends
+        </label>
       </SettingBlock>
 
       <SettingBlock
