@@ -70,13 +70,19 @@ interface WebviewProps extends WidgetReactComponentProps<Settings> {
    * overwrite races).
    */
   onTabInfo?: (patch: Partial<TabInfo>) => void;
+  /**
+   * Appended to the session partition. Set only for duplicate-URL tabs, which
+   * would otherwise share a SharedWorker/BroadcastChannel with their twin and
+   * navigate in lockstep (Notion does exactly this).
+   */
+  partitionSuffix?: string;
 }
 
-function Webview({settings, widgetApi, onRequireRestart, onTabInfo, env, id}: WebviewProps) {
+function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuffix, env, id}: WebviewProps) {
   const {url, sessionScope, sessionPersist, autoReload, injectedCSS, injectedJS, userAgent, customActions} = settings;
 
-  const partition = useMemo(() => createPartition(sessionPersist, sessionScope, env, id), [
-    env, id, sessionScope, sessionPersist
+  const partition = useMemo(() => createPartition(sessionPersist, sessionScope, env, id) + (partitionSuffix ?? ''), [
+    env, id, sessionScope, sessionPersist, partitionSuffix
   ])
 
   const initPartition = useRef(partition)
@@ -614,6 +620,20 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
     [settings.url, settings.urlName, settings.tabs]
   );
   const multiTab = entries.length > 1;
+  // Duplicate URLs get their own session partition (and their own tabInfos
+  // key): same partition + same origin means a shared SharedWorker, which some
+  // apps (Notion) use to sync navigation across tabs. Cost: a duplicate tab is
+  // a separate session, so it logs in separately. The first occurrence keeps
+  // the plain partition/key, so single-occurrence tabs are unaffected.
+  const dupSuffixes = useMemo(() => {
+    const seen = new Map<string, number>();
+    return entries.map(e => {
+      const n = seen.get(e.url) ?? 0;
+      seen.set(e.url, n + 1);
+      return n === 0 ? '' : `:dup${n}`;
+    });
+  }, [entries]);
+  const tabKeys = useMemo(() => entries.map((e, i) => e.url + dupSuffixes[i]), [entries, dupSuffixes]);
   const [requireRestart, setRequireRestart] = useState(1);
   const doRestart = useCallback(() => setRequireRestart(n => n + 1), [])
   const [activeTab, setActiveTab] = useState(0);
@@ -662,11 +682,11 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
     exposeApi: noopApiFn
   }), [widgetApi]);
   const tabInfoHandlers = useMemo(
-    () => entries.map(e => (patch: Partial<TabInfo>) => setTabInfos(prev => ({...prev, [e.url]: {...prev[e.url], ...patch}}))),
-    [entries]
+    () => tabKeys.map(k => (patch: Partial<TabInfo>) => setTabInfos(prev => ({...prev, [k]: {...prev[k], ...patch}}))),
+    [tabKeys]
   );
 
-  const activeUrl = entries[active]?.url ?? '';
+  const activeUrl = tabKeys[active] ?? '';
   const {setDynamicTitle, setHeaderTabs} = widgetApi;
   useEffect(() => {
     if (multiTab) {
@@ -682,8 +702,8 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
       return undefined;
     }
     setHeaderTabs({
-      tabs: entries.map(e => {
-        const info = tabInfos[e.url];
+      tabs: entries.map((e, i) => {
+        const info = tabInfos[tabKeys[i]];
         return {
           label: tabLabel(e, info),
           title: e.url,
@@ -697,7 +717,7 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
       onSelect: selectTab
     });
     return () => setHeaderTabs(null);
-  }, [multiTab, setHeaderTabs, entries, tabInfos, active, selectTab]);
+  }, [multiTab, setHeaderTabs, entries, tabKeys, tabInfos, active, selectTab]);
 
   useEffect(()=> {
     if(entries.length === 0) {
@@ -737,6 +757,7 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
             widgetApi={i === active ? activeApi : inactiveApi}
             onRequireRestart={doRestart}
             onTabInfo={tabInfoHandlers[i]}
+            partitionSuffix={dupSuffixes[i]}
           ></Webview>
         </div>
       ))}
