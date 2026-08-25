@@ -3,15 +3,32 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { BrowserWindowConstructorOptions, BrowserWindow as ElectronBrowserWindow, app, screen, shell, webContents } from 'electron';
-import { BrowserWindow } from '@/application/interfaces/browserWindow'
-import { GetWindowStateUseCase } from '@/application/useCases/browserWindow/getWindowState';
-import { SetWindowStateUseCase } from '@/application/useCases/browserWindow/setWindowState';
-import { IpcZoomWebpageDirection, ipcAppFocusChangedChannel, ipcGoHomeWebpageChannel, ipcSwitchWorkflowByOffsetChannel, ipcZoomWebpageChannel } from '@common/ipc/channels';
-import { sanitizeUrl } from '@common/helpers/sanitizeUrl';
+import {BrowserWindow} from '@/application/interfaces/browserWindow'
+import {GetWindowStateUseCase} from '@/application/useCases/browserWindow/getWindowState';
+import {SetWindowStateUseCase} from '@/application/useCases/browserWindow/setWindowState';
+import {sanitizeUrl} from '@common/helpers/sanitizeUrl';
+import {
+  ipcAppFocusChangedChannel,
+  ipcGoHomeWebpageChannel,
+  ipcSwitchWorkflowByOffsetChannel,
+  ipcZoomWebpageChannel,
+  IpcZoomWebpageDirection
+} from '@common/ipc/channels';
+import {
+  app,
+  BrowserWindow as ElectronBrowserWindow,
+  BrowserWindowConstructorOptions,
+  screen,
+  shell,
+  webContents
+} from 'electron';
 
 const minWidth = 1200;
 const minHeight = 600;
+
+// Window title follows the app name so a run from the repo shows "(dev)" and
+// can't be mistaken for the installed release (see app.setName in main/index).
+const winTitle = () => app.getName();
 
 const defaultWinParams = {
   width: 1200,
@@ -52,22 +69,22 @@ export function createRendererWindow(
     devTools?: boolean,
   }
 ): BrowserWindow {
-  const { getWindowStateUseCase, setWindowStateUseCase } = deps;
-  const { h, w, x, y, isFull, isMaxi, isMini } = getWindowStateUseCase();
+  const {getWindowStateUseCase, setWindowStateUseCase} = deps;
+  const {h, w, x, y, isFull, isMaxi, isMini} = getWindowStateUseCase();
   const setDefaultValues = h < minHeight || w < minWidth;
 
   const win = new ElectronBrowserWindow({
     ...(setDefaultValues
-      ? defaultWinParams
-      : {
-        width: w,
-        height: h,
-        x,
-        y
-      }
+        ? defaultWinParams
+        : {
+          width: w,
+          height: h,
+          x,
+          y
+        }
     ),
     icon,
-    title: 'Freeter-SWH',
+    title: winTitle(),
     minWidth,
     minHeight,
     webPreferences: {
@@ -91,7 +108,7 @@ export function createRendererWindow(
   }
 
   function winStateUpdateHandler() {
-    const { height, width, x, y } = win.getNormalBounds();
+    const {height, width, x, y} = win.getNormalBounds();
     setWindowStateUseCase({
       x,
       y,
@@ -107,6 +124,13 @@ export function createRendererWindow(
   app.on('before-quit', () => {
     isQuittingApp = true;
   });
+  if (!app.isPackaged) {
+    // The renderer's <title> normally takes over the window title, which would
+    // hide the "(dev)" marker. Pin it for repo runs only; the release keeps the
+    // page-driven title exactly as before.
+    win.on('page-title-updated', e => e.preventDefault());
+  }
+
   win.on('close', e => {
     if (!isQuittingApp) {
       // Hide, don't close
@@ -253,16 +277,16 @@ export function createRendererWindow(
       }
     });
 
-    wc.setWindowOpenHandler(({ url, disposition, features }) => {
+    wc.setWindowOpenHandler(({url, disposition, features}) => {
       const isRealPopup = disposition === 'new-window' || rePopupFeatures.test(features);
       if (!isRealPopup) {
         const sanitUrl = sanitizeUrl(url);
         if (sanitUrl) {
           shell.openExternal(sanitUrl);
         }
-        return { action: 'deny' };
+        return {action: 'deny'};
       }
-      const { height, width, x, y } = win.getBounds();
+      const {height, width, x, y} = win.getBounds();
       const newW = width - 200;
       const newH = height - 150;
       const newX = x + Math.round((width - newW) / 2);
@@ -275,7 +299,7 @@ export function createRendererWindow(
         minimizable: false,
         icon,
         parent: win,
-        title: 'Freeter-SWH',
+        title: winTitle(),
         webPreferences: {
           session: wc.session
         }

@@ -3,20 +3,20 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { App } from '@/base/app';
-import { AppConfig } from '@/base/appConfig';
-import { Entity, EntityId } from '@/base/entity';
-import { EntityCollection } from '@/base/entityCollection';
-import { EntityIdList } from '@/base/entityList';
-import { List } from '@/base/list';
-import { MemSaverWorkflowList } from '@/base/memSaver';
-import { Project } from '@/base/project';
-import { WidgetEntityDeps, WorkflowEntityDeps } from '@/base/state/entities';
-import { defaultUiThemeId } from '@/base/uiTheme';
-import { Widget, WidgetInEnv } from '@/base/widget';
-import { WidgetLayoutItemWH, WidgetLayoutItemXY } from '@/base/widgetLayout';
-import { WidgetList } from '@/base/widgetList';
-import { Workflow } from '@/base/workflow';
+import {App} from '@/base/app';
+import {AppConfig} from '@/base/appConfig';
+import {Entity, EntityId} from '@/base/entity';
+import {EntityCollection} from '@/base/entityCollection';
+import {EntityIdList} from '@/base/entityList';
+import {List} from '@/base/list';
+import {MemSaverWorkflowList} from '@/base/memSaver';
+import {Project} from '@/base/project';
+import {WidgetEntityDeps, WorkflowEntityDeps} from '@/base/state/entities';
+import {defaultUiThemeId} from '@/base/uiTheme';
+import {Widget, WidgetInEnv} from '@/base/widget';
+import {WidgetLayoutItemWH, WidgetLayoutItemXY} from '@/base/widgetLayout';
+import {WidgetList} from '@/base/widgetList';
+import {Workflow} from '@/base/workflow';
 
 export interface DragDropFromPaletteState {
   widgetTypeId?: EntityId;
@@ -131,10 +131,12 @@ export enum WorktableStateResizingItemEdgeX {
   Left = -1,
   Right = 1
 }
+
 export enum WorktableStateResizingItemEdgeY {
   Top = -1,
   Bottom = 1
 }
+
 export interface WorktableStateResizingItemEdges {
   x?: WorktableStateResizingItemEdgeX,
   y?: WorktableStateResizingItemEdgeY
@@ -180,6 +182,7 @@ export interface CopiedEntitiesItem<T extends Entity, Y> extends Entity {
   entity: T;
   deps: Y;
 }
+
 export interface CopyEntitiesState<T extends Entity, Y> {
   entities: EntityCollection<CopiedEntitiesItem<T, Y>>;
   list: EntityIdList;
@@ -303,7 +306,7 @@ export function createUiState(): UiState {
       order: []
     },
     palette: {
-      widgetTypeIds: ['calculator', 'clock', 'commander', 'd-day', 'file-explorer', 'file-opener', 'link-opener', 'note', 'pomodoro', 'stopwatch', 'system-monitor', 'timer', 'to-do-list', 'web-query', 'webpage']
+      widgetTypeIds: ['calculator', 'clock', 'commander', 'd-day', 'file-explorer', 'file-opener', 'link-opener', 'note', 'pomodoro', 'spreadsheet', 'stopwatch', 'system-monitor', 'timer', 'to-do-list', 'web-query', 'webpage']
     },
     projectSwitcher: {
       currentProjectId: '',

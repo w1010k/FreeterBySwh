@@ -1,0 +1,414 @@
+/*
+ * Copyright: (c) 2024, Alex Kaul
+ * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+ */
+
+// The app's theme (ui/components/app/uiTheme/themes) has no error colour, so
+// this one is local. Picked to stay legible on both the light (#F8F8F8) and
+// dark (#262626) cell backgrounds.
+$error: #d64545;
+
+.spreadsheet-widget {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  color: var(--freeter-widgetColor);
+  font-size: 12px;
+}
+
+.formula-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 4px;
+  border-bottom: 1px solid var(--freeter-textareaBorder);
+}
+
+.formula-ref {
+  flex: 0 0 auto;
+  min-width: 34px;
+  text-align: center;
+  color: var(--freeter-componentColor60);
+  user-select: none;
+}
+
+.formula-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  // Monospace makes a long formula's parens and refs line up while reading.
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: inherit;
+}
+
+// The only scrolling element. It takes focus so the sheet can own the keyboard
+// without a document-level listener.
+.scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  outline: none;
+}
+
+.sheet {
+  border-collapse: separate;
+  border-spacing: 0;
+  // Widths come from <colgroup>; fixed layout makes the browser honour them
+  // instead of sizing columns to their content.
+  table-layout: fixed;
+  user-select: none;
+
+  th, td {
+    // Only right/bottom, so adjacent borders don't double up.
+    border-right: 1px solid var(--freeter-textareaBorder);
+    border-bottom: 1px solid var(--freeter-textareaBorder);
+    padding: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+}
+
+// Sticky headers. `position: sticky` also makes these the containing block for
+// the resize grips below.
+.corner,
+.col-head,
+.row-head {
+  position: sticky;
+  background: var(--freeter-componentBackground);
+  color: var(--freeter-componentColor60);
+  font-weight: normal;
+  text-align: center;
+  z-index: 2;
+}
+
+.corner {
+  top: 0;
+  left: 0;
+  z-index: 3; // Above both header strips where they cross.
+}
+
+.col-head {
+  top: 0;
+}
+
+.row-head {
+  left: 0;
+}
+
+// Header of a row or column the selection touches.
+.head-on {
+  background: var(--freeter-primary20);
+  color: var(--freeter-componentColor);
+}
+
+.cell {
+  position: relative; // Anchor for the fill handle.
+  background: var(--freeter-widgetBackground);
+  cursor: cell;
+}
+
+.text {
+  display: block;
+  padding: 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.num {
+  text-align: right;
+}
+
+.err {
+  color: #{$error};
+}
+
+.selected {
+  background: var(--freeter-primary20);
+}
+
+// The cell an open formula's reference currently points at. Dashed, so it
+// reads as "being picked" rather than "selected".
+.picked {
+  outline: 2px dashed var(--freeter-primary);
+  outline-offset: -2px;
+  background: var(--freeter-primary20);
+}
+
+// Cells a fill drag would write into, shown while the handle is held.
+.fill-preview {
+  outline: 1px dashed var(--freeter-primary);
+  outline-offset: -1px;
+}
+
+// The small square on the selection's bottom-right corner. Sits fully inside
+// the cell — the table clips overflow, so an overhanging handle would vanish.
+.fill-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  height: 6px;
+  background: var(--freeter-primary);
+  cursor: crosshair;
+  z-index: 1;
+}
+
+// The focus cell keeps a plain background so its outline reads clearly.
+.active {
+  background: var(--freeter-widgetBackground);
+  outline: 2px solid var(--freeter-primary);
+  outline-offset: -2px;
+}
+
+// A text cell whose right-hand neighbour is empty paints over it instead of
+// being cut off. The cell has to rise above later siblings to do that, since
+// table cells paint in document order. `td.` for the same specificity reason
+// as the dropdown below.
+td.spill {
+  overflow: visible;
+  z-index: 1;
+
+  .text {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: max-content;
+    max-width: 400px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+  }
+}
+
+// Function-name suggestions under the cell being edited.
+.hints {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 5;
+  margin: 0;
+  padding: 2px 0;
+  list-style: none;
+  min-width: 90px;
+  border: 1px solid var(--freeter-componentBorder);
+  border-radius: 3px;
+  background: var(--freeter-componentBackground);
+  box-shadow: 0 2px 6px var(--freeter-paletteShadow);
+
+  button {
+    display: block;
+    width: 100%;
+    padding: 2px 8px;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--freeter-primary20);
+    }
+  }
+}
+
+// The one Tab completes.
+.hint-first {
+  background: var(--freeter-primary20);
+}
+
+// The cell holding an open dropdown must stop clipping, or the menu is cut off
+// at the row's 24px height. Raised above later cells so it paints over them.
+//
+// `td.` is load-bearing: `.sheet td` sets overflow:hidden and outranks a bare
+// class, so a plain `.menu-open` rule was silently losing.
+td.menu-open {
+  overflow: visible;
+  z-index: 20;
+}
+
+// The little triangle on a filtered table's header cells.
+.filter-btn {
+  position: absolute;
+  top: 0;
+  right: 6px;
+  height: 100%;
+  padding: 0 2px;
+  border: none;
+  background: transparent;
+  color: var(--freeter-componentColor60);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 2;
+
+  &:hover {
+    color: var(--freeter-componentColor);
+  }
+}
+
+// A column that is actually filtering something reads as active.
+.filter-on {
+  color: var(--freeter-primary);
+  font-weight: bold;
+}
+
+.filter-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 10;
+  width: 190px;
+  padding: 6px;
+  border: 1px solid var(--freeter-componentBorder);
+  border-radius: 3px;
+  background: var(--freeter-componentBackground);
+  box-shadow: 0 2px 8px var(--freeter-paletteShadow);
+  text-align: left;
+  font-weight: normal;
+  cursor: default;
+
+  input[type='text'], input:not([type]), select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 2px 4px;
+    font-size: inherit;
+  }
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 0;
+    cursor: pointer;
+    // Long values are cut rather than widening the whole dropdown.
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.filter-all {
+  border-bottom: 1px solid var(--freeter-componentBorder);
+  margin: 4px 0 2px;
+  padding-bottom: 3px;
+}
+
+.filter-list {
+  max-height: 140px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.filter-cond {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px solid var(--freeter-componentBorder);
+}
+
+.filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 6px;
+
+  button {
+    padding: 2px 8px;
+    border: 1px solid var(--freeter-componentBorder);
+    border-radius: 3px;
+    background: var(--freeter-buttonBackground);
+    color: var(--freeter-buttonColor);
+    font: inherit;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--freeter-buttonHoverBackground);
+    }
+  }
+}
+
+.editor {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0 3px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+// Grips sit fully inside their header cell. Overhanging the edge puts them
+// under the neighbouring sticky header, where a click never reaches them.
+.grip-col,
+.grip-row {
+  position: absolute;
+  z-index: 4;
+
+  &:hover,
+  &:active {
+    background: var(--freeter-primary);
+  }
+}
+
+.grip-col {
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+}
+
+.grip-row {
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 5px;
+  cursor: row-resize;
+}
+
+// Appears only while a range is selected, so it costs no space the rest of
+// the time — a widget tile has none to spare.
+.status-bar {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 12px;
+  height: 20px;
+  align-items: center;
+  padding: 0 6px;
+  border-top: 1px solid var(--freeter-textareaBorder);
+  color: var(--freeter-componentColor60);
+  white-space: nowrap;
+  overflow-x: auto;
+  user-select: none;
+}
+
+.add-rows {
+  display: block;
+  margin: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--freeter-componentBorder);
+  border-radius: 3px;
+  background: var(--freeter-buttonBackground);
+  color: var(--freeter-buttonColor);
+  font-size: inherit;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--freeter-buttonHoverBackground);
+  }
+}
