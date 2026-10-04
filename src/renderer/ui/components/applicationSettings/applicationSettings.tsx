@@ -235,7 +235,7 @@ export function createApplicationSettingsComponent({
                       Freeter is running it also tracks OS-wide activity: the foreground app + window title
                       you are in (for per-app time) and system idle/lock. Keystroke contents and note
                       contents are never recorded. Everything stays on this computer; nothing is ever
-                      uploaded. View, export, and delete it anytime from the Analytics screen. Off by default.'
+                      uploaded. View, export, and delete it anytime via View → Analytics (opens in your browser). Off by default.'
           >
             <select id="telemetry-enabled" value={convertBoolToStr(appConfig.telemetry.enabled)} onChange={e => updateSettings({
               ...appConfig,

@@ -7,6 +7,7 @@ import { MenuItemsIpc } from '@common/base/menu';
 import { ProcessInfo } from '@common/base/process';
 import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
 import { SystemStats } from '@common/base/systemStats';
+import { TelemetryEntitiesSnapshot } from '@common/base/telemetry';
 import { makeIpcChannelName } from '@common/ipc/ipc';
 import { MessageBoxConfig, MessageBoxResult, OpenDialogResult, OpenDirDialogConfig, OpenFileDialogConfig, SaveDialogResult, SaveFileDialogConfig } from '@common/base/dialog';
 
@@ -204,6 +205,15 @@ export type IpcSetOsMonitoringRes = void;
 export const ipcOsActivityEventChannel = makeIpcChannelName('os-activity-event');
 export type IpcOsActivityEventArgs = [event: { type: 'os_window' | 'system_event'; text: string; detail?: string; durationMs?: number }];
 
+/**
+ * renderer → main: open the Analytics page in the default browser. Main starts
+ * (or reuses) its local analytics server and serves the given id→name snapshot
+ * alongside the raw telemetry files.
+ */
+export const ipcOpenAnalyticsChannel = makeIpcChannelName('open-analytics');
+export type IpcOpenAnalyticsArgs = [entities: TelemetryEntitiesSnapshot];
+export type IpcOpenAnalyticsRes = void;
+
 
 export const ipcExecCmdLinesInTerminalChannel = makeIpcChannelName('exec-cmd-lines-in-terminal');
 export type IpcExecCmdLinesInTerminalArgs = [cmdLines: ReadonlyArray<string>, cwd?: string];
@@ -229,9 +239,6 @@ export const ipcFsGetImageDataUrlChannel = makeIpcChannelName('fs-get-image-data
 export type IpcFsGetImageDataUrlArgs = [path: string];
 export type IpcFsGetImageDataUrlRes = string | null;
 
-export const ipcFsWriteTextFileChannel = makeIpcChannelName('fs-write-text-file');
-export type IpcFsWriteTextFileArgs = [path: string, text: string];
-export type IpcFsWriteTextFileRes = boolean;
 
 export const ipcGetSystemStatsChannel = makeIpcChannelName('get-system-stats');
 export type IpcGetSystemStatsArgs = [];

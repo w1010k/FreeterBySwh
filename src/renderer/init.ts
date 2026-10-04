@@ -169,14 +169,9 @@ import { createTelemetryBuffer } from '@/infra/telemetry/telemetryBuffer';
 import { createLogTelemetryActivityUseCase } from '@/application/useCases/telemetry/logTelemetryActivity';
 import { createFlushTelemetryUseCase } from '@/application/useCases/telemetry/flushTelemetry';
 import { createTelemetryDataStorage } from '@/infra/dataStorage/telemetryDataStorage';
-import { createReadTelemetryEventsUseCase } from '@/application/useCases/telemetry/readTelemetryEvents';
-import { createGetTelemetryRollupsUseCase } from '@/application/useCases/telemetry/getTelemetryRollups';
 import { createGetTelemetryEntitiesUseCase } from '@/application/useCases/telemetry/getTelemetryEntities';
 import { createOpenAnalyticsUseCase } from '@/application/useCases/analytics/openAnalytics';
-import { createCloseAnalyticsUseCase } from '@/application/useCases/analytics/closeAnalytics';
-import { createExportTelemetryDataUseCase } from '@/application/useCases/telemetry/exportTelemetryData';
-import { createClearTelemetryDataUseCase } from '@/application/useCases/telemetry/clearTelemetryData';
-import { createAnalyticsViewModelHook, createAnalyticsComponent } from '@/ui/components/analytics';
+import { openAnalyticsInBrowser } from '@/infra/analytics/analytics';
 
 function prepareDataStorageForRenderer(dataStorage: DataStorage): DataStorageRenderer {
   return setTextOnlyIfChanged(withJson(dataStorage));
@@ -407,22 +402,18 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
   const updateApplicationSettingsUseCase = createUpdateApplicationSettingsUseCase(deps);
   const setWorkflowBarWidthUseCase = createSetWorkflowBarWidthUseCase(deps);
 
-  // Local usage telemetry: read/aggregate use cases + the Analytics screen.
+  // Local usage telemetry: View → Analytics opens the report in the default
+  // browser (served by main), which reads, exports and deletes the data itself.
   // (The collector + logTelemetryActivityUseCase are created earlier, above the
   // widget API, since the widget API depends on activity logging.)
-  const readTelemetryEventsUseCase = createReadTelemetryEventsUseCase({ telemetryStorage });
-  const getTelemetryRollupsUseCase = createGetTelemetryRollupsUseCase({ readTelemetryEventsUseCase });
   const getTelemetryEntitiesUseCase = createGetTelemetryEntitiesUseCase(deps);
-  const openAnalyticsUseCase = createOpenAnalyticsUseCase(deps);
-  const closeAnalyticsUseCase = createCloseAnalyticsUseCase(deps);
-  const exportTelemetryDataUseCase = createExportTelemetryDataUseCase({
-    readTelemetryEventsUseCase,
-    getTelemetryRollupsUseCase,
+  const openAnalyticsUseCase = createOpenAnalyticsUseCase({
+    ...deps,
+    flushTelemetryUseCase,
     getTelemetryEntitiesUseCase,
     dialogProvider: osDialogProvider,
-    fsProvider,
+    openAnalyticsInBrowser,
   });
-  const clearTelemetryDataUseCase = createClearTelemetryDataUseCase({ telemetryStorage });
 
   const clickAppMenuItemUseCase = createClickAppMenuItemUseCase();
   const appMenuProvider = createAppMenuProvider({
@@ -629,15 +620,8 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     openSponsorshipUrlUseCase,
 
     openAnalyticsUseCase,
-    closeAnalyticsUseCase,
-    getTelemetryRollupsUseCase,
-    getTelemetryEntitiesUseCase,
-    readTelemetryEventsUseCase,
-    exportTelemetryDataUseCase,
-    clearTelemetryDataUseCase,
     telemetryCollector,
     logTelemetryActivityUseCase,
-    flushTelemetryUseCase,
 
     showContextMenuUseCase,
 
@@ -771,9 +755,6 @@ function createUI(stateHooks: ReturnType<typeof createUiHooks>, useCases: Awaite
   const useAboutViewModel = createAboutViewModelHook(deps);
   const About = createAboutComponent({ useAboutViewModel });
 
-  const useAnalyticsViewModel = createAnalyticsViewModelHook(deps);
-  const Analytics = createAnalyticsComponent({ useAnalyticsViewModel });
-
   const useAppManagerViewModel = createAppManagerViewModelHook(deps);
   const AppManager = createAppManagerComponent({
     useAppManagerViewModel
@@ -786,7 +767,6 @@ function createUI(stateHooks: ReturnType<typeof createUiHooks>, useCases: Awaite
     ApplicationSettings,
     AppManager,
     About,
-    Analytics,
   });
 
   const App = createAppComponent({

@@ -4,34 +4,44 @@
  */
 
 import { createOpenAnalyticsUseCase } from '@/application/useCases/analytics/openAnalytics';
-import { createCloseAnalyticsUseCase } from '@/application/useCases/analytics/closeAnalytics';
-import { fixtureAppStore } from '@tests/data/fixtures/appStore';
-import { fixtureAppState } from '@tests/base/state/fixtures/appState';
+import { mockDialogProvider } from '@tests/infra/mocks/dialogProvider';
 
-async function setup() {
-  const [appStore] = await fixtureAppStore(fixtureAppState({}));
-  return {
-    appStore,
-    openAnalyticsUseCase: createOpenAnalyticsUseCase({ appStore }),
-    closeAnalyticsUseCase: createCloseAnalyticsUseCase({ appStore }),
-  }
+const entities = { projects: [], workflows: [], widgets: [] };
+
+function setup(openFails = false) {
+  const calls: string[] = [];
+  const flushTelemetryUseCase = jest.fn(async () => { calls.push('flush'); });
+  const openAnalyticsInBrowser = jest.fn(async () => {
+    calls.push('open');
+    if (openFails) {
+      throw new Error('boom');
+    }
+  });
+  const dialogProvider = mockDialogProvider({ showMessageBox: jest.fn(async () => ({ response: 0, checkboxChecked: false })) });
+  const openAnalyticsUseCase = createOpenAnalyticsUseCase({
+    flushTelemetryUseCase,
+    getTelemetryEntitiesUseCase: () => entities,
+    dialogProvider,
+    openAnalyticsInBrowser,
+  });
+  return { openAnalyticsUseCase, openAnalyticsInBrowser, dialogProvider, calls };
 }
 
-describe('analytics open/close use cases', () => {
-  it('opens the analytics modal screen', async () => {
-    const { appStore, openAnalyticsUseCase } = await setup();
+describe('openAnalyticsUseCase', () => {
+  it('flushes, then opens the browser page with the entity snapshot', async () => {
+    const { openAnalyticsUseCase, openAnalyticsInBrowser, dialogProvider, calls } = setup();
 
-    openAnalyticsUseCase();
+    await openAnalyticsUseCase();
 
-    expect(appStore.get().ui.modalScreens.order).toContain('analytics');
+    expect(calls).toEqual(['flush', 'open']);
+    expect(openAnalyticsInBrowser).toHaveBeenCalledWith(entities);
+    expect(dialogProvider.showMessageBox).not.toHaveBeenCalled();
   });
 
-  it('closes the analytics modal screen', async () => {
-    const { appStore, openAnalyticsUseCase, closeAnalyticsUseCase } = await setup();
-    openAnalyticsUseCase();
+  it('reports a failed open instead of throwing', async () => {
+    const { openAnalyticsUseCase, dialogProvider } = setup(true);
 
-    closeAnalyticsUseCase();
-
-    expect(appStore.get().ui.modalScreens.order).not.toContain('analytics');
+    await expect(openAnalyticsUseCase()).resolves.toBeUndefined();
+    expect(dialogProvider.showMessageBox).toHaveBeenCalledWith(expect.objectContaining({ type: 'warning' }));
   });
 })

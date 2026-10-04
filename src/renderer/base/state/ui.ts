@@ -162,7 +162,6 @@ export interface WorktableState {
 
 export interface ModalScreensDataState {
   about?: void; // no data - key is used for consistency
-  analytics?: void; // no data - the screen fetches its own rollups via use case
   appManager: AppManagerState;
   applicationSettings: ApplicationSettingsState;
   projectManager: ProjectManagerState;

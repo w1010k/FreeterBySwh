@@ -18,7 +18,6 @@ type Deps = {
   AppManager: React.FC;
   ProjectManager: React.FC;
   ApplicationSettings: React.FC;
-  Analytics: React.FC;
   About: React.FC;
   showContextMenuUseCase: ShowContextMenuUseCase;
   setWorkflowBarWidthUseCase: SetWorkflowBarWidthUseCase;
@@ -31,7 +30,6 @@ export function createAppViewModelHook({
   ProjectManager,
   AppManager,
   ApplicationSettings,
-  Analytics,
   About,
   showContextMenuUseCase,
   setWorkflowBarWidthUseCase,
@@ -68,7 +66,6 @@ export function createAppViewModelHook({
 
     const modalScreenComps: Record<ModalScreenId, ReactNode> = {
       about: createElement(About, {}),
-      analytics: createElement(Analytics, {}),
       applicationSettings: createElement(ApplicationSettings, {}),
       appManager: createElement(AppManager, {}),
       projectManager: createElement(ProjectManager, {}),

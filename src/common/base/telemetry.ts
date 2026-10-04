@@ -128,6 +128,12 @@ export function toLocalDateStr(ts: number, dateCtor: (ms: number) => Date = (ms)
   return `${y}-${m}-${day}`;
 }
 
+/** One local day's raw event log, as served to the Analytics page. */
+export interface TelemetryDay {
+  date: string;
+  events: TelemetryEvent[];
+}
+
 /** Storage key for a day's raw event log. */
 export const telemetryEventsKeyPrefix = 'events-';
 export const telemetryEventsKey = (date: string) => `${telemetryEventsKeyPrefix}${date}`;

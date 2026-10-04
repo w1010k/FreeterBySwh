@@ -24,7 +24,6 @@ const strApplicationSettings = 'ApplicationSettings';
 const strAppManager = 'AppManager';
 const strWorktable = 'Worktable';
 const strAbout = 'About';
-const strAnalytics = 'Analytics';
 const mockTopBar = () => <div>{strTopBar}</div>;
 const mockWidgetSettings = () => <div>{strWidgetSettings}</div>;
 const mockWorkflowSettings = () => <div>{strWorkflowSettings}</div>;
@@ -32,7 +31,6 @@ const mockProjectManager = () => <div>{strProjectManager}</div>;
 const mockApplicationSettings = () => <div>{strApplicationSettings}</div>;
 const mockAppManager = () => <div>{strAppManager}</div>;
 const mockAbout = () => <div>{strAbout}</div>;
-const mockAnalytics = () => <div>{strAnalytics}</div>;
 const mockWorkflowSwitcher = () => <div>{strWorkflowSwitcher}</div>;
 const mockWorktable = () => <div>{strWorktable}</div>;
 
@@ -53,7 +51,6 @@ async function setup(
     ApplicationSettings: mockApplicationSettings,
     AppManager: mockAppManager,
     About: mockAbout,
-    Analytics: mockAnalytics,
     showContextMenuUseCase,
     setWorkflowBarWidthUseCase
   });

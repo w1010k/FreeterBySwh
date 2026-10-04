@@ -23,11 +23,11 @@ import {createSetDownloadDirUseCase} from '@/application/useCases/download/setDo
 import {createGetHomeDirUseCase} from '@/application/useCases/fs/getHomeDir';
 import {createGetImageDataUrlUseCase} from '@/application/useCases/fs/getImageDataUrl';
 import {createReadDirUseCase} from '@/application/useCases/fs/readDir';
-import {createWriteTextFileUseCase} from '@/application/useCases/fs/writeTextFile';
 import {createSetMainShortcutUseCase} from '@/application/useCases/globalShortcut/setMainShortcut';
 import {createGetFaviconUseCase} from '@/application/useCases/icon/getFavicon';
 import {createGetFileIconUseCase} from '@/application/useCases/icon/getFileIcon';
 import {createSetOsMonitoringUseCase} from '@/application/useCases/osActivity/setOsMonitoring';
+import {createOpenAnalyticsInBrowserUseCase} from '@/application/useCases/analytics/openAnalyticsInBrowser';
 import {createGetProcessInfoUseCase} from '@/application/useCases/process/getProcessInfo';
 import {createClearSharedDataStorageUseCase} from '@/application/useCases/sharedDataStorage/clearSharedDataStorage';
 import {
@@ -91,6 +91,7 @@ import {createFsControllers} from '@/controllers/fs';
 import {createGlobalShortcutControllers} from '@/controllers/globalShortcut';
 import {createIconControllers} from '@/controllers/icon';
 import {createOsActivityControllers} from '@/controllers/osActivity';
+import {createAnalyticsControllers} from '@/controllers/analytics';
 import {createProcessControllers} from '@/controllers/process';
 import {createSharedDataStorageControllers} from '@/controllers/sharedDataStorage';
 import {createShellControllers} from '@/controllers/shell';
@@ -117,6 +118,7 @@ import {createIconProvider} from '@/infra/iconProvider/iconProvider';
 import {createIpcMain} from '@/infra/ipcMain/ipcMain';
 import {createIpcMainEventValidator} from '@/infra/ipcMain/ipcMainEventValidator';
 import {createForegroundWindowReader} from '@/infra/osActivity/foregroundWindow';
+import {createAnalyticsServer} from '@/infra/analyticsServer/analyticsServer';
 import {createProcessProvider} from '@/infra/processProvider/processProvider';
 import {registerAppFileProtocol} from '@/infra/protocolHandler/registerAppFileProtocol';
 import {createShellProvider} from '@/infra/shellProvider/shellProvider';
@@ -187,6 +189,10 @@ if (!app.requestSingleInstanceLock()) {
   // does not auto-kill child processes when the parent exits).
   let stopOsMonitor: (() => void) | undefined;
 
+  // Set after the analytics server is created; stopped on quit so its loopback
+  // port is released with the app.
+  let stopAnalyticsServer: (() => void) | undefined;
+
   const processProvider = createProcessProvider();
   const processInfo = processProvider.getProcessInfo();
   const {isDevMode} = processInfo;
@@ -216,6 +222,8 @@ if (!app.requestSingleInstanceLock()) {
     flushWindowStore?.();
     // Stop the OS activity monitor (kills its PowerShell child process).
     stopOsMonitor?.();
+    // Close the local Analytics page server.
+    stopAnalyticsServer?.();
     // Unregister global shortcuts
     globalShortcutProvider.destroy();
   })
@@ -313,11 +321,16 @@ if (!app.requestSingleInstanceLock()) {
     const openPathUseCase = createOpenPathUseCase({shellProvider})
     const openAppDataDirUseCase = createOpenAppDataDirUseCase({shellProvider, appDataDir})
 
+    // Serves the browser Analytics page (built next to main.js) and the raw
+    // telemetry files it reads; started on first open, closed on quit.
+    const analyticsServer = createAnalyticsServer({pageDir: join(__dirname, 'analytics'), storage: telemetryDataStorage});
+    const openAnalyticsInBrowserUseCase = createOpenAnalyticsInBrowserUseCase({analyticsServer, shellProvider});
+    stopAnalyticsServer = () => analyticsServer.stop();
+
     const fsProvider = createFsProvider();
     const readDirUseCase = createReadDirUseCase({fsProvider});
     const getHomeDirUseCase = createGetHomeDirUseCase({fsProvider});
     const getImageDataUrlUseCase = createGetImageDataUrlUseCase({fsProvider});
-    const writeTextFileUseCase = createWriteTextFileUseCase({fsProvider});
 
     const getProcessInfoUseCase = createGetProcessInfoUseCase({processProvider});
     const {isLinux} = await getProcessInfoUseCase();
@@ -370,7 +383,7 @@ if (!app.requestSingleInstanceLock()) {
       ...createContextMenuControllers({popupContextMenuUseCase}),
       ...createClipboardControllers({writeBookmarkIntoClipboardUseCase, writeTextIntoClipboardUseCase}),
       ...createShellControllers({openExternalUrlUseCase, openPathUseCase, openAppUseCase, openAppDataDirUseCase}),
-      ...createFsControllers({readDirUseCase, getHomeDirUseCase, getImageDataUrlUseCase, writeTextFileUseCase}),
+      ...createFsControllers({readDirUseCase, getHomeDirUseCase, getImageDataUrlUseCase}),
       ...createProcessControllers({getProcessInfoUseCase}),
       ...createSystemStatsControllers({getSystemStatsUseCase}),
       ...createDialogControllers({
@@ -400,7 +413,8 @@ if (!app.requestSingleInstanceLock()) {
         clearTelemetryDataStorageUseCase,
         getKeysFromTelemetryDataStorageUseCase,
       }),
-      ...createOsActivityControllers({setOsMonitoringUseCase})
+      ...createOsActivityControllers({setOsMonitoringUseCase}),
+      ...createAnalyticsControllers({openAnalyticsInBrowserUseCase})
     ])
 
     const [windowStore] = createWindowStore({
