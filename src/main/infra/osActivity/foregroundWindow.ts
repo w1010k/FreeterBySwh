@@ -31,6 +31,10 @@ export interface ForegroundWindowReader {
 // Windows PowerShell 5.1 writes redirected stdout in the console's OEM code page
 // (CP949 on Korean Windows), so non-ASCII app names and titles arrived as U+FFFD.
 // Forcing UTF-8 output on the first line makes the bytes match the reader's decoding.
+//
+// GetWindowText must be imported with CharSet.Unicode: without it .NET binds the
+// ANSI variant (GetWindowTextA), which converts the title to the system code page
+// and turns every character outside it (e.g. U+2014 em dash, emoji) into '?'.
 const psScript = (intervalSec: number, parentPid: number) => `
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = 'SilentlyContinue'
@@ -40,7 +44,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 public class FgWin {
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
-  [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
 }
 "@

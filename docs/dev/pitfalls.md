@@ -847,6 +847,15 @@
 - 규칙: 스크립트 첫 줄에서 `[Console]::OutputEncoding`을 UTF-8로 바꾸고, Node 쪽은 `stdout.setEncoding('utf8')`로 읽는다.
 - 근거: `src/main/infra/osActivity/foregroundWindow.ts` `psScript`
 
+#### Win32 API 문자셋 (`GetWindowText`)
+
+- 출처: `[fork #64]`
+- 증상: (2026-10-05 이전) 창 제목의 em dash (U+2014), 이모지처럼 시스템 코드 페이지 (한국어 Windows는 CP949)에 없는 문자가 `?`로 저장됐다. 한글은
+  CP949에 있어서 이 문제로는 깨지지 않았다. 이미 저장된 기록은 복구할 수 없다.
+- 원인: `DllImport`에 `CharSet`을 지정하지 않으면 .NET은 ANSI 버전 (`GetWindowTextA`)을 호출하고, 제목을 시스템 코드 페이지로 변환한다.
+- 규칙: 문자열을 주고받는 Win32 API는 `CharSet = CharSet.Unicode`로 가져온다.
+- 근거: `src/main/infra/osActivity/foregroundWindow.ts` `psScript`의 `FgWin`
+
 #### 경로 구분자
 
 - 출처: `[fork #22 #31 #37]`
