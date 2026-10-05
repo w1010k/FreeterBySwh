@@ -10,26 +10,6 @@ module.exports = {
     to: './',
     filter: ['package.json']
   }],
-  mac: {
-    category: 'public.app-category.productivity',
-    target: [
-      {
-        target: 'dmg',
-        arch: ['x64', 'arm64']
-      }
-    ],
-    icon: 'resources/darwin/freeter.icns',
-    publish: ['github'],
-  },
-  dmg: {
-    background: 'resources/darwin/dmgBg.png',
-    icon: 'resources/darwin/freeter.icns',
-    iconSize: 128,
-    contents: [
-      { x: 114, y: 150, type: 'file' },
-      { x: 386, y: 150, type: 'link', path: '/Applications' },
-    ]
-  },
   win: {
     target: [
       {

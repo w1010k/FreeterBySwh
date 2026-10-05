@@ -69,7 +69,7 @@ Freeter는 Electron 데스크톱 앱이다. 프로젝트, 워크플로우 (탭),
 | `src/common/`                                          | 양쪽이 공유하는 타입, store 래퍼, IPC 채널 정의                                              |
 | `src/assets/app-icons/`                                | 트레이 아이콘 (`16.png`)과 리눅스 창 아이콘 (`256.png`). 빌드 때 `build/assets/`로 복사      |
 | `tests/`                                               | jest 프로젝트별 폴더 (`main`, `renderer`, `common`, `utils`)와 `__mocks__`                   |
-| `resources/`                                           | 설치 패키지 아이콘 (`darwin`, `win32`, `linux`)과 dmg 배경                                   |
+| `resources/`                                           | 설치 패키지 아이콘 (`win32`, `linux`)                                                        |
 | `build/`                                               | webpack 출력. 앱 실행과 패키징의 입력 (gitignore)                                            |
 | `dist/`                                                | electron-builder 출력 (gitignore)                                                            |
 | `docs/`                                                | `CHANGES.md` (포크 변경 기록), `GUIDE.md` (사용자 가이드), `BACKLOGS.md`, `dev/` (개발 문서) |
@@ -442,11 +442,11 @@ infra 전용 구성: `infra/protocolHandler/` (`freeter-file` 스킴 등록) [up
 
 #### 패키징과 CI/CD
 
-- `yarn package` = `electron-builder --config electron-builder.config.js`. 입력은 `build/` 전체와 `package.json`. 대상: macOS
-  dmg (x64, arm64), Windows msi와 zip (x64), Linux tar.xz (x64). `publish: ['github']`
+- `yarn package` = `electron-builder --config electron-builder.config.js`. 입력은 `build/` 전체와 `package.json`. 대상: Windows
+  msi와 zip (x64), Linux tar.xz (x64). macOS 대상은 없다 (decisions.md D59). `publish: ['github']`
 - CI (`.github/workflows/ci.yml`): master push, PR, 수동 실행. Node 22, `yarn install` (git ssh URL을 https로 바꾸는 설정 포함) →
   `yarn run test` → `yarn run prod` → `yarn run lint` → `yarn run test:typecheck` [upstream, fork 변경]
-- CD (`.github/workflows/cd.yml`): `v*.*.*` 태그 push. Linux → Windows → macOS 순서로 `needs:` 직렬 실행하고 각각 `yarn run prod`,
+- CD (`.github/workflows/cd.yml`): `v*.*.*` 태그 push. Linux → Windows 순서로 `needs:` 직렬 실행하고 각각 `yarn run prod`,
   `yarn run cd:package-draft` (`--publish always`)로 GitHub draft 릴리스에 올린다. 병렬 실행하면 같은 태그의 draft가 여러 개 생겼기 때문이다 (cd.yml
   주석, swh.10에서 발생) [upstream, fork 변경]
 - `draft-release` 스크립트: `yarn version && git push && git push --tags`

@@ -58,7 +58,7 @@ CI (`.github/workflows/ci.yml`)와 같은 순서로 실행한다. 4단계 모두
 3. 태그 `v<version>`을 만든다. CD는 `v*.*.*` 형식 태그 push에만 반응한다.
 4. `git push origin master`와 `git push origin v<version>`을 실행한다.
 5. CD (`.github/workflows/cd.yml`)가 끝날 때까지 기다린다. `gh run watch <run-id> -R w1010k/FreeterBySwh --exit-status`로 볼 수 있다.
-6. 초안 릴리스의 자산 수를 확인한다. 정상은 릴리스 1개에 자산 8개다.
+6. 초안 릴리스의 자산 수를 확인한다. 정상은 릴리스 1개에 자산 3개다.
 7. 릴리스 노트를 쓴다. 범위는 `git log --oneline v<이전>..v<version>`과 `docs/CHANGES.md`다. 한국어로 주제별로 묶고, 끝에
    `**Full Changelog**: https://github.com/w1010k/FreeterBySwh/compare/v<이전>...v<version>`을 단다.
 8. 노트를 적용한다: `gh release edit v<version> -R w1010k/FreeterBySwh --notes-file <파일>`.
@@ -66,9 +66,9 @@ CI (`.github/workflows/ci.yml`)와 같은 순서로 실행한다. 4단계 모두
 
 #### CD 구성
 
-- 작업 3개 (linux, windows, darwin)가 `needs:`로 직렬 실행된다. 각 작업은 `yarn install`, `yarn run prod`, `yarn run cd:package-draft`
+- 작업 2개 (linux, windows)가 `needs:`로 직렬 실행된다. macOS는 빌드하지 않는다 (decisions.md D59). 각 작업은 `yarn install`, `yarn run prod`, `yarn run cd:package-draft`
   (`electron-builder --publish always`)를 실행한다.
-- 직렬화 이유는 `cd.yml` 주석에 있다. 병렬 실행하면 세 작업이 각자 초안을 만들어 같은 태그의 초안이 여러 개 생기고 자산이 나뉜다 (swh.10에서 발생). 대가는 약 3배의 실행 시간이다.
+- 직렬화 이유는 `cd.yml` 주석에 있다. 병렬 실행하면 두 작업이 각자 초안을 만들어 같은 태그의 초안이 여러 개 생기고 자산이 나뉜다 (swh.10에서 발생). 대가는 약 2배의 실행 시간이다.
 - CI와 CD 모두 `git+ssh` 의존성 URL을 HTTPS로 바꾸는 `git config url.insteadOf` 설정을 둔다.
 
 #### 릴리스 주의점
@@ -77,7 +77,7 @@ CI (`.github/workflows/ci.yml`)와 같은 순서로 실행한다. 4단계 모두
 |----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
 | 이 저장소는 `gh` 기본 저장소가 설정되어 있지 않다 (`gh repo set-default --view`). fork 저장소에서 `gh`가 upstream `FreeterApp/Freeter`를 대상으로 잡은 기록이 있으므로 모든 `gh release`, `gh run` 명령에 `-R w1010k/FreeterBySwh`를 붙인다. | 로컬 기록                                                   |
 | 초안 릴리스는 본문이 빈 채로 만들어진다. `electron-builder.config.js`에 `releaseInfo`가 없다. 7단계 없이 공개하면 빈 노트로 나간다 (swh.3, swh.4, swh.5, swh.8에서 발생).                                                                    | `electron-builder.config.js`, 로컬 기록                     |
-| 자산 8개: linux `tar.xz` 1개, mac `dmg` 2개 (x64, arm64)와 blockmap 2개, win `msi`와 `zip` 2개, `latest-mac.yml` 1개.                                                                                                                        | `electron-builder.config.js`의 `mac`, `win`, `linux` target |
+| 자산 3개: linux `tar.xz` 1개, win `msi`와 `zip` 2개. macOS를 빌드하던 이전 설정 (swh.17 태그 시점)에서는 mac `dmg` 2개, blockmap 2개, `latest-mac.yml`이 더해져 8개였다.                                                                                                              | `electron-builder.config.js`의 `win`, `linux` target        |
 | `latest.yml` (Windows 자동 업데이트 메타)은 생성되지 않는 것이 정상이다. Windows target이 `msi`와 `zip`뿐이다.                                                                                                                               | `electron-builder.config.js`의 `win.target`                 |
 | `package.json`의 `draft-release` 스크립트 (`yarn version && git push && git push --tags`)는 upstream 2.8에서 온 것이다. 포크 릴리스 커밋은 `Release <version>` 형식이라 이 스크립트를 쓰지 않는 것으로 보인다 (추정).                        | `package.json`, 커밋 83c5829                                |
 | 초안 릴리스를 지워도 git 태그는 남는다. 태그는 `git push origin :refs/tags/<tag>`와 `git tag -d <tag>`로 따로 지운다.                                                                                                                        | 로컬 기록                                                   |

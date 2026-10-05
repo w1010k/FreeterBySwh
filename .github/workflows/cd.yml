@@ -10,14 +10,15 @@ permissions:
   contents: write
   packages: read
 
-# NOTE: the three OS jobs are deliberately SERIALIZED via `needs:` (linux →
-# windows → macOS), not run in parallel. Each job runs `electron-builder
+# NOTE: the two OS jobs are deliberately SERIALIZED via `needs:` (linux →
+# windows), not run in parallel. Each job runs `electron-builder
 # --publish always`, which find-or-creates the GitHub draft release for the tag.
-# Run concurrently, all three race on "no draft yet → create one", and GitHub
+# Run concurrently, both race on "no draft yet → create one", and GitHub
 # happily makes MULTIPLE drafts with the same tag, splitting the assets across
 # them (hit on swh.10). Serializing means the first job creates the draft and the
-# rest reuse it. Trade-off: ~3x wall-clock. Do NOT re-parallelize without a
+# other reuses it. Trade-off: ~2x wall-clock. Do NOT re-parallelize without a
 # single-publisher design (build with --publish never + one release job).
+# macOS is not built: the fork is used on Windows only (decisions.md D59).
 jobs:
   linux:
     name: Linux
@@ -50,34 +51,6 @@ jobs:
     name: Windows
     needs: linux
     runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install Deps
-        run: |
-          # Some transitive deps (e.g. @electron/node-gyp) are locked with a
-          # git+ssh:// resolved URL; rewrite to HTTPS so `yarn install` can fetch
-          # them on runners without SSH keys.
-          git config --global url."https://github.com/".insteadOf "git@github.com:"
-          git config --global --add url."https://github.com/".insteadOf "ssh://git@github.com/"
-          yarn install
-
-      - name: Compile
-        run: yarn run prod
-
-      - name: Package App and Draft New Release
-        run: yarn run cd:package-draft
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  darwin:
-    name: macOS
-    needs: windows
-    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 

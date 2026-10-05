@@ -150,6 +150,17 @@
 - 이유: 원본과 동시에 실행하면 같은 단축키를 OS가 한쪽에만 등록한다.
 - 근거: CHANGES #20, `src/renderer/base/state/ui.ts` `createUiState`
 
+#### D59. macOS 배포 중단
+
+- 상태: 유효
+- 출처: `[fork #89]`
+- 결정: CD에서 macOS job을 빼고, `electron-builder.config.js`의 `mac`, `dmg` 설정과 `resources/darwin/`을 지운다. 소스의 macOS 분기
+  (`process.platform === 'darwin'` 등)는 그대로 둔다.
+- 이유: 포크 사용자는 Windows만 쓴다. CD 작업은 직렬이라 macOS job 시간만큼 릴리스가 늦어졌다. 소스 분기는 짧은 조건문이라 지워도 얻는 것이 적고, upstream 병합 때
+  충돌만 늘린다.
+- 버린 대안: 소스의 macOS 분기까지 제거 (병합 충돌 증가, 다른 조건과 섞인 분기를 지울 때 Windows 동작이 바뀔 위험).
+- 근거: CHANGES #89, `.github/workflows/cd.yml`, `electron-builder.config.js`
+
 ### Webpage 위젯과 webview
 
 #### D17. 새 창 요청의 현재 webview 열기

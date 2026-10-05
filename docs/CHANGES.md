@@ -3203,6 +3203,29 @@ Webpage 위젯 안의 웹 페이지가 OS로 여는 주소의 스킴을 검사�
   `tests/renderer/widgets/webpage/actions.spec.ts` (+3)
 - **문서**: `docs/dev/pitfalls.md`, `docs/dev/overview.md`, `docs/dev/features-widgets.md`, `docs/dev/decisions.md`
 
+## 89. macOS 빌드·배포 중단 *(2026-10-05)*
+
+릴리스부터 macOS 설치 파일 (`dmg`)을 만들지 않는다. GitHub 릴리스 자산은 Linux `tar.xz`, Windows `msi`·`zip` 3개가 된다. 앱 동작은 바뀌지 않는다.
+
+### 왜
+
+- 이 포크의 사용자는 Windows만 쓴다. macOS 결과물은 쓰는 사람이 없다.
+- CD의 OS별 작업은 같은 태그에 초안 릴리스가 여러 개 생기지 않도록 직렬로 돈다 (`cd.yml` 주석, swh.10). 그래서 macOS 작업 시간이 릴리스 시간에 그대로 더해졌다.
+
+### 까다로웠던 포인트
+
+- **소스의 macOS 분기는 남겼다**: `src`에서 `darwin`이나 `isMac`이 나오는 줄은 11개 파일에 25줄이고, 대부분 짧은 조건문이다. 이 밖에 Mac 터미널 인자 함수
+  (`main/base/apps/terminal.ts`) 같은 Mac 전용 코드가 조금 더 있다. 지워도 얻는 것이 적고, upstream 병합 때 같은 파일에서 충돌만 늘어난다.
+- **mac에서 직접 패키징하면 기본값을 쓴다**: `mac` 설정이 없으므로 mac에서 `yarn package`를 돌리면 electron-builder 기본 target과 Electron 기본 아이콘으로
+  패키징될 것이다 (추정, mac에서 실행해 확인하지 않음).
+- **README의 지원 운영체제 목록은 유지**: 소스의 macOS 분기가 남아 있으므로 macOS 줄을 지우지 않았다.
+
+### 수정 파일
+
+- **수정**: `.github/workflows/cd.yml` (`darwin` job 삭제, 직렬화 주석 갱신), `electron-builder.config.js` (`mac`, `dmg` 삭제)
+- **삭제**: `resources/darwin/` (`freeter.icns`, `dmgBg.png`, `dmgBg@2x.png`)
+- **문서**: `docs/dev/procedures.md`, `docs/dev/overview.md`, `docs/dev/decisions.md` (D59)
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)
