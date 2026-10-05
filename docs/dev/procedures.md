@@ -47,7 +47,7 @@ CI (`.github/workflows/ci.yml`)와 같은 순서로 실행한다. 4단계 모두
 | 4    | 이 목록을 빠뜨리면 위젯이 등록되어도 Add Widget 팔레트에 나타나지 않는다. `tests/renderer/widgets/registry.spec.ts`가 누락을 잡는다.                                                                          | `tests/renderer/widgets/registry.spec.ts`                                                                                  |
 | 4    | `palette`는 영구 상태에서 제외되므로 (`createPersistentAppState`), 기존 사용자에게도 기본 목록이 그대로 적용된다. 마이그레이션은 필요 없다.                                                                   | `src/renderer/base/state/app.ts`                                                                                           |
 | 5    | 테마에 없는 변수가 들어간 선언은 오류 없이 통째로 무효가 된다. 테마 키는 `src/renderer/ui/components/app/uiTheme/themes/light.ts`와 `dark.ts`에 있다. 폴백 형태 `var(--a, var(--b))`는 안전하다.              | [pitfalls.md](pitfalls.md)의 "정의되지 않은 테마 변수", CHANGES #82                                                        |
-| 7    | `docs/GUIDE.md` (사용자 가이드)의 위젯 카탈로그는 갱신 규칙이 없다. 2026-06-07 작성 이후 Spreadsheet가 빠져 있다.                                                                                             | `docs/GUIDE.md`                                                                                                            |
+| 7    | `docs/GUIDE.md` (사용자 가이드)의 위젯 카탈로그는 갱신 규칙이 없다. 위젯을 추가하면 카탈로그 표와 머리말의 위젯 수를 함께 확인한다 (Spreadsheet는 2026-10-05에 뒤늦게 추가했다).                                                                                             | `docs/GUIDE.md`                                                                                                            |
 
 ### 릴리스
 
@@ -81,6 +81,7 @@ CI (`.github/workflows/ci.yml`)와 같은 순서로 실행한다. 4단계 모두
 | `latest.yml` (Windows 자동 업데이트 메타)은 생성되지 않는 것이 정상이다. Windows target이 `msi`와 `zip`뿐이다.                                                                                                                               | `electron-builder.config.js`의 `win.target`                 |
 | `package.json`의 `draft-release` 스크립트 (`yarn version && git push && git push --tags`)는 upstream 2.8에서 온 것이다. 포크 릴리스 커밋은 `Release <version>` 형식이라 이 스크립트를 쓰지 않는 것으로 보인다 (추정).                        | `package.json`, 커밋 83c5829                                |
 | 초안 릴리스를 지워도 git 태그는 남는다. 태그는 `git push origin :refs/tags/<tag>`와 `git tag -d <tag>`로 따로 지운다.                                                                                                                        | 로컬 기록                                                   |
+| `gh release view --json`에는 `isLatest` 필드가 없다. 초안과 공개 여부는 `isDraft`, `isPrerelease`로 본다. | 로컬 기록 |
 
 #### 같은 태그의 초안 중복 복구
 

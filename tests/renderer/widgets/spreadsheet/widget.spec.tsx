@@ -110,6 +110,19 @@ describe('Spreadsheet Widget', () => {
     expect(await sheetText(0)).toBe('5');
   });
 
+  it('flushes the pending sheet save on app quit (beforeunload)', async () => {
+    const {userEvent, widgetApi} = setup();
+    const user = userEvent.setup();
+    await click(0);
+    await user.keyboard('5{Enter}');
+    // Still inside the 800ms debounce window: nothing written yet.
+    expect(widgetApi.dataStorage.setText).not.toHaveBeenCalledWith('sheet', expect.anything());
+    act(() => {
+      window.dispatchEvent(new Event('beforeunload'));
+    });
+    expect(widgetApi.dataStorage.setText).toHaveBeenCalledWith('sheet', expect.stringContaining('5'));
+  });
+
   it('shows the source while editing and the value at rest', async () => {
     const {userEvent} = setup([['2', '3', '=A1*B1']]);
     const user = userEvent.setup();

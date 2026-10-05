@@ -44,6 +44,8 @@ About 모달 본문은 후속 작업으로 **한글 "포크 정보"로 재작성
 
 남은 브랜딩 TODO: 아이콘 (`resources/{win32,darwin,linux}/`). (기본 글로벌 단축키 충돌은 #20에서 해결)
 
+**정정 (2026-10-05)**: 위 표의 원본 사용자 데이터 폴더는 `<appData>/freeter2/freeter-data`가 맞다. 포크 시작점 (68afd73)과 upstream `v2.8.0-beta`의 `src/main/index.ts` 모두 `freeter2`를 쓴다.
+
 ---
 
 ## 2. 빌드 / 런타임 업그레이드 *(2026-04-17)*
@@ -500,6 +502,8 @@ OAuth / 로그인 플로우는 `window.opener.postMessage({token: ...})`로 원�
 - #3과의 유일한 실질적 차이는 "새 탭성 요청을 현재 webview에 덮어씌우지 않고 외부로 보낸다"는 한 줄. 팝업 처리 로직 (BrowserWindow 생성 옵션 등)은 그대로.
 
 **수정 파일**: `src/main/infra/browserWindow/browserWindow.ts`
+
+**정정 (2026-10-05)**: `sanitizeUrl`은 `new URL()` 파싱 여부만 보고 스킴은 거르지 않는다. 그래서 위의 "javascript:/file: 등 이상한 프로토콜 방어"는 이 시점에 성립하지 않았고, #88에서 `isAllowedExternalUrl` 검사를 추가해 막았다. 팝업 판정 코드는 `disposition === 'new-window'` 또는 features의 `popup` 단어만 검사하고 `width`, `height`는 직접 보지 않는다. 크기를 지정한 `window.open`은 Chromium이 `new-window`로 넘기므로 결과는 같다고 추정한다.
 
 ---
 
@@ -987,6 +991,8 @@ Electron의 `WebContents` API만으로 완결되어 경로가 훨씬 짧음.
 
 - **수정**: `src/main/infra/browserWindow/browserWindow.ts`
 
+**정정 (2026-10-05)**: `sanitizeUrl`은 스킴을 거르지 않아서 `javascript:` 같은 URL도 빈 문자열이 되지 않았다. `Ctrl+T`의 스킴 검사는 #88에서 추가했다.
+
 ---
 
 ## 26. TodoList 라이브 동기화 단순화 — IPC 체인 → in-memory store *(2026-05-10)*
@@ -1063,6 +1069,8 @@ Note 위젯의 `sharedKeyId` 기반 동기화 (#8)는 그대로 IPC broadcast + 
   non-object/잘못된 shape/items 안 항목 검증/extra prop 제거)
 
 기존 `useSharedDataChangedEffect` 훅과 `init.ts`의 IPC 재emit, main의 `broadcastChanged`는 Note 위젯에서 계속 사용 중이라 손대지 않음.
+
+**정정 (2026-10-05)**: 실제 함수 이름은 `getOrCreateTodoListSaver`다. `updateActionBar`와 `setContextMenuFactory`의 재등록이 늘리는 것은 IPC 트래픽이 아니라 위젯 셸의 로컬 state 갱신 (`setActionBarItemsViewMode` 등)과 그에 따른 셸 재렌더다.
 
 ---
 
@@ -1627,11 +1635,15 @@ Note와 To-Do List의 디스크 저장은 디바운스 (노트 800ms, 투두 500
 - 두 위젯에 `beforeunload`(앱 종료) 리스너 + 언마운트 cleanup에서 디바운스 saver의 `flush()`를 호출하는 effect를 추가. `flush()`는 대기 중인 호출이 있을 때만 즉시
   실행 (없으면 no-op)이라 불필요한 쓰기는 없다.
 - 투두 saver는 scope (프로젝트/`'app'`)별 공유라 어느 형제 위젯에서 flush해도 같은 보류 쓰기를 비운다.
+- **(후속, 2026-10-05) Spreadsheet에도 적용**: Spreadsheet 위젯 (#79)의 800ms 지연 저장 4개 (시트, 열 너비, 행 높이, 열 수 변화 `colDelta`)에도 같은 effect를 넣었다.
+  Spreadsheet로 확인해 보니 언마운트만으로는 손실이 없었다 (대기 중인 저장이 언마운트 뒤에도 실행됨). 손실 경로는 앱 종료다 (`beforeunload` 뒤 renderer와 함께 타이머가 사라짐, 이 부분은 추정).
+  언마운트 flush는 Note, To-Do와 같은 방식을 유지하고, 빠른 재마운트 때 옛 데이터를 읽는 틈을 없애려고 넣었다.
 
 ### 수정 파일
 
 - **수정**: `src/renderer/widgets/note/widget.tsx`, `src/renderer/widgets/to-do-list/widget.tsx`
 - **테스트**: `tests/renderer/widgets/{note,to-do-list}/widget.spec.ts`(beforeunload flush)
+- **(후속) 수정**: `src/renderer/widgets/spreadsheet/widget.tsx`. **(후속) 테스트**: `tests/renderer/widgets/spreadsheet/widget.spec.tsx`(beforeunload flush)
 
 ---
 
@@ -3056,6 +3068,8 @@ Analytics 화면 상단에 **기간 선택**(전체/최근 30일/최근 7일, �
   `settings.tsx`(열 52·행 1000)
 - **테스트**: `widget.spec.tsx`(+9 — 가상화 2, 스크롤 추종 2, 더블체크 5), `settings.spec.ts`(신규 5 — 기본값·버전 마이그레이션·스탬프·클램프),
   `grid.spec.ts`(+3 — `trimSheet`), 기존 테스트는 뷰포트 스텁과 작은 행 수로 조정
+
+**정정 (2026-10-05)**: 제목의 "A~AZ · 1,000행"과 수정 파일 목록의 "열 52·행 1000"은 첫 구현 값이다. 최종 기본값은 본문대로 A~Z (26열) × 100행이다 (`DEFAULT_COLS = 26`, `DEFAULT_ROWS = 100`, `SETTINGS_VERSION = 2`).
 
 ---
 

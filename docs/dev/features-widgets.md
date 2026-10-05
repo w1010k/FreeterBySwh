@@ -363,8 +363,8 @@
   - mousedown에서 `preventDefault()`를 부르면 Chrome이 `dblclick`을 만들지 않는다 (CHANGES #84).
   - `.sheet td { overflow: hidden }`의 특이성이 높아 같은 셀의 다른 클래스 규칙을 덮는다 (CHANGES #85).
   - `tests/renderer/widgets/spreadsheet/theme.spec.ts`는 이 위젯의 SCSS만 검사한다.
-  - 저장은 800ms 디바운스인데, Note·To-Do와 달리 `beforeunload`·언마운트 flush가 코드에 없다 (`widget.tsx`에 `flush`, `beforeunload` 사용 없음).
-    마지막 편집 직후 종료하면 그 편집이 저장되지 않을 수 있다 (추정, 코드 관찰 기준).
+  - 저장은 800ms 디바운스다. Note, To-Do와 같이 `beforeunload`와 언마운트 때 저장 함수 4개를 flush한다 [fork #40 후속, 2026-10-05]. 새 디바운스 저장을 추가하면 이
+    flush effect에도 넣는다.
   - CHANGES #86의 제목과 "수정 파일"은 "A~AZ · 1,000행", "열 52·행 1000"으로 적혀 있지만 현재 코드 기본값은 26열 × 100행이다 (본문은 26×100으로 줄였다고 적음).
 
 #### Note (`note`)

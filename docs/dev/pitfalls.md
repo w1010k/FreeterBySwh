@@ -236,10 +236,13 @@
 
 - 출처: `[fork #30 #40]`
 - 증상: 변경 직후 앱을 닫거나 워크플로우를 바꾸면 마지막 변경이 사라졌다.
-- 원인: 앱 상태는 5초, Note는 800ms, To-Do는 500ms 디바운스로 저장한다. 위젯별 디바운스는 앱 상태 flush와 별개다.
+- 원인: 앱 상태는 5초, Note와 Spreadsheet는 800ms, To-Do는 500ms 디바운스로 저장한다. 위젯별 디바운스는 앱 상태 flush와 별개다. 확인된 손실 경로는 앱 종료다:
+  `beforeunload` 때 대기 중인 저장이 실행되지 않으면, renderer가 닫히면서 타이머도 사라진다 (추정). 언마운트만으로는 대기 중인 저장이 사라지지 않았다 (Spreadsheet로
+  확인, 타이머가 언마운트 뒤에도 실행됨). 언마운트 flush는 빠른 재마운트 때 옛 데이터를 읽는 틈을 없앤다.
 - 규칙: 디바운스 저장을 쓰는 위젯은 `beforeunload` 리스너와 언마운트 cleanup에서 `flush()`를 부른다. 앱 상태 flush (`will-quit`의 `windowStore.flush`,
   `beforeunload`의 `appStore.flush`)는 쓰기를 발사만 하고 완료를 기다리지 않는다 (best-effort).
-- 근거: CHANGES #30, #40, `src/common/helpers/debounce.ts`, `src/renderer/widgets/note/widget.tsx`, `src/main/index.ts`
+- 근거: CHANGES #30, #40 (Spreadsheet 후속 포함), `src/common/helpers/debounce.ts`, `src/renderer/widgets/note/widget.tsx`,
+  `src/renderer/widgets/spreadsheet/widget.tsx`, `src/main/index.ts`
 
 #### memSaver와 위젯 마운트 수명
 
@@ -713,7 +716,7 @@
 #### 앱 데이터 폴더의 위치
 
 - 출처: `[fork #1 #80]`
-- 증상: 문서마다 데이터 경로가 다르게 적혀 있다 (`CLAUDE.md`는 `<appData>/freeter2/freeter-data`).
+- 증상: upstream 경로 (`<appData>/freeter2/freeter-data`)나 잘못된 원본 경로가 문서에 남아 있던 적이 있다 (`CLAUDE.md`, CHANGES #1, 2026-10-05에 정정).
 - 원인: 앱 데이터는 `join(app.getPath('appData'), dataDirName, 'freeter-data')`로 만든다. 설치판은
   `<appData>/freeter-swh/freeter-data`, 개발 실행은 `<appData>/freeter-swh-dev/freeter-data`다. Electron `userData`(세션, 잠금)와는
   별개 경로다.

@@ -22,7 +22,9 @@ Maintenance: when a task changes code, update the affected `docs/dev/` file in t
 
 Package manager: **Yarn 1 (Classic)** — do not use npm.
 
-- `yarn dev` — full dev stack (renderer HMR + main watch + Electron + react-devtools).
+- `yarn dev` — full dev stack (renderer dev server + main watch + Electron + react-devtools). Renderer
+  changes are not hot-reloaded (dev server `hot: false`, `liveReload: false`): reload the window (Dev menu → reload).
+  Preload is built once at startup, so restart `yarn dev` after preload changes.
 - `yarn dev:no-react-devtools` — same without the separate devtools window.
 - `yarn prod` then `yarn prod:run` — production build + launch.
 - `yarn package` — produce installers via electron-builder (output in `./dist`).
@@ -97,7 +99,9 @@ Widgets are the user-visible units placed into workflows.
 - `src/renderer/widgets/_template/` is the reference scaffold — copy it when creating a new widget type.
 - Registration: add the default export to the list in `src/renderer/widgets/index.ts`. The `registry`
   (`src/renderer/registry/registry.ts`) feeds these types into the store at startup via
-  `entityStateActions.widgetTypes.setAll`.
+  `entityStateActions.widgetTypes.setAll`. Also add the type id to `palette.widgetTypeIds` in `createUiState`
+  (`src/renderer/base/state/ui.ts`), or the widget never shows in Add Widget; `tests/renderer/widgets/registry.spec.ts`
+  catches a missing id. Full steps: `docs/dev/procedures.md`.
 - A `WidgetType` declares `id`, `name`, `icon`, `minSize`, `description`, `createSettingsState`, `settingsEditorComp`,
   `widgetComp`, and `requiresApi` (capabilities the main process must grant, e.g. clipboard/shell/terminal). The runtime
   `WidgetApi` is built per-widget by `getWidgetApiUseCase` based on `requiresApi`.
@@ -107,8 +111,11 @@ Widgets are the user-visible units placed into workflows.
 - Jest with `@swc/jest`; tests match `**/*.spec.(ts|tsx)`. Four projects run in parallel (Main=node, Renderer=jsdom,
   Common=node, Test Utils=node) — see `jest.config.js`.
 - Renderer tests use `@testing-library/react` + `jest-dom` (setup in `tests/renderer/setupTests.ts`).
-- Shared fixtures/builders live in `tests/utils/` (aliased as `@utils/*`). Prefer these over ad-hoc object literals.
-- Colocate `*.spec.ts` next to the code under test; surface-specific helpers go in `tests/<surface>/`.
+- The generic fixture factory `makeFixture` lives in `tests/utils/` (aliased as `@utils/*`); domain fixtures live in
+  `tests/<surface>/**/fixtures/` (e.g. `tests/renderer/base/fixtures/widget.ts`). Prefer these over ad-hoc object literals.
+- Put specs under `tests/<surface>/`, mirroring the source path (`src/renderer/x/y.ts` → `tests/renderer/x/y.spec.ts`);
+  surface-specific helpers go there too. The one spec next to its source is
+  `src/renderer/widgets/spreadsheet/formula.spec.ts`.
 
 ## Verification
 
