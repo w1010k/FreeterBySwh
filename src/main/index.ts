@@ -161,10 +161,11 @@ if (!app.isPackaged) {
 }
 
 if (!app.requestSingleInstanceLock()) {
-  // there is another instance of the app running
+  // there is another instance of the app running. quit() is async, so the
+  // `else` keeps this process from registering handlers, opening storage and
+  // creating a tray/window against the running instance's data meanwhile.
   app.quit();
-}
-{
+} else {
   app.on('second-instance', (_event, _commandLine, _workingDirectory, _additionalData) => {
     if (appWindow) {
       if (!appWindow.isVisible()) {

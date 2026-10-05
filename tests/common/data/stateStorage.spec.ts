@@ -159,7 +159,49 @@ describe('StateStorage', () => {
     })
   })
 
+  describe('loadState backup', () => {
+    it('should copy unloadable text aside before falling back to defaults', async () => {
+      const dataStorage = createInMemoryDataStorage({ [stateKeyInDataStorage]: '{"ver":1,"obj":{"trunc' });
+      const stateStorage = createStateStorage(dataStorage, stateKeyInDataStorage, 1, 5000, s => s, s => s);
+
+      expect(await stateStorage.loadState()).toBeNull();
+
+      const backupKeys = (await dataStorage.getKeys()).filter(key => key.startsWith(`${stateKeyInDataStorage}-corrupt-`));
+      expect(backupKeys).toHaveLength(1);
+      expect(await dataStorage.getText(backupKeys[0])).toBe('{"ver":1,"obj":{"trunc');
+    })
+
+    it('should not back up an empty file', async () => {
+      const dataStorage = createInMemoryDataStorage({ [stateKeyInDataStorage]: '' });
+      const stateStorage = createStateStorage(dataStorage, stateKeyInDataStorage, 1, 5000, s => s, s => s);
+
+      expect(await stateStorage.loadState()).toBeNull();
+
+      expect(await dataStorage.getKeys()).toEqual([stateKeyInDataStorage]);
+    })
+  })
+
   describe('saveState', () => {
+    it('should not push back a pending save when only non-persistent fields change', async () => {
+      const dataStorage = withJson(createInMemoryDataStorage());
+      const stateStorage = createStateStorage(
+        dataStorage,
+        stateKeyInDataStorage,
+        1,
+        5000,
+        s => s,
+        (s: { kept: string, runtimeOnly: string }) => ({ kept: s.kept })
+      );
+
+      stateStorage.saveState({ kept: 'layout', runtimeOnly: '00:59' });
+      jest.advanceTimersByTime(3000);
+      // A timer ticking its header title: the persistent part is unchanged.
+      stateStorage.saveState({ kept: 'layout', runtimeOnly: '00:58' });
+      jest.advanceTimersByTime(2000);
+
+      expect((await dataStorage.getJson(stateKeyInDataStorage) as VersionedObject<object>).obj).toEqual({ kept: 'layout' });
+    })
+
     it('should immediately save the state if specified msecs cooldown = 0', async () => {
       const curVer = 1;
       const state = { state: 'test' };

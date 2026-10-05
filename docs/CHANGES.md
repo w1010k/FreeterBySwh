@@ -1379,6 +1379,18 @@ Webpage 위젯에 포커스가 있을 때 `F5` 또는 `Ctrl/Cmd+R`로 페이지�
   먼저 비운 뒤 쓰므로, 쓰기 직후 같은 파일을 읽으면 빈 내용을 받을 수 있었다 (이 PC에서 같은 방식으로 실험하니 2,000회 중 2회). 위젯이 언마운트 flush 직후 바로 다시 마운트되는
   경우 (worktable과 셸프 사이 이동)에 이 경로가 생기고, 빈 내용을 본 상태에서 편집하면 전체 내용이 덮어써질 수 있었다. 수정 후 같은 실험은 2,000회 모두 새 내용을 읽었다.
   폴더 단위 작업 (`clear`, `getKeys`)과 폴더 복사 (`copyFileDataStorage`)는 순서 보장 밖이다.
+- **(후속, 2026-10-05) 원자적 쓰기**: `setText`가 `<파일>.tmp`에 먼저 쓰고, 디스크에 flush (`sync`)한 뒤 `rename`으로 대상 파일을 바꾼다. 쓰기 도중 앱이 죽거나
+  전원이 꺼지거나 디스크가 가득 차도 대상 파일이 잘리지 않는다. flush가 없으면 전원이 꺼질 때 이름 변경만 디스크에 남고 내용은 남지 않을 수 있다. Windows에서는 대상 파일이 다른
+  곳에서 열려 있으면 `rename`이 실패한다 (백신 같은 다른 프로세스, 또는 대기열 밖에서 읽는 앱 자신의 `copyFileDataStorage`). 그때는 저장을 잃지 않도록 예전처럼 대상 파일에 직접
+  쓴다. `.tmp`는 키가 될 수 없는 이름이고 (키의 `.`은 `_`로 바뀜), `getKeys`, `clear`, `copyFileDataStorage`가 제외한다. 복사가 `.tmp`를 포함하면, 진행 중인 쓰기가
+  목록에 잡힌 `.tmp`를 `rename`으로 없애서 복사 전체가 `ENOENT`로 실패했다 (위젯 복제 때 데이터 누락). 이 PC 실험에서 제외 전 1,000회 중 20회, 제외 후 0회였다.
+- **(후속, 2026-10-05) 읽지 못한 상태 파일의 백업**: 앱 상태나 창 상태 파일의 내용이 JSON이 아니거나, 마이그레이션이나 검증에 실패하면 기본값으로 시작한다. 이때 다음 저장이 원본을
+  덮어써서 모든 프로젝트가 복구 불가능하게 사라졌다. 이제 `loadState`가 원본 텍스트를 데이터 폴더의 `<키>-corrupt-<밀리초 시각>` (예: `app-corrupt-1791234567890`)
+  파일로 먼저 남긴다. 빈 파일은 남길 내용이 없어서 백업하지 않는다. 백업 파일은 자동으로 지우지 않는다.
+- **(후속, 2026-10-05) 타이머 동작 중 저장 지연**: Timer·Pomodoro가 1초마다 헤더 동적 제목 (`ui.widgetDynamicTitles`, 저장 대상 아님)을 바꿀 때마다 `store.set`이
+  `saveState`를 불러 5초 debounce가 다시 시작됐다. 그래서 타이머가 도는 동안 레이아웃 변경이 디스크에 저장되지 않았고, 정상 종료가 아니면 사라졌다. 이제 `saveState`가 저장할
+  JSON을 만들어 마지막으로 넘긴 JSON과 같으면 debounce를 건드리지 않는다. 실제 앱 상태 (28KB)에서 JSON 생성은 1회 약 0.08ms다. 제목이 계속 바뀌는 Webpage 위젯에도 같은 해결이
+  적용된다.
 
 ### 수정 파일
 
@@ -1393,6 +1405,11 @@ Webpage 위젯에 포커스가 있을 때 `F5` 또는 `Ctrl/Cmd+R`로 페이지�
 - **테스트**: `tests/main/infra/dataStorage/fileDataStorage.spec.ts` (신규), `tests/common/helpers/debounce.spec.ts`,
   `tests/common/data/store.spec.ts`
 - **(후속) 수정**: `src/main/infra/dataStorage/fileDataStorage.ts` (파일 경로별 대기열). **(후속) 테스트**: `tests/main/infra/dataStorage/fileDataStorageOrder.spec.ts` (신규)
+- **(후속) 수정**: `src/main/infra/dataStorage/fileDataStorage.ts` (원자적 쓰기와 flush, `getKeys`·`clear`·`copyFileDataStorage`의 `.tmp` 제외),
+  `src/common/data/stateStorage.ts` (원본 백업, 같은 JSON 저장 생략, 인자 타입 `DataStorage`), `src/renderer/data/appStateStorage.ts`,
+  `src/main/data/windowStateStorage.ts` (인자 타입). **(후속) 테스트**: `tests/main/infra/dataStorage/fileDataStorage.spec.ts` (+4),
+  `tests/main/infra/dataStorage/fileDataStorageOrder.spec.ts` (`open`, `rename` mock), `tests/common/data/stateStorage.spec.ts` (+3),
+  `tests/main/data/windowStateStorage.spec.ts`, `tests/renderer/data/appStateStorage.spec.ts` (인자 타입)
 
 ---
 

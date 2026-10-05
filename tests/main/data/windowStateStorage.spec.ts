@@ -6,7 +6,7 @@
 import { StateStorage, createStateStorage, windowStateDataStoragKey } from '@common/data/stateStorage';
 import { createPersistentWindowState, currentWindowStateVersion, migrateWindowState, isPersistentWindowState } from '@/base/state/window';
 import { createWindowStateStorage } from '@/data/windowStateStorage'
-import { DataStorageJson } from '@common/application/interfaces/dataStorage';
+import { DataStorage } from '@common/application/interfaces/dataStorage';
 
 jest.mock('@common/data/stateStorage');
 const mockedCreateStateStorage = jest.mocked(createStateStorage);
@@ -18,7 +18,7 @@ beforeEach(() => {
 describe('WindowStateStorage', () => {
   describe('createWindowStateStorage', () => {
     it('should call createStateStorage with right params and return its value', async () => {
-      const dataStorage = { 'data': 'storage' } as unknown as DataStorageJson;
+      const dataStorage = { 'data': 'storage' } as unknown as DataStorage;
       const retVal = 'value' as unknown as StateStorage<object, object>;
       mockedCreateStateStorage.mockImplementation(() => retVal);
 

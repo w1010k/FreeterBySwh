@@ -3,19 +3,26 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-// Holds every writeFile until the test releases it, so the test decides when
-// the bytes land on "disk" and can check what a read issued meanwhile returns.
+// Holds every temp-file write until the test releases it, so the test decides
+// when the bytes land on "disk" and can check what a read issued meanwhile
+// returns. The "disk" is one value: the temp-file write lands there, and the
+// sync, close and rename that follow are no-ops.
 const mockReleases: Array<() => void> = [];
 let mockDisk = 'old';
 jest.mock('node:fs/promises', () => ({
   mkdir: jest.fn(async () => undefined),
   readFile: jest.fn(async () => mockDisk),
-  writeFile: jest.fn((_path: string, data: string) => new Promise<void>(resolve => {
-    mockReleases.push(() => {
-      mockDisk = data;
-      resolve();
-    });
+  open: jest.fn(async () => ({
+    writeFile: (data: string) => new Promise<void>(resolve => {
+      mockReleases.push(() => {
+        mockDisk = data;
+        resolve();
+      });
+    }),
+    sync: async () => undefined,
+    close: async () => undefined,
   })),
+  rename: jest.fn(async () => undefined),
 }));
 jest.mock('node:original-fs', () => ({ existsSync: () => false }), { virtual: true });
 

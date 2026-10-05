@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -11,7 +11,7 @@ import { join } from 'node:path';
 // module so fileDataStorage (which imports it) can be loaded under Jest.
 jest.mock('node:original-fs', () => jest.requireActual('node:fs'), { virtual: true });
 
-import { createFileDataStorage } from '@/infra/dataStorage/fileDataStorage';
+import { copyFileDataStorage, createFileDataStorage } from '@/infra/dataStorage/fileDataStorage';
 
 let dirPath: string;
 
@@ -51,6 +51,24 @@ describe('FileDataStorage', () => {
     expect(await storage.getKeys()).toEqual(['a_b']);
   })
 
+  it('should replace an existing file without leaving the temp file behind', async () => {
+    const storage = await createFileDataStorage('string', dirPath);
+
+    await storage.setText('state', 'old');
+    await storage.setText('state', 'new');
+
+    expect(await storage.getText('state')).toBe('new');
+    expect(await readdir(dirPath)).toEqual(['state']);
+  })
+
+  it('should not list a leftover temp file (crash between write and rename) as a key', async () => {
+    const storage = await createFileDataStorage('string', dirPath);
+    await storage.setText('state', 'x');
+    await writeFile(join(dirPath, 'state.tmp'), 'partial');
+
+    expect(await storage.getKeys()).toEqual(['state']);
+  })
+
   it('should delete an existing item', async () => {
     const storage = await createFileDataStorage('string', dirPath);
     await storage.setText('to-delete', 'x');
@@ -65,5 +83,29 @@ describe('FileDataStorage', () => {
     const storage = await createFileDataStorage('string', dirPath);
 
     await expect(storage.deleteItem('never-existed')).resolves.toBeUndefined();
+  })
+
+  it('should skip temp files when copying a storage folder', async () => {
+    // A write in flight renames its temp file away after cp lists it; copying
+    // temp files would then fail the whole copy with ENOENT.
+    const fromDir = join(dirPath, 'from');
+    const toDir = join(dirPath, 'to');
+    const storage = await createFileDataStorage('string', fromDir);
+    await storage.setText('note', 'x');
+    await writeFile(join(fromDir, 'note.tmp'), 'in flight');
+
+    expect(await copyFileDataStorage(fromDir, toDir)).toBe(true);
+
+    expect(await readdir(toDir)).toEqual(['note']);
+  })
+
+  it('should leave temp files alone when clearing', async () => {
+    const storage = await createFileDataStorage('string', dirPath);
+    await storage.setText('note', 'x');
+    await writeFile(join(dirPath, 'note.tmp'), 'in flight');
+
+    await storage.clear();
+
+    expect(await readdir(dirPath)).toEqual(['note.tmp']);
   })
 })

@@ -3,18 +3,50 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { mkdir, rm, readFile, writeFile, readdir, stat, unlink, cp } from 'node:fs/promises';
+import { mkdir, rm, readFile, writeFile, readdir, stat, unlink, cp, rename, open } from 'node:fs/promises';
 import { join, normalize } from 'node:path';
 
 import { DataStorage } from '@common/application/interfaces/dataStorage';
 import { existsSync } from 'node:original-fs';
+
+// Suffix of the scratch file setText writes before renaming it over the target.
+// Keys never map to it: storageKeyToFilePath turns '.' into '_'.
+const tmpSuffix = '.tmp';
+
+/**
+ * Write `data` to `filePath` so an app crash, power loss or full disk never
+ * leaves the target truncated: write a sibling temp file, flush it to disk, then
+ * rename it over the target (an atomic replace within one folder). Without the
+ * flush, power loss can persist the rename but not the bytes.
+ */
+async function writeFileAtomic(filePath: string, data: string) {
+  const tmpPath = filePath + tmpSuffix;
+  const tmpFile = await open(tmpPath, 'w');
+  try {
+    await tmpFile.writeFile(data, { encoding: 'utf-8' });
+    await tmpFile.sync();
+  } finally {
+    await tmpFile.close();
+  }
+  try {
+    await rename(tmpPath, filePath);
+  } catch {
+    // On Windows the rename fails while the target is open elsewhere: another
+    // process (antivirus, indexer) or this app's own copyFileDataStorage, which
+    // runs outside the per-file queue. Fall back to the in-place write so the
+    // save is not lost; it is the pre-atomic behavior, only for this rare case.
+    await writeFile(filePath, data, { encoding: 'utf-8' });
+    await rm(tmpPath, { force: true });
+  }
+}
 
 async function getAllKeys(normStorageDirPath: string) {
   try {
     const items = await readdir(normStorageDirPath);
     return (await Promise.all(items.map(async item => {
       const filePath = join(normStorageDirPath, item);
-      if ((await stat(filePath)).isFile()) {
+      // A leftover temp file (crash between write and rename) is not a key.
+      if (!item.endsWith(tmpSuffix) && (await stat(filePath)).isFile()) {
         return item;
       } else {
         return '';
@@ -35,7 +67,9 @@ async function clearStorage(normStorageDirPath: string) {
   if (items) {
     await Promise.all(items.map(async item => {
       const filePath = join(normStorageDirPath, item);
-      if ((await stat(filePath)).isFile()) {
+      // Skip temp files: a write in flight renames its temp file away between
+      // readdir and stat, and the failing stat would reject the whole clear.
+      if (!item.endsWith(tmpSuffix) && (await stat(filePath)).isFile()) {
         await unlink(filePath);
       }
     }))
@@ -62,10 +96,10 @@ export async function createFileDataStorage(dataType: 'string', storageDirPath: 
     console.error(`Failed to create data storage directory "${normStorageDirPath}":`, err);
   }
 
-  // Per-file queue: get/set/delete on one file run in call order. writeFile
-  // empties the file before writing, so without this a read issued right after
-  // a write could see an empty file (e.g. a widget that flushes its pending save
-  // on unmount and remounts at once, as when moved between worktable and shelf).
+  // Per-file queue: get/set/delete on one file run in call order, so a read
+  // issued right after a write sees the new content (e.g. a widget that flushes
+  // its pending save on unmount and remounts at once, as when moved between
+  // worktable and shelf). It also keeps two writes from sharing the temp file.
   // Different files still run in parallel; an entry is dropped once it settles.
   // ponytail: clear(), getKeys() and copyFileDataStorage() act on the whole
   // folder and are not ordered against these per-file operations.
@@ -105,7 +139,7 @@ export async function createFileDataStorage(dataType: 'string', storageDirPath: 
       try {
         const filePath = storageKeyToFilePath(normStorageDirPath, key);
         if (filePath) {
-          return await inOrder(filePath, () => writeFile(filePath, data, { encoding: 'utf-8' }))
+          return await inOrder(filePath, () => writeFileAtomic(filePath, data))
         } else {
           return undefined;
         }
@@ -126,7 +160,9 @@ export async function copyFileDataStorage(fromStorageDirPath: string, toStorageD
   const normToStorageDirPath = normalize(toStorageDirPath);
   try {
     await mkdir(normToStorageDirPath, { recursive: true });
-    await cp(normFromStorageDirPath, normToStorageDirPath, { recursive: true });
+    // Skip temp files: a write in flight renames its temp file away after cp
+    // lists it, and the copy would fail with ENOENT (the clone then loses data).
+    await cp(normFromStorageDirPath, normToStorageDirPath, { recursive: true, filter: src => !src.endsWith(tmpSuffix) });
   } catch (err) {
     return false;
   }

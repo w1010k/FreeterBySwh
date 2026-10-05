@@ -118,7 +118,8 @@
 
 - 출처: `[fork #50]`
 - 증상: (회피) Note 글자 수를 헤더 동적 타이틀로 보내면 키 입력마다 앱 store에 쓰게 된다.
-- 원인: `setDynamicTitle`은 `ui.widgetDynamicTitles`를 갱신하는 store 쓰기다. store 쓰기는 구독자 selector 재실행과 저장 타이머 재설정을 부른다.
+- 원인: `setDynamicTitle`은 `ui.widgetDynamicTitles`를 갱신하는 store 쓰기다. store 쓰기는 구독자 selector 재실행을 부른다. 이 필드는 저장 대상이 아니라서
+  저장 타이머는 재설정하지 않는다 (`saveState`가 같은 JSON을 건너뜀, #30 후속). 그 전에는 저장 타이머도 재설정했다.
 - 규칙: 키 입력 빈도로 바뀌는 값은 위젯 로컬 state에 두고 디바운스한다. Note는 textarea를 uncontrolled (`defaultValue` + ref)로 두고 카운트를 250ms 디바운스한다.
 - 근거: CHANGES #50, `src/renderer/widgets/note/widget.tsx` `updateCounts`
 
@@ -214,9 +215,12 @@
 - 출처: `[fork #49]`
 - 증상: (잠재) 검증기가 정상 데이터를 거부하면 사용자 데이터가 기본값으로 바뀐다.
 - 원인: `validatePersistentState`가 거짓이면 `loadState`가 `null`을 돌려주고 store는 기본값으로 시작한다. 이후 첫 변경에서 `saveState`가 기본값 기반 상태를
-  디스크에 쓴다.
+  디스크에 쓴다. JSON이 아닌 내용, 마이그레이션 예외도 같은 결과다.
+- 완화: `loadState`는 기본값으로 돌아가기 전에 비어 있지 않은 원본 텍스트를 `<키>-corrupt-<밀리초 시각>` 파일 (예: 데이터 폴더의 `app-corrupt-...`)로 남긴다
+  [fork #30 후속]. 복구는 이 파일을 원래 이름으로 바꿔 수동으로 한다. 백업 파일은 자동으로 지우지 않는다.
 - 규칙: 검증기는 형태만 느슨하게 본다 (`isPersistentAppState`는 `entities`, `ui`가 plain object인지만 본다). 창 상태 형태를 바꾸면
-  `isPersistentWindowState`(숫자 4개 + 불리언 3개)를 함께 고친다.
+  `isPersistentWindowState`(숫자 4개 + 불리언 3개)를 함께 고친다. 읽기 오류 (파일 잠금 등)는 `fileDataStorage.getText`가 `undefined`로 바꾸므로 "파일 없음"과 구분되지
+  않고 백업도 생기지 않는다.
 - 근거: CHANGES #49, `src/common/data/stateStorage.ts` `createStateStorage`, `src/main/base/state/window.ts`
   `isPersistentWindowState`
 
@@ -271,23 +275,30 @@
 
 - 출처: `[fork #30 후속]`
 - 증상: (2026-10-05 이전) 위젯을 worktable과 셸프 사이로 옮기면, 재마운트가 빈 내용을 읽을 수 있었다. 빈 내용을 본 상태에서 편집하면 전체 내용이 덮어써진다.
-- 원인: `writeFile`은 파일을 먼저 비운 뒤 쓴다. 언마운트 flush의 쓰기 직후 재마운트가 같은 파일을 읽으면, 쓰기 중간의 빈 파일을 읽을 수 있다. 이 PC에서 같은 방식으로
-  실험하니 2,000회 중 2회 발생했다. 셸프 위젯은 항상 마운트되어 있어서 (`visibility: hidden`) 위젯을 옮기면 언마운트 직후 바로 다시 마운트된다.
+- 원인: 그때 `setText`의 `writeFile`은 파일을 먼저 비운 뒤 썼다. 언마운트 flush의 쓰기 직후 재마운트가 같은 파일을 읽으면, 쓰기 중간의 빈 파일을 읽을 수 있었다. 이 PC에서
+  같은 방식으로 실험하니 2,000회 중 2회 발생했다. 셸프 위젯은 항상 마운트되어 있어서 (`visibility: hidden`) 위젯을 옮기면 언마운트 직후 바로 다시 마운트된다. 지금은
+  `setText`가 임시 파일에 쓴 뒤 `rename`하므로 빈 파일은 보이지 않는다. 하지만 대기열이 없으면 읽기가 쓰기보다 먼저 끝나 이전 내용을 읽을 수 있으므로 대기열은 여전히 필요하다.
+  대기열은 두 쓰기가 같은 `.tmp` 파일을 동시에 쓰는 것도 막는다.
 - 규칙: `createFileDataStorage`의 `getText`, `setText`, `deleteItem`은 파일 경로별 대기열 (`inOrder`)을 거친다. 같은 파일을 읽고 쓰는 새 경로도 이 대기열을 거치게 한다. 렌더러의 flush 쓰기와 재마운트 읽기는 같은 깊이의 호출 경로로 IPC를 보내고, main의
   use case도 같은 깊이라서 쓰기가 대기열에 먼저 들어간다 (코드 경로 기준, 앱 실행으로는 확인하지 않음).
-  폴더 단위 작업 (`clear`, `getKeys`)과 폴더 복사 (`copyFileDataStorage`)는 대기열 밖이다. Analytics 서버도 telemetry를 같은 저장소 인스턴스의 `getText`로 읽으므로 대기열을 거친다. 서버는
+  폴더 단위 작업 (`clear`, `getKeys`)과 폴더 복사 (`copyFileDataStorage`)는 대기열 밖이다. 그래서 진행 중인 쓰기의 `.tmp`가 목록을 만든 뒤 사라질 수 있으므로 셋 다
+  `.tmp`를 건너뛴다. 새 폴더 단위 작업도 `.tmp`를 건너뛰게 한다. 대기열 밖의 복사가 대상 파일을 열고 있으면 그 사이의 `rename`이 실패하고 직접 쓰기로 돌아간다. Analytics 서버도 telemetry를 같은 저장소 인스턴스의 `getText`로 읽으므로 대기열을 거친다. 서버는
   내용이 배열 모양이 아니면 그날을 빈 날로 처리한다 (CHANGES #87, `src/main/infra/analyticsServer/analyticsServer.ts`).
 - 근거: CHANGES #30 후속, `src/main/infra/dataStorage/fileDataStorage.ts` `createFileDataStorage`, `tests/main/infra/dataStorage/fileDataStorageOrder.spec.ts`
 
 #### 변경 검사 래퍼의 적용 범위
 
-- 출처: `[upstream]`
-- 증상: (잠재) 내용이 같은 앱 상태도 저장 때마다 다시 기록된다.
-- 원인: `setTextOnlyIfChanged(withJson(storage))` 순서에서 `withJson`의 `setJson`은 안쪽 `setText`를 직접 부른다. 변경 검사는 바깥 `setText`
-  호출에만 걸린다. `store.set`은 런타임 전용 필드 (예: `widgetDynamicTitles`)만 바뀌어도 저장 타이머를 돌린다.
-- 규칙: 쓰기 횟수를 줄이려면 store 쓰기 자체를 동일값 가드로 막는다 (`setWidgetDynamicTitle`, `setWorkflowBarWidth`, `setShelfItemSize` 선례).
+- 출처: `[upstream, fork #30 후속 변경]`
+- 증상: (2026-10-05 이전) 내용이 같은 앱 상태도 저장 때마다 다시 기록됐다. 타이머가 1초마다 헤더 제목을 바꾸는 동안에는 저장 타이머가 계속 재설정되어 앱 상태가 저장되지
+  않았다.
+- 원인: `setTextOnlyIfChanged(withJson(storage))` 순서에서 `withJson`의 `setJson`은 안쪽 `setText`를 직접 부른다. 그래서 변경 검사는 바깥 `setText`
+  호출에만 걸린다. `stateStorage`는 그때 `setJson`으로 저장했다. `store.set`은 저장 대상이 아닌 필드 (예: `widgetDynamicTitles`)만 바뀌어도 `saveState`를 부른다.
+- 현재: `stateStorage`는 JSON을 직접 만들어 바깥 `setText`로 저장하므로 변경 검사가 걸린다. `saveState`는 마지막으로 넘긴 JSON과 같으면 debounce를 건드리지 않는다.
+  위젯 코드가 `setJson`을 쓰는 경로는 여전히 변경 검사 밖이다.
+- 규칙: store 쓰기 횟수 자체를 줄이려면 동일값 가드를 둔다 (`setWidgetDynamicTitle`, `setWorkflowBarWidth`, `setShelfItemSize` 선례). store 쓰기는 저장과 별개로
+  구독자 selector를 다시 실행한다.
 - 근거: `src/common/infra/dataStorage/setTextOnlyIfChanged.ts`, `src/common/infra/dataStorage/withJson.ts`,
-  `src/common/data/store.ts`, `src/renderer/init.ts` `prepareDataStorageForRenderer`
+  `src/common/data/stateStorage.ts` `createStateStorage`, `src/common/data/store.ts`, `src/renderer/init.ts` `prepareDataStorageForRenderer`
 
 #### 저장된 설정과 기본값 변경
 

@@ -309,7 +309,9 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 - `flush()`: main은 `will-quit`에서 창 상태를, renderer는 `beforeunload`에서 앱 상태를 즉시 저장한다. 디스크 쓰기는 await하지 않는
   best-effort다 [fork #30]
 - 로드 검증: 래퍼가 아니면 `null`, migrate나 unwrap이 throw하면 `null`, 검증기 (`isPersistentAppState`, `isPersistentWindowState`)가 거부하면
-  `null` → store는 기본값으로 시작 [fork #49]
+  `null` → store는 기본값으로 시작 [fork #49]. 이때 비어 있지 않은 원본 텍스트를 `<키>-corrupt-<밀리초 시각>` 키로 먼저 저장한다 [fork #30 후속]
+- 저장 생략: `saveState`는 저장할 JSON이 마지막으로 넘긴 JSON과 같으면 debounce를 건드리지 않는다. 저장 대상이 아닌 필드 (예: `ui.widgetDynamicTitles`)만
+  바뀐 `set`이 저장을 계속 미루지 않게 한다 [fork #30 후속]
 
 #### 앱 상태의 영구 범위
 
@@ -344,7 +346,7 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 
 | 계층                  | 위치                                                                      | 동작                                                                                                                                                                                                    |
 |-----------------------|---------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 파일 저장소 (main)    | `createFileDataStorage` (`src/main/infra/dataStorage/fileDataStorage.ts`) | 폴더 하나에 키당 파일 하나. 키의 `[^A-Za-z0-9_\-()\s]` 문자는 `_`로 바꾼다. `writeFile`로 대상 파일에 직접 쓴다 (원자적 쓰기 없음). 같은 파일의 `getText`, `setText`, `deleteItem`은 파일 경로별 대기열로 호출 순서대로 실행한다 [fork #30 후속]. 읽기, 쓰기 오류는 삼키고 `undefined` 반환 [upstream, fork #30 변경] |
+| 파일 저장소 (main)    | `createFileDataStorage` (`src/main/infra/dataStorage/fileDataStorage.ts`) | 폴더 하나에 키당 파일 하나. 키의 `[^A-Za-z0-9_\-()\s]` 문자는 `_`로 바꾼다. `setText`는 `<파일>.tmp`에 쓰고 `sync`한 뒤 `rename`으로 바꾼다 (원자적 쓰기). `rename`이 실패하면 (Windows에서 대상 파일이 다른 프로세스나 대기열 밖의 `copyFileDataStorage`에 열려 있을 때) 대상 파일에 직접 쓴다. `getKeys`, `clear`, `copyFileDataStorage`는 `.tmp`를 제외한다 [fork #30 후속]. 같은 파일의 `getText`, `setText`, `deleteItem`은 파일 경로별 대기열로 호출 순서대로 실행한다 [fork #30 후속]. 읽기, 쓰기 오류는 삼키고 `undefined` 반환 [upstream, fork #30 변경] |
 | 저장소 캐시           | `createObjectManager` (`src/common/base/objectManager.ts`)                | id별 저장소 인스턴스를 Promise로 캐시하고 복사 함수를 함께 둔다. main (위젯, 공유)과 renderer 양쪽에서 쓴다 [upstream]                                                                                  |
 | IPC 어댑터 (renderer) | `src/renderer/infra/dataStorage/*.ts`                                     | `DataStorage` 메서드를 IPC invoke로 옮긴다                                                                                                                                                              |
 | JSON, 중복 쓰기 생략  | `withJson`, `setTextOnlyIfChanged` (`src/common/infra/dataStorage/`)      | renderer `prepareDataStorageForRenderer`가 app, 위젯, 공유 저장소에 둘 다 적용한다. telemetry는 `withJson`만 쓴다                                                                                       |
