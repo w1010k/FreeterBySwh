@@ -61,18 +61,39 @@ export async function createFileDataStorage(dataType: 'string', storageDirPath: 
     // storage as best-effort, but make the root cause visible in the logs.
     console.error(`Failed to create data storage directory "${normStorageDirPath}":`, err);
   }
+
+  // Per-file queue: get/set/delete on one file run in call order. writeFile
+  // empties the file before writing, so without this a read issued right after
+  // a write could see an empty file (e.g. a widget that flushes its pending save
+  // on unmount and remounts at once, as when moved between worktable and shelf).
+  // Different files still run in parallel; an entry is dropped once it settles.
+  // ponytail: clear(), getKeys() and copyFileDataStorage() act on the whole
+  // folder and are not ordered against these per-file operations.
+  const queues = new Map<string, Promise<void>>();
+  const inOrder = <T>(filePath: string, op: () => Promise<T>): Promise<T> => {
+    const run = (queues.get(filePath) ?? Promise.resolve()).then(op);
+    const settled = run.then(() => undefined, () => undefined);
+    queues.set(filePath, settled);
+    settled.then(() => {
+      if (queues.get(filePath) === settled) {
+        queues.delete(filePath);
+      }
+    });
+    return run;
+  };
+
   return {
     deleteItem: async (key) => {
       const filePath = storageKeyToFilePath(normStorageDirPath, key);
       if (filePath) {
-        await rm(filePath, { force: true })
+        await inOrder(filePath, () => rm(filePath, { force: true }))
       }
     },
     getText: async (key) => {
       try {
         const filePath = storageKeyToFilePath(normStorageDirPath, key);
         if (filePath) {
-          return await readFile(filePath, { encoding: 'utf-8' })
+          return await inOrder(filePath, () => readFile(filePath, { encoding: 'utf-8' }))
         } else {
           return undefined;
         }
@@ -84,7 +105,7 @@ export async function createFileDataStorage(dataType: 'string', storageDirPath: 
       try {
         const filePath = storageKeyToFilePath(normStorageDirPath, key);
         if (filePath) {
-          return await writeFile(filePath, data, { encoding: 'utf-8' })
+          return await inOrder(filePath, () => writeFile(filePath, data, { encoding: 'utf-8' }))
         } else {
           return undefined;
         }

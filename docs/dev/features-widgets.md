@@ -162,7 +162,7 @@
 | To-Do 프로젝트 공유 | `shared/to-do-list/<projectId 또는 app>/todo` | 같은 공유 관리자                                       | [fork #9]  |
 
 - 키 하나가 파일 하나다. 파일 이름은 키의 `[A-Za-z0-9_\-()\s]` 밖 문자를 `_`로 바꾼 값이다 (`src/main/infra/dataStorage/fileDataStorage.ts`
-  `storageKeyToFilePath`). 읽기·쓰기·삭제가 같은 치환 경로를 쓴다 [fork #30 수정].
+  `storageKeyToFilePath`). 읽기·쓰기·삭제가 같은 치환 경로를 쓴다 [fork #30 수정]. 같은 파일의 읽기·쓰기·삭제는 main에서 호출 순서대로 실행된다 [fork #30 후속].
 - 공유 저장소 id는 `"<widgetType>:<sharedKeyId>"` 합성 문자열이다 (`src/common/base/sharedStorageId.ts` `sharedStorageId`,
   `parseSharedStorageId`).
 - renderer 쪽 저장소는 `prepareDataStorageForRenderer`(`src/renderer/init.ts`)가 `withJson`(JSON 헬퍼)과 `setTextOnlyIfChanged`

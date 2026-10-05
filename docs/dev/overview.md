@@ -343,7 +343,7 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 
 | 계층                  | 위치                                                                      | 동작                                                                                                                                                                                                    |
 |-----------------------|---------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 파일 저장소 (main)    | `createFileDataStorage` (`src/main/infra/dataStorage/fileDataStorage.ts`) | 폴더 하나에 키당 파일 하나. 키의 `[^A-Za-z0-9_\-()\s]` 문자는 `_`로 바꾼다. `writeFile`로 대상 파일에 직접 쓴다 (원자적 쓰기 없음). 읽기, 쓰기 오류는 삼키고 `undefined` 반환 [upstream, fork #30 변경] |
+| 파일 저장소 (main)    | `createFileDataStorage` (`src/main/infra/dataStorage/fileDataStorage.ts`) | 폴더 하나에 키당 파일 하나. 키의 `[^A-Za-z0-9_\-()\s]` 문자는 `_`로 바꾼다. `writeFile`로 대상 파일에 직접 쓴다 (원자적 쓰기 없음). 같은 파일의 `getText`, `setText`, `deleteItem`은 파일 경로별 대기열로 호출 순서대로 실행한다 [fork #30 후속]. 읽기, 쓰기 오류는 삼키고 `undefined` 반환 [upstream, fork #30 변경] |
 | 저장소 캐시           | `createObjectManager` (`src/common/base/objectManager.ts`)                | id별 저장소 인스턴스를 Promise로 캐시하고 복사 함수를 함께 둔다. main (위젯, 공유)과 renderer 양쪽에서 쓴다 [upstream]                                                                                  |
 | IPC 어댑터 (renderer) | `src/renderer/infra/dataStorage/*.ts`                                     | `DataStorage` 메서드를 IPC invoke로 옮긴다                                                                                                                                                              |
 | JSON, 중복 쓰기 생략  | `withJson`, `setTextOnlyIfChanged` (`src/common/infra/dataStorage/`)      | renderer `prepareDataStorageForRenderer`가 app, 위젯, 공유 저장소에 둘 다 적용한다. telemetry는 `withJson`만 쓴다                                                                                       |
@@ -460,8 +460,8 @@ infra 전용 구성: `infra/protocolHandler/` (`freeter-file` 스킴 등록) [up
   (`tests/utils/`)
 - renderer 전용 매핑: 이미지, 폰트, 오디오 → `tests/__mocks__/fileMock.js`, scss → `tests/__mocks__/identity-obj-proxy.js`,
   `@pierre/trees` → 수동 mock [fork #31]
-- 위치: spec은 `tests/<surface>/` 아래에 src와 같은 경로로 둔다 (2026-10-05 기준 289개: main 62, renderer 214, common 12, utils 1). 예외는
-  `src/renderer/widgets/spreadsheet/formula.spec.ts` 1개다
+- 위치: spec은 `tests/<surface>/` 아래에 두고 대부분 src 경로를 그대로 따른다. UI 컴포넌트 spec은 한 단계 위 폴더에 있다 (예: `tests/renderer/ui/components/palette.spec.tsx`).
+  src 안에 있는 spec은 `src/renderer/widgets/spreadsheet/formula.spec.ts` 1개다
 - fixture: 범용 팩토리 `makeFixture` (`tests/utils/makeFixture/makeFixture.ts`, 결과를 `deepFreeze`)와 도메인 fixture
   `tests/<surface>/**/fixtures/` (예: `tests/renderer/base/fixtures/widget.ts`)
 - mock: `tests/main/infra/mocks/` (ipcMain, provider들), `tests/renderer/infra/mocks/`, renderer IPC는

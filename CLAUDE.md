@@ -113,9 +113,9 @@ Widgets are the user-visible units placed into workflows.
 - Renderer tests use `@testing-library/react` + `jest-dom` (setup in `tests/renderer/setupTests.ts`).
 - The generic fixture factory `makeFixture` lives in `tests/utils/` (aliased as `@utils/*`); domain fixtures live in
   `tests/<surface>/**/fixtures/` (e.g. `tests/renderer/base/fixtures/widget.ts`). Prefer these over ad-hoc object literals.
-- Put specs under `tests/<surface>/`, mirroring the source path (`src/renderer/x/y.ts` → `tests/renderer/x/y.spec.ts`);
-  surface-specific helpers go there too. The one spec next to its source is
-  `src/renderer/widgets/spreadsheet/formula.spec.ts`.
+- Put specs under `tests/<surface>/`, mostly mirroring the source path (`src/renderer/x/y.ts` → `tests/renderer/x/y.spec.ts`);
+  UI component specs sit one folder up (`tests/renderer/ui/components/palette.spec.tsx`). Surface-specific helpers go
+  there too. The one spec next to its source is `src/renderer/widgets/spreadsheet/formula.spec.ts`.
 
 ## Verification
 

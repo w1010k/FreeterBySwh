@@ -442,8 +442,10 @@ function SpreadsheetWidget({widgetApi, settings}: WidgetReactComponentProps<Sett
   // Persist pending edits when the app quits (beforeunload): the renderer goes
   // away together with the debounce timers, so an edit made in the last 800ms
   // would never reach disk. Flushing on unmount as well writes right away
-  // instead of up to 800ms later, so a quick remount can't read the old sheet
-  // back. Same pattern as the note and to-do widgets.
+  // instead of up to 800ms later, so a widget that remounts at once (moved
+  // between the worktable and the shelf) reads the new sheet: the main-process
+  // file storage runs that read after the pending write of the same file.
+  // Same pattern as the note and to-do widgets.
   useEffect(() => {
     const flush = () => {
       saveSheet.flush();

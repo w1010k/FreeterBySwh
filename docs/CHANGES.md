@@ -765,6 +765,8 @@ Link Opener / File Opener 버튼을 여러 개 놔두면 전부 똑같은 기본
   - 수정: `tests/renderer/application/useCases/widget/getWidgetApi.spec.ts` (icon 모듈 케이스),
     `tests/renderer/widgets/setupSut.tsx` (widgetApi mock에 icon 추가)
 
+**정정 (2026-10-05)**: 위 표의 "리다이렉트 횟수 제한(3)"은 코드에 없다. `fetchBytes`는 처음 커밋부터 `redirect: 'follow'`로 리다이렉트를 `fetch` 기본 동작에 맡긴다.
+
 ---
 
 ## 22. Link/File Opener 동적 타이틀 *(2026-04-18)*
@@ -1373,6 +1375,10 @@ Webpage 위젯에 포커스가 있을 때 `F5` 또는 `Ctrl/Cmd+R`로 페이지�
 - **렌더 성능은 대부분 이미 최적화돼 있었다**: 리스트 아이템 중 `WidgetLayoutItem`·`Palette`·`WorkflowSwitcher`는 이미 `memo`. `ShelfItem`만 누락이라
   일관성 차원에서 `memo` 추가. resize/scroll throttle은 `mouseup` 최종값 보정·`scrollLeft` 위치 계산 의존 때문에 회귀 위험 대비 이득이 불확실해 측정 기반 별도 과제로
   보류.
+- **(후속, 2026-10-05) 같은 파일의 작업 순서 보장**: `createFileDataStorage`가 파일 경로별 대기열로 `getText`, `setText`, `deleteItem`을 호출 순서대로 실행한다. `writeFile`은 파일을
+  먼저 비운 뒤 쓰므로, 쓰기 직후 같은 파일을 읽으면 빈 내용을 받을 수 있었다 (이 PC에서 같은 방식으로 실험하니 2,000회 중 2회). 위젯이 언마운트 flush 직후 바로 다시 마운트되는
+  경우 (worktable과 셸프 사이 이동)에 이 경로가 생기고, 빈 내용을 본 상태에서 편집하면 전체 내용이 덮어써질 수 있었다. 수정 후 같은 실험은 2,000회 모두 새 내용을 읽었다.
+  폴더 단위 작업 (`clear`, `getKeys`)과 폴더 복사 (`copyFileDataStorage`)는 순서 보장 밖이다.
 
 ### 수정 파일
 
@@ -1386,6 +1392,7 @@ Webpage 위젯에 포커스가 있을 때 `F5` 또는 `Ctrl/Cmd+R`로 페이지�
 - **수정**: `src/renderer/ui/components/topBar/shelf/shelfItem.tsx` (`memo`)
 - **테스트**: `tests/main/infra/dataStorage/fileDataStorage.spec.ts` (신규), `tests/common/helpers/debounce.spec.ts`,
   `tests/common/data/store.spec.ts`
+- **(후속) 수정**: `src/main/infra/dataStorage/fileDataStorage.ts` (파일 경로별 대기열). **(후속) 테스트**: `tests/main/infra/dataStorage/fileDataStorageOrder.spec.ts` (신규)
 
 ---
 
@@ -1637,7 +1644,8 @@ Note와 To-Do List의 디스크 저장은 디바운스 (노트 800ms, 투두 500
 - 투두 saver는 scope (프로젝트/`'app'`)별 공유라 어느 형제 위젯에서 flush해도 같은 보류 쓰기를 비운다.
 - **(후속, 2026-10-05) Spreadsheet에도 적용**: Spreadsheet 위젯 (#79)의 800ms 지연 저장 4개 (시트, 열 너비, 행 높이, 열 수 변화 `colDelta`)에도 같은 effect를 넣었다.
   Spreadsheet로 확인해 보니 언마운트만으로는 손실이 없었다 (대기 중인 저장이 언마운트 뒤에도 실행됨). 손실 경로는 앱 종료다 (`beforeunload` 뒤 renderer와 함께 타이머가 사라짐, 이 부분은 추정).
-  언마운트 flush는 Note, To-Do와 같은 방식을 유지하고, 빠른 재마운트 때 옛 데이터를 읽는 틈을 없애려고 넣었다.
+  언마운트 flush는 Note, To-Do와 같은 방식이다. 위젯이 바로 다시 마운트되면 그 읽기가 flush 쓰기 뒤에 실행되어야 새 내용을 읽으므로, 파일 저장소의 순서 보장 (#30 후속)을
+  함께 넣었다.
 
 ### 수정 파일
 

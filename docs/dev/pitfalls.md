@@ -238,7 +238,8 @@
 - 증상: 변경 직후 앱을 닫거나 워크플로우를 바꾸면 마지막 변경이 사라졌다.
 - 원인: 앱 상태는 5초, Note와 Spreadsheet는 800ms, To-Do는 500ms 디바운스로 저장한다. 위젯별 디바운스는 앱 상태 flush와 별개다. 확인된 손실 경로는 앱 종료다:
   `beforeunload` 때 대기 중인 저장이 실행되지 않으면, renderer가 닫히면서 타이머도 사라진다 (추정). 언마운트만으로는 대기 중인 저장이 사라지지 않았다 (Spreadsheet로
-  확인, 타이머가 언마운트 뒤에도 실행됨). 언마운트 flush는 빠른 재마운트 때 옛 데이터를 읽는 틈을 없앤다.
+  확인, 타이머가 언마운트 뒤에도 실행됨). 언마운트 flush 직후 위젯이 바로 다시 마운트되어도 새 내용을 읽는다. 파일 저장소가 같은 파일의 작업을 순서대로 실행하기
+  때문이다 ("같은 파일의 읽기와 쓰기 순서").
 - 규칙: 디바운스 저장을 쓰는 위젯은 `beforeunload` 리스너와 언마운트 cleanup에서 `flush()`를 부른다. 앱 상태 flush (`will-quit`의 `windowStore.flush`,
   `beforeunload`의 `appStore.flush`)는 쓰기를 발사만 하고 완료를 기다리지 않는다 (best-effort).
 - 근거: CHANGES #30, #40 (Spreadsheet 후속 포함), `src/common/helpers/debounce.ts`, `src/renderer/widgets/note/widget.tsx`,
@@ -265,6 +266,18 @@
   `getKeys`는 변환된 파일명을 돌려준다.
 - 규칙: 저장 키는 허용 문자 안에서 만든다. 읽기, 쓰기, 삭제가 같은 변환을 거치는지 확인한다.
 - 근거: CHANGES #30, `src/main/infra/dataStorage/fileDataStorage.ts` `storageKeyToFilePath`
+
+#### 같은 파일의 읽기와 쓰기 순서
+
+- 출처: `[fork #30 후속]`
+- 증상: (2026-10-05 이전) 위젯을 worktable과 셸프 사이로 옮기면, 재마운트가 빈 내용을 읽을 수 있었다. 빈 내용을 본 상태에서 편집하면 전체 내용이 덮어써진다.
+- 원인: `writeFile`은 파일을 먼저 비운 뒤 쓴다. 언마운트 flush의 쓰기 직후 재마운트가 같은 파일을 읽으면, 쓰기 중간의 빈 파일을 읽을 수 있다. 이 PC에서 같은 방식으로
+  실험하니 2,000회 중 2회 발생했다. 셸프 위젯은 항상 마운트되어 있어서 (`visibility: hidden`) 위젯을 옮기면 언마운트 직후 바로 다시 마운트된다.
+- 규칙: `createFileDataStorage`의 `getText`, `setText`, `deleteItem`은 파일 경로별 대기열 (`inOrder`)을 거친다. 같은 파일을 읽고 쓰는 새 경로도 이 대기열을 거치게 한다. 렌더러의 flush 쓰기와 재마운트 읽기는 같은 깊이의 호출 경로로 IPC를 보내고, main의
+  use case도 같은 깊이라서 쓰기가 대기열에 먼저 들어간다 (코드 경로 기준, 앱 실행으로는 확인하지 않음).
+  폴더 단위 작업 (`clear`, `getKeys`)과 폴더 복사 (`copyFileDataStorage`)는 대기열 밖이다. Analytics 서버도 telemetry를 같은 저장소 인스턴스의 `getText`로 읽으므로 대기열을 거친다. 서버는
+  내용이 배열 모양이 아니면 그날을 빈 날로 처리한다 (CHANGES #87, `src/main/infra/analyticsServer/analyticsServer.ts`).
+- 근거: CHANGES #30 후속, `src/main/infra/dataStorage/fileDataStorage.ts` `createFileDataStorage`, `tests/main/infra/dataStorage/fileDataStorageOrder.spec.ts`
 
 #### 변경 검사 래퍼의 적용 범위
 
@@ -372,7 +385,7 @@
 - 출처: `[fork #21]`
 - 증상: (회피) 악성·거대 응답, HTML 에러 페이지가 아이콘으로 캐시될 수 있다.
 - 원인: favicon은 임의 origin에서 받는다. HTML 에러 페이지가 `<script>`로 시작하면 초기 매직 바이트 검사가 SVG로 오판했다.
-- 규칙: `iconProvider`를 고칠 때 `http:`/`https:` 화이트리스트, 256KB 상한, 4초 타임아웃, 리다이렉트 3회, 매직 바이트 MIME 판정, "첫 512바이트 안의 `<svg>`"
+- 규칙: `iconProvider`를 고칠 때 `http:`/`https:` 화이트리스트, 256KB 상한, 4초 타임아웃, 매직 바이트 MIME 판정, "첫 512바이트 안의 `<svg>`"
   SVG 판정을 유지한다. 서드파티 favicon 서비스는 쓰지 않는다 (프라이버시).
 - 근거: CHANGES #21, `src/main/infra/iconProvider/iconProvider.ts`
 
