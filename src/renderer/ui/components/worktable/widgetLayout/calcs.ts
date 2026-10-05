@@ -3,11 +3,12 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { WidgetLayoutItemRect, widgetLayoutVisibleCols, widgetLayoutVisibleRows } from '@/base/widgetLayout';
-import { RectPx, WHPx, XYPx } from '@/ui/types/dimensions';
+import {WidgetLayoutItemRect, widgetLayoutVisibleCols, widgetLayoutVisibleRows} from '@/base/widgetLayout';
+import {RectPx, WHPx, XYPx} from '@/ui/types/dimensions';
 
-const itemMargin: XYPx = { xPx: 4, yPx: 4 };
-const layoutPadding: XYPx = { xPx: 4, yPx: 4 };
+const itemMargin: XYPx = {xPx: 4, yPx: 4};
+// Keep in sync with the `.layout-item:after` spacer in widgetLayout.module.scss.
+const layoutPadding: XYPx = {xPx: 4, yPx: 4};
 
 /**
  * Functions to calc grid XYWH in pixels and units (cols/rows)
@@ -63,7 +64,7 @@ export function itemRectUnitsToPx(rectUnits: WidgetLayoutItemRect, colWidthPx: n
   const xPx = _itemXYUnitsToPx(rectUnits.x, colWidthPx, layoutPadding.xPx, itemMargin.xPx);
   const yPx = _itemXYUnitsToPx(rectUnits.y, rowHeightPx, layoutPadding.yPx, itemMargin.yPx);
 
-  return { xPx, yPx, wPx, hPx };
+  return {xPx, yPx, wPx, hPx};
 }
 
 export function _itemWHPxToUnits(wOrHPx: number, colOrRowSizePx: number, marginXOrYPx: number): number {
@@ -108,5 +109,5 @@ export function itemRectPxToUnits(rectPx: RectPx, colWidthPx: number, rowHeightP
   const x = _itemXYPxToUnits(rectPx.xPx, colWidthPx, layoutPadding.xPx, itemMargin.xPx);
   const y = _itemXYPxToUnits(rectPx.yPx, rowHeightPx, layoutPadding.yPx, itemMargin.yPx);
 
-  return { x, y, w, h };
+  return {x, y, w, h};
 }

@@ -3,14 +3,13 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import React, { CSSProperties, memo, useMemo } from 'react';
+import {add14Svg, editMode24Svg} from '@/ui/assets/images/appIcons';
+import {InAppNote} from '@/ui/components/basic/inAppNote';
+import {SvgIcon} from '@/ui/components/basic/svgIcon';
+import {WidgetLayoutProps} from '@/ui/components/worktable/widgetLayout';
+import {WorktableViewModel} from '@/ui/components/worktable/worktableViewModel';
+import React, {CSSProperties, memo, useMemo} from 'react';
 import styles from './worktable.module.scss';
-import { WorktableViewModel } from '@/ui/components/worktable/worktableViewModel';
-import { WidgetLayoutProps } from '@/ui/components/worktable/widgetLayout';
-import { InAppNote } from '@/ui/components/basic/inAppNote';
-import { SvgIcon } from '@/ui/components/basic/svgIcon';
-import { editMode24Svg } from '@/ui/assets/images/appIcons';
-import { add14Svg } from '@/ui/assets/images/appIcons';
 
 type Deps = {
   WidgetLayout: React.FC<WidgetLayoutProps>;
@@ -18,9 +17,9 @@ type Deps = {
 }
 
 export function createWorktableComponent({
-  WidgetLayout,
-  useWorktableViewModel
-}: Deps) {
+                                           WidgetLayout,
+                                           useWorktableViewModel
+                                         }: Deps) {
   function WorktableComponent() {
     const {
       currentWorkflowId,
@@ -66,21 +65,21 @@ export function createWorktableComponent({
     return noWorkflows
       ? (
         !isEditMode
-        ? <InAppNote className={styles['no-workflows']}>
+          ? <InAppNote className={styles['no-workflows']}>
             {'The project does not have any workflows. Enable Edit Mode with '}
-            <SvgIcon svg={editMode24Svg} className={styles['edit-mode-icon']} />
-            {' button above (or under the Edit menu) to edit it.'}
+            <SvgIcon svg={editMode24Svg} className={styles['edit-mode-icon']}/>
+            {' button (or the Edit menu) to edit it.'}
           </InAppNote>
-        : <InAppNote className={styles['no-workflows']}>
+          : <InAppNote className={styles['no-workflows']}>
             {'Click '}
-            <SvgIcon svg={add14Svg} className={styles['add-icon']} />
-            {' button at the Tab Bar above to add a workflow to the project.'}
+            <SvgIcon svg={add14Svg} className={styles['add-icon']}/>
+            {' button in the Workflow Bar to add a workflow to the project.'}
           </InAppNote>
-        )
+      )
       : <div
         className={styles.worktable}
       >
-        {bgStyle && <div data-testid="worktable-bg" className={styles['worktable-bg']} style={bgStyle} />}
+        {bgStyle && <div data-testid="worktable-bg" className={styles['worktable-bg']} style={bgStyle}/>}
         {activeWorkflows.map(({wfl, prjId}) => {
           const isCurrentWorkflow = wfl.id === currentWorkflowId;
           return <WidgetLayout
@@ -100,5 +99,6 @@ export function createWorktableComponent({
         })}
       </div>
   }
+
   return memo(WorktableComponent);
 }

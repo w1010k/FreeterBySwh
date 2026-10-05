@@ -3,8 +3,14 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { Entity, EntityId } from '@/base/entity';
-import { EntityList, findEntityIndexOnList, findEntityOnList, removeEntityFromListAtIndex, updateEntityOnList } from '@/base/entityList';
+import {Entity, EntityId} from '@/base/entity';
+import {
+  EntityList,
+  findEntityIndexOnList,
+  findEntityOnList,
+  removeEntityFromListAtIndex,
+  updateEntityOnList
+} from '@/base/entityList';
 
 export const widgetLayoutVisibleCols = 32;
 export const widgetLayoutVisibleRows = 16;
@@ -20,7 +26,8 @@ export interface WidgetLayoutItemWH {
   readonly h: number;
 }
 
-export interface WidgetLayoutItemRect extends WidgetLayoutItemXY, WidgetLayoutItemWH { }
+export interface WidgetLayoutItemRect extends WidgetLayoutItemXY, WidgetLayoutItemWH {
+}
 
 export interface WidgetLayoutItem extends Entity {
   readonly widgetId: string;
@@ -33,6 +40,7 @@ interface WidgetLayoutItemMutableRect extends WidgetLayoutItem {
   rect: WidgetLayoutItemRect;
   initiator: boolean;
 }
+
 type WidgetLayoutItemsMutableRect = Array<WidgetLayoutItemMutableRect>;
 
 function _itemsCollide(item1: WidgetLayoutItem, item2: WidgetLayoutItem): boolean {
@@ -74,7 +82,7 @@ function _fixCollisionsIter(
       continue;
     }
 
-    Object.assign(collision.rect, { y: item.rect.y + item.rect.h });
+    Object.assign(collision.rect, {y: item.rect.y + item.rect.h});
     layout = _fixCollisionsIter(layout, collision);
   }
 
@@ -87,7 +95,7 @@ function _fixCollisions(
 ): WidgetLayout {
   const layoutMutableRect = layout.map((item): WidgetLayoutItemMutableRect => ({
     ...item,
-    rect: { ...item.rect },
+    rect: {...item.rect},
     initiator: (item.id === itemId)
   }));
 
@@ -98,7 +106,7 @@ function _fixCollisions(
 
   const newLayout = _fixCollisionsIter(layoutMutableRect, item)
     .map((item): WidgetLayoutItem => {
-      const { initiator, ...rest } = item;
+      const {initiator, ...rest} = item;
       return rest;
     })
 
@@ -126,7 +134,7 @@ function _updateLayoutItemRect(
   itemId: string,
   newRect: WidgetLayoutItemRect
 ): WidgetLayout {
-  let newLayout = updateEntityOnList(layout, { id: itemId, rect: newRect });
+  let newLayout = updateEntityOnList(layout, {id: itemId, rect: newRect});
   newLayout = _fixCollisions(newLayout, itemId);
   return newLayout;
 }
@@ -145,7 +153,7 @@ export function createLayoutItem(
   layout: WidgetLayout,
   props: LayoutItemProps
 ): [layout: WidgetLayout, layoutItem: WidgetLayoutItem | null] {
-  const { id, rect, widgetId } = props;
+  const {id, rect, widgetId} = props;
 
   const sameIdItem = findEntityOnList(layout, id);
   if (sameIdItem) {
@@ -171,7 +179,7 @@ export function createLayoutItemAtFreeArea(
     readonly widgetId: EntityId;
   }
 ): [layout: WidgetLayout, layoutItem: WidgetLayoutItem | null] {
-  const { size, id, widgetId } = itemProps;
+  const {size, id, widgetId} = itemProps;
 
   const sameIdItem = findEntityOnList(layout, id);
   if (sameIdItem) {
@@ -183,7 +191,7 @@ export function createLayoutItemAtFreeArea(
   const sorted = _sortItems([...layout]);
   for (let y = 0; ; y++) {
     for (let x = 0; x <= widgetLayoutVisibleCols - size.w;) {
-      const item: WidgetLayoutItem = { id, widgetId, rect: { x, y, ...size } };
+      const item: WidgetLayoutItem = {id, widgetId, rect: {x, y, ...size}};
       const collisions = _getCollisions(sorted, item);
       if (collisions.length < 1) {
         return [[...layout, item], item];
@@ -204,14 +212,17 @@ export function moveLayoutItem(
     return layout;
   }
 
-  const { rect } = item;
+  const {rect} = item;
   const newRect = _fixRect({
     ...rect,
     ...toXY
   })
 
+  // w is compared too: _fixRect can narrow an item saved wider than the grid
+  // even when it is dropped back at its own x/y.
   if (rect.y === newRect.y
-    && rect.x === newRect.x) {
+    && rect.x === newRect.x
+    && rect.w === newRect.w) {
     return layout;
   }
 
@@ -240,8 +251,8 @@ export function resizeLayoutItemByEdges(
     return layout;
   }
 
-  const { rect } = item;
-  let { x, y, w, h } = rect;
+  const {rect} = item;
+  let {x, y, w, h} = rect;
 
   if (delta.left) {
     const deltaLeft = Math.min(x, Math.max(minSize.w - w, delta.left));
@@ -254,10 +265,18 @@ export function resizeLayoutItemByEdges(
     h += deltaTop;
   }
   if (delta.right) {
-    // Cap growth so the right edge stays within the grid (x + w <= cols).
-    const maxRight = widgetLayoutVisibleCols - x - w;
+    // Cap growth so the right edge stays within the grid (x + w <= cols). Floored
+    // at 0: an item already past the edge (saved before this clamp existed) must
+    // not shrink when dragged outward; moving it pulls it back inside (_fixRect).
+    const maxRight = Math.max(0, widgetLayoutVisibleCols - x - w);
     const deltaRight = Math.max(minSize.w - w, Math.min(delta.right, maxRight));
     w += deltaRight;
+    // Growing up to minSize outranks the cap (an item saved smaller than a later
+    // raised minSize). If that pushes an item that fit the grid past the edge,
+    // grow leftward instead so it stays inside.
+    if (rect.x + rect.w <= widgetLayoutVisibleCols && x + w > widgetLayoutVisibleCols) {
+      x = Math.max(0, widgetLayoutVisibleCols - w);
+    }
   }
   if (delta.bottom) {
     const deltaBottom = Math.max(minSize.h - h, delta.bottom);
@@ -271,5 +290,5 @@ export function resizeLayoutItemByEdges(
     return layout;
   }
 
-  return _updateLayoutItemRect(layout, itemId, { x, y, w, h });
+  return _updateLayoutItemRect(layout, itemId, {x, y, w, h});
 }

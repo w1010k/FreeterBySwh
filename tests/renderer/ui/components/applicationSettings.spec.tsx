@@ -3,20 +3,23 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { render, screen, fireEvent, act } from '@testing-library/react';
-import { createApplicationSettingsComponent, createApplicationSettingsViewModelHook} from '@/ui/components/applicationSettings'
-import { createAppStateHook } from '@/ui/hooks/appState';
-import { fixtureAppState } from '@tests/base/state/fixtures/appState';
-import { fixtureAppStore } from '@tests/data/fixtures/appStore';
-import { AppState } from '@/base/state/app';
+import {ProcessProvider} from '@/application/interfaces/processProvider';
+import {createGetMainHotkeyOptionsUseCase} from '@/application/useCases/applicationSettings/getMainHotkeyOptions';
+import {AppState} from '@/base/state/app';
+import {
+  createApplicationSettingsComponent,
+  createApplicationSettingsViewModelHook
+} from '@/ui/components/applicationSettings'
+import {createAppStateHook} from '@/ui/hooks/appState';
+import {ProcessInfo} from '@common/base/process';
+import {act, fireEvent, render, screen} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createGetMainHotkeyOptionsUseCase } from '@/application/useCases/applicationSettings/getMainHotkeyOptions';
-import { ProcessProvider } from '@/application/interfaces/processProvider';
-import { fixtureProcessInfoLinux } from '@testscommon/base/fixtures/process';
-import { ProcessInfo } from '@common/base/process';
-import { fixtureAppConfig } from '@tests/base/fixtures/appConfig';
-import { fixtureApplicationSettings } from '@tests/base/state/fixtures/applicationSettings';
-import { fixtureModalScreens, fixtureModalScreensData } from '@tests/base/state/fixtures/modalScreens';
+import {fixtureAppConfig} from '@tests/base/fixtures/appConfig';
+import {fixtureApplicationSettings} from '@tests/base/state/fixtures/applicationSettings';
+import {fixtureAppState} from '@tests/base/state/fixtures/appState';
+import {fixtureModalScreens, fixtureModalScreensData} from '@tests/base/state/fixtures/modalScreens';
+import {fixtureAppStore} from '@tests/data/fixtures/appStore';
+import {fixtureProcessInfoLinux} from '@testscommon/base/fixtures/process';
 
 async function setup(
   appState: AppState,
@@ -40,7 +43,7 @@ async function setup(
     showMessageBox: jest.fn(),
     showOpenFileDialog: jest.fn(),
     showSaveFileDialog: jest.fn(),
-    showOpenDirDialog: jest.fn().mockResolvedValue({ canceled: true, filePaths: [] }),
+    showOpenDirDialog: jest.fn().mockResolvedValue({canceled: true, filePaths: []}),
   };
 
   const useApplicationSettingsViewModel = createApplicationSettingsViewModelHook({
@@ -56,7 +59,7 @@ async function setup(
     useApplicationSettingsViewModel
   })
   const comp = render(
-    <ApplicationSettings />
+    <ApplicationSettings/>
   );
 
   return {
@@ -121,11 +124,11 @@ describe('<ApplicationSettings />', () => {
       name: /cancel/i
     });
 
-    expect(closeApplicationSettingsUseCase).toHaveBeenCalledTimes( 0);
+    expect(closeApplicationSettingsUseCase).toHaveBeenCalledTimes(0);
 
     fireEvent.click(elButton);
 
-    expect(closeApplicationSettingsUseCase).toHaveBeenCalledTimes( 1);
+    expect(closeApplicationSettingsUseCase).toHaveBeenCalledTimes(1);
   })
 
   it('should call a right usecase with right params when clicking the save button', async () => {
@@ -145,11 +148,11 @@ describe('<ApplicationSettings />', () => {
       name: /ok/i
     });
 
-    expect(saveApplicationSettingsUseCase).toHaveBeenCalledTimes( 0);
+    expect(saveApplicationSettingsUseCase).toHaveBeenCalledTimes(0);
 
     fireEvent.click(elButton);
 
-    expect(saveApplicationSettingsUseCase).toHaveBeenCalledTimes( 1);
+    expect(saveApplicationSettingsUseCase).toHaveBeenCalledTimes(1);
   })
 
   describe('Settings Controls', () => {
@@ -166,10 +169,10 @@ describe('<ApplicationSettings />', () => {
           })
         }
       }));
-      const mainHotkeyOptions= getMainHotkeyOptionsUseCase()
+      const mainHotkeyOptions = getMainHotkeyOptionsUseCase()
 
-      expect(screen.getByRole('combobox', { name: /^Hotkey Combination$/i })).toHaveValue(appConfig.mainHotkey);
-      expect(screen.getByRole('combobox', { name: /^User Interface Theme$/i })).toHaveValue(appConfig.uiTheme);
+      expect(screen.getByRole('combobox', {name: /^Hotkey Combination$/i})).toHaveValue(appConfig.mainHotkey);
+      expect(screen.getByRole('combobox', {name: /^User Interface Theme$/i})).toHaveValue(appConfig.uiTheme);
 
       const appConfig2 = fixtureAppConfig({mainHotkey: mainHotkeyOptions[1].value, uiTheme: 'dark'});
       act(() => appStore.set(fixtureAppState({
@@ -184,13 +187,13 @@ describe('<ApplicationSettings />', () => {
         }
       })))
 
-      expect(screen.getByRole('combobox', { name: /^Hotkey Combination$/i })).toHaveValue(appConfig2.mainHotkey);
-      expect(screen.getByRole('combobox', { name: /^User Interface Theme$/i })).toHaveValue(appConfig2.uiTheme);
+      expect(screen.getByRole('combobox', {name: /^Hotkey Combination$/i})).toHaveValue(appConfig2.mainHotkey);
+      expect(screen.getByRole('combobox', {name: /^User Interface Theme$/i})).toHaveValue(appConfig2.uiTheme);
     })
 
     it('should call updateApplicationSettingsUseCase with right args when editing the hotkey', async () => {
       const curHotkey = '';
-      const appConfig = fixtureAppConfig({ mainHotkey: curHotkey });
+      const appConfig = fixtureAppConfig({mainHotkey: curHotkey});
       const {updateApplicationSettingsUseCase, getMainHotkeyOptionsUseCase} = await setup(fixtureAppState({
         ui: {
           modalScreens: fixtureModalScreens({
@@ -203,15 +206,56 @@ describe('<ApplicationSettings />', () => {
         }
       }));
       const hotkeyOptions = getMainHotkeyOptionsUseCase();
-      const select = screen.getByRole('combobox', { name: /^Hotkey Combination$/i })
+      const select = screen.getByRole('combobox', {name: /^Hotkey Combination$/i})
 
       await userEvent.selectOptions(select, hotkeyOptions[1].caption);
 
-      expect(updateApplicationSettingsUseCase).toHaveBeenCalledTimes( 1);
+      expect(updateApplicationSettingsUseCase).toHaveBeenCalledTimes(1);
       expect(updateApplicationSettingsUseCase).toHaveBeenCalledWith({
         ...appConfig,
         mainHotkey: hotkeyOptions[1].value
       })
+    })
+
+    describe('workflow bar width', () => {
+      const setupSide = async () => {
+        const appConfig = fixtureAppConfig({workflowBarPos: 'left', workflowBarWidth: 200});
+        const res = await setup(fixtureAppState({
+          ui: {
+            modalScreens: fixtureModalScreens({
+              data: fixtureModalScreensData({
+                applicationSettings: fixtureApplicationSettings({
+                  appConfig,
+                })
+              })
+            })
+          }
+        }));
+        return {...res, appConfig, input: screen.getByRole('spinbutton', {name: 'Workflow bar width'})};
+      };
+
+      it('should let the user type a value without clamping intermediate keystrokes', async () => {
+        const {updateApplicationSettingsUseCase, appConfig, input} = await setupSide();
+
+        await userEvent.clear(input);
+        await userEvent.type(input, '300');
+
+        expect(input).toHaveValue(300);
+        // "3" and "30" are out of range and must not be pushed as 120.
+        expect(updateApplicationSettingsUseCase).toHaveBeenCalledTimes(1);
+        expect(updateApplicationSettingsUseCase).toHaveBeenCalledWith({...appConfig, workflowBarWidth: 300});
+      });
+
+      it('should clamp an out-of-range value on blur', async () => {
+        const {updateApplicationSettingsUseCase, appConfig, input} = await setupSide();
+
+        await userEvent.clear(input);
+        await userEvent.type(input, '9999');
+        await userEvent.tab();
+
+        expect(input).toHaveValue(600);
+        expect(updateApplicationSettingsUseCase).toHaveBeenLastCalledWith({...appConfig, workflowBarWidth: 600});
+      });
     })
   })
 })

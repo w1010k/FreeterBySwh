@@ -3,22 +3,60 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { ApplicationSettingsViewModelHook } from '@/ui/components/applicationSettings/applicationSettingsViewModel';
-import clsx from 'clsx';
-import styles from './applicationSettings.module.scss';
+import {workflowBarMaxWidth, workflowBarMinWidth} from '@/application/useCases/applicationSettings/setWorkflowBarWidth';
+import {convertBoolToStr, convertStrToBool} from '@/base/convTypes';
+import {ApplicationSettingsViewModelHook} from '@/ui/components/applicationSettings/applicationSettingsViewModel';
+import {SettingsScreen} from '@/ui/components/basic/settingsScreen/settingsScreen';
 import settingsScreenStyles from '@/ui/components/basic/settingsScreen/settingsScreen.module.scss'
-import { SettingsScreen } from '@/ui/components/basic/settingsScreen/settingsScreen';
-import { SettingBlock } from '@/widgets/appModules';
-import { memo } from 'react';
-import { convertBoolToStr, convertStrToBool } from '@/base/convTypes';
+import {SettingBlock} from '@/widgets/appModules';
+import clsx from 'clsx';
+import {memo, useState} from 'react';
+import styles from './applicationSettings.module.scss';
+
+/**
+ * Width input for the side workflow bar. Keeps the raw text while typing so
+ * intermediate values ("3" on the way to "300") aren't clamped away under the
+ * cursor; only in-range values reach the settings live, and blur snaps the text
+ * to the clamped value. Clicking OK blurs the field first, so an out-of-range
+ * entry is never saved.
+ */
+function WorkflowBarWidthInput({value, onChange}: { value: number; onChange: (width: number) => void }) {
+  const [draft, setDraft] = useState(String(value));
+  const inRange = (n: number) => n >= workflowBarMinWidth && n <= workflowBarMaxWidth;
+  return (
+    <input
+      type="number"
+      aria-label="Workflow bar width"
+      min={workflowBarMinWidth}
+      max={workflowBarMaxWidth}
+      step={10}
+      value={draft}
+      onChange={e => {
+        setDraft(e.target.value);
+        const n = Number.parseInt(e.target.value);
+        if (inRange(n)) {
+          onChange(n);
+        }
+      }}
+      onBlur={() => {
+        const n = Number.parseInt(draft);
+        const committed = Number.isNaN(n) ? value : Math.min(workflowBarMaxWidth, Math.max(workflowBarMinWidth, n));
+        setDraft(String(committed));
+        if (committed !== value) {
+          onChange(committed);
+        }
+      }}
+    />
+  );
+}
 
 type Deps = {
   useApplicationSettingsViewModel: ApplicationSettingsViewModelHook;
 }
 
 export function createApplicationSettingsComponent({
-  useApplicationSettingsViewModel,
-}: Deps) {
+                                                     useApplicationSettingsViewModel,
+                                                   }: Deps) {
   function ApplicationSettings() {
 
     const {
@@ -37,219 +75,227 @@ export function createApplicationSettingsComponent({
     } = useApplicationSettingsViewModel();
 
     if (appConfig) {
-      return (<SettingsScreen title='Application Settings' onOkClick={onOkClickHandler} onCancelClick={onCancelClickHandler}>
-        <div className={clsx(settingsScreenStyles['settings-screen-panel'], styles['settings-editor'])}>
-          <SettingBlock
-            titleForId='main-hot-key'
-            title='Hotkey Combination'
-            moreInfo='Hotkey enables you to bring Freeter to the front of the screen by pressing the specified key
+      return (
+        <SettingsScreen title='Application Settings' onOkClick={onOkClickHandler} onCancelClick={onCancelClickHandler}>
+          <div className={clsx(settingsScreenStyles['settings-screen-panel'], styles['settings-editor'])}>
+            <SettingBlock
+              titleForId='main-hot-key'
+              title='Hotkey Combination'
+              moreInfo='Hotkey enables you to bring Freeter to the front of the screen by pressing the specified key
                       combination.'
-          >
-            <select id="main-hot-key" value={appConfig.mainHotkey} onChange={e => updateSettings({
-              ...appConfig,
-              mainHotkey: e.target.value
-            })}>
-              {hotkeyOptions.map(item=>(
-                <option key={item.value} value={item.value}>{item.caption}</option>
-              ))}
-            </select>
-          </SettingBlock>
+            >
+              <select id="main-hot-key" value={appConfig.mainHotkey} onChange={e => updateSettings({
+                ...appConfig,
+                mainHotkey: e.target.value
+              })}>
+                {hotkeyOptions.map(item => (
+                  <option key={item.value} value={item.value}>{item.caption}</option>
+                ))}
+              </select>
+            </SettingBlock>
 
-          <SettingBlock
-            titleForId='ui-theme'
-            title='User Interface Theme'
-            moreInfo='The interface theme defines the appearance of all visual elements of the user interface.'
-          >
-            <select id="ui-theme" value={appConfig.uiTheme} onChange={e => updateSettings({
-              ...appConfig,
-              uiTheme: e.target.value
-            })}>
-              {uiThemeOptions.map(item=>(
-                <option key={item.id} value={item.id}>{item.name}</option>
-              ))}
-            </select>
-          </SettingBlock>
+            <SettingBlock
+              titleForId='ui-theme'
+              title='User Interface Theme'
+              moreInfo='The interface theme defines the appearance of all visual elements of the user interface.'
+            >
+              <select id="ui-theme" value={appConfig.uiTheme} onChange={e => updateSettings({
+                ...appConfig,
+                uiTheme: e.target.value
+              })}>
+                {uiThemeOptions.map(item => (
+                  <option key={item.id} value={item.id}>{item.name}</option>
+                ))}
+              </select>
+            </SettingBlock>
 
-          <SettingBlock
-            titleForId='workflow-bar-pos'
-            title='Workflow bar position'
-            moreInfo='Where the workflow tab bar sits. Left/Right show it as a vertical side panel whose width you can set here (or drag its edge while in Edit Mode).'
-          >
-            <select id="workflow-bar-pos" value={appConfig.workflowBarPos} onChange={e => updateSettings({
-              ...appConfig,
-              workflowBarPos: e.target.value as typeof appConfig.workflowBarPos
-            })}>
-              <option value="top">Top</option>
-              <option value="bottom">Bottom</option>
-              <option value="left">Left</option>
-              <option value="right">Right</option>
-            </select>
-            {(appConfig.workflowBarPos === 'left' || appConfig.workflowBarPos === 'right') && <div className={styles['download-dir-row']}>
-              <span>Width</span>
-              <input
-                type="number"
-                min={120}
-                max={600}
-                step={10}
-                value={appConfig.workflowBarWidth}
+            <SettingBlock
+              titleForId='workflow-bar-pos'
+              title='Workflow bar position'
+              moreInfo='Where the workflow tab bar sits. Left/Right show it as a vertical side panel whose width you can set here (or drag its edge while in Edit Mode).'
+            >
+              <select id="workflow-bar-pos" value={appConfig.workflowBarPos} onChange={e => updateSettings({
+                ...appConfig,
+                workflowBarPos: e.target.value as typeof appConfig.workflowBarPos
+              })}>
+                <option value="top">Top</option>
+                <option value="bottom">Bottom</option>
+                <option value="left">Left</option>
+                <option value="right">Right</option>
+              </select>
+              {(appConfig.workflowBarPos === 'left' || appConfig.workflowBarPos === 'right') &&
+                <div className={styles['download-dir-row']}>
+                  <span>Width</span>
+                  <WorkflowBarWidthInput
+                    value={appConfig.workflowBarWidth}
+                    onChange={workflowBarWidth => updateSettings({
+                      ...appConfig,
+                      workflowBarWidth
+                    })}
+                  />
+                  <span>px</span>
+                </div>}
+            </SettingBlock>
+
+            <SettingBlock
+              titleForId='download-dir'
+              title='Download folder'
+              moreInfo='Where files downloaded from Webpage widgets are saved. Leave empty to use the
+                      system default Downloads folder.'
+            >
+              <div className={styles['download-dir-row']}>
+                <input
+                  id="download-dir"
+                  type="text"
+                  value={appConfig.downloadDir}
+                  placeholder='Default (system Downloads folder)'
+                  onChange={e => updateSettings({...appConfig, downloadDir: e.target.value})}
+                />
+                <button type="button" onClick={onBrowseDownloadDirHandler}>Browse…</button>
+                {appConfig.downloadDir !== '' &&
+                  <button type="button" onClick={onResetDownloadDirHandler}>Use default</button>}
+              </div>
+            </SettingBlock>
+
+            <SettingBlock
+              titleForId='worktable-bg-color'
+              title='Workflow background color'
+              moreInfo='Custom background color for the workflow area. Leave as default to use the theme color.'
+            >
+              <div className={styles['download-dir-row']}>
+                <input
+                  id="worktable-bg-color"
+                  type="color"
+                  value={appConfig.bgColor !== '' ? appConfig.bgColor : '#ffffff'}
+                  onChange={e => updateSettings({...appConfig, bgColor: e.target.value})}
+                />
+                {appConfig.bgColor !== '' &&
+                  <button type="button" onClick={() => updateSettings({...appConfig, bgColor: ''})}>Use
+                    default</button>}
+              </div>
+            </SettingBlock>
+
+            <SettingBlock
+              titleForId='worktable-bg-image'
+              title='Workflow background image'
+              moreInfo='Optional image shown behind the widgets. Leave empty for no image.'
+            >
+              <div className={styles['download-dir-row']}>
+                <input
+                  id="worktable-bg-image"
+                  type="text"
+                  value={appConfig.bgImage}
+                  placeholder='No image'
+                  onChange={e => updateSettings({...appConfig, bgImage: e.target.value})}
+                />
+                <button type="button" onClick={onBrowseBgImageHandler}>Browse…</button>
+                {appConfig.bgImage !== '' && <button type="button" onClick={onClearBgImageHandler}>Clear</button>}
+              </div>
+              {appConfig.bgImage !== '' && <select
+                aria-label='Background image fit'
+                value={appConfig.bgImageMode}
                 onChange={e => updateSettings({
                   ...appConfig,
-                  workflowBarWidth: Math.min(600, Math.max(120, Number.parseInt(e.target.value) || 120))
+                  bgImageMode: e.target.value as typeof appConfig.bgImageMode
                 })}
-              />
-              <span>px</span>
-            </div>}
-          </SettingBlock>
+              >
+                <option value="cover">Fill (cover)</option>
+                <option value="contain">Fit (contain)</option>
+                <option value="center">Center</option>
+                <option value="tile">Tile</option>
+              </select>}
+            </SettingBlock>
 
-          <SettingBlock
-            titleForId='download-dir'
-            title='Download folder'
-            moreInfo='Where files downloaded from Webpage widgets are saved. Leave empty to use the
-                      system default Downloads folder.'
-          >
-            <div className={styles['download-dir-row']}>
-              <input
-                id="download-dir"
-                type="text"
-                value={appConfig.downloadDir}
-                placeholder='Default (system Downloads folder)'
-                onChange={e => updateSettings({ ...appConfig, downloadDir: e.target.value })}
-              />
-              <button type="button" onClick={onBrowseDownloadDirHandler}>Browse…</button>
-              {appConfig.downloadDir !== '' && <button type="button" onClick={onResetDownloadDirHandler}>Use default</button>}
-            </div>
-          </SettingBlock>
-
-          <SettingBlock
-            titleForId='worktable-bg-color'
-            title='Workflow background color'
-            moreInfo='Custom background color for the workflow area. Leave as default to use the theme color.'
-          >
-            <div className={styles['download-dir-row']}>
-              <input
-                id="worktable-bg-color"
-                type="color"
-                value={appConfig.bgColor !== '' ? appConfig.bgColor : '#ffffff'}
-                onChange={e => updateSettings({ ...appConfig, bgColor: e.target.value })}
-              />
-              {appConfig.bgColor !== '' && <button type="button" onClick={() => updateSettings({ ...appConfig, bgColor: '' })}>Use default</button>}
-            </div>
-          </SettingBlock>
-
-          <SettingBlock
-            titleForId='worktable-bg-image'
-            title='Workflow background image'
-            moreInfo='Optional image shown behind the widgets. Leave empty for no image.'
-          >
-            <div className={styles['download-dir-row']}>
-              <input
-                id="worktable-bg-image"
-                type="text"
-                value={appConfig.bgImage}
-                placeholder='No image'
-                onChange={e => updateSettings({ ...appConfig, bgImage: e.target.value })}
-              />
-              <button type="button" onClick={onBrowseBgImageHandler}>Browse…</button>
-              {appConfig.bgImage !== '' && <button type="button" onClick={onClearBgImageHandler}>Clear</button>}
-            </div>
-            {appConfig.bgImage !== '' && <select
-              aria-label='Background image fit'
-              value={appConfig.bgImageMode}
-              onChange={e => updateSettings({ ...appConfig, bgImageMode: e.target.value as typeof appConfig.bgImageMode })}
+            {(appConfig.bgColor !== '' || appConfig.bgImage !== '') && <SettingBlock
+              titleForId='worktable-bg-opacity'
+              title='Workflow background opacity'
+              moreInfo='Opacity of the custom background color/image. Lower values let the theme background show through.'
             >
-              <option value="cover">Fill (cover)</option>
-              <option value="contain">Fit (contain)</option>
-              <option value="center">Center</option>
-              <option value="tile">Tile</option>
-            </select>}
-          </SettingBlock>
+              <div className={styles['download-dir-row']}>
+                <input
+                  id="worktable-bg-opacity"
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={appConfig.bgOpacity}
+                  onChange={e => updateSettings({...appConfig, bgOpacity: Number.parseInt(e.target.value)})}
+                />
+                <span>{appConfig.bgOpacity}%</span>
+              </div>
+            </SettingBlock>}
 
-          {(appConfig.bgColor !== '' || appConfig.bgImage !== '') && <SettingBlock
-            titleForId='worktable-bg-opacity'
-            title='Workflow background opacity'
-            moreInfo='Opacity of the custom background color/image. Lower values let the theme background show through.'
-          >
-            <div className={styles['download-dir-row']}>
-              <input
-                id="worktable-bg-opacity"
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={appConfig.bgOpacity}
-                onChange={e => updateSettings({ ...appConfig, bgOpacity: Number.parseInt(e.target.value) })}
-              />
-              <span>{appConfig.bgOpacity}%</span>
-            </div>
-          </SettingBlock>}
-
-          <SettingBlock
-            title='Memory Saver'
-            moreInfo='Freeter frees up memory from inactive workflows.
+            <SettingBlock
+              title='Memory Saver'
+              moreInfo='Freeter frees up memory from inactive workflows.
                       This gives active workflows more computer resources and keeps Freeter
                       fast. Your inactive workflows automatically become active again when
                       you go back to them.'
-          >
-            <SettingBlock
-              titleForId='mem-saver-inactive'
-              title='Workflow becomes inactive after'
-              moreInfo='This setting defines when workflows become inactive.'
             >
-              <select id="mem-saver-inactive" value={appConfig.memSaver.workflowInactiveAfter} onChange={e => updateSettings({
-                ...appConfig,
-                memSaver: {
-                  ...appConfig.memSaver,
-                  workflowInactiveAfter: Number.parseInt(e.target.value)
-                }
-              })}>
-                {inactiveAfterOptions.map(item=>(
-                  <option key={item.val} value={item.val}>{item.name}</option>
-                ))}
-              </select>
+              <SettingBlock
+                titleForId='mem-saver-inactive'
+                title='Workflow becomes inactive after'
+                moreInfo='This setting defines when workflows become inactive.'
+              >
+                <select id="mem-saver-inactive" value={appConfig.memSaver.workflowInactiveAfter}
+                        onChange={e => updateSettings({
+                          ...appConfig,
+                          memSaver: {
+                            ...appConfig.memSaver,
+                            workflowInactiveAfter: Number.parseInt(e.target.value)
+                          }
+                        })}>
+                  {inactiveAfterOptions.map(item => (
+                    <option key={item.val} value={item.val}>{item.name}</option>
+                  ))}
+                </select>
+              </SettingBlock>
+              <SettingBlock
+                titleForId='mem-saver-activate-on-project'
+                title='Activate all workflows when switching project'
+                moreInfo='When turned on, switching to a project will activate all of its workflows.'
+              >
+                <select id="mem-saver-activate-on-project"
+                        value={convertBoolToStr(appConfig.memSaver.activateWorkflowsOnProjectSwitch)}
+                        onChange={e => updateSettings({
+                          ...appConfig,
+                          memSaver: {
+                            ...appConfig.memSaver,
+                            activateWorkflowsOnProjectSwitch: convertStrToBool(e.target.value)
+                          }
+                        })}>
+                  {activateOnProjectSwitchOptions.map(item => (
+                    <option key={convertBoolToStr(item.val)} value={convertBoolToStr(item.val)}>{item.name}</option>
+                  ))}
+                </select>
+              </SettingBlock>
             </SettingBlock>
-            <SettingBlock
-              titleForId='mem-saver-activate-on-project'
-              title='Activate all workflows when switching project'
-              moreInfo='When turned on, switching to a project will activate all of its workflows.'
-            >
-              <select id="mem-saver-activate-on-project" value={convertBoolToStr(appConfig.memSaver.activateWorkflowsOnProjectSwitch)} onChange={e => updateSettings({
-                ...appConfig,
-                memSaver: {
-                  ...appConfig.memSaver,
-                  activateWorkflowsOnProjectSwitch: convertStrToBool(e.target.value)
-                }
-              })}>
-                {activateOnProjectSwitchOptions.map(item=>(
-                  <option key={convertBoolToStr(item.val)} value={convertBoolToStr(item.val)}>{item.name}</option>
-                ))}
-              </select>
-            </SettingBlock>
-          </SettingBlock>
 
-          <SettingBlock
-            titleForId='telemetry-enabled'
-            title='Usage analytics (local only)'
-            moreInfo='When on, Freeter records how you use it — workflows opened and for how long, app
+            <SettingBlock
+              titleForId='telemetry-enabled'
+              title='Usage analytics (local only)'
+              moreInfo='When on, Freeter records how you use it — workflows opened and for how long, app
                       focus time, keystroke counts (never the keys themselves), and an activity timeline:
                       Web Query searches, visited page titles/URLs, opened files, completed to-dos. While
                       Freeter is running it also tracks OS-wide activity: the foreground app + window title
                       you are in (for per-app time) and system idle/lock. Keystroke contents and note
                       contents are never recorded. Everything stays on this computer; nothing is ever
                       uploaded. View, export, and delete it anytime via View → Analytics (opens in your browser). Off by default.'
-          >
-            <select id="telemetry-enabled" value={convertBoolToStr(appConfig.telemetry.enabled)} onChange={e => updateSettings({
-              ...appConfig,
-              telemetry: {
-                ...appConfig.telemetry,
-                enabled: convertStrToBool(e.target.value)
-              }
-            })}>
-              <option value={convertBoolToStr(false)}>Off</option>
-              <option value={convertBoolToStr(true)}>On</option>
-            </select>
-          </SettingBlock>
-        </div>
-      </SettingsScreen>)
+            >
+              <select id="telemetry-enabled" value={convertBoolToStr(appConfig.telemetry.enabled)}
+                      onChange={e => updateSettings({
+                        ...appConfig,
+                        telemetry: {
+                          ...appConfig.telemetry,
+                          enabled: convertStrToBool(e.target.value)
+                        }
+                      })}>
+                <option value={convertBoolToStr(false)}>Off</option>
+                <option value={convertBoolToStr(true)}>On</option>
+              </select>
+            </SettingBlock>
+          </div>
+        </SettingsScreen>)
     } else {
       return null;
     }

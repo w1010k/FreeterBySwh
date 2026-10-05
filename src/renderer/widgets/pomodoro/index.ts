@@ -3,18 +3,18 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { WidgetType } from '@/widgets/appModules';
-import { settingsEditorComp, Settings, createSettingsState } from './settings';
-import { widgetComp } from './widget';
-import { widgetSvg } from './icons';
+import {WidgetType} from '@/widgets/appModules';
+import {widgetSvg} from './icons';
+import {createSettingsState, Settings, settingsEditorComp} from './settings';
+import {widgetComp} from './widget';
 
 const widgetType: WidgetType<Settings> = {
   id: 'pomodoro',
   icon: widgetSvg,
   name: 'Pomodoro',
   minSize: {
-    w: 1,
-    h: 1
+    w: 3,
+    h: 3
   },
   description: 'The Pomodoro widget runs alternating work/break countdowns with a sound at each switch — start, pause/resume and reset.',
   createSettingsState,

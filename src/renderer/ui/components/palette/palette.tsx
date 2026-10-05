@@ -3,11 +3,11 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { PaletteViewModelHook } from './paletteViewModel';
 import clsx from 'clsx';
+import {memo, useState} from 'react';
 import styles from './palette.module.scss';
 import PaletteItem from './paletteItem';
-import { memo, useState } from 'react';
+import {PaletteViewModelHook} from './paletteViewModel';
 
 type Deps = {
   usePaletteViewModel: PaletteViewModelHook
@@ -19,15 +19,18 @@ export enum PalettePropsPos {
 }
 
 export interface PaletteProps extends React.PropsWithChildren<React.DetailedHTMLProps<React.HTMLAttributes<HTMLDivElement>, HTMLDivElement>> {
-  pos: PalettePropsPos
-};
+  pos: PalettePropsPos;
+  /** Open the dropdown sections upward, for when there's no room below: a bottom bar, or the foot of a side bar. */
+  dropUp?: boolean;
+}
 
 export function createPaletteComponent({
-  usePaletteViewModel
-}: Deps) {
+                                         usePaletteViewModel
+                                       }: Deps) {
   function Palette({
-    pos
-  }: PaletteProps) {
+                     pos,
+                     dropUp
+                   }: PaletteProps) {
     const {
       onAddItemDragEnd,
       onAddItemDragStart,
@@ -57,12 +60,15 @@ export function createPaletteComponent({
           hideSections && styles['hide-sections'],
           pos === PalettePropsPos.TabBar && styles['pos-tab-bar'],
           pos === PalettePropsPos.TopBar && styles['pos-top-bar'],
+          dropUp && styles['drop-up'],
         )}
       >
         {/* The sections are CSS hover/focus dropdowns; the spans are their
             triggers (focus also opens them — see the :focus rules in scss). */}
-        <span className={clsx(styles['palette-tab'], styles['palette-tab-add'])} tabIndex={0} role="button" aria-haspopup="true">Add Widget</span>
-        <span className={clsx(styles['palette-tab'], styles['palette-tab-paste'])} tabIndex={0} role="button" aria-haspopup="true">Paste Widget</span>
+        <span className={clsx(styles['palette-tab'], styles['palette-tab-add'])} tabIndex={0} role="button"
+              aria-haspopup="true">Add Widget</span>
+        <span className={clsx(styles['palette-tab'], styles['palette-tab-paste'])} tabIndex={0} role="button"
+              aria-haspopup="true">Paste Widget</span>
         <div
           data-testid="palette-add"
           className={clsx(styles['palette-section'], styles['palette-section-add'])}
@@ -76,28 +82,28 @@ export function createPaletteComponent({
             onChange={e => setSearch(e.target.value)}
           />
           <ul className={styles['palette-list']}>
-          {visibleWidgetTypes.map(item => (
-            <PaletteItem
-              key={item.id}
-              id={item.id}
-              icon={item.icon}
-              name={item.name}
-              moreInfo={item.description}
-              onDragStart={onAddItemDragStart}
-              onDragEnd={onAddItemDragEnd}
-              onClick={onAddItemClick}
-              onContextMenu={onAddContextMenu}
-            />
-          ))}
+            {visibleWidgetTypes.map(item => (
+              <PaletteItem
+                key={item.id}
+                id={item.id}
+                icon={item.icon}
+                name={item.name}
+                moreInfo={item.description}
+                onDragStart={onAddItemDragStart}
+                onDragEnd={onAddItemDragEnd}
+                onClick={onAddItemClick}
+                onContextMenu={onAddContextMenu}
+              />
+            ))}
           </ul>
           {visibleWidgetTypes.length === 0 && <div className={styles['palette-sectionnote']}>No widgets found</div>}
         </div>
         {
-          copiedWidgets.length>0
+          copiedWidgets.length > 0
             ? <ul
-                data-testid="palette-paste"
-                className={clsx(styles['palette-section'], styles['palette-section-paste'])}
-              >
+              data-testid="palette-paste"
+              className={clsx(styles['palette-section'], styles['palette-section-paste'])}
+            >
               {copiedWidgets.map(item => (
                 <PaletteItem
                   key={item.id}
@@ -108,12 +114,13 @@ export function createPaletteComponent({
                   onDragEnd={onPasteItemDragEnd}
                   onClick={onPasteItemClick}
                   onContextMenu={onPasteContextMenu}
-                  />
+                />
               ))}
-              </ul>
-            : <div className={clsx(styles['palette-section'], styles['palette-section-paste'], styles['palette-sectionnote'])}>
-                No widgets to paste
-              </div>
+            </ul>
+            : <div
+              className={clsx(styles['palette-section'], styles['palette-section-paste'], styles['palette-sectionnote'])}>
+              No widgets to paste
+            </div>
         }
       </div>
     )

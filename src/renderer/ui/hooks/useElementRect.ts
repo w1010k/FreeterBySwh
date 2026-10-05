@@ -3,8 +3,8 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
-import { RectPx } from '@/ui/types/dimensions';
+import {RectPx} from '@/ui/types/dimensions';
+import {useCallback, useLayoutEffect, useRef, useState} from 'react';
 
 const getElRect = (el: HTMLElement | null, useViewportRect: boolean) => {
   if (el) {
@@ -53,24 +53,44 @@ export function useElementRect(opts?: {
   }, [useViewportRect]);
 
   useLayoutEffect(() => {
-    const el = ref.current;
     measure();
-    // Re-measure on window resize…
+    // Re-measure on window resize.
     window.addEventListener('resize', measure);
-    // …and whenever the element itself changes size without a window resize
-    // (e.g. the workflow bar moving to a side / being drag-resized shrinks the
-    // worktable). Guarded for environments (jsdom) that lack ResizeObserver.
-    let resizeObserver: ResizeObserver | undefined;
-    if (el && typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(measure);
-      resizeObserver.observe(el);
-    }
-
     return () => {
       window.removeEventListener('resize', measure);
-      resizeObserver?.disconnect();
     };
   }, [measure]);
+
+  // Also re-measure whenever the element itself changes size without a window
+  // resize (e.g. the workflow bar moving to a side / being drag-resized shrinks
+  // the worktable). Runs after every commit because React may swap the ref'd
+  // element without the deps changing: WidgetLayout renders a placeholder <div>
+  // first and a different <div> once mounted, and an observer bound once at mount
+  // would stay stuck on the detached placeholder. The identity check keeps
+  // ordinary re-renders free. Observing a new element fires an initial callback,
+  // so no explicit measure() is needed here. Guarded for jsdom (no ResizeObserver).
+  const observedElRef = useRef<HTMLElement | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el === observedElRef.current) {
+      return;
+    }
+    observedElRef.current = el;
+    resizeObserverRef.current?.disconnect();
+    resizeObserverRef.current = null;
+    if (el && typeof ResizeObserver !== 'undefined') {
+      resizeObserverRef.current = new ResizeObserver(measure);
+      resizeObserverRef.current.observe(el);
+    }
+  });
+  // Disconnect on unmount. Resetting the observed element lets a StrictMode
+  // remount re-attach instead of being skipped by the identity check above.
+  useLayoutEffect(() => () => {
+    resizeObserverRef.current?.disconnect();
+    resizeObserverRef.current = null;
+    observedElRef.current = null;
+  }, []);
 
   return [ref, rect, measure] as const;
 }

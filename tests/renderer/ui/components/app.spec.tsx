@@ -3,17 +3,18 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { render, screen, within } from '@testing-library/react';
-import { createAppComponent } from '@/ui/components/app/app';
-import { createAppStateHook } from '@/ui/hooks/appState';
-import { fixtureAppStore } from '@tests/data/fixtures/appStore';
-import { AppState } from '@/base/state/app';
-import { createAppViewModelHook } from '@/ui/components/app/appViewModel';
-import { fixtureAppState } from '@tests/base/state/fixtures/appState';
-import { fixtureProjectAInColl } from '@tests/base/state/fixtures/entitiesState';
-import { fixtureProjectSwitcher } from '@tests/base/state/fixtures/projectSwitcher';
-import { ModalScreenId } from '@/base/state/ui';
-import { fixtureModalScreens } from '@tests/base/state/fixtures/modalScreens';
+import {AppState} from '@/base/state/app';
+import {ModalScreenId} from '@/base/state/ui';
+import {createAppComponent} from '@/ui/components/app/app';
+import {createAppViewModelHook} from '@/ui/components/app/appViewModel';
+import {createAppStateHook} from '@/ui/hooks/appState';
+import {act, fireEvent, render, screen, within} from '@testing-library/react';
+import {fixtureAppConfig} from '@tests/base/fixtures/appConfig';
+import {fixtureAppState} from '@tests/base/state/fixtures/appState';
+import {fixtureProjectAInColl} from '@tests/base/state/fixtures/entitiesState';
+import {fixtureModalScreens} from '@tests/base/state/fixtures/modalScreens';
+import {fixtureProjectSwitcher} from '@tests/base/state/fixtures/projectSwitcher';
+import {fixtureAppStore} from '@tests/data/fixtures/appStore';
 
 const strTopBar = 'TopBar';
 const strWidgetSettings = 'WidgetSettings';
@@ -134,6 +135,74 @@ describe('<App />', () => {
     expect(screen.getByText(strWorktable)).toBeInTheDocument();
   });
 
+  it('should keep the same Worktable instance when the workflow bar position changes', async () => {
+    // Remounting the Worktable reloads every webview widget, so switching the
+    // bar position must only re-style the layout, never rebuild the tree.
+    const projectId = 'PROJECT-ID';
+    const stateFor = (workflowBarPos: 'top' | 'bottom' | 'left' | 'right') => fixtureAppState({
+      entities: {
+        projects: {
+          ...fixtureProjectAInColl({id: projectId})
+        }
+      },
+      ui: {
+        projectSwitcher: fixtureProjectSwitcher({
+          projectIds: [projectId]
+        }),
+        appConfig: fixtureAppConfig({workflowBarPos})
+      }
+    });
+    const {appStore} = await setup(stateFor('top'));
+    const worktableEl = screen.getByText(strWorktable);
+    const switcherEl = screen.getByText(strWorkflowSwitcher);
+
+    for (const pos of ['left', 'bottom', 'right', 'top'] as const) {
+      act(() => appStore.set(stateFor(pos)));
+      expect(screen.getByText(strWorktable)).toBe(worktableEl);
+      expect(screen.getByText(strWorkflowSwitcher)).toBe(switcherEl);
+    }
+  });
+
+  describe('workflow bar resizer', () => {
+    const sideEditState = () => fixtureAppState({
+      ui: {
+        editMode: true,
+        appConfig: fixtureAppConfig({workflowBarPos: 'left', workflowBarWidth: 200})
+      }
+    });
+
+    it('should resize while the primary button is held', async () => {
+      const {setWorkflowBarWidthUseCase} = await setup(sideEditState());
+      fireEvent.mouseDown(screen.getByRole('separator'), {button: 0, clientX: 100});
+      fireEvent.mouseMove(window, {buttons: 1, clientX: 150});
+      expect(setWorkflowBarWidthUseCase).toHaveBeenLastCalledWith(250);
+      fireEvent.mouseUp(window);
+      expect(screen.queryByTestId('resize-overlay')).not.toBeInTheDocument();
+    });
+
+    it('should not start a drag on a non-primary button', async () => {
+      await setup(sideEditState());
+      fireEvent.mouseDown(screen.getByRole('separator'), {button: 2, clientX: 100});
+      expect(screen.queryByTestId('resize-overlay')).not.toBeInTheDocument();
+    });
+
+    it('should end the drag when the button was released unseen (no button held on move)', async () => {
+      const {setWorkflowBarWidthUseCase} = await setup(sideEditState());
+      fireEvent.mouseDown(screen.getByRole('separator'), {button: 0, clientX: 100});
+      fireEvent.mouseMove(window, {buttons: 0, clientX: 150});
+      expect(setWorkflowBarWidthUseCase).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('resize-overlay')).not.toBeInTheDocument();
+    });
+
+    it('should end the drag when the window loses focus', async () => {
+      await setup(sideEditState());
+      fireEvent.mouseDown(screen.getByRole('separator'), {button: 0, clientX: 100});
+      expect(screen.getByTestId('resize-overlay')).toBeInTheDocument();
+      fireEvent.blur(window);
+      expect(screen.queryByTestId('resize-overlay')).not.toBeInTheDocument();
+    });
+  });
+
   it('should not display Worktable, when there are no projects in the project switcher', async () => {
     await setup(fixtureAppState({
       entities: {
@@ -150,7 +219,7 @@ describe('<App />', () => {
     expect(screen.queryByText(strWorktable)).not.toBeInTheDocument();
   });
 
-  describe.each<{name: string, modalScreen: ModalScreenId | undefined, expectRendered: string}>([
+  describe.each<{ name: string, modalScreen: ModalScreenId | undefined, expectRendered: string }>([
     {name: 'no modal screens', modalScreen: undefined, expectRendered: ''},
     {name: 'WidgetSettings', modalScreen: 'widgetSettings', expectRendered: strWidgetSettings},
     {name: 'WorkflowSettings', modalScreen: 'workflowSettings', expectRendered: strWorkflowSettings},
@@ -159,7 +228,7 @@ describe('<App />', () => {
     {name: 'AppManager', modalScreen: 'appManager', expectRendered: strAppManager},
     {name: 'About', modalScreen: 'about', expectRendered: strAbout},
   ])('When modal screens state = $name', ({modalScreen, expectRendered}) => {
-    beforeEach(async ()=> {
+    beforeEach(async () => {
       await setup(fixtureAppState({
         ui: {
           modalScreens: fixtureModalScreens({
@@ -169,7 +238,7 @@ describe('<App />', () => {
       }));
     })
 
-    if (expectRendered===strWidgetSettings) {
+    if (expectRendered === strWidgetSettings) {
       it('should display WidgetSettings', async () => {
         expect(screen.getByText(strWidgetSettings)).toBeInTheDocument();
       });
@@ -179,7 +248,7 @@ describe('<App />', () => {
       });
     }
 
-    if (expectRendered===strWorkflowSettings) {
+    if (expectRendered === strWorkflowSettings) {
       it('should display WorkflowSettings', async () => {
         expect(screen.getByText(strWorkflowSettings)).toBeInTheDocument();
       });
@@ -189,7 +258,7 @@ describe('<App />', () => {
       });
     }
 
-    if (expectRendered===strProjectManager) {
+    if (expectRendered === strProjectManager) {
       it('should display ProjectManager', async () => {
         expect(screen.getByText(strProjectManager)).toBeInTheDocument();
       });
@@ -199,7 +268,7 @@ describe('<App />', () => {
       });
     }
 
-    if (expectRendered===strApplicationSettings) {
+    if (expectRendered === strApplicationSettings) {
       it('should display ApplicationSettings', async () => {
         expect(screen.getByText(strApplicationSettings)).toBeInTheDocument();
       });
@@ -209,7 +278,7 @@ describe('<App />', () => {
       });
     }
 
-    if (expectRendered===strAppManager) {
+    if (expectRendered === strAppManager) {
       it('should display AppManager', async () => {
         expect(screen.getByText(strAppManager)).toBeInTheDocument();
       });
@@ -219,7 +288,7 @@ describe('<App />', () => {
       });
     }
 
-    if (expectRendered===strAbout) {
+    if (expectRendered === strAbout) {
       it('should display About', async () => {
         expect(screen.getByText(strAbout)).toBeInTheDocument();
       });
@@ -243,7 +312,7 @@ describe('<App />', () => {
   })
 
   describe('when modal screens state = multiple screens', () => {
-    beforeEach(async ()=> {
+    beforeEach(async () => {
       await setup(fixtureAppState({
         ui: {
           modalScreens: fixtureModalScreens({

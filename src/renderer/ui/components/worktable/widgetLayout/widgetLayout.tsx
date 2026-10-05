@@ -3,15 +3,15 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { WidgetLayoutItemComponent } from '@/ui/components/worktable/widgetLayout/widgetLayoutItem';
+import {editMode24Svg} from '@/ui/assets/images/appIcons';
+import {InAppNote} from '@/ui/components/basic/inAppNote';
+import {SvgIcon} from '@/ui/components/basic/svgIcon';
+import {WidgetLayoutItemComponent} from '@/ui/components/worktable/widgetLayout/widgetLayoutItem';
 import WidgetLayoutItemGhost from '@/ui/components/worktable/widgetLayout/widgetLayoutItemGhost';
-import { WidgetLayoutViewModel, WidgetLayoutProps } from '@/ui/components/worktable/widgetLayout/widgetLayoutViewModel';
+import {WidgetLayoutProps, WidgetLayoutViewModel} from '@/ui/components/worktable/widgetLayout/widgetLayoutViewModel';
 import clsx from 'clsx';
-import { memo } from 'react';
+import {memo} from 'react';
 import styles from './widgetLayout.module.scss';
-import { InAppNote } from '@/ui/components/basic/inAppNote';
-import { SvgIcon } from '@/ui/components/basic/svgIcon';
-import { editMode24Svg } from '@/ui/assets/images/appIcons';
 
 type Deps = {
   WidgetLayoutItem: WidgetLayoutItemComponent,
@@ -19,9 +19,9 @@ type Deps = {
 }
 
 export function createWidgetLayoutComponent({
-  WidgetLayoutItem,
-  useWidgetLayoutViewModel
-}: Deps) {
+                                              WidgetLayoutItem,
+                                              useWidgetLayoutViewModel
+                                            }: Deps) {
   function WidgetLayoutComponent(props: WidgetLayoutProps) {
     const {
       componentMounted,
@@ -51,13 +51,13 @@ export function createWidgetLayoutComponent({
     return componentMounted.current ? (<>
       {isVisible && showNoWidgetsNote && (
         !isEditMode
-        ? <InAppNote className={styles['no-widgets']}>
+          ? <InAppNote className={styles['no-widgets']}>
             {'The workflow is empty. Enable Edit Mode with '}
-            <SvgIcon svg={editMode24Svg} className={styles['edit-mode-icon']} />
-            {' button above (or under the Edit menu) to edit it.'}
+            <SvgIcon svg={editMode24Svg} className={styles['edit-mode-icon']}/>
+            {' button (or the Edit menu) to edit it.'}
           </InAppNote>
-        : <InAppNote className={styles['no-widgets']}>
-            {'Click or drag a widget from the Add/Paste Widget above to add it to the workflow.'}
+          : <InAppNote className={styles['no-widgets']}>
+            {'Click or drag a widget from Add Widget / Paste Widget to add it to the workflow.'}
           </InAppNote>
       )}
       <div
@@ -69,16 +69,16 @@ export function createWidgetLayoutComponent({
         ref={viewportElRef as React.RefObject<HTMLDivElement | null>}
         onContextMenu={onContextMenu}
         data-testid="widget-layout"
-        {...{ inert: !isVisible ? true : undefined }}
+        {...{inert: !isVisible ? true : undefined}}
       >
-        { ghostItemRect && <WidgetLayoutItemGhost
+        {ghostItemRect && <WidgetLayoutItemGhost
           w={ghostItemRect.w}
           h={ghostItemRect.h}
           x={ghostItemRect.x}
           y={ghostItemRect.y}
           viewportSize={viewportSize}
         />}
-        { env && viewLayoutItems?.map(layoutItem => (
+        {env && viewLayoutItems?.map(layoutItem => (
           <WidgetLayoutItem
             key={layoutItem.id}
             id={layoutItem.id}
@@ -92,7 +92,7 @@ export function createWidgetLayoutComponent({
             viewportElRef={viewportElRef}
             resizingMinSize={resizingItem?.minSize}
             isEditable={isEditMode}
-            isDragging={layoutItem.id===dndDraggingLayoutItemId}
+            isDragging={layoutItem.id === dndDraggingLayoutItemId}
             onDragStart={onItemDragStart}
             onDragEnd={onItemDragEnd}
             onResizeStart={onItemResizeStart}

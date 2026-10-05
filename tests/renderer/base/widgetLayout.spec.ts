@@ -3,21 +3,36 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { createLayoutItem, createLayoutItemAtFreeArea, moveLayoutItem, removeLayoutItem, resizeLayoutItemByEdges, widgetLayoutVisibleCols, WidgetLayout, WidgetLayoutItem, WidgetLayoutItemRect } from '@/base/widgetLayout';
-import { fixtureWidgetLayoutItemA, fixtureWidgetLayoutItemB, fixtureWidgetLayoutItemC, fixtureWidgetLayoutItemD } from '@tests/base/fixtures/widgetLayout';
+import {
+  createLayoutItem,
+  createLayoutItemAtFreeArea,
+  moveLayoutItem,
+  removeLayoutItem,
+  resizeLayoutItemByEdges,
+  WidgetLayout,
+  WidgetLayoutItem,
+  WidgetLayoutItemRect,
+  widgetLayoutVisibleCols
+} from '@/base/widgetLayout';
+import {
+  fixtureWidgetLayoutItemA,
+  fixtureWidgetLayoutItemB,
+  fixtureWidgetLayoutItemC,
+  fixtureWidgetLayoutItemD
+} from '@tests/base/fixtures/widgetLayout';
 
 describe('WidgetLayout', () => {
   describe('createLayoutItem()', () => {
     it('should return a new layout containing the created item', () => {
       const id = 'TEST-ID'
-      const rect = { x: 1, y: 1, w: 1, h: 1 };
+      const rect = {x: 1, y: 1, w: 1, h: 1};
       const widgetId = 'TEST-WIDGET-ID'
       const layout: WidgetLayout = [fixtureWidgetLayoutItemA()];
-      const expectLayout: WidgetLayout = [...layout, { id, rect, widgetId }];
+      const expectLayout: WidgetLayout = [...layout, {id, rect, widgetId}];
 
       const [newLayout, newItem] = createLayoutItem(
         layout,
-        { id, rect, widgetId }
+        {id, rect, widgetId}
       );
 
       expect(newLayout).toEqual(expectLayout);
@@ -26,11 +41,11 @@ describe('WidgetLayout', () => {
 
     it('should return the same layout and null item if the layout already has another item with the same id', () => {
       const testId = 'TEST-ID'
-      const layout: WidgetLayout = [fixtureWidgetLayoutItemA({ id: testId })];
+      const layout: WidgetLayout = [fixtureWidgetLayoutItemA({id: testId})];
 
       const [newLayout, newItem] = createLayoutItem(
         layout,
-        { id: testId, rect: { x: 1, y: 1, w: 1, h: 1 }, widgetId: 'SOME-WIDGET' }
+        {id: testId, rect: {x: 1, y: 1, w: 1, h: 1}, widgetId: 'SOME-WIDGET'}
       );
 
       expect(newLayout).toBe(layout);
@@ -39,13 +54,13 @@ describe('WidgetLayout', () => {
 
     it('should set right props for the created item', () => {
       const id = 'TEST-ID'
-      const rect = { x: 1, y: 1, w: 1, h: 1 };
+      const rect = {x: 1, y: 1, w: 1, h: 1};
       const widgetId = 'TEST-WIDGET-ID'
       const layout: WidgetLayout = [fixtureWidgetLayoutItemA()];
 
       const [, newItem] = createLayoutItem(
         layout,
-        { id, rect, widgetId }
+        {id, rect, widgetId}
       );
 
       expect(newItem?.id).toBe(id);
@@ -55,14 +70,14 @@ describe('WidgetLayout', () => {
 
     it('should set x = 0 for values < 0', () => {
       const id = 'TEST-ID'
-      const rect = { x: -1, y: 1, w: 1, h: 1 };
-      const expectRect = { x: 0, y: 1, w: 1, h: 1 };
+      const rect = {x: -1, y: 1, w: 1, h: 1};
+      const expectRect = {x: 0, y: 1, w: 1, h: 1};
       const widgetId = 'TEST-WIDGET-ID'
       const layout: WidgetLayout = [fixtureWidgetLayoutItemA()];
 
       const newItem = createLayoutItem(
         layout,
-        { id, rect, widgetId }
+        {id, rect, widgetId}
       )[1] as WidgetLayoutItem;
 
       expect(newItem.rect).toEqual(expectRect);
@@ -70,14 +85,14 @@ describe('WidgetLayout', () => {
 
     it('should set y = 0 for values < 0', () => {
       const id = 'TEST-ID'
-      const rect = { x: 1, y: -1, w: 1, h: 1 };
-      const expectRect = { x: 1, y: 0, w: 1, h: 1 };
+      const rect = {x: 1, y: -1, w: 1, h: 1};
+      const expectRect = {x: 1, y: 0, w: 1, h: 1};
       const widgetId = 'TEST-WIDGET-ID'
       const layout: WidgetLayout = [fixtureWidgetLayoutItemA()];
 
       const newItem = createLayoutItem(
         layout,
-        { id, rect, widgetId }
+        {id, rect, widgetId}
       )[1] as WidgetLayoutItem;
 
       expect(newItem.rect).toEqual(expectRect);
@@ -85,24 +100,24 @@ describe('WidgetLayout', () => {
 
     it('should fix collisions', () => {
       const id = 'TEST-ID'
-      const rect = { x: 2, y: 0, w: 2, h: 3 };
+      const rect = {x: 2, y: 0, w: 2, h: 3};
       const widgetId = 'TEST-WIDGET-ID'
       const layout: WidgetLayout = [
-        fixtureWidgetLayoutItemA({ rect: { x: 3, y: 1, w: 3, h: 2 } }),
-        fixtureWidgetLayoutItemB({ rect: { x: 0, y: 0, w: 2, h: 3 } }),
-        fixtureWidgetLayoutItemC({ rect: { x: 2, y: 4, w: 4, h: 14 } }),
-        fixtureWidgetLayoutItemD({ rect: { x: 3, y: 0, w: 3, h: 1 } })
+        fixtureWidgetLayoutItemA({rect: {x: 3, y: 1, w: 3, h: 2}}),
+        fixtureWidgetLayoutItemB({rect: {x: 0, y: 0, w: 2, h: 3}}),
+        fixtureWidgetLayoutItemC({rect: {x: 2, y: 4, w: 4, h: 14}}),
+        fixtureWidgetLayoutItemD({rect: {x: 3, y: 0, w: 3, h: 1}})
       ];
       const expectLayoutItems: WidgetLayout = [
-        { ...layout[0], rect: { x: 3, y: 4, w: 3, h: 2 } },
-        { ...layout[1], rect: { x: 0, y: 0, w: 2, h: 3 } },
-        { ...layout[2], rect: { x: 2, y: 6, w: 4, h: 14 } },
-        { ...layout[3], rect: { x: 3, y: 3, w: 3, h: 1 } }
+        {...layout[0], rect: {x: 3, y: 4, w: 3, h: 2}},
+        {...layout[1], rect: {x: 0, y: 0, w: 2, h: 3}},
+        {...layout[2], rect: {x: 2, y: 6, w: 4, h: 14}},
+        {...layout[3], rect: {x: 3, y: 3, w: 3, h: 1}}
       ];
 
       const newLayout = createLayoutItem(
         layout,
-        { id, rect, widgetId }
+        {id, rect, widgetId}
       )[0];
 
       expect(newLayout).toContainEqual(expectLayoutItems[0]);
@@ -115,14 +130,14 @@ describe('WidgetLayout', () => {
   describe('createLayoutItemAtFreeArea()', () => {
     it('should return a new layout containing the created item', () => {
       const id = 'TEST-ID'
-      const size = { w: 1, h: 1 };
+      const size = {w: 1, h: 1};
       const widgetId = 'TEST-WIDGET-ID'
-      const layout: WidgetLayout = [fixtureWidgetLayoutItemA({ rect: { x: 3, y: 3, w: 1, h: 1 } })];
-      const expectLayout: WidgetLayout = [...layout, { id, rect: { x: 0, y: 0, ...size }, widgetId }];
+      const layout: WidgetLayout = [fixtureWidgetLayoutItemA({rect: {x: 3, y: 3, w: 1, h: 1}})];
+      const expectLayout: WidgetLayout = [...layout, {id, rect: {x: 0, y: 0, ...size}, widgetId}];
 
       const [newLayout, newItem] = createLayoutItemAtFreeArea(
         layout,
-        { id, size, widgetId }
+        {id, size, widgetId}
       );
 
       expect(newLayout).toEqual(expectLayout);
@@ -131,11 +146,11 @@ describe('WidgetLayout', () => {
 
     it('should return the same layout and null item if the layout already has another item with the same id', () => {
       const testId = 'TEST-ID'
-      const layout: WidgetLayout = [fixtureWidgetLayoutItemA({ id: testId })];
+      const layout: WidgetLayout = [fixtureWidgetLayoutItemA({id: testId})];
 
       const [newLayout, newItem] = createLayoutItemAtFreeArea(
         layout,
-        { id: testId, size: { w: 1, h: 1 }, widgetId: 'SOME-WIDGET' }
+        {id: testId, size: {w: 1, h: 1}, widgetId: 'SOME-WIDGET'}
       );
 
       expect(newLayout).toBe(layout);
@@ -144,33 +159,33 @@ describe('WidgetLayout', () => {
 
     it('should set right props for the created item', () => {
       const id = 'TEST-ID'
-      const size = { w: 1, h: 1 };
+      const size = {w: 1, h: 1};
       const widgetId = 'TEST-WIDGET-ID'
 
       const [, newItem] = createLayoutItemAtFreeArea(
         [],
-        { id, size, widgetId }
+        {id, size, widgetId}
       );
 
       expect(newItem?.id).toBe(id);
-      expect(newItem?.rect).toEqual({ x: 0, y: 0, ...size });
+      expect(newItem?.rect).toEqual({x: 0, y: 0, ...size});
       expect(newItem?.widgetId).toBe(widgetId);
     })
 
     it('should set x,y to the closest free area based on the provided w,h size', () => {
-      const size = { w: 3, h: 3 };
+      const size = {w: 3, h: 3};
       // Grid is 32 cols wide: after item B (cols 6-15) there is room for a 3-wide
       // item at x:16 on the top row, so that is the closest free area.
-      const expectRect = { x: 16, y: 0, ...size };
+      const expectRect = {x: 16, y: 0, ...size};
       const layout: WidgetLayout = [
-        fixtureWidgetLayoutItemA({ rect: { x: 2, y: 2, w: 2, h: 2 } }),
-        fixtureWidgetLayoutItemB({ rect: { x: 6, y: 0, w: 10, h: 3 } }),
-        fixtureWidgetLayoutItemC({ rect: { x: 7, y: 4, w: 9, h: 2 } }),
+        fixtureWidgetLayoutItemA({rect: {x: 2, y: 2, w: 2, h: 2}}),
+        fixtureWidgetLayoutItemB({rect: {x: 6, y: 0, w: 10, h: 3}}),
+        fixtureWidgetLayoutItemC({rect: {x: 7, y: 4, w: 9, h: 2}}),
       ];
 
       const [, newItem] = createLayoutItemAtFreeArea(
         layout,
-        { id: 'TEST-ID', size, widgetId: 'WIDGET-ID' }
+        {id: 'TEST-ID', size, widgetId: 'WIDGET-ID'}
       );
 
       expect(newItem?.rect).toEqual(expectRect);
@@ -181,10 +196,10 @@ describe('WidgetLayout', () => {
   describe('moveLayoutItem()', () => {
     it('should return a new layout with updated item if its rect has new values', () => {
       const id = 'TEST-ID';
-      const origXY = { x: 1, y: 1 };
-      const newXY = { x: 2, y: 2 };
+      const origXY = {x: 1, y: 1};
+      const newXY = {x: 2, y: 2};
       const origLayout: WidgetLayout = [
-        fixtureWidgetLayoutItemA({ id, rect: origXY })
+        fixtureWidgetLayoutItemA({id, rect: origXY})
       ];
       const expectLayout: WidgetLayout = [{
         ...origLayout[0],
@@ -201,9 +216,9 @@ describe('WidgetLayout', () => {
 
     it('should return the original layout if there were not any updates', () => {
       const id = 'TEST-ID';
-      const xy = { x: 3, y: 1 };
+      const xy = {x: 3, y: 1};
       const origLayout: WidgetLayout = [
-        fixtureWidgetLayoutItemA({ id, rect: xy })
+        fixtureWidgetLayoutItemA({id, rect: xy})
       ];
 
       const newLayout = moveLayoutItem(origLayout, id, xy);
@@ -213,11 +228,11 @@ describe('WidgetLayout', () => {
 
     it('should set x = 0 for values < 0', () => {
       const id = 'TEST-ID';
-      const origXY = { x: 1, y: 1 };
-      const newXY = { x: -1, y: 1 };
-      const expectXY = { x: 0, y: 1 };
+      const origXY = {x: 1, y: 1};
+      const newXY = {x: -1, y: 1};
+      const expectXY = {x: 0, y: 1};
       const origLayout: WidgetLayout = [
-        fixtureWidgetLayoutItemA({ id, rect: origXY })
+        fixtureWidgetLayoutItemA({id, rect: origXY})
       ];
       const expectLayout: WidgetLayout = [{
         ...origLayout[0],
@@ -234,11 +249,11 @@ describe('WidgetLayout', () => {
 
     it('should set y = 0 for values < 0', () => {
       const id = 'TEST-ID';
-      const origXY = { x: 1, y: 1 };
-      const newXY = { x: 1, y: -1 };
-      const expectXY = { x: 1, y: 0 };
+      const origXY = {x: 1, y: 1};
+      const newXY = {x: 1, y: -1};
+      const expectXY = {x: 1, y: 0};
       const origLayout: WidgetLayout = [
-        fixtureWidgetLayoutItemA({ id, rect: origXY })
+        fixtureWidgetLayoutItemA({id, rect: origXY})
       ];
       const expectLayout: WidgetLayout = [{
         ...origLayout[0],
@@ -261,16 +276,16 @@ describe('WidgetLayout', () => {
         y: 0
       };
       const origLayout: WidgetLayout = [
-        fixtureWidgetLayoutItemA({ rect: { x: 3, y: 1, w: 3, h: 2 } }),
-        fixtureWidgetLayoutItemB({ id, rect: { x: 0, y: 0, w: 2, h: 3 } }), // Will move this
-        fixtureWidgetLayoutItemC({ rect: { x: 2, y: 4, w: 4, h: 14 } }),
-        fixtureWidgetLayoutItemD({ rect: { x: 3, y: 0, w: 3, h: 1 } })
+        fixtureWidgetLayoutItemA({rect: {x: 3, y: 1, w: 3, h: 2}}),
+        fixtureWidgetLayoutItemB({id, rect: {x: 0, y: 0, w: 2, h: 3}}), // Will move this
+        fixtureWidgetLayoutItemC({rect: {x: 2, y: 4, w: 4, h: 14}}),
+        fixtureWidgetLayoutItemD({rect: {x: 3, y: 0, w: 3, h: 1}})
       ];
       const expectLayout: WidgetLayout = [
-        { ...origLayout[0], rect: { x: 3, y: 4, w: 3, h: 2 } },
-        { ...origLayout[1], rect: { x: 2, y: 0, w: 2, h: 3 } }, // Will move this
-        { ...origLayout[2], rect: { x: 2, y: 6, w: 4, h: 14 } },
-        { ...origLayout[3], rect: { x: 3, y: 3, w: 3, h: 1 } }
+        {...origLayout[0], rect: {x: 3, y: 4, w: 3, h: 2}},
+        {...origLayout[1], rect: {x: 2, y: 0, w: 2, h: 3}}, // Will move this
+        {...origLayout[2], rect: {x: 2, y: 6, w: 4, h: 14}},
+        {...origLayout[3], rect: {x: 3, y: 3, w: 3, h: 1}}
       ];
 
       const newLayout = moveLayoutItem(origLayout, id, moveByXY);
@@ -285,13 +300,25 @@ describe('WidgetLayout', () => {
       const id = 'TEST-ID';
       const w = 4;
       const origLayout: WidgetLayout = [
-        fixtureWidgetLayoutItemA({ id, rect: { x: 0, y: 0, w, h: 2 } })
+        fixtureWidgetLayoutItemA({id, rect: {x: 0, y: 0, w, h: 2}})
       ];
 
-      const newLayout = moveLayoutItem(origLayout, id, { x: widgetLayoutVisibleCols, y: 0 });
+      const newLayout = moveLayoutItem(origLayout, id, {x: widgetLayoutVisibleCols, y: 0});
 
       expect(newLayout[0].rect.x).toBe(widgetLayoutVisibleCols - w);
       expect(newLayout[0].rect.w).toBe(w);
+    })
+
+    it('should apply the width clamp even when x and y stay the same', () => {
+      // An item saved wider than the grid, dropped back at its own position.
+      const id = 'TEST-ID';
+      const origLayout: WidgetLayout = [
+        fixtureWidgetLayoutItemA({id, rect: {x: 0, y: 0, w: widgetLayoutVisibleCols + 4, h: 2}})
+      ];
+
+      const newLayout = moveLayoutItem(origLayout, id, {x: 0, y: 0});
+
+      expect(newLayout[0].rect.w).toBe(widgetLayoutVisibleCols);
     })
   })
 
@@ -300,7 +327,7 @@ describe('WidgetLayout', () => {
       const id = 'TEST-ID';
       const origLayout: WidgetLayout = [
         fixtureWidgetLayoutItemA(),
-        fixtureWidgetLayoutItemB({ id })
+        fixtureWidgetLayoutItemB({id})
       ];
       const expectLayout: WidgetLayout = [origLayout[0]];
 
@@ -323,7 +350,7 @@ describe('WidgetLayout', () => {
   describe('resizeLayoutItemByEdges()', () => {
     it('should return a new array copy with updated item if its rect has new values after updating by any edge', () => {
       const id = 'TEST-ID';
-      const origRect: WidgetLayoutItemRect = { x: 3, y: 1, w: 3, h: 2 };
+      const origRect: WidgetLayoutItemRect = {x: 3, y: 1, w: 3, h: 2};
       const delta1 = {
         top: 1,
         right: 2
@@ -345,7 +372,7 @@ describe('WidgetLayout', () => {
         h: origRect.h + delta2.bottom,
       };
       const origLayout: WidgetLayout = [
-        fixtureWidgetLayoutItemA({ id, rect: origRect }),
+        fixtureWidgetLayoutItemA({id, rect: origRect}),
       ];
       const expectLayout1 = [{
         ...origLayout[0],
@@ -356,8 +383,8 @@ describe('WidgetLayout', () => {
         rect: expectRect2
       }]
 
-      const newLayout1 = resizeLayoutItemByEdges(origLayout, id, delta1, { w: 1, h: 1 });
-      const newLayout2 = resizeLayoutItemByEdges(origLayout, id, delta2, { w: 1, h: 1 });
+      const newLayout1 = resizeLayoutItemByEdges(origLayout, id, delta1, {w: 1, h: 1});
+      const newLayout2 = resizeLayoutItemByEdges(origLayout, id, delta2, {w: 1, h: 1});
 
       expect(newLayout1).toEqual(expectLayout1);
       expect(newLayout2).toEqual(expectLayout2);
@@ -366,34 +393,34 @@ describe('WidgetLayout', () => {
     it('should return the original array for zero deltas', () => {
       const id = 'TEST-ID';
       const origLayout: WidgetLayout = [
-        fixtureWidgetLayoutItemA({ id }),
+        fixtureWidgetLayoutItemA({id}),
       ];
 
-      const newLayout1 = resizeLayoutItemByEdges(origLayout, id, { left: 0 }, { w: 1, h: 1 });
+      const newLayout1 = resizeLayoutItemByEdges(origLayout, id, {left: 0}, {w: 1, h: 1});
       expect(newLayout1).toBe(origLayout);
 
-      const newLayout2 = resizeLayoutItemByEdges(origLayout, id, { top: 0 }, { w: 1, h: 1 });
+      const newLayout2 = resizeLayoutItemByEdges(origLayout, id, {top: 0}, {w: 1, h: 1});
       expect(newLayout2).toBe(origLayout);
 
-      const newLayout3 = resizeLayoutItemByEdges(origLayout, id, { right: 0 }, { w: 1, h: 1 });
+      const newLayout3 = resizeLayoutItemByEdges(origLayout, id, {right: 0}, {w: 1, h: 1});
       expect(newLayout3).toBe(origLayout);
 
-      const newLayout4 = resizeLayoutItemByEdges(origLayout, id, { bottom: 0 }, { w: 1, h: 1 });
+      const newLayout4 = resizeLayoutItemByEdges(origLayout, id, {bottom: 0}, {w: 1, h: 1});
       expect(newLayout4).toBe(origLayout);
 
-      const newLayout5 = resizeLayoutItemByEdges(origLayout, id, {}, { w: 1, h: 1 });
+      const newLayout5 = resizeLayoutItemByEdges(origLayout, id, {}, {w: 1, h: 1});
       expect(newLayout5).toBe(origLayout);
     })
 
     it('should set width = minSize.w for values < minSize.w', () => {
       const id = 'TEST-ID';
-      const origXW = { x: 3, w: 3 };
-      const delta1 = { left: -4 };
-      const expectXW1 = { x: 4, w: 2 }
-      const delta2 = { right: -4 };
-      const expectXW2 = { x: 3, w: 2 }
+      const origXW = {x: 3, w: 3};
+      const delta1 = {left: -4};
+      const expectXW1 = {x: 4, w: 2}
+      const delta2 = {right: -4};
+      const expectXW2 = {x: 3, w: 2}
       const origLayout: WidgetLayout = [
-        fixtureWidgetLayoutItemA({ id, rect: origXW }),
+        fixtureWidgetLayoutItemA({id, rect: origXW}),
       ];
       const expectedLayout1: WidgetLayout = [{
         ...origLayout[0],
@@ -410,8 +437,8 @@ describe('WidgetLayout', () => {
         }
       }]
 
-      const newLayout1 = resizeLayoutItemByEdges(origLayout, id, delta1, { w: 2, h: 1 });
-      const newLayout2 = resizeLayoutItemByEdges(origLayout, id, delta2, { w: 2, h: 1 });
+      const newLayout1 = resizeLayoutItemByEdges(origLayout, id, delta1, {w: 2, h: 1});
+      const newLayout2 = resizeLayoutItemByEdges(origLayout, id, delta2, {w: 2, h: 1});
 
       expect(newLayout1).toEqual(expectedLayout1);
       expect(newLayout2).toEqual(expectedLayout2);
@@ -419,13 +446,13 @@ describe('WidgetLayout', () => {
 
     it('should set height = minSize.h for values < minSize.h', () => {
       const id = 'TEST-ID';
-      const origYH = { y: 1, h: 3 };
-      const delta1 = { top: -3 };
-      const expectYH1 = { y: 2, h: 2 }
-      const delta2 = { bottom: -3 };
-      const expectYH2 = { y: 1, h: 2 }
+      const origYH = {y: 1, h: 3};
+      const delta1 = {top: -3};
+      const expectYH1 = {y: 2, h: 2}
+      const delta2 = {bottom: -3};
+      const expectYH2 = {y: 1, h: 2}
       const origLayout: WidgetLayout = [
-        fixtureWidgetLayoutItemA({ id, rect: origYH }),
+        fixtureWidgetLayoutItemA({id, rect: origYH}),
       ];
       const expectedLayout1: WidgetLayout = [{
         ...origLayout[0],
@@ -442,8 +469,8 @@ describe('WidgetLayout', () => {
         }
       }]
 
-      const newLayout1 = resizeLayoutItemByEdges(origLayout, id, delta1, { w: 1, h: 2 });
-      const newLayout2 = resizeLayoutItemByEdges(origLayout, id, delta2, { w: 1, h: 2 });
+      const newLayout1 = resizeLayoutItemByEdges(origLayout, id, delta1, {w: 1, h: 2});
+      const newLayout2 = resizeLayoutItemByEdges(origLayout, id, delta2, {w: 1, h: 2});
 
       expect(newLayout1).toEqual(expectedLayout1);
       expect(newLayout2).toEqual(expectedLayout2);
@@ -451,12 +478,12 @@ describe('WidgetLayout', () => {
 
     it('should set max allowed w if x < 0', () => {
       const id = 'TEST-ID';
-      const origXW = { x: 3, w: 3 };
+      const origXW = {x: 3, w: 3};
       const maxAllowedDelta = origXW.x;
-      const delta = { left: maxAllowedDelta + 1 };
-      const expectXW = { x: 0, w: origXW.w + maxAllowedDelta }
+      const delta = {left: maxAllowedDelta + 1};
+      const expectXW = {x: 0, w: origXW.w + maxAllowedDelta}
       const origLayout: WidgetLayout = [
-        fixtureWidgetLayoutItemA({ id, rect: origXW }),
+        fixtureWidgetLayoutItemA({id, rect: origXW}),
       ];
       const expectedLayout: WidgetLayout = [{
         ...origLayout[0],
@@ -466,19 +493,19 @@ describe('WidgetLayout', () => {
         }
       }]
 
-      const newLayout = resizeLayoutItemByEdges(origLayout, id, delta, { w: 1, h: 1 });
+      const newLayout = resizeLayoutItemByEdges(origLayout, id, delta, {w: 1, h: 1});
 
       expect(newLayout).toEqual(expectedLayout);
     })
 
     it('should set max allowed h if y < 0', () => {
       const id = 'TEST-ID';
-      const origYH = { y: 1, h: 2 };
+      const origYH = {y: 1, h: 2};
       const maxAllowedDelta = origYH.y;
-      const delta = { top: maxAllowedDelta + 1 };
-      const expectYH = { y: 0, h: origYH.h + maxAllowedDelta }
+      const delta = {top: maxAllowedDelta + 1};
+      const expectYH = {y: 0, h: origYH.h + maxAllowedDelta}
       const origLayout: WidgetLayout = [
-        fixtureWidgetLayoutItemA({ id, rect: origYH }),
+        fixtureWidgetLayoutItemA({id, rect: origYH}),
       ];
       const expectedLayout: WidgetLayout = [{
         ...origLayout[0],
@@ -488,7 +515,7 @@ describe('WidgetLayout', () => {
         }
       }]
 
-      const newLayout = resizeLayoutItemByEdges(origLayout, id, delta, { w: 1, h: 1 });
+      const newLayout = resizeLayoutItemByEdges(origLayout, id, delta, {w: 1, h: 1});
 
       expect(newLayout).toEqual(expectedLayout);
     })
@@ -499,19 +526,19 @@ describe('WidgetLayout', () => {
         right: 2
       };
       const origLayout: WidgetLayout = [
-        fixtureWidgetLayoutItemA({ rect: { x: 3, y: 1, w: 3, h: 2 } }),
-        fixtureWidgetLayoutItemB({ id, rect: { x: 0, y: 0, w: 2, h: 3 } }), // Will resize this
-        fixtureWidgetLayoutItemC({ rect: { x: 2, y: 4, w: 4, h: 14 } }),
-        fixtureWidgetLayoutItemD({ rect: { x: 3, y: 0, w: 3, h: 1 } })
+        fixtureWidgetLayoutItemA({rect: {x: 3, y: 1, w: 3, h: 2}}),
+        fixtureWidgetLayoutItemB({id, rect: {x: 0, y: 0, w: 2, h: 3}}), // Will resize this
+        fixtureWidgetLayoutItemC({rect: {x: 2, y: 4, w: 4, h: 14}}),
+        fixtureWidgetLayoutItemD({rect: {x: 3, y: 0, w: 3, h: 1}})
       ];
       const expectLayout: WidgetLayout = [
-        { ...origLayout[0], rect: { x: 3, y: 4, w: 3, h: 2 } },
-        { ...origLayout[1], rect: { x: 0, y: 0, w: 4, h: 3 } }, // Will resize this
-        { ...origLayout[2], rect: { x: 2, y: 6, w: 4, h: 14 } },
-        { ...origLayout[3], rect: { x: 3, y: 3, w: 3, h: 1 } }
+        {...origLayout[0], rect: {x: 3, y: 4, w: 3, h: 2}},
+        {...origLayout[1], rect: {x: 0, y: 0, w: 4, h: 3}}, // Will resize this
+        {...origLayout[2], rect: {x: 2, y: 6, w: 4, h: 14}},
+        {...origLayout[3], rect: {x: 3, y: 3, w: 3, h: 1}}
       ];
 
-      const newLayout = resizeLayoutItemByEdges(origLayout, id, delta, { w: 1, h: 1 });
+      const newLayout = resizeLayoutItemByEdges(origLayout, id, delta, {w: 1, h: 1});
 
       expect(newLayout).toContainEqual(expectLayout[0]);
       expect(newLayout).toContainEqual(expectLayout[1]);
@@ -521,15 +548,53 @@ describe('WidgetLayout', () => {
 
     it('should cap right-edge growth so the item stays within the grid (x + w <= cols)', () => {
       const id = 'TEST-ID';
-      const origXW = { x: widgetLayoutVisibleCols - 4, w: 2 };
+      const origXW = {x: widgetLayoutVisibleCols - 4, w: 2};
       const origLayout: WidgetLayout = [
-        fixtureWidgetLayoutItemA({ id, rect: { ...origXW, y: 0, h: 2 } })
+        fixtureWidgetLayoutItemA({id, rect: {...origXW, y: 0, h: 2}})
       ];
 
-      const newLayout = resizeLayoutItemByEdges(origLayout, id, { right: 999 }, { w: 1, h: 1 });
+      const newLayout = resizeLayoutItemByEdges(origLayout, id, {right: 999}, {w: 1, h: 1});
 
       expect(newLayout[0].rect.x).toBe(origXW.x);
       expect(newLayout[0].rect.w).toBe(widgetLayoutVisibleCols - origXW.x);
+    })
+
+    it('should not shrink an item already past the right edge when its right edge is dragged outward', () => {
+      // Layouts saved before the horizontal clamp can hold x + w > cols.
+      const id = 'TEST-ID';
+      const origRect = {x: widgetLayoutVisibleCols - 2, y: 0, w: 6, h: 2};
+      const origLayout: WidgetLayout = [
+        fixtureWidgetLayoutItemA({id, rect: origRect})
+      ];
+
+      const newLayout = resizeLayoutItemByEdges(origLayout, id, {right: 3}, {w: 4, h: 1});
+
+      expect(newLayout[0].rect).toEqual(origRect);
+    })
+
+    it('should grow leftward when minSize forces an in-grid item at the right edge past the grid', () => {
+      // An item saved smaller than a (later raised) minSize, flush with the right edge.
+      const id = 'TEST-ID';
+      const origLayout: WidgetLayout = [
+        fixtureWidgetLayoutItemA({id, rect: {x: widgetLayoutVisibleCols - 1, y: 0, w: 1, h: 2}})
+      ];
+
+      const newLayout = resizeLayoutItemByEdges(origLayout, id, {right: -1}, {w: 3, h: 1});
+
+      expect(newLayout[0].rect.w).toBe(3);
+      expect(newLayout[0].rect.x).toBe(widgetLayoutVisibleCols - 3);
+    })
+
+    it('should still shrink an item past the right edge when its right edge is dragged inward', () => {
+      const id = 'TEST-ID';
+      const origRect = {x: widgetLayoutVisibleCols - 2, y: 0, w: 6, h: 2};
+      const origLayout: WidgetLayout = [
+        fixtureWidgetLayoutItemA({id, rect: origRect})
+      ];
+
+      const newLayout = resizeLayoutItemByEdges(origLayout, id, {right: -1}, {w: 4, h: 1});
+
+      expect(newLayout[0].rect.w).toBe(5);
     })
   })
 

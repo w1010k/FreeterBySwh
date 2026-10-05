@@ -3,15 +3,28 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { WorktableStateResizingItemEdges, WorktableStateResizingItemEdgeX, WorktableStateResizingItemEdgeY } from '@/base/state/ui';
-import { WidgetLayoutItemRect, widgetLayoutVisibleCols, widgetLayoutVisibleRows } from '@/base/widgetLayout';
-import { itemRectUnitsToPx, itemWUnitsToPx, itemHUnitsToPx, calcGridColWidth, calcGridRowHeight, itemXPxToUnits, itemYPxToUnits, clamp } from '@/ui/components/worktable/widgetLayout/calcs';
-import { resizeEdgesByHandleId, ResizeHandleId } from '@/ui/components/worktable/widgetLayout/resizeHandles';
-import { RectPx, WHPx, XYPx } from '@/ui/types/dimensions';
-import { DragEvent, MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { WidgetEnvAreaWorkflow } from '@/base/widget';
-import { ActionBarItem } from '@/base/actionBar';
-import { maximize14Svg, unmaximize14Svg } from '@/ui/assets/images/appIcons';
+import {ActionBarItem} from '@/base/actionBar';
+import {
+  WorktableStateResizingItemEdges,
+  WorktableStateResizingItemEdgeX,
+  WorktableStateResizingItemEdgeY
+} from '@/base/state/ui';
+import {WidgetEnvAreaWorkflow} from '@/base/widget';
+import {WidgetLayoutItemRect, widgetLayoutVisibleCols, widgetLayoutVisibleRows} from '@/base/widgetLayout';
+import {maximize14Svg, unmaximize14Svg} from '@/ui/assets/images/appIcons';
+import {
+  calcGridColWidth,
+  calcGridRowHeight,
+  clamp,
+  itemHUnitsToPx,
+  itemRectUnitsToPx,
+  itemWUnitsToPx,
+  itemXPxToUnits,
+  itemYPxToUnits
+} from '@/ui/components/worktable/widgetLayout/calcs';
+import {resizeEdgesByHandleId, ResizeHandleId} from '@/ui/components/worktable/widgetLayout/resizeHandles';
+import {RectPx, WHPx, XYPx} from '@/ui/types/dimensions';
+import {DragEvent, MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useState} from 'react';
 
 export interface WidgetLayoutItemProps {
   id: string;
@@ -90,10 +103,15 @@ export function useWidgetLayoutItemViewModel(props: WidgetLayoutItemProps) {
   if (resizing) {
     rectPx = resizing.rectPx;
   } else if (isMaximized) {
-    rectPx = itemRectUnitsToPx({ x: 0, y: 0, w: widgetLayoutVisibleCols, h: widgetLayoutVisibleRows }, colWidth, rowHeight);
+    rectPx = itemRectUnitsToPx({
+      x: 0,
+      y: 0,
+      w: widgetLayoutVisibleCols,
+      h: widgetLayoutVisibleRows
+    }, colWidth, rowHeight);
     rectPx.yPx = rectPx.yPx + scrollTop;
   } else {
-    rectPx = itemRectUnitsToPx({ x, y, w, h }, colWidth, rowHeight);
+    rectPx = itemRectUnitsToPx({x, y, w, h}, colWidth, rowHeight);
   }
 
   const onDragStartHandler = useCallback((evt: DragEvent<HTMLElement>) => {
@@ -113,7 +131,7 @@ export function useWidgetLayoutItemViewModel(props: WidgetLayoutItemProps) {
     const minHPx = itemHUnitsToPx(resizingMinSize?.h || 1, rowHeight);
     const initialItemRectPx = itemRectUnitsToPx(resizing.initialItemRectUnits, colWidth, rowHeight);
 
-    const { deltaPx, deltaUnits } = calcDeltasForMouseEvent(
+    const {deltaPx, deltaUnits} = calcDeltasForMouseEvent(
       evt,
       resizing.fromPointPx,
       colWidth,
@@ -134,8 +152,19 @@ export function useWidgetLayoutItemViewModel(props: WidgetLayoutItemProps) {
       } else {
         // Cap the live width so the right edge can't visibly overshoot the grid
         // (x + w <= cols), mirroring the committed-state clamp in resizeLayoutItemByEdges.
-        const maxWPx = itemWUnitsToPx(widgetLayoutVisibleCols - x, colWidth);
+        // Never below the starting width, so an item already past the edge doesn't
+        // shrink when dragged outward (same floor as the committed clamp).
+        // Measured from the starting rect: the live `x` prop follows the in-progress
+        // layout, which can shift the item leftward mid-drag (see below).
+        const initialUnits = resizing.initialItemRectUnits;
+        const capWPx = itemWUnitsToPx(widgetLayoutVisibleCols - initialUnits.x, colWidth);
+        const maxWPx = Math.max(capWPx, initialItemRectPx.wPx);
         newRectPx.wPx = clamp(initialItemRectPx.wPx + deltaPx.x, minWPx, maxWPx);
+        // minSize can outrank the cap; like resizeLayoutItemByEdges, an item that
+        // fit the grid then grows leftward so its right edge stays at the grid edge.
+        newRectPx.xPx = newRectPx.wPx > capWPx && initialUnits.x + initialUnits.w <= widgetLayoutVisibleCols
+          ? initialItemRectPx.xPx + capWPx - newRectPx.wPx
+          : initialItemRectPx.xPx;
       }
     }
     if (resizing.draggingEdges.y) {
@@ -163,7 +192,7 @@ export function useWidgetLayoutItemViewModel(props: WidgetLayoutItemProps) {
       return;
     }
 
-    const { deltaUnits } = calcDeltasForMouseEvent(
+    const {deltaUnits} = calcDeltasForMouseEvent(
       evt,
       resizing.fromPointPx,
       colWidth,
@@ -182,7 +211,7 @@ export function useWidgetLayoutItemViewModel(props: WidgetLayoutItemProps) {
 
     onResizeStart(id, resizeEdgesByHandleId[handleId]);
     setResizing({
-      initialItemRectUnits: { x, y, w, h },
+      initialItemRectUnits: {x, y, w, h},
       draggingEdges: resizeEdgesByHandleId[handleId],
       fromPointPx: {
         xPx: evt.pageX,

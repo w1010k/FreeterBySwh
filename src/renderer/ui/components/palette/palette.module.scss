@@ -4,6 +4,8 @@
  */
 
 .palette {
+  // Containing block for the absolutely positioned dropdown sections.
+  position: relative;
   background-color: var(--freeter-paletteBackground);
   // border: 1px solid var(--freeter-paletteBorder);
 }
@@ -14,17 +16,19 @@
 }
 
 .palette-tab {
-  z-index:1;
+  z-index: 1;
   display: inline-block;
   font-family: 'Roboto Condensed';
   font-size: 16px;
   line-height: 16px;
   background-color: var(--freeter-paletteTabBackground);
   color: var(--freeter-paletteTabColor);
+
   &:not(:first-child) {
-    border-left:1px solid var(--freeter-paletteBorder);
+    border-left: 1px solid var(--freeter-paletteBorder);
   }
 }
+
 .palette:not(.hide-sections) {
   .palette-tab {
     &:hover {
@@ -32,28 +36,46 @@
     }
   }
 }
+
 .pos-tab-bar {
   .palette-tab {
     padding: 10px 12px;
   }
 }
+
 .pos-top-bar {
   .palette-tab {
     padding: 16px;
   }
 }
 
+// Dropdowns float over the content instead of sitting in the flow: the side
+// (vertical) workflow bar would otherwise push its tabs down to make room, and
+// a bottom bar would open them below the window edge (see .drop-up).
 .palette-section {
+  position: absolute;
+  top: 100%;
+  left: 0;
   box-sizing: border-box;
   overflow-x: hidden;
-  overflow-y:auto;
+  overflow-y: auto;
   width: 100%;
-  z-index:0;
+  z-index: 0;
   max-height: 500px;
   display: none;
   background-color: var(--freeter-paletteSectionBackground);
   box-shadow: 0 4px 8px 0 var(--freeter-paletteShadow);
 }
+
+.palette.drop-up .palette-section {
+  top: auto;
+  bottom: 100%;
+  // Opening upward from the foot of the window, 500px would push the search box
+  // off the top on short windows (min window height is 600px).
+  max-height: min(500px, 60vh);
+  box-shadow: 0 -4px 8px 0 var(--freeter-paletteShadow);
+}
+
 .palette-search {
   // The section scrolls (max-height above); keep the search reachable while scrolled.
   position: sticky;
@@ -69,11 +91,13 @@
   font-size: 14px;
   outline: none;
 }
+
 .palette-list {
   margin: 0;
   padding: 0;
   list-style: none;
 }
+
 .palette-sectionnote {
   padding: 18px;
   font-size: 14px;
@@ -100,6 +124,7 @@ $sections: 'add', 'paste';
     @include palette-tab-hover;
   }
 }
+
 .palette.hide-sections {
   .palette-section {
     // The display:none, visibility:hidden block the native drag
@@ -120,6 +145,7 @@ $sections: 'add', 'paste';
   cursor: pointer;
   background-color: var(--freeter-paletteItemBackground);
   color: var(--freeter-paletteItemColor);
+
   &:hover {
     background-color: var(--freeter-paletteItemHoverBackground);
     color: var(--freeter-paletteItemHoverColor);

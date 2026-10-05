@@ -18,16 +18,27 @@
   flex-grow: 1;
 }
 
-// Row layout used when the workflow bar is on the left/right. The bar sizes
-// itself (fixed width); the body fills the rest. `is-right` flips the order.
-.body-row {
+// Holds [workflow bar, resizer, body] in a fixed DOM order for every bar
+// position; only the flex direction moves the bar. Default (top, or an unknown
+// persisted value) stacks the bar above the body. The bar sizes itself (fixed
+// height, or fixed width on the sides); the body fills the rest.
+.body-layout {
   flex-grow: 1;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   min-height: 0;
   min-width: 0;
 }
-.body-row.is-right {
+
+.body-layout.is-bottom {
+  flex-direction: column-reverse;
+}
+
+.body-layout.is-left {
+  flex-direction: row;
+}
+
+.body-layout.is-right {
   flex-direction: row-reverse;
 }
 
@@ -40,8 +51,11 @@
   position: relative;
   flex: 0 0 auto;
   width: 0;
-  z-index: 1;
+  // Above the workflow bar (z-index 2), otherwise the bar covers the bar-side
+  // half of the grab area.
+  z-index: 3;
 }
+
 .workflow-bar-resizer::before {
   content: '';
   position: absolute;
@@ -51,6 +65,7 @@
   width: 6px;
   cursor: col-resize;
 }
+
 .workflow-bar-resizer:hover::before {
   background-color: var(--freeter-workflowSwitcherTabHoverColor);
   opacity: 0.4;

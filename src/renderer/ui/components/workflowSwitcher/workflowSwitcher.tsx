@@ -3,14 +3,14 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { WorkflowSwitcherViewModelHook } from '@/ui/components/workflowSwitcher/workflowSwitcherViewModel';
+import {ActionBar} from '@/ui/components/basic/actionBar';
+import {PaletteProps, PalettePropsPos} from '@/ui/components/palette';
+import {ProjectSwitcherProps} from '@/ui/components/projectSwitcher';
+import {WorkflowSwitcherItem} from '@/ui/components/workflowSwitcher/workflowSwitcherItem';
+import {WorkflowSwitcherViewModelHook} from '@/ui/components/workflowSwitcher/workflowSwitcherViewModel';
 import clsx from 'clsx';
+import {memo} from 'react';
 import styles from './workflowSwitcher.module.scss';
-import { ActionBar } from '@/ui/components/basic/actionBar';
-import { WorkflowSwitcherItem } from '@/ui/components/workflowSwitcher/workflowSwitcherItem';
-import { memo } from 'react';
-import { ProjectSwitcherProps } from '@/ui/components/projectSwitcher';
-import { PaletteProps, PalettePropsPos } from '@/ui/components/palette';
 
 type Deps = {
   EditModeToggle: React.FC;
@@ -21,12 +21,12 @@ type Deps = {
 }
 
 export function createWorkflowSwitcherComponent({
-  EditModeToggle,
-  ProjectSwitcher,
-  ManageProjectsButton,
-  Palette,
-  useWorkflowSwitcherViewModel
-}: Deps) {
+                                                  EditModeToggle,
+                                                  ProjectSwitcher,
+                                                  ManageProjectsButton,
+                                                  Palette,
+                                                  useWorkflowSwitcherViewModel
+                                                }: Deps) {
   function WorkflowSwitcher() {
     const {
       isEditMode,
@@ -67,18 +67,20 @@ export function createWorkflowSwitcherComponent({
     const compPrjSwitcher =
       <div
         className={clsx(styles['workflow-switcher-bar-section'], styles['workflow-switcher-bar-project-switcher-section'])}>
-          <ProjectSwitcher className={styles['project-switcher']} />
-          <ManageProjectsButton />
+        <ProjectSwitcher className={styles['project-switcher']}/>
+        <ManageProjectsButton/>
       </div>
 
     const compEditToggle =
       <div className={styles['workflow-switcher-bar-section']}>
-        <EditModeToggle />
+        <EditModeToggle/>
       </div>
 
     const compPalette =
       <div className={clsx(styles['workflow-switcher-bar-section'], styles['workflow-switcher-bar-palette-section'])}>
-        <Palette pos={PalettePropsPos.TabBar}/>
+        {/* Open upward when there's no room below: a bottom bar, or the palette
+            sitting after the tab list, i.e. at the foot of a side bar. */}
+        <Palette pos={PalettePropsPos.TabBar} dropUp={workflowBarPos === 'bottom' || (isVertical && showPaletteRight)}/>
       </div>
 
     return (
@@ -89,53 +91,53 @@ export function createWorkflowSwitcherComponent({
           workflowBarPos === 'bottom' && styles['is-bottom'],
           workflowBarPos === 'right' && styles['is-right']
         )}
-        style={isVertical ? { width: workflowBarWidth } : undefined}
+        style={isVertical ? {width: workflowBarWidth} : undefined}
       >
         {showPrjSwitcherLeft && compPrjSwitcher}
         {showEditToggleLeft && compEditToggle}
         {showPaletteLeft && compPalette}
         {workflows ? <div
-          role="tablist"
-          className={clsx(
-            styles['workflow-switcher-bar-section'],
-            styles['workflow-switcher'],
-            isEditMode && dndTargetListItemId === null && styles['is-drop-area'],
-            dontShowActionBar && styles['dont-show-action-bar']
-          )}
-          onDragEnter={onDragEnter}
-          onDragLeave={onDragLeave}
-          onDragOver={onDragOver}
-          onDrop={onDrop}
-          onContextMenu={onContextMenu}
-        >
-          {workflows.map(item => (
-            <WorkflowSwitcherItem
-              key={item.id}
-              id={item.id}
-              name={item.settings.name}
-              isEditMode={isEditMode}
-              isCurrent={item.id===currentWorkflowId}
-              isDropArea={isEditMode && item.id===dndTargetListItemId}
-              isEditNameMode={item.id===itemIdInEditNameMode}
-              onEditName={onItemRename}
-              onFinishEditName={onFinishEditName}
-              onClick={onItemClick}
-              onDragStart={onItemDragStart}
-              onDragEnd={onItemDragEnd}
-              onDragEnter={onItemDragEnter}
-              onDragLeave={onItemDragLeave}
-              onDragOver={onItemDragOver}
-              onDrop={onItemDrop}
-              onContextMenu={onItemContextMenu}
-              actionBarItemsFactory={itemActionBarItemsFactory}
-            />
-          ))}
-          <ActionBar
-            actionBarItems={actionBarItems}
-            className={styles['workflow-switcher-action-bar']}
-          ></ActionBar>
-        </div>
-        : <div
+            role="tablist"
+            className={clsx(
+              styles['workflow-switcher-bar-section'],
+              styles['workflow-switcher'],
+              isEditMode && dndTargetListItemId === null && styles['is-drop-area'],
+              dontShowActionBar && styles['dont-show-action-bar']
+            )}
+            onDragEnter={onDragEnter}
+            onDragLeave={onDragLeave}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
+            onContextMenu={onContextMenu}
+          >
+            {workflows.map(item => (
+              <WorkflowSwitcherItem
+                key={item.id}
+                id={item.id}
+                name={item.settings.name}
+                isEditMode={isEditMode}
+                isCurrent={item.id === currentWorkflowId}
+                isDropArea={isEditMode && item.id === dndTargetListItemId}
+                isEditNameMode={item.id === itemIdInEditNameMode}
+                onEditName={onItemRename}
+                onFinishEditName={onFinishEditName}
+                onClick={onItemClick}
+                onDragStart={onItemDragStart}
+                onDragEnd={onItemDragEnd}
+                onDragEnter={onItemDragEnter}
+                onDragLeave={onItemDragLeave}
+                onDragOver={onItemDragOver}
+                onDrop={onItemDrop}
+                onContextMenu={onItemContextMenu}
+                actionBarItemsFactory={itemActionBarItemsFactory}
+              />
+            ))}
+            <ActionBar
+              actionBarItems={actionBarItems}
+              className={styles['workflow-switcher-action-bar']}
+            ></ActionBar>
+          </div>
+          : <div
             className={clsx(
               styles['workflow-switcher-bar-section'],
               styles['workflow-switcher'],

@@ -1448,7 +1448,25 @@ shallow**인데, `createSharedState`는 호출할 때마다 `{ apps: { appIds, a
   클램프). 칸이 절반 크기가 되며 모서리를 격자 밖으로 몇 칸 넘기기 쉬워졌고, 넓은 화면에선 티가 안 나다가 **좁은 해상도 (예: UHD→FHD)에서 위젯 오른쪽이 화면 밖으로 넘쳐** action bar
   (X·설정)가 안 보였다. `moveLayoutItem`(`_fixRect`에서 `x`를 `[0, cols-w]`로)과 `resizeLayoutItemByEdges`(오른쪽 모서리 성장폭을 `cols-x-w`로
   캡)에 가로 상한을 추가. **세로축은 의도적으로 그대로** — worktable은 세로 스크롤되고 collision-stacking이 화면 아래로 밀어내는 동작에 의존한다. 기존에 이미 격자를 넘겨 저장된
-  위젯은 한 번 이동/리사이즈하면 안으로 들어온다 (별도 마이그레이션 없음).
+  위젯은 한 번 **이동**하면 안으로 들어온다 (별도 마이그레이션 없음). 리사이즈로는 확실히 들어오지 않는다: 왼쪽 모서리 리사이즈는 오른쪽 끝 (`x+w`)을 고정하고, 오른쪽 모서리
+  리사이즈는 바깥으로 끌면 그대로이고 안쪽으로 끌어도 minSize 아래로는 줄지 않는다.
+- **(후속, 2026-10-05) 전수 점검에서 찾은 잔여 버그 정리**
+  - **바깥 여백 spacer가 6px 그대로**: 여백을 4px로 줄일 때 `.layout-item:after`(absolute 위젯 아래·오른쪽에 패딩을 만드는 투명 요소)는 6px로 남아, 오른쪽·아래 끝에
+    붙은
+    위젯의 spacer가 뷰포트를 1 ~2px 넘었다. worktable이 휠·트랙패드에 1~2px씩 흔들렸고, 가로 상한 클램프 이후 오른쪽 끝에 붙는 위젯이 늘면서 더 자주 보였다. 4px로 맞추고
+    `calcs.ts`의 `layoutPadding`과 서로 참조하는 주석을 달았다.
+  - **넘친 위젯을 바깥으로 리사이즈하면 오히려 줄어듦**: `x + minSize.w > cols`이면 `maxRight`가 음수가 되어, 바깥으로 끌어도 위젯이 minSize까지 줄어들었다.
+    `maxRight`를 0 이상으로 바닥 처리해 바깥으로 끌면 그대로, 안쪽으로 끌면 정상 축소. 드래그 미리보기의 `maxWPx`도 시작 폭 이상으로 맞췄다. 또 `moveLayoutItem`이
+    x·y가 같으면 바로 반환해서 `_fixRect`의 폭 보정 (격자보다 넓은 위젯)을 버리던 것도 `w` 비교를 추가해 고쳤다.
+  - **#34 이후 추가된 위젯 6종의 minSize 1×1**: minSize는 추가 시 기본 크기도 겸하는데, 32×16 격자의 1×1은 1280×800 창에서 본문이 수십 px라 Calculator는
+    키패드가,
+    나머지는 숫자가 잘린 채로 생성됐다. 실제 화면에서 넣어보고 Calculator `3×5`, Clock·D-Day `3×2`, Pomodoro·Stopwatch·System Monitor `3×3`으로
+    올렸다. 이미 배치된
+    위젯은 그대로이고 다음 리사이즈 때만 새 최솟값이 적용된다.
+  - **minSize 성장이 가로 상한을 넘던 문제**: 위처럼 minSize보다 작게 저장된 위젯이 오른쪽 끝에 붙어 있으면, 오른쪽 모서리 리사이즈가 minSize를 맞추느라 격자 밖으로 커졌다 (예:
+    `x=31, w=1`, minSize 3 → `x+w=34`). 원래 격자 안에 있던 위젯은 넘친 만큼 `x`를 왼쪽으로 옮겨 오른쪽 끝을 격자 끝에 맞춘다. 드래그 미리보기도 같은 규칙이고, 미리보기 상한은
+    실시간 `x` prop 대신 시작 위치 기준으로 계산한다 (진행 중 레이아웃을 따라 `x`가 바뀌기 때문). 단, 1칸 미만의 아주 작은 드래그는 미리보기에선 minSize까지 커져 보여도 확정값은
+    그대로인 기존 불일치가 남아 있다 (델타 0이면 확정 계산이 건너뜀).
 
 ### 수정 파일
 
@@ -1456,6 +1474,9 @@ shallow**인데, `createSharedState`는 호출할 때마다 `{ apps: { appIds, a
   `src/renderer/ui/components/worktable/widgetLayout/calcs.ts`(여백 6→4px)
 - **테스트**: `tests/renderer/base/widgetLayout.spec.ts`,
   `tests/renderer/application/useCases/workflow/addWidgetToWorkflow.spec.ts`(32칸 기준 자동배치 좌표 정정)
+- **(후속) 수정**: `widgetLayout.module.scss`(spacer 4px), `base/widgetLayout.ts`(`maxRight` 바닥·`moveLayoutItem` w 비교),
+  `widgetLayoutItemViewModel.ts`(미리보기 폭 상한), 위젯 6종 `index.ts`(minSize)
+- **(후속) 테스트**: `tests/renderer/base/widgetLayout.spec.ts`(넘친 위젯 리사이즈·이동 시 폭 보정·minSize 성장 시 왼쪽으로 확장)
 
 ---
 
@@ -1718,7 +1739,8 @@ Note와 To-Do List의 디스크 저장은 디바운스 (노트 800ms, 투두 500
 ## 45. 워크플로우 바 위치 선택 — 위/아래/좌/우 + 사이드 너비 조절 *(2026-06-06)*
 
 워크플로우 탭 바 (프로젝트 스위처·편집 토글·팔레트가 함께 있는 그 바)를 **위/아래/왼쪽 (기본)/오른쪽** 중 원하는 위치에 둘 수 있다. 좌/우 (사이드)일 때는 세로 패널이 되고 **너비를 조절**할 수
-있다. (신규 설치 기본값은 왼쪽 사이드; appConfig는 영구 저장되므로 기존 설치는 저장된 값을 유지.)
+있다. (기본값은 왼쪽 사이드. 이 기능과 기본값 변경이 같은 릴리스 `v2.8.0-swh.4`에 처음 들어가 `top`을 저장한 배포판이 없으므로, swh.3 이하에서
+업그레이드한 설치도 왼쪽 사이드로 바뀐다.)
 
 ### 사용자 가시적 효과
 
@@ -1730,11 +1752,13 @@ Note와 To-Do List의 디스크 저장은 디바운스 (노트 800ms, 투두 500
 ### 아키텍처
 
 - 전역 설정 `AppConfig.workflowBarPos`('top'|'bottom'|'left'|'right')·`workflowBarWidth`(px).
-- **레이아웃**: `app.tsx`가 위치에 따라 — 위/아래는 기존 세로 스택에서 바를 본문 앞/뒤로, 좌/우는 `[바 + 본문]`을 가로 행 (`.body-row`, right는 `row-reverse`)으로
-  묶음.
+- **레이아웃**: `app.tsx`가 위치와 상관없이 `[바, 리사이저, 본문]`을 같은 순서로 `.body-layout` 하나에 담고, 방향만 CSS로 바꾼다 (top=`column`,
+  bottom=`column-reverse`, left=`row`, right=`row-reverse`). 리사이저 자리는 안 쓸 때 `false`로 비워 둔다. (처음엔 위/아래를 Fragment로, 좌/우를
+  가로 행으로 따로
+  렌더했는데, 그러면 위치를 바꿀 때 React가 Worktable을 통째로 다시 만들어 webview 위젯이 모두 새로고침됐다. 아래 후속 참고.)
 - **세로 바**: `workflowSwitcher`가 좌/우면 `is-vertical` 클래스 (+ 인라인 width)로 `flex-direction:column`·세로 탭·테두리 방향 (좌=오른쪽
   테두리/우=왼쪽 테두리)을 전환. 아래는 `is-bottom`으로 테두리만 위로.
-- **드래그 리사이저**: `.body-row` 안 바와 본문 사이에 얇은 스플리터 (`.workflow-bar-resizer`, `cursor:col-resize`). `mousedown` 시 시작 X·시작
+- **드래그 리사이저**: `.body-layout` 안 바와 본문 사이에 얇은 스플리터 (`.workflow-bar-resizer`, `cursor:col-resize`). `mousedown` 시 시작 X·시작
   width·방향 (left=+1/right=−1)을 ref에 저장하고 `window` `mousemove`로 `setWorkflowBarWidthUseCase(시작width + 방향×ΔX)`를 호출 → store
   갱신·자동 저장. `mouseup`에 리스너 해제. 너비 클램프 (120~600)·반올림·동일값 무시는 use case에서.
 
@@ -1752,8 +1776,32 @@ Note와 To-Do List의 디스크 저장은 디바운스 (노트 800ms, 투두 500
 - **바 크기 변화 시 그리드 미반영**: 그리드 셀 크기는 worktable 실측값 (`useElementRect`)으로 계산하는데, 이 훅이 `window.resize`와 마운트 시에만 재측정했다. 바를
   사이드로 옮기거나 너비를 드래그하면 worktable 크기가 창 리사이즈 없이 바뀌므로 그리드가 옛 치수로 남아 위젯이 어긋났다. `ResizeObserver`를 추가해 worktable 크기가 바뀔 때마다
   재측정 (드래그 중 실시간 리플로우 포함). jsdom엔 `ResizeObserver`가 없어 `typeof` 가드.
-- `right`는 `.body-row`가 `row-reverse`라 DOM 순서 `[바, 리사이저, 본문]`이 시각적으로 `[본문, 리사이저, 바]`로 뒤집힌다 — 리사이저가 양쪽 모두 바의 안쪽 경계에 정확히
+  - **(후속) 처음 넣은 ResizeObserver는 실제로 동작하지 않았다**: `WidgetLayout`은 첫 렌더에 placeholder `<div>`를, 마운트 뒤엔 Fragment로 감싼 다른
+    `<div>`를
+    반환한다 (upstream부터 있던 구조). DOM 노드가 교체되는데 observer는 마운트 때 한 번만 붙어 떨어져 나간 placeholder를 계속 보고 있었다. jsdom엔
+    `ResizeObserver`가 없어
+    테스트로는 드러나지 않았고, 위치 변경은 리마운트 때문에 우연히 재측정돼 고쳐진 것처럼 보였다. `useElementRect`가 매 커밋 `ref.current`를 비교해 요소가 바뀌면 다시
+    observe하도록
+    고쳤다 (같은 요소면 아무것도 안 하므로 일반 재렌더 비용 없음, 마운트 직후 재렌더는 그대로 유지). 실제 앱에서 드래그 후 그리드가 새 폭에 맞춰지는 것을 확인했다. 단, 창이 다른 창에 가려져
+    렌더링이 멈춘 상태에선 ResizeObserver도 다음 프레임까지 미뤄진다 (Chromium 동작).
+- `right`는 `.body-layout`이 `row-reverse`라 DOM 순서 `[바, 리사이저, 본문]`이 시각적으로 `[본문, 리사이저, 바]`로 뒤집힌다 — 리사이저가 양쪽 모두 바의 안쪽 경계에
+  정확히
   위치하므로 위치 분기 불필요, 드래그 방향만 부호 (`dir`)로 처리.
+- **(후속, 2026-10-05) 전수 점검에서 찾은 잔여 버그 정리**
+  - **위치 변경 시 리마운트**: 위 "레이아웃" 항목대로 트리를 하나로 고정. Top↔Left, Top↔Bottom을 바꿔도 webview가 다시 로드되지 않는다.
+  - **너비 입력칸에 직접 입력 불가**: 키를 칠 때마다 120~600으로 clamp해서 "300"을 치면 "3"이 곧바로 120이 됐다. 입력 중 문자열은 로컬 state로 들고, 범위 안의 값일 때만
+    설정에 반영하고, blur 때 clamp해 확정한다. OK 클릭은 입력칸 blur가 먼저 일어나므로 범위 밖 값이 저장되지 않는다.
+  - **드래그 중 mouseup 유실**: 드래그 중 Alt+Tab·전역 단축키로 포커스가 빠지면 mouseup을 못 받아, 버튼을 뗀 뒤에도 너비가 커서를 따라가고 오버레이가 다음 클릭을 먹었다.
+    `mousemove`에서 `buttons`에 왼쪽 버튼이 없으면 종료, `window` `blur`에도 종료. 왼쪽 버튼이 아닌 mousedown으로는 드래그를 시작하지 않는다.
+  - **리사이저 잡는 영역이 절반**: 바 (z-index 2)가 리사이저 (1)의 `::before` 중 바 쪽 절반을 덮어 3px만 잡혔다. 리사이저를 3으로 올림.
+  - **팔레트 드롭다운**: 섹션이 문서 흐름 안에서 펼쳐져, 아래 바에서는 창 밖으로 나가 보이지 않았고 사이드 바에서는 바 안에 갇혀 탭 목록을 밀어냈다. 섹션을 `.palette`
+    기준 absolute로 띄우고, 아래 바이거나 사이드 바의 아래쪽 (탭 목록 뒤)에 있을 때는 `dropUp`으로 위로 펼친다. 세로 바 자체의 `overflow` 클리핑은 빼고 탭 목록이 스스로 스크롤한다.
+    위로 펼칠 땐 `max-height`를 `min(500px, 60vh)`로 줄여, 최소 높이 (600px) 창에서도 검색창이 창 위로 잘리지 않는다.
+  - **세로 바 세부 스타일**: 긴 워크플로우 이름이 `nowrap` 그대로라 잘리던 것을 줄바꿈으로, 바가 좁을 때 프로젝트 select (`min-width:140px`)가 Manage Projects
+    버튼을 밀어내
+    잘리던 것을 select가 먼저 줄어들도록, 아래 바에서 선택 탭이 창 가장자리 쪽으로 열려 보이던 것을 위 (worktable) 쪽으로 열리도록 고쳤다.
+  - **빈 상태 안내 문구의 "above"**: 바가 왼쪽·오른쪽·아래일 때 방향이 틀려서 방향 표현을 뺐다.
+  - 확인: 프로덕션 빌드를 띄워 위/아래/좌/우·폭 120px·드래그 리사이즈를 스크린샷으로 확인했다.
 
 ### 수정 파일
 
@@ -1763,6 +1811,12 @@ Note와 To-Do List의 디스크 저장은 디바운스 (노트 800ms, 투두 500
   (ResizeObserver)
 - **테스트**: `setWorkflowBarWidth.spec.ts`(클램프·반올림·동일값 무시), `workflowSwitcher.spec.tsx`(세로 패널 width 적용/미적용),
   `app.spec.tsx` 및 설정 fixture 갱신
+- **(후속) 수정**: `ui/hooks/useElementRect.ts`(요소 교체 시 재observe), `app`(컴포넌트·scss: 단일 트리, 리사이저 버튼·blur 처리·z-index),
+  `applicationSettings`(너비 입력 컴포넌트), `palette`(컴포넌트·scss: absolute·`dropUp`), `workflowSwitcher`(컴포넌트·scss),
+  `worktable.tsx`·`widgetLayout.tsx`(안내 문구), `base/appConfig.ts`(주석)
+- **(후속) 테스트**: `useElementRect.spec.tsx`(요소 교체 시 재observe·언마운트 disconnect), `app.spec.tsx`(위치 변경 시 같은 인스턴스 유지, 리사이저
+  버튼·mouseup 유실·blur),
+  `applicationSettings.spec.tsx`(너비 직접 입력·blur clamp)
 
 ---
 

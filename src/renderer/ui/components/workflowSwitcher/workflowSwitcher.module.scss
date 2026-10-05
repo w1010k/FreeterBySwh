@@ -14,10 +14,31 @@
   flex-direction: row;
 }
 
-// Bottom position: same horizontal bar, border on top instead of bottom.
+// Bottom position: same horizontal bar, border on top instead of bottom. The
+// tab overlap is mirrored too, so the selected tab opens upward into the
+// worktable instead of toward the window edge.
 .workflow-switcher-bar.is-bottom {
   border-bottom: none;
   border-top: 1px solid var(--freeter-workflowSwitcherBorder);
+
+  .workflow-switcher {
+    margin-bottom: 0;
+    margin-top: -1px;
+  }
+
+  .workflow-switcher-item {
+    margin-top: 0;
+  }
+
+  .workflow-switcher-item:has(> .workflow-switcher-item-button[aria-selected="true"]) > .workflow-switcher-item-button {
+    border-bottom-color: var(--freeter-workflowSwitcherBorder);
+    border-top-color: var(--freeter-workflowSwitcherTabOpenBackground);
+  }
+
+  .workflow-switcher-item-name-editor {
+    border-bottom-color: var(--freeter-workflowSwitcherBorder);
+    border-top-color: var(--freeter-workflowSwitcherTabOpenBackground);
+  }
 }
 
 // Left/Right position: vertical side panel. Width comes from an inline style.
@@ -31,14 +52,15 @@
   // and the selected tab drops it so it visually connects to the worktable — a
   // real tab-view look. Non-tab sections keep the edge so they stay framed.
   border-right: none;
-  overflow-y: auto;
-  overflow-x: hidden;
+  // No overflow clipping on the bar itself: the palette dropdown has to float
+  // out over the worktable. The tab list scrolls on its own (.workflow-switcher).
 
   .workflow-switcher-bar-section {
     &:not(:last-child) {
       border-right: none;
       border-bottom: 1px solid var(--freeter-workflowSwitcherBorder);
     }
+
     &:not(.workflow-switcher) {
       border-right: 1px solid var(--freeter-workflowSwitcherBorder);
     }
@@ -59,6 +81,7 @@
       border-right: none;
       border-left: 1px solid var(--freeter-workflowSwitcherBorder);
     }
+
     .workflow-switcher-item:has(> .workflow-switcher-item-button[aria-selected="true"]) > .workflow-switcher-item-button {
       border-right-color: var(--freeter-workflowSwitcherBorder);
       border-left-color: var(--freeter-workflowSwitcherTabOpenBackground);
@@ -75,6 +98,7 @@
   .workflow-switcher-item {
     display: block;
     margin-top: 0;
+
     &:not(:first-child) {
       margin-left: 0;
       margin-top: -1px;
@@ -95,12 +119,27 @@
     line-height: 1.4;
     padding: 8px 36px 8px 12px;
   }
+
+  // Undo the horizontal bar's `nowrap` so long names wrap inside the padding
+  // (the right padding keeps them clear of the hover action bar).
+  .workflow-switcher-item-button {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  // Let the project select give up width before the Manage Projects button gets
+  // clipped by the bar's overflow on narrow widths (its own min-width is 140px).
+  .workflow-switcher-bar-project-switcher-section .project-switcher {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
 }
 
 .workflow-switcher-bar-section {
   box-sizing: border-box;
   padding: 0 6px;
   display: flex;
+
   &:not(:last-child) {
     border-right: 1px solid var(--freeter-workflowSwitcherBorder);
   }
@@ -115,6 +154,7 @@
 .workflow-switcher-bar-project-switcher-section {
   align-items: center;
   flex-shrink: 0;
+
   .project-switcher {
     height: 32px;
     line-height: 20px;
@@ -131,10 +171,12 @@
   overflow-y: hidden;
   box-sizing: content-box;
   margin-bottom: -1px;
+
   &.is-drop-area {
     background-color: var(--freeter-workflowSwitcherDropAreaBackground);
   }
-  &:not(:hover)::-webkit-scrollbar{
+
+  &:not(:hover)::-webkit-scrollbar {
     display: none;
   }
 }
@@ -143,11 +185,13 @@
   height: 36px;
   margin: 0 24px 0 12px;
   min-width: 100px;
-  padding:0;
+  padding: 0;
+
   &:first-child {
     padding-left: 12px;
   }
 }
+
 .workflow-switcher.dont-show-action-bar {
   .workflow-switcher-action-bar {
     display: none;
@@ -158,8 +202,9 @@
   position: relative;
   display: inline-block;
   margin-top: -1px;
+
   &:not(:first-child) {
-    margin-left:-1px;
+    margin-left: -1px;
   }
 }
 
@@ -175,6 +220,7 @@
   font-size: 14px;
   text-align: left;
 }
+
 .workflow-switcher-item-button {
   display: inline-block;
   background-color: var(--freeter-workflowSwitcherTabBackground);
@@ -211,16 +257,19 @@
       color: var(--freeter-workflowSwitcherTabHoverColor);
     }
   }
+
   &:has(> .workflow-switcher-item-button[aria-selected="true"]) {
     > .workflow-switcher-item-button {
       background-color: var(--freeter-workflowSwitcherTabOpenBackground);
       border-bottom-color: var(--freeter-workflowSwitcherTabOpenBackground);
       color: var(--freeter-workflowSwitcherTabOpenColor);
     }
+
     > .workflow-switcher-item-action-bar {
       background-color: var(--freeter-workflowSwitcherTabOpenBackground);
     }
   }
+
   &:has(> .workflow-switcher-item-button.is-drop-area) {
     > .workflow-switcher-item-button {
       background-color: var(--freeter-workflowSwitcherDropAreaBackground);

@@ -3,25 +3,26 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { render, screen, waitFor } from '@testing-library/react';
-import { createWorktableComponent } from '@/ui/components/worktable/worktable';
-import { createWorktableViewModelHook } from '@/ui/components/worktable/worktableViewModel';
-import { AppState } from '@/base/state/app';
-import { fixtureAppStore } from '@tests/data/fixtures/appStore';
-import { createAppStateHook } from '@/ui/hooks/appState';
-import { fixtureAppState } from '@tests/base/state/fixtures/appState';
-import { fixtureProjectSwitcher } from '@tests/base/state/fixtures/projectSwitcher';
-import { fixtureProjectAInColl } from '@tests/base/state/fixtures/entitiesState';
-import { fixtureWorkflowA, fixtureWorkflowB, fixtureWorkflowC } from '@tests/base/fixtures/workflow';
-import { WidgetLayoutProps } from '@/ui/components/worktable/widgetLayout';
-import { fixtureMemSaver } from '@tests/base/state/fixtures/memSaver';
-import { fixtureAppConfig } from '@tests/base/fixtures/appConfig';
+import {AppState} from '@/base/state/app';
+import {WidgetLayoutProps} from '@/ui/components/worktable/widgetLayout';
+import {createWorktableComponent} from '@/ui/components/worktable/worktable';
+import {createWorktableViewModelHook} from '@/ui/components/worktable/worktableViewModel';
+import {createAppStateHook} from '@/ui/hooks/appState';
+import {render, screen, waitFor} from '@testing-library/react';
+import {fixtureAppConfig} from '@tests/base/fixtures/appConfig';
+import {fixtureWorkflowA, fixtureWorkflowB, fixtureWorkflowC} from '@tests/base/fixtures/workflow';
+import {fixtureAppState} from '@tests/base/state/fixtures/appState';
+import {fixtureProjectAInColl} from '@tests/base/state/fixtures/entitiesState';
+import {fixtureMemSaver} from '@tests/base/state/fixtures/memSaver';
+import {fixtureProjectSwitcher} from '@tests/base/state/fixtures/projectSwitcher';
+import {fixtureAppStore} from '@tests/data/fixtures/appStore';
 
 const strWidgetLayout = 'WidgetLayout';
 const projectId = 'PROJECT-ID';
 const strIsVisible = 'IS-VISIBLE'
 
-const WidgetLayout = (props: WidgetLayoutProps) => <div>{strWidgetLayout} {props.projectId} {props.workflowId} {props.isVisible && strIsVisible}</div>;
+const WidgetLayout = (props: WidgetLayoutProps) =>
+  <div>{strWidgetLayout} {props.projectId} {props.workflowId} {props.isVisible && strIsVisible}</div>;
 
 async function setup(
   appState: AppState,
@@ -76,19 +77,19 @@ describe('<Worktable />', () => {
     const workflowA = fixtureWorkflowA();
     await setup(fixtureAppState({
       entities: {
-        projects: { ...fixtureProjectAInColl({ id: projectId, workflowIds: [workflowA.id] }) },
-        workflows: { [workflowA.id]: workflowA }
+        projects: {...fixtureProjectAInColl({id: projectId, workflowIds: [workflowA.id]})},
+        workflows: {[workflowA.id]: workflowA}
       },
       ui: {
         editMode: false,
-        memSaver: fixtureMemSaver({ activeWorkflows: [{ prjId: projectId, wflId: workflowA.id }] }),
-        projectSwitcher: fixtureProjectSwitcher({ currentProjectId: projectId }),
-        appConfig: fixtureAppConfig({ bgColor: 'rgb(10, 20, 30)', bgOpacity: 60 })
+        memSaver: fixtureMemSaver({activeWorkflows: [{prjId: projectId, wflId: workflowA.id}]}),
+        projectSwitcher: fixtureProjectSwitcher({currentProjectId: projectId}),
+        appConfig: fixtureAppConfig({bgColor: 'rgb(10, 20, 30)', bgOpacity: 60})
       }
     }));
     const bg = screen.getByTestId('worktable-bg');
-    expect(bg).toHaveStyle({ backgroundColor: 'rgb(10, 20, 30)' });
-    expect(bg).toHaveStyle({ opacity: '0.6' });
+    expect(bg).toHaveStyle({backgroundColor: 'rgb(10, 20, 30)'});
+    expect(bg).toHaveStyle({opacity: '0.6'});
   });
 
   it('should resolve the configured background image to a data URL and apply it with the fit mode', async () => {
@@ -97,36 +98,36 @@ describe('<Worktable />', () => {
     const getImageDataUrl = jest.fn(async () => dataUrl);
     await setup(fixtureAppState({
       entities: {
-        projects: { ...fixtureProjectAInColl({ id: projectId, workflowIds: [workflowA.id] }) },
-        workflows: { [workflowA.id]: workflowA }
+        projects: {...fixtureProjectAInColl({id: projectId, workflowIds: [workflowA.id]})},
+        workflows: {[workflowA.id]: workflowA}
       },
       ui: {
         editMode: false,
-        memSaver: fixtureMemSaver({ activeWorkflows: [{ prjId: projectId, wflId: workflowA.id }] }),
-        projectSwitcher: fixtureProjectSwitcher({ currentProjectId: projectId }),
-        appConfig: fixtureAppConfig({ bgImage: '/img/bg.png', bgImageMode: 'contain' })
+        memSaver: fixtureMemSaver({activeWorkflows: [{prjId: projectId, wflId: workflowA.id}]}),
+        projectSwitcher: fixtureProjectSwitcher({currentProjectId: projectId}),
+        appConfig: fixtureAppConfig({bgImage: '/img/bg.png', bgImageMode: 'contain'})
       }
     }), getImageDataUrl);
 
     expect(getImageDataUrl).toHaveBeenCalledWith('/img/bg.png');
-    await waitFor(() => expect(screen.getByTestId('worktable-bg')).toHaveStyle({ backgroundImage: `url("${dataUrl}")` }));
+    await waitFor(() => expect(screen.getByTestId('worktable-bg')).toHaveStyle({backgroundImage: `url("${dataUrl}")`}));
     const bg = screen.getByTestId('worktable-bg');
-    expect(bg).toHaveStyle({ backgroundSize: 'contain' });
-    expect(bg).toHaveStyle({ backgroundRepeat: 'no-repeat' });
+    expect(bg).toHaveStyle({backgroundSize: 'contain'});
+    expect(bg).toHaveStyle({backgroundRepeat: 'no-repeat'});
   });
 
   it('should not render a background layer when no custom background is configured', async () => {
     const workflowA = fixtureWorkflowA();
     await setup(fixtureAppState({
       entities: {
-        projects: { ...fixtureProjectAInColl({ id: projectId, workflowIds: [workflowA.id] }) },
-        workflows: { [workflowA.id]: workflowA }
+        projects: {...fixtureProjectAInColl({id: projectId, workflowIds: [workflowA.id]})},
+        workflows: {[workflowA.id]: workflowA}
       },
       ui: {
         editMode: false,
-        memSaver: fixtureMemSaver({ activeWorkflows: [{ prjId: projectId, wflId: workflowA.id }] }),
-        projectSwitcher: fixtureProjectSwitcher({ currentProjectId: projectId }),
-        appConfig: fixtureAppConfig({ bgColor: '', bgImage: '' })
+        memSaver: fixtureMemSaver({activeWorkflows: [{prjId: projectId, wflId: workflowA.id}]}),
+        projectSwitcher: fixtureProjectSwitcher({currentProjectId: projectId}),
+        appConfig: fixtureAppConfig({bgColor: '', bgImage: ''})
       }
     }));
     expect(screen.queryByTestId('worktable-bg')).not.toBeInTheDocument();
@@ -150,7 +151,7 @@ describe('<Worktable />', () => {
       },
     }));
     expect(screen.getByText(/The project does not have any workflows/i)).toBeInTheDocument();
-    expect(screen.queryByText(/button at the Tab Bar/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/button in the Workflow Bar/i)).not.toBeInTheDocument();
   });
 
   it('should replace "No Workflows" with "Click button" text, when edit mode is on', async () => {
@@ -168,7 +169,7 @@ describe('<Worktable />', () => {
       },
     }));
     expect(screen.queryByText(/The project does not have any workflows/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/button at the Tab Bar/i)).toBeInTheDocument();
+    expect(screen.getByText(/button in the Workflow Bar/i)).toBeInTheDocument();
   });
 
   it('should display 0 WidgetLayout components, when there are no workflows active in mem saver', async () => {
@@ -234,7 +235,11 @@ describe('<Worktable />', () => {
     await setup(fixtureAppState({
       entities: {
         projects: {
-          ...fixtureProjectAInColl({id: projectId, workflowIds: [workflowA.id, workflowB.id], currentWorkflowId: workflowB.id})
+          ...fixtureProjectAInColl({
+            id: projectId,
+            workflowIds: [workflowA.id, workflowB.id],
+            currentWorkflowId: workflowB.id
+          })
         },
         workflows: {
           [workflowA.id]: workflowA,
