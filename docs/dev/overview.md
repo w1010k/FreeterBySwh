@@ -22,6 +22,7 @@ Freeter는 Electron 데스크톱 앱이다. 프로젝트, 워크플로우 (탭),
 | 버전 형식         | `<upstream 기준>-swh.N`. 2.8 병합 때 `2.8.0-swh.1`부터 시작                                   | 병합 커밋 메시지                                  |
 | 포크 저장소       | `w1010k/FreeterBySwh`                                                                         | `package.json` `repository`                       |
 | 앱 식별자         | appId `io.freeter.app.swh`, productName `Freeter-SWH`, package `name` `freeter-swh` [fork #1] | `electron-builder.config.js`, `package.json`      |
+| 배포 | GitHub Releases. Windows `msi`, `zip` (x64), Linux `tar.xz` (x64). macOS `dmg`는 `2.8.0-swh.17`까지만 있다 [fork #89] | `electron-builder.config.js`, `.github/workflows/cd.yml` |
 
 #### upstream 2.8과 병합 방침
 

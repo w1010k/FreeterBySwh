@@ -57,7 +57,9 @@
 
 ### 1) 설치·실행
 
-이 포크 버전은 소스에서 직접 빌드합니다(원본 설치 파일을 바로 쓰고 싶다면 [원본 다운로드 페이지](https://freeter.io/download) 참고). 빌드 순서는 [README의 "소스에서 직접 빌드하기"](../README.md#소스에서-직접-빌드하기)에 있습니다 — 요약하면 `yarn` → `yarn run prod` → `yarn run package`.
+이 포크의 설치 파일은 [GitHub Releases](https://github.com/w1010k/FreeterBySwh/releases)에서 받습니다. Windows는 `msi`(설치형)나 `zip`(압축을 풀어 바로 실행), Linux는 `tar.xz`입니다. macOS용 설치 파일은 없습니다.
+
+직접 빌드하려면 [README의 "소스에서 직접 빌드하기"](../README.md#소스에서-직접-빌드하기)를 따르세요. 요약하면 `yarn` → `yarn run prod` → `yarn run package`입니다. 원본 Freeter를 쓰고 싶다면 [원본 다운로드 페이지](https://freeter.io/download)를 참고하세요.
 
 처음 실행하면 비어 있는 작업판이 나타납니다. 여기서부터 시작합니다.
 

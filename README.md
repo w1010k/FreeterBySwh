@@ -20,11 +20,17 @@
 
 - Linux; 대부분의 배포판; Intel 64-bit.
 - Windows 10 이상; Intel 64-bit.
-- macOS 10.15 이상; Intel · Apple Silicon.
+- macOS: 이 포크는 설치 파일을 배포하지 않습니다. 소스의 macOS 코드는 남아 있어 직접 빌드할 수는 있지만, 동작은 확인하지 않았습니다.
 
 ## 설치 파일
 
-원본 앱을 바로 설치해서 쓰고 싶다면 [다운로드 페이지][download]의 OS별 최신 인스톨러를 이용하세요. 이 포크 버전은 소스에서 직접 빌드해야 합니다 (아래 참고).
+이 포크의 설치 파일은 [GitHub Releases][releases]에서 받을 수 있습니다.
+
+- Windows: `msi` (설치형) 또는 `zip` (압축을 풀어 바로 실행)
+- Linux: `tar.xz`
+- macOS: 설치 파일이 없습니다. `2.8.0-swh.17`까지의 릴리스에만 `dmg`가 있습니다.
+
+원본 Freeter를 쓰고 싶다면 원본 [다운로드 페이지][download]의 OS별 인스톨러를 이용하세요. 직접 빌드하는 방법은 아래에 있습니다.
 
 ## 소스에서 직접 빌드하기
 
@@ -42,7 +48,8 @@
   2. `yarn run prod` (컴파일)
   3. `yarn run package` (패키징)
 
-완료되면 `./dist` 폴더에 설치 가능한 패키지가 생성됩니다.
+완료되면 `./dist` 폴더에 설치 가능한 패키지가 생성됩니다. 패키징 설정은 Windows와 Linux용만 있습니다. macOS에서 패키징하면 electron-builder 기본값으로
+만들어집니다 (확인하지 않음).
 
 ## 라이선스
 
@@ -170,6 +177,7 @@ Freeter는 자유 소프트웨어이며, [라이선스][license] 조건에 따�
 
 [home]: https://freeter.io/
 [download]: https://freeter.io/download
+[releases]: https://github.com/w1010k/FreeterBySwh/releases
 [community]: https://community.freeter.io/
 [donate]: https://freeter.io/sponsor
 [roadmap]: https://community.freeter.io/topic/2/planned-features

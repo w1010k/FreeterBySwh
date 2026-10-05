@@ -3218,13 +3218,16 @@ Webpage 위젯 안의 웹 페이지가 OS로 여는 주소의 스킴을 검사�
   (`main/base/apps/terminal.ts`) 같은 Mac 전용 코드가 조금 더 있다. 지워도 얻는 것이 적고, upstream 병합 때 같은 파일에서 충돌만 늘어난다.
 - **mac에서 직접 패키징하면 기본값을 쓴다**: `mac` 설정이 없으므로 mac에서 `yarn package`를 돌리면 electron-builder 기본 target과 Electron 기본 아이콘으로
   패키징될 것이다 (추정, mac에서 실행해 확인하지 않음).
-- **README의 지원 운영체제 목록은 유지**: 소스의 macOS 분기가 남아 있으므로 macOS 줄을 지우지 않았다.
+- **README의 지원 운영체제 목록**: 소스의 macOS 분기가 남아 있으므로 macOS 줄을 지우지 않았다. (후속, 2026-10-05) 이 줄을 "설치 파일 없음, 직접 빌드는
+  확인하지 않음"으로 바꿨다. README의 "설치 파일" 절과 GUIDE의 설치 안내도 이 포크의 GitHub Releases 기준 (Windows `msi`·`zip`, Linux `tar.xz`)으로 고쳤다.
+  두 문서는 그전까지 "이 포크는 소스에서 직접 빌드해야 한다"고 적고 있었다.
 
 ### 수정 파일
 
 - **수정**: `.github/workflows/cd.yml` (`darwin` job 삭제, 직렬화 주석 갱신), `electron-builder.config.js` (`mac`, `dmg` 삭제)
 - **삭제**: `resources/darwin/` (`freeter.icns`, `dmgBg.png`, `dmgBg@2x.png`)
 - **문서**: `docs/dev/procedures.md`, `docs/dev/overview.md`, `docs/dev/decisions.md` (D59)
+- **(후속) 문서**: `README.md` (지원 운영체제, 설치 파일, 빌드 결과 설명), `docs/GUIDE.md` (설치·실행)
 
 ## 부록: 참고 문서
 
