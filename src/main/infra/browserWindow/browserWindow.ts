@@ -7,6 +7,7 @@ import {BrowserWindow} from '@/application/interfaces/browserWindow'
 import {GetWindowStateUseCase} from '@/application/useCases/browserWindow/getWindowState';
 import {SetWindowStateUseCase} from '@/application/useCases/browserWindow/setWindowState';
 import {sanitizeUrl} from '@common/helpers/sanitizeUrl';
+import {isAllowedExternalUrl} from '@common/helpers/isAllowedExternalUrl';
 import {
   ipcAppFocusChangedChannel,
   ipcGoHomeWebpageChannel,
@@ -250,7 +251,9 @@ export function createRendererWindow(
         event.preventDefault();
         const currentUrl = wc.getURL();
         const safeUrl = currentUrl ? sanitizeUrl(currentUrl) : '';
-        if (safeUrl) {
+        // The guest page controls its own URL, so only web and mail schemes
+        // reach the OS (a file: or app-protocol URL would launch something).
+        if (safeUrl && isAllowedExternalUrl(safeUrl)) {
           shell.openExternal(safeUrl);
         }
         return;
@@ -281,7 +284,10 @@ export function createRendererWindow(
       const isRealPopup = disposition === 'new-window' || rePopupFeatures.test(features);
       if (!isRealPopup) {
         const sanitUrl = sanitizeUrl(url);
-        if (sanitUrl) {
+        // `url` comes from the guest page (a target="_blank" link or
+        // window.open), so only web and mail schemes are handed to the OS;
+        // any other scheme is dropped together with the denied window.
+        if (sanitUrl && isAllowedExternalUrl(sanitUrl)) {
           shell.openExternal(sanitUrl);
         }
         return {action: 'deny'};

@@ -117,6 +117,7 @@ import {registerHttpAuthHandler} from '@/infra/httpAuth/httpAuth';
 import {createIconProvider} from '@/infra/iconProvider/iconProvider';
 import {createIpcMain} from '@/infra/ipcMain/ipcMain';
 import {createIpcMainEventValidator} from '@/infra/ipcMain/ipcMainEventValidator';
+import {registerPermissionHandler} from '@/infra/permissions/permissionHandler';
 import {createForegroundWindowReader} from '@/infra/osActivity/foregroundWindow';
 import {createAnalyticsServer} from '@/infra/analyticsServer/analyticsServer';
 import {createProcessProvider} from '@/infra/processProvider/processProvider';
@@ -242,6 +243,11 @@ if (!app.requestSingleInstanceLock()) {
     // Prompt for credentials on HTTP Basic/Digest auth challenges from any
     // webview; without this Electron cancels such requests outright.
     registerHttpAuthHandler();
+
+    // Stop web pages from launching app protocols through session permission
+    // requests (Electron grants all of them by default). Registered before any
+    // window/webview so its session-created listener catches partition sessions.
+    registerPermissionHandler();
 
     const appDataDir = join(app.getPath('appData'), dataDirName, 'freeter-data');
     const appDataStorage = await createFileDataStorage('string', appDataDir);

@@ -3105,6 +3105,52 @@ Analytics 화면 상단에 **기간 선택**(전체/최근 30일/최근 7일, �
 
 ---
 
+## 88. Webpage 위젯 외부 열기 URL의 스킴 제한 *(2026-10-05)*
+
+Webpage 위젯 안의 웹 페이지가 OS로 여는 주소의 스킴을 검사한다. `http`, `https`, `mailto`만 기본 브라우저 (메일은 메일 앱)로 열리고, 나머지는 아무 일도 하지 않는다.
+
+### 사용자 관점
+
+- 앱 코드가 주소를 넘기는 경로 4곳이 대상이다: 새 탭 링크와 `window.open` (#13), `Ctrl/Cmd+T` (#25), 액션바와 우클릭 메뉴의 "Open in web browser", 링크 우클릭의
+  "Open link in web browser".
+- 페이지가 직접 여는 경로도 대상이다: 같은 프레임 이동 (target 없는 링크, `location.href` 변경)으로 여는 앱 프로토콜도 같은 규칙으로 막힌다.
+- `file:` 링크나 `slack://`, `zoommtg:`, `msteams:` 같은 앱 프로토콜을 여는 페이지 동작은 이제 무시된다. 화면 알림은 없다. 예를 들어 Zoom 웹 페이지의 "Launch Meeting"처럼
+  `zoommtg:`로 앱을 여는 버튼은 위젯 안에서 앱을 실행하지 않는다 (실제 사이트로는 확인하지 않음). 이런 페이지는 `Ctrl/Cmd+T`로 시스템 브라우저에서 열면 된다.
+- Link Opener, Web Query, 앱 메뉴는 그대로다. 사용자가 직접 등록한 주소라서 `obsidian://` 같은 앱 딥링크도 계속 열린다.
+- 앱 내부 팝업 (OAuth 로그인 창 등)과 알림, 카메라, 마이크 같은 다른 권한은 그대로다.
+
+### 아키텍처
+
+- 새 헬퍼 `common/helpers/isAllowedExternalUrl.ts`: `new URL(url).protocol`이 `http:`, `https:`, `mailto:`이면 true, 파싱 실패나 다른 스킴이면 false.
+- 4개 경로: main `infra/browserWindow/browserWindow.ts`의 새 탭 분기와 `Ctrl+T` 분기, renderer `widgets/webpage/actions.ts`의 `openCurrentInBrowser`와
+  `openLinkInBrowser`가 이 검사를 통과한 주소만 넘긴다.
+- 같은 프레임 이동: 새 `main/infra/permissions/permissionHandler.ts`의 `registerPermissionHandler`가 기본 세션과 이후 생기는 모든 세션 (`session-created`)에
+  `setPermissionRequestHandler`를 건다. `openExternal` 요청은 `externalURL`이 검사를 통과할 때만 승인하고, 다른 권한은 Electron 기본값처럼 모두 승인한다
+  (`shouldGrantPermission`). `main/index.ts`가 창과 webview를 만들기 전에 등록한다 (download manager와 같은 방식).
+
+### 까다로웠던 포인트
+
+- **`sanitizeUrl`은 스킴을 거르지 않는다**: `new URL()` 파싱 여부만 본다. #13과 #25는 이 함수가 `javascript:`, `file:`을 막는다고 적었지만 실제로는 통과했다. Webpage 위젯은
+  `allowpopups`를 켜므로, `target="_blank"` 링크를 한 번 클릭하면 `file:` 주소가 `shell.openExternal`까지 갈 수 있었다 (코드 경로 기준, 실행으로 확인하지 않음).
+- **같은 프레임 이동은 권한 요청으로 처리된다**: 페이지가 앱 프로토콜로 이동하면 Chromium이 세션 권한 요청 `openExternal`을 내고 `externalURL`에 대상 주소를 담는다. 앱에는
+  처리기가 없었고, Electron은 처리기가 없으면 모든 권한 요청을 자동 승인한다 (Electron 보안 문서 5번). Electron 42.3.3 숨김 창 실험으로 일반 창과 `<webview>`
+  (`persist:` 파티션) 모두에서 요청이 생기는 것과, 새 처리기가 webview 파티션 세션에서 요청을 거부하는 것을 확인했다.
+- **처리기는 세션마다 하나**: webview 파티션은 별도 세션이라 기본 세션에만 걸면 적용되지 않는다. 그래서 `session-created`로 모든 세션에 건다. 다른 코드가 같은 세션에
+  `setPermissionRequestHandler`를 다시 호출하면 이 처리기를 덮어쓴다.
+- **검사 위치는 신뢰 경계**: `sanitizeUrl`이나 main `openExternalUrlUseCase`에 넣으면 모든 호출자에 걸린다. 그러면 Link Opener의 앱 딥링크처럼 사용자가 의도한 주소까지 막힌다. 그래서
+  게스트 페이지에서 온 주소가 지나는 곳에만 넣었다.
+- **`mailto:` 허용**: 메일 앱만 열고 코드를 실행하지 않는다. 막으면 지금 되는 메일 링크가 사라진다. 버린 대안은 `http`, `https`만 허용하는 안과, 막는 대신 확인 대화상자를
+  띄우는 안 (코드가 늘고 경로마다 정책이 달라짐)이다.
+- `browserWindow.ts`에는 테스트 하네스가 없다. main 쪽 두 곳은 헬퍼 단위 테스트와 코드 확인으로 검증했다.
+
+### 수정 파일
+
+- **신규**: `src/common/helpers/isAllowedExternalUrl.ts`, `src/main/infra/permissions/permissionHandler.ts`
+- **수정**: `src/main/infra/browserWindow/browserWindow.ts`, `src/renderer/widgets/webpage/actions.ts`, `src/main/index.ts`
+- **테스트**: `tests/common/helpers/isAllowedExternalUrl.spec.ts` (신규), `tests/main/infra/permissions/permissionHandler.spec.ts` (신규),
+  `tests/renderer/widgets/webpage/actions.spec.ts` (+3)
+- **문서**: `docs/dev/pitfalls.md`, `docs/dev/overview.md`, `docs/dev/features-widgets.md`, `docs/dev/decisions.md`
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

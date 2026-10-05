@@ -3,7 +3,8 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { zoomLevels, zoomReset, zoomStepIn, zoomStepOut } from '@/widgets/webpage/actions';
+import { openCurrentInBrowser, openLinkInBrowser, zoomLevels, zoomReset, zoomStepIn, zoomStepOut } from '@/widgets/webpage/actions';
+import { WidgetApi } from '@/widgets/appModules';
 
 function mockWebview(initialZoom: number) {
   let current = initialZoom;
@@ -60,5 +61,32 @@ describe('Webpage zoom step helpers', () => {
       zoomReset(wv);
       expect(wv.setZoomFactor).toHaveBeenCalledWith(1);
     })
+  })
+})
+
+// Guest-page URLs must not reach the OS unless they use a web or mail scheme.
+describe('Webpage open-in-browser actions', () => {
+  function mockWidgetApi() {
+    const openExternalUrl = jest.fn();
+    return { widgetApi: { shell: { openExternalUrl } } as unknown as WidgetApi, openExternalUrl };
+  }
+  const webviewAt = (url: string) => ({ getURL: () => url }) as unknown as Electron.WebviewTag;
+
+  it('should hand a web page address to the OS', () => {
+    const { widgetApi, openExternalUrl } = mockWidgetApi();
+    openCurrentInBrowser(webviewAt('https://freeter.io/'), widgetApi);
+    expect(openExternalUrl).toHaveBeenCalledWith('https://freeter.io/');
+  })
+
+  it('should drop a page address with a non-web scheme', () => {
+    const { widgetApi, openExternalUrl } = mockWidgetApi();
+    openCurrentInBrowser(webviewAt('file:///C:/Windows/System32/calc.exe'), widgetApi);
+    expect(openExternalUrl).not.toHaveBeenCalled();
+  })
+
+  it('should drop a link with a non-web scheme', () => {
+    const { widgetApi, openExternalUrl } = mockWidgetApi();
+    openLinkInBrowser('slack://open', widgetApi);
+    expect(openExternalUrl).not.toHaveBeenCalled();
   })
 })

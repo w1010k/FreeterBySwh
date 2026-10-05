@@ -5,6 +5,7 @@
 
 import { WidgetApi } from '@/widgets/appModules';
 import { sanitizeUrl } from '@common/helpers/sanitizeUrl';
+import { isAllowedExternalUrl } from '@common/helpers/isAllowedExternalUrl';
 
 export const labelGoHome = 'Go to start page';
 export const labelGoBack = 'Go Back';
@@ -132,8 +133,13 @@ export function setAudioMuted(elWebview: Electron.WebviewTag, muted: boolean) {
   elWebview.setAudioMuted(muted);
 }
 
+// The guest page controls its own address, so only web and mail schemes are
+// handed to the OS (see isAllowedExternalUrl); others are silently dropped.
 export function openCurrentInBrowser(elWebview: Electron.WebviewTag, widgetApi: WidgetApi) {
-  widgetApi.shell.openExternalUrl(elWebview.getURL());
+  const url = elWebview.getURL();
+  if (isAllowedExternalUrl(url)) {
+    widgetApi.shell.openExternalUrl(url);
+  }
 }
 
 export function savePage(elWebview: Electron.WebviewTag) {
@@ -148,8 +154,12 @@ export function printPage(elWebview: Electron.WebviewTag) {
   elWebview.print();
 }
 
+// `url` is a link's href written by the guest page, so the same scheme check
+// as openCurrentInBrowser applies before it reaches the OS.
 export function openLinkInBrowser(url: string, widgetApi: WidgetApi) {
-  widgetApi.shell.openExternalUrl(url);
+  if (isAllowedExternalUrl(url)) {
+    widgetApi.shell.openExternalUrl(url);
+  }
 }
 
 export function saveLink(url: string, elWebview: Electron.WebviewTag) {
