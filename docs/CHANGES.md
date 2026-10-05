@@ -1,8 +1,9 @@
 # Fork 이후 변경사항
 
-원본 [FreeterApp/Freeter](https://github.com/FreeterApp/Freeter) (마지막 upstream 태그 `v2.7.1-beta`) 이후 이 포크에서 추가/변경한 내용 정리.
+원본 [FreeterApp/Freeter](https://github.com/FreeterApp/Freeter) 이후 이 포크에서 추가/변경한 내용 정리.
 
-기준 시점: `v2.7.1-beta` (upstream 마지막 태그) 이후.
+기준 시점: `v2.7.1-beta` 이후. upstream `v2.8.0-beta`는 2026-06-05에 병합했다 (커밋 `0ebf9ac`, 버전 `2.8.0-swh.1`). 2.8의 내용과 병합 방식은
+`docs/dev/overview.md`의 "앱 개요와 포크 이력"에 있다.
 
 각 섹션 제목 끝의 날짜는 해당 기능이 **처음 도입된 커밋 날짜** (follow-up 개선 커밋은 반영하지 않음).
 
@@ -715,11 +716,13 @@ Link Opener / File Opener 버튼을 여러 개 놔두면 전부 똑같은 기본
    Notion/makelapo/hometax.go.kr/logo.ideachefs.com 등에서 아이콘 안 뜨는 케이스 발견. 이유는 (a) SPA/정적 사이트가 `/favicon.ico`를 루트에 안 두고
    `<link rel="icon" href="/favicon-32x32.png">`로만 선언하거나, (b) WAF/UA 게이팅으로 Node 기본 UA (`node/undici`)를 차단해 HTML 에러 페이지를
    돌려주는 경우. 두 경로로 해결:
-  - **Chrome UA 헤더 추가**: 모든 fetch에 `Electron.app.userAgentFallback`(이미 `main/index.ts:121`에서 Chrome UA로 세팅됨) 또는 하드코딩
-    fallback을 `User-Agent`로 실어 보냄. WAF 우회 + 일반적인 익명 fetch 호환성.
-  - **HTML 파싱 2차 폴백**: `/favicon.ico`가 null을 리턴하면 `<origin>/` HTML을 받아 첫 64KB 안의 `<link>` 태그를 regex로 스캔. `<head>`는 거의 항상
-    앞쪽 수십 KB에 들어있어서 전체 파싱 불필요. 후보 우선순위: **apple-touch-icon > icon > shortcut icon**, 같은 rel 내에선 `sizes` 값이 큰 순.
-    `apple-touch-icon`(보통 180+)이 Fill 버튼 (최대 48×48)에 다운스케일됐을 때 16×16 classic icon 업스케일보다 훨씬 선명해서 기본 선호.
+
+- **Chrome UA 헤더 추가**: 모든 fetch에 `Electron.app.userAgentFallback`(이미 `main/index.ts:121`에서 Chrome UA로 세팅됨) 또는 하드코딩
+  fallback을 `User-Agent`로 실어 보냄. WAF 우회 + 일반적인 익명 fetch 호환성.
+- **HTML 파싱 2차 폴백**: `/favicon.ico`가 null을 리턴하면 `<origin>/` HTML을 받아 첫 64KB 안의 `<link>` 태그를 regex로 스캔. `<head>`는 거의 항상
+  앞쪽 수십 KB에 들어있어서 전체 파싱 불필요. 후보 우선순위: **apple-touch-icon > icon > shortcut icon**, 같은 rel 내에선 `sizes` 값이 큰 순.
+  `apple-touch-icon`(보통 180+)이 Fill 버튼 (최대 48×48)에 다운스케일됐을 때 16×16 classic icon 업스케일보다 훨씬 선명해서 기본 선호.
+
 4. **SVG magic-byte 오탐 수정**: 초기 구현은 `bytes[0]===0x3c && (bytes[1]===0x3f || bytes[1]===0x73)`로 `<?` 또는 `<s`만 체크. HTML 에러
    페이지가 `<script>` / `<style>`로 시작하면 **SVG로 오판**됐음. 규칙을 "첫 512바이트 안에서 `/<svg\b[^>]*>/i` 매치"로 교체. 이게 HTML 폴백과 맞물리면 중요한데,
    잘못 태깅된 HTML이 `image/svg+xml`로 캐시돼 렌더 시 깨진 그림이 나오는 걸 방지.
@@ -3062,46 +3065,73 @@ Analytics 화면 상단에 **기간 선택**(전체/최근 30일/최근 7일, �
 
 - **느림**: 기본 기간이 '전체'라 열 때마다 39MB를 IPC로 읽고, 활동 타임라인 약 11만 줄을 가상화 없이 DOM에 그렸다.
 - **해석 불가**: 하루에 `page_visit` 821건 (SPA URL 이동), `os_window` 1,406건 중 515건이 10초 미만. 원시 나열로는 "오늘 뭘 했나"가 안 보였다.
-- **지표 정의**: "세션 수"는 `app_focus` 횟수라 하루 수백 회로 의미가 없었고, 대표 "활성 시간"은 Freeter 창이 앞에 있던 시간뿐이었다 (09-11 기준 Freeter 3.7h, 컴퓨터 전체 10.9h).
+- **지표 정의**: "세션 수"는 `app_focus` 횟수라 하루 수백 회로 의미가 없었고, 대표 "활성 시간"은 Freeter 창이 앞에 있던 시간뿐이었다 (09-11 기준 Freeter 3.7h, 컴퓨터
+  전체 10.9h).
 
 ### 사용자 관점
 
-- **View → Analytics** (`Ctrl/Cmd+Shift+A`)를 누르면 **기본 브라우저**에 리포트가 열린다. 모든 조작은 브라우저 페이지에서 한다. 수집 동의가 꺼져 있어도 열린다 (동의는 *수집*을 막는 것이고, 동의를 끈 사람도 이미 쌓인 데이터를 보거나 지울 수 있어야 하므로).
+- **View → Analytics** (`Ctrl/Cmd+Shift+A`)를 누르면 **기본 브라우저**에 리포트가 열린다. 모든 조작은 브라우저 페이지에서 한다. 수집 동의가 꺼져 있어도 열린다 (동의는
+  *수집*을 막는 것이고, 동의를 끈 사람도 이미 쌓인 데이터를 보거나 지울 수 있어야 하므로).
 - **기간**: From/To 날짜 직접 입력 + 퀵 버튼 **7일·30일·90일·6개월·1년** (기본 7일). 모든 수치는 **같은 길이의 직전 기간 대비** 증감을 함께 보여준다.
-- **개요**: 컴퓨터 사용 시간 (OS 앱 기준. 3분 넘게 입력이 없거나 잠긴 뒤의 시간은 빠지지만, Windows가 `Idle`·`LockApp`이라는 앱으로 보고한 구간은 포함된다. 실데이터 7일 기준 Idle 33m, LockApp 15m)과 Freeter 활성 시간을 **나란히**, 집중 시간, 최장 작업 블록, 시간당 앱 전환, 키 입력.
+- **개요**: 컴퓨터 사용 시간 (OS 앱 기준. 3분 넘게 입력이 없거나 잠긴 뒤의 시간은 빠지지만, Windows가 `Idle`·`LockApp`이라는 앱으로 보고한 구간은 포함된다. 실데이터 7일 기준
+  Idle 33m, LockApp 15m)과 Freeter 활성 시간을 **나란히**, 집중 시간, 최장 작업 블록, 시간당 앱 전환, 키 입력.
 - **일별**: 날짜별 두 시간 막대와 집중 시간·전환 빈도. 날짜를 누르면 하루 회고로 이동.
 - **집중·방해 패턴**: 시간대별 사용량/전환 빈도 히트맵, 10초 미만 창 비율, 1분 안에 다녀간 앱 (끼어듦) 순위.
 - **배분**: 프로젝트별 시간 (펼치면 워크플로), 컴퓨터 전체 앱별 시간, 각각 직전 기간 대비.
-- **하루 회고**: 그날의 **작업 블록** 목록 (같은 앱 연속 구간 + 1분 미만 짧은 외출은 접어서 "끼어듦 N회"로 표시, 25분 이상은 집중 블록으로 강조, 블록 사이 5분 넘는 공백은 "자리 비움"), 검색어·연 파일·완료한 할 일·방문 사이트 (호스트별 묶음)·잠금/절전.
-- **Export…** 는 선택 기간을 같은 AI-ready JSON 번들로 바로 다운로드, **Delete all** 은 페이지에서 확인 후 전체 삭제, **새로고침**은 저장된 기록을 다시 읽는다. Freeter 안의 활동은 flush 주기상 최대 15초 늦고, 지금 앞에 있는 앱 (리포트를 보는 브라우저 포함)의 시간은 그 구간이 끝나야 (다른 앱으로 전환) 기록된다. 프로젝트·워크플로 이름 스냅샷은 메뉴에서 다시 열 때 갱신된다.
+- **하루 회고**: 그날의 **작업 블록** 목록 (같은 앱 연속 구간 + 1분 미만 짧은 외출은 접어서 "끼어듦 N회"로 표시, 25분 이상은 집중 블록으로 강조, 블록 사이 5분 넘는 공백은 "자리 비움"),
+  검색어·연 파일·완료한 할 일·방문 사이트 (호스트별 묶음)·잠금/절전.
+- **Export…** 는 선택 기간을 같은 AI-ready JSON 번들로 바로 다운로드, **Delete all** 은 페이지에서 확인 후 전체 삭제, **새로고침**은 저장된 기록을 다시 읽는다.
+  Freeter 안의 활동은 flush 주기상 최대 15초 늦고, 지금 앞에 있는 앱 (리포트를 보는 브라우저 포함)의 시간은 그 구간이 끝나야 (다른 앱으로 전환) 기록된다. 프로젝트·워크플로 이름 스냅샷은
+  메뉴에서 다시 열 때 갱신된다.
 - 저장 형식은 **그대로**다. 기존에 쌓인 데이터를 변환 없이 읽는다.
 
 ### 아키텍처
 
-- **브라우저가 로컬 파일을 직접 못 읽는다**: `file://`로 연 페이지는 `fetch`로 로컬 파일을 읽을 수 없다. 그래서 main이 `127.0.0.1` 랜덤 포트에 작은 HTTP 서버 (`infra/analyticsServer`)를 띄워 페이지 번들과 텔레메트리 원본 파일을 읽기 전용으로 내준다. 첫 실행 때 켜지고 앱 종료 때 내려간다.
-- **API**: `api/events?from&to` (기간 내 일자 파일을 **파싱 없이 문자열로 이어 붙여** 응답, main은 이벤트 단위 작업 0. 쓰기 도중 잘린 파일이나 배열이 아닌 파일은 괄호 검사로 걸러 빈 날로 내보내, 하루치 손상이 리포트 전체를 깨지 않게 함), `api/entities` (renderer가 열 때 넘겨준 id→이름 스냅샷), `api/clear` (POST).
-- **계산은 전부 브라우저에서**: 새 순수 모듈 `base/telemetryInsights.ts` (작업 블록, 집중/전환 지표, 프로젝트 배분, 하루 활동 요약, 날짜 범위)와 기존 `computeDailyRollup`·`summarizeTelemetry`·`buildTelemetryExport`를 재사용한다.
-- **페이지 번들**: `src/renderer/analyticsPage/` (React), 별도 `webpack.analytics.config.js` → `build/analytics/`. `yarn dev`는 watch, `yarn prod`는 함께 빌드.
-- renderer의 `openAnalyticsUseCase`는 flush (진행 중 활성 구간 마감 포함) → 이름 스냅샷과 함께 `open-analytics` IPC. 모달 화면·뷰모델과 그것만 쓰던 use case (read/rollups/export/clear, 타임라인 빌더)는 제거.
+- **브라우저가 로컬 파일을 직접 못 읽는다**: `file://`로 연 페이지는 `fetch`로 로컬 파일을 읽을 수 없다. 그래서 main이 `127.0.0.1` 랜덤 포트에 작은 HTTP 서버
+  (`infra/analyticsServer`)를 띄워 페이지 번들과 텔레메트리 원본 파일을 읽기 전용으로 내준다. 첫 실행 때 켜지고 앱 종료 때 내려간다.
+- **API**: `api/events?from&to` (기간 내 일자 파일을 **파싱 없이 문자열로 이어 붙여** 응답, main은 이벤트 단위 작업 0. 쓰기 도중 잘린 파일이나 배열이 아닌 파일은 괄호 검사로
+  걸러 빈 날로 내보내, 하루치 손상이 리포트 전체를 깨지 않게 함), `api/entities` (renderer가 열 때 넘겨준 id→이름 스냅샷), `api/clear` (POST).
+- **계산은 전부 브라우저에서**: 새 순수 모듈 `base/telemetryInsights.ts` (작업 블록, 집중/전환 지표, 프로젝트 배분, 하루 활동 요약, 날짜 범위)와 기존
+  `computeDailyRollup`·`summarizeTelemetry`·`buildTelemetryExport`를 재사용한다.
+- **페이지 번들**: `src/renderer/analyticsPage/` (React), 별도 `webpack.analytics.config.js` → `build/analytics/`. `yarn dev`는
+  watch, `yarn prod`는 함께 빌드.
+- renderer의 `openAnalyticsUseCase`는 flush (진행 중 활성 구간 마감 포함) → 이름 스냅샷과 함께 `open-analytics` IPC. 모달 화면·뷰모델과 그것만 쓰던 use
+  case (read/rollups/export/clear, 타임라인 빌더)는 제거.
 
 ### 까다로웠던 포인트
 
-- **보안**: 방문 URL·창 제목이 담긴 데이터를 루프백으로 내보내므로 ① Host 헤더가 정확히 `127.0.0.1:<port>`가 아니면 403 (DNS rebinding 차단) ② 모든 경로 첫 세그먼트에 실행마다 바뀌는 48자 랜덤 토큰, 없으면 404 ③ CORS 미허용 ④ 페이지 CSP `default-src 'none'`·`script-src 'self'` ⑤ `Referrer-Policy: no-referrer` (토큰이 URL에 있으므로) ⑥ 정적 파일은 슬래시 없는 파일명 + 허용 확장자만. 화면의 URL·제목은 React 텍스트로만 렌더한다.
-- **`os_window`의 `wflId`는 쓰면 안 된다**: 기록 시점에 Freeter에서 선택돼 있던 워크플로일 뿐이라 (09-11 기준 1,406건 전부 태깅) 배분에 쓰면 다른 앱 시간이 엉뚱한 워크플로로 간다. 배분은 `perWorkflowMs` (Freeter 체류)만 쓴다.
-- **작업 블록 접기**: 같은 앱으로 돌아왔을 때 스택을 거슬러 올라가, 그 사이 다른 앱들 (A · B · A 든 A · B · C · A 든)의 합이 1분 미만이면 하나의 블록으로 접는다. 외출은 바깥 블록 기준 한 번으로 센다 (처음엔 중첩 외출을 두 번 세는 버그를, 리뷰에선 바로 앞 블록만 봐서 두 앱을 거친 외출을 못 접는 공백을 잡았다).
+- **보안**: 방문 URL·창 제목이 담긴 데이터를 루프백으로 내보내므로 ① Host 헤더가 정확히 `127.0.0.1:<port>`가 아니면 403 (DNS rebinding 차단) ② 모든 경로 첫 세그먼트에
+  실행마다 바뀌는 48자 랜덤 토큰, 없으면 404 ③ CORS 미허용 ④ 페이지 CSP `default-src 'none'`·`script-src 'self'` ⑤
+  `Referrer-Policy: no-referrer` (토큰이 URL에 있으므로) ⑥ 정적 파일은 슬래시 없는 파일명 + 허용 확장자만. 화면의 URL·제목은 React 텍스트로만 렌더한다.
+- **`os_window`의 `wflId`는 쓰면 안 된다**: 기록 시점에 Freeter에서 선택돼 있던 워크플로일 뿐이라 (09-11 기준 1,406건 전부 태깅) 배분에 쓰면 다른 앱 시간이 엉뚱한 워크플로로
+  간다. 배분은 `perWorkflowMs` (Freeter 체류)만 쓴다.
+- **작업 블록 접기**: 같은 앱으로 돌아왔을 때 스택을 거슬러 올라가, 그 사이 다른 앱들 (A · B · A 든 A · B · C · A 든)의 합이 1분 미만이면 하나의 블록으로 접는다. 외출은 바깥 블록
+  기준 한 번으로 센다 (처음엔 중첩 외출을 두 번 세는 버그를, 리뷰에선 바로 앞 블록만 봐서 두 앱을 거친 외출을 못 접는 공백을 잡았다).
 - **시간대 버킷**: 한 시간을 넘는 세그먼트는 시각 경계에서 나눠 담는다. 유휴로 닫힌 세그먼트는 최대 약 3분 늦게 기록되므로 위치가 그만큼 밀릴 수 있다 (블록·시간 단위에선 무시 가능).
 - **서버 수명**: 시작 도중 stop이 와도 시작 Promise를 기다렸다 닫아 포트가 새지 않게 했고, keep-alive 연결도 함께 끊는다.
-- **실측** (실제 105일 데이터, 파싱·계산은 Node에서 측정, 브라우저 DOM 렌더 시간은 미측정): 7일 보기 (직전 7일 포함 14일분, 2.8MB) 서버 응답 27ms, 파싱+계산 약 50ms. 1년 보기 (전체 39.8MB) 서버 응답 0.27초, 파싱+계산 약 0.35초.
+- **실측** (실제 105일 데이터, 파싱·계산은 Node에서 측정, 브라우저 DOM 렌더 시간은 미측정): 7일 보기 (직전 7일 포함 14일분, 2.8MB) 서버 응답 27ms, 파싱+계산 약 50ms. 1년
+  보기 (전체 39.8MB) 서버 응답 0.27초, 파싱+계산 약 0.35초.
 - Export가 브라우저로 옮겨가면서 쓰는 곳이 없어진 `fs-write-text-file` IPC (renderer가 임의 경로에 파일을 쓰던 통로)도 제거했다.
 
 ### 수정 파일
 
-- **신규 (main)**: `infra/analyticsServer/analyticsServer.ts`, `application/interfaces/analyticsServer.ts`, `application/useCases/analytics/openAnalyticsInBrowser.ts`, `controllers/analytics.ts`
-- **신규 (renderer)**: `analyticsPage/{index.tsx,index.ejs,analyticsPage.tsx,analyticsPage.module.scss}`, `base/telemetryInsights.ts`, `infra/analytics/analytics.ts`
+- **신규 (main)**: `infra/analyticsServer/analyticsServer.ts`, `application/interfaces/analyticsServer.ts`,
+  `application/useCases/analytics/openAnalyticsInBrowser.ts`, `controllers/analytics.ts`
+- **신규 (renderer)**: `analyticsPage/{index.tsx,index.ejs,analyticsPage.tsx,analyticsPage.module.scss}`,
+  `base/telemetryInsights.ts`, `infra/analytics/analytics.ts`
 - **신규 (빌드)**: `webpack.analytics.config.js`, `package.json` (`dev:analytics`/`prod:analytics`)
-- **수정**: `common/ipc/channels.ts`, `common/base/telemetry.ts` (`TelemetryDay` 이동), `main/index.ts`, `main/controllers/fs.ts`, `main/infra/fsProvider/fsProvider.ts`, `renderer/init.ts`, `application/useCases/analytics/openAnalytics.ts`, `ui/components/applicationSettings/applicationSettings.tsx` (설명 문구), `base/state/ui.ts`, `ui/components/app/appViewModel.ts`, `infra/fsProvider/fsProvider.ts`, main·renderer `application/interfaces/fsProvider.ts`, `useCases/telemetry/flushTelemetry.ts` (주석)
-- **삭제**: `ui/components/analytics/*`, `useCases/analytics/closeAnalytics.ts`, `useCases/telemetry/{readTelemetryEvents,getTelemetryRollups,exportTelemetryData,clearTelemetryData}.ts`, `base/telemetryTimeline.ts`, `main/application/useCases/fs/writeTextFile.ts`
-- **테스트**: `tests/main/infra/analyticsServer/analyticsServer.spec.ts` (신규), `tests/renderer/base/telemetryInsights.spec.ts` (신규), `tests/renderer/analyticsPage/analyticsPage.spec.tsx` (신규), `tests/renderer/application/useCases/analytics/analytics.spec.ts` (재작성), 삭제된 코드의 스펙 제거, `tests/{main,renderer}/infra/mocks/fsProvider.ts`·`tests/main/controllers/fs.spec.ts` (writeTextFile 제거 반영)
+- **수정**: `common/ipc/channels.ts`, `common/base/telemetry.ts` (`TelemetryDay` 이동), `main/index.ts`,
+  `main/controllers/fs.ts`, `main/infra/fsProvider/fsProvider.ts`, `renderer/init.ts`,
+  `application/useCases/analytics/openAnalytics.ts`, `ui/components/applicationSettings/applicationSettings.tsx` (설명
+  문구), `base/state/ui.ts`, `ui/components/app/appViewModel.ts`, `infra/fsProvider/fsProvider.ts`, main·renderer
+  `application/interfaces/fsProvider.ts`, `useCases/telemetry/flushTelemetry.ts` (주석)
+- **삭제**: `ui/components/analytics/*`, `useCases/analytics/closeAnalytics.ts`,
+  `useCases/telemetry/{readTelemetryEvents,getTelemetryRollups,exportTelemetryData,clearTelemetryData}.ts`,
+  `base/telemetryTimeline.ts`, `main/application/useCases/fs/writeTextFile.ts`
+- **테스트**: `tests/main/infra/analyticsServer/analyticsServer.spec.ts` (신규),
+  `tests/renderer/base/telemetryInsights.spec.ts` (신규), `tests/renderer/analyticsPage/analyticsPage.spec.tsx` (신규),
+  `tests/renderer/application/useCases/analytics/analytics.spec.ts` (재작성), 삭제된 코드의 스펙 제거,
+  `tests/{main,renderer}/infra/mocks/fsProvider.ts`·`tests/main/controllers/fs.spec.ts` (writeTextFile 제거 반영)
 
 ---
 
