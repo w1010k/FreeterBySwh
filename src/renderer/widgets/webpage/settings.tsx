@@ -5,7 +5,7 @@
 
 import { Button, CreateSettingsState, SettingsEditorReactComponentProps, ReactComponent, SettingBlock, SettingRow, SettingActions, delete14Svg } from '@/widgets/appModules';
 import { debounce } from '@common/helpers/debounce';
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 const settingsSessionScopes = ['app', 'prj', 'wfl', 'wgt'] as const;
 export type SettingsSessionScope = typeof settingsSessionScopes[number];
@@ -144,6 +144,10 @@ function useDebouncedTextSettingUpdater(
 export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponentProps<Settings>) {
   const {updateSettings} = settingsApi;
 
+  // The debounce instance is module-wide. Drop a pending write when the editor
+  // closes, so it can't land in the next Webpage widget's settings modal.
+  useEffect(() => () => debounceUpdate3s.cancel(), []);
+
   const [url, setUrl] = useState(settings.url);
   const [urlName, setUrlName] = useState(settings.urlName);
   // Tab url/name edits mirror local state and write debounced (3s), immediately
@@ -180,6 +184,7 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
     if (shouldDebounce) {
       debounceUpdate3s(updateValInSettings);
     } else {
+      debounceUpdate3s.cancel();
       updateValInSettings();
     }
   }, [settings, updateSettings])

@@ -9,14 +9,18 @@
 const React = require('react');
 
 function createModel() {
-  return {
+  const m = {
     resetPaths: jest.fn(),
     add: jest.fn(),
+    // Applies each add through `add`, as the real store does, so specs can
+    // keep asserting on `add` calls.
+    batch: jest.fn(ops => ops.forEach(op => op.type === 'add' && m.add(op.path))),
     getItem: jest.fn(() => null),
     getFocusedPath: jest.fn(() => null),
     subscribe: jest.fn(() => () => undefined),
     getFileTreeContainer: jest.fn(() => undefined),
   };
+  return m;
 }
 
 let model = createModel();

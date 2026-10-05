@@ -7,6 +7,7 @@ import {
   extractMimeFromBytes,
   isImageContentType,
   parseFaviconCandidates,
+  readBodyCapped,
   sortFaviconCandidates,
   FaviconCandidate
 } from '@/infra/iconProvider/iconProvider';
@@ -237,5 +238,28 @@ describe('sortFaviconCandidates', () => {
 
   it('returns an empty array unchanged', () => {
     expect(sortFaviconCandidates([])).toEqual([]);
+  });
+});
+
+describe('readBodyCapped', () => {
+  // A chunked body: no content-length header, so only the streaming cap can stop it.
+  function chunkedResponse(chunks: number[]): Response {
+    return new Response(new ReadableStream<Uint8Array>({
+      start(ctrl) {
+        for (const n of chunks) {
+          ctrl.enqueue(new Uint8Array(n));
+        }
+        ctrl.close();
+      }
+    }));
+  }
+
+  it('returns the joined body when it fits', async () => {
+    const res = await readBodyCapped(chunkedResponse([3, 4]), 7);
+    expect(res?.byteLength).toBe(7);
+  });
+
+  it('returns null once the body grows past the cap', async () => {
+    expect(await readBodyCapped(chunkedResponse([4, 4]), 7)).toBeNull();
   });
 });

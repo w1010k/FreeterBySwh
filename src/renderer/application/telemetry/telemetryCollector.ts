@@ -4,7 +4,7 @@
  */
 
 import { TelemetryConfig } from '@/base/appConfig';
-import { TelemetryBuffer } from '@/infra/telemetry/telemetryBuffer';
+import { TelemetryAppendError, TelemetryBuffer } from '@/infra/telemetry/telemetryBuffer';
 import { TelemetryEvent, TelemetryEventType } from '@common/base/telemetry';
 
 export interface TelemetryActivityOpts {
@@ -237,10 +237,12 @@ export function createTelemetryCollector({
       pending = [];
       try {
         await buffer.appendEvents(batch);
-      } catch {
-        // Persist failed — put the batch back ahead of anything buffered since,
-        // so a transient failure doesn't silently drop events.
-        pending = batch.concat(pending);
+      } catch (err) {
+        // Persist failed: put the unwritten events back ahead of anything buffered
+        // since, so a transient failure doesn't silently drop events. When the
+        // buffer names the failed days, only those go back; days that were
+        // written must not be appended twice.
+        pending = (err instanceof TelemetryAppendError ? err.failed : batch).concat(pending);
       }
     },
 

@@ -15,6 +15,10 @@ export function createChildProcessProvider(): ChildProcessProvider {
         stdio: 'ignore',
         windowsHide: true
       });
+      // spawn reports a missing program or cwd (ENOENT) asynchronously via 'error'.
+      // Without a listener that becomes an uncaught exception in main and pops
+      // Electron's crash dialog, so log it instead.
+      proc.on('error', err => console.error(`Failed to start '${cmd}':`, err));
       proc.unref();
     }
   }

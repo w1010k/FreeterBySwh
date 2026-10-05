@@ -230,11 +230,10 @@ export function createWorkflowSwitcherViewModelHook({
       workflowIds,
       currentWorkflowId,
       dndTargetListItemId,
-      dndFrom,
-      resizingItem,
+      dontShowActionBar,
       copiedWorkflowsEntitites,
       copiedWorkflowsList,
-      currentWorkflow,
+      hasCurrentWorkflow,
       topBarIsHidden,
       editTogglePos,
       prjSwitcherPos,
@@ -246,11 +245,13 @@ export function createWorkflowSwitcherViewModelHook({
       const workflowIds = state.entities.projects[currentProjectId]?.workflowIds;
       const currentWorkflowId = state.entities.projects[currentProjectId]?.currentWorkflowId;
       const dndTargetListItemId = state.ui.dragDrop.over?.workflowSwitcher?.workflowId;
-      const dndFrom = state.ui.dragDrop.from;
-      const resizingItem = state.ui.worktable.resizingItem;
+      // Booleans, not the drag/resize objects or the workflow entity: those are
+      // replaced on every resize grid step and every layout commit, and the tab
+      // bar only needs to know whether they exist.
+      const dontShowActionBar = !!state.ui.worktable.resizingItem || !!state.ui.dragDrop.from;
       const copiedWorkflowsEntitites = state.ui.copy.workflows.entities;
       const copiedWorkflowsList = state.ui.copy.workflows.list;
-      const currentWorkflow = state.entities.workflows[currentWorkflowId || ''];
+      const hasCurrentWorkflow = !!state.entities.workflows[currentWorkflowId || ''];
       const topBarIsHidden = !state.ui.topBar;
       const editTogglePos = state.ui.editTogglePos;
       const prjSwitcherPos = state.ui.projectSwitcher.pos;
@@ -262,11 +263,10 @@ export function createWorkflowSwitcherViewModelHook({
         workflowIds,
         currentWorkflowId,
         dndTargetListItemId,
-        dndFrom,
-        resizingItem,
+        dontShowActionBar,
         copiedWorkflowsEntitites,
         copiedWorkflowsList,
-        currentWorkflow,
+        hasCurrentWorkflow,
         topBarIsHidden,
         editTogglePos,
         prjSwitcherPos,
@@ -378,8 +378,6 @@ export function createWorkflowSwitcherViewModelHook({
       [isEditMode]
     )
 
-    const dontShowActionBar = !!resizingItem || !!dndFrom;
-
     const onContextMenu: React.MouseEventHandler<HTMLDivElement> = useCallback((_) => {
       const contextMenuItems: MenuItems = isEditMode ? createContextMenuItemsEditMode(setItemIdInEditNameMode) : contextMenuItemsViewMode;
       showContextMenuUseCase(contextMenuItems);
@@ -398,7 +396,7 @@ export function createWorkflowSwitcherViewModelHook({
     const showPrjSwitcherRight = prjSwitcherPos === ProjectSwitcherPos.TabBarRight;
     const showEditToggleLeft = editTogglePos === EditTogglePos.TabBarLeft;
     const showEditToggleRight = editTogglePos === EditTogglePos.TabBarRight;
-    const showPalette = isEditMode && !!currentWorkflow;
+    const showPalette = isEditMode && hasCurrentWorkflow;
     const showPaletteLeft = showPalette && showEditToggleLeft;
     const showPaletteRight = showPalette && !showPaletteLeft && (showEditToggleRight || topBarIsHidden);
 

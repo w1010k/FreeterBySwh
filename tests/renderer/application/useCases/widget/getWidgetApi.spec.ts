@@ -19,6 +19,11 @@ import { mockFsProvider } from '@tests/infra/mocks/fsProvider';
 import { mockIconProvider } from '@tests/infra/mocks/iconProvider';
 import { fixtureAppStore } from '@tests/data/fixtures/appStore';
 import { fixtureAppState } from '@tests/base/state/fixtures/appState';
+import { fixtureWidgetA } from '@tests/base/fixtures/widget';
+import { fixtureWorkflowA } from '@tests/base/fixtures/workflow';
+import { fixtureProjectA, fixtureProjectB } from '@tests/base/fixtures/project';
+import { fixtureWidgetLayoutItemA } from '@tests/base/fixtures/widgetLayout';
+import { sharedStorageId } from '@common/base/sharedStorageId';
 
 const widgetId = 'WIDGET-ID';
 
@@ -390,6 +395,105 @@ describe('getWidgetApiUseCase()', () => {
     widgetApi.widgets.getWidgetsInCurrentWorkflow('widget-type');
     expect(getWidgetsInCurrentWorkflowUseCase).toHaveBeenCalledTimes(1);
     expect(getWidgetsInCurrentWorkflowUseCase).toHaveBeenCalledWith('widget-type');
+  })
+
+  describe('to-do-list dataStorage scope', () => {
+    // Project P holds a workflow with the to-do widget. The widget's API
+    // instance resolves its storage once while it sits in P, unless
+    // `readFirst` is false (a second same-scope widget skips the disk read).
+    async function setupTodoInProject(readFirst = true) {
+      const ctx = await setup();
+      const workflow = fixtureWorkflowA({ layout: [fixtureWidgetLayoutItemA({ widgetId })] });
+      const project = fixtureProjectA({ workflowIds: [workflow.id] });
+      const state = ctx.appStore.get();
+      ctx.appStore.set({
+        ...state,
+        entities: {
+          ...state.entities,
+          projects: { [project.id]: project },
+          workflows: { [workflow.id]: workflow },
+          widgets: { [widgetId]: fixtureWidgetA({ id: widgetId, type: 'to-do-list' }) },
+        }
+      });
+      const getObject = jest.spyOn(ctx.sharedDataStorageManager, 'getObject');
+      const widgetApi = ctx.getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, () => undefined, () => undefined, () => undefined, ['dataStorage']);
+      if (readFirst) {
+        await widgetApi.dataStorage.getJson('todo');
+        expect(getObject).toHaveBeenLastCalledWith(sharedStorageId('to-do-list', project.id));
+      }
+      return { ...ctx, getObject, widgetApi, workflow, project };
+    }
+
+    it('keeps writing to the project bucket after the widget is deleted', async () => {
+      const { appStore, getObject, widgetApi, widgetDataStorage, workflow, project } = await setupTodoInProject();
+      const state = appStore.get();
+      appStore.set({
+        ...state,
+        entities: {
+          ...state.entities,
+          workflows: { [workflow.id]: { ...workflow, layout: [] } },
+          widgets: {},
+        }
+      });
+
+      await widgetApi.dataStorage.setJson('todo', { items: [] });
+
+      expect(getObject).toHaveBeenLastCalledWith(sharedStorageId('to-do-list', project.id));
+      expect(widgetDataStorage.setJson).not.toHaveBeenCalled();
+    })
+
+    it('keeps the old instance on the project bucket after the widget moves to the shelf', async () => {
+      const { appStore, getObject, getWidgetApiUseCase, widgetApi, workflow, project } = await setupTodoInProject();
+      const state = appStore.get();
+      appStore.set({
+        ...state,
+        entities: {
+          ...state.entities,
+          workflows: { [workflow.id]: { ...workflow, layout: [] } },
+        }
+      });
+
+      // The workflow instance's pending flush must not land in the shelf list.
+      await widgetApi.dataStorage.setJson('todo', { items: [] });
+      expect(getObject).toHaveBeenLastCalledWith(sharedStorageId('to-do-list', project.id));
+
+      // The shelf instance gets a new widget API and uses the app bucket.
+      const shelfApi = getWidgetApiUseCase(widgetId, false, () => undefined, () => undefined, () => undefined, () => undefined, () => undefined, () => undefined, ['dataStorage']);
+      await shelfApi.dataStorage.setJson('todo', { items: [] });
+      expect(getObject).toHaveBeenLastCalledWith(sharedStorageId('to-do-list', 'app'));
+    })
+    it('pins the project bucket at API creation, even if the first storage call comes after the move', async () => {
+      const { appStore, getObject, widgetApi, workflow, project } = await setupTodoInProject(false);
+      const state = appStore.get();
+      appStore.set({
+        ...state,
+        entities: {
+          ...state.entities,
+          workflows: { [workflow.id]: { ...workflow, layout: [] } },
+        }
+      });
+
+      await widgetApi.dataStorage.setJson('todo', { items: [] });
+
+      expect(getObject).toHaveBeenLastCalledWith(sharedStorageId('to-do-list', project.id));
+    })
+
+    it('follows its workflow when the workflow moves to another project', async () => {
+      const { appStore, getObject, widgetApi, workflow, project } = await setupTodoInProject();
+      const projectB = fixtureProjectB({ workflowIds: [workflow.id] });
+      const state = appStore.get();
+      appStore.set({
+        ...state,
+        entities: {
+          ...state.entities,
+          projects: { [project.id]: { ...project, workflowIds: [] }, [projectB.id]: projectB },
+        }
+      });
+
+      await widgetApi.dataStorage.setJson('todo', { items: [] });
+
+      expect(getObject).toHaveBeenLastCalledWith(sharedStorageId('to-do-list', projectB.id));
+    })
   })
 
 })

@@ -28,15 +28,18 @@ export function createInitTrayMenuUseCase({
       isLoading: state.isLoading,
       projectIds: state.ui.projectSwitcher.projectIds,
       currentProjectId: state.ui.projectSwitcher.currentProjectId,
+      // Labels come from the project entities: a rename-only save keeps the
+      // `projectIds` reference, so without this the tray kept the old name.
+      // Only the names are compared (as one string): a project entity is also
+      // replaced on every workflow switch, which must not rebuild the menu.
+      projectNames: JSON.stringify(state.ui.projectSwitcher.projectIds.map(id => state.entities.projects[id]?.settings.name)),
     }), ({
       isLoading,
       currentProjectId,
       projectIds
     }) => {
       if (!isLoading) {
-        const state = appStore.get();
-
-        const items: MenuItems = mapIdListToEntityList(state.entities.projects, projectIds).map(item => ({
+        const items: MenuItems = mapIdListToEntityList(appStore.get().entities.projects, projectIds).map(item => ({
           label: item.settings.name,
           doAction: async () => {
             showBrowserWindowUseCase();

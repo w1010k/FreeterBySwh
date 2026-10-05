@@ -8,10 +8,11 @@ import { ToDoListState } from '@/widgets/to-do-list/state';
 import { debounce, DebouncedFunc } from '@/widgets/helpers';
 
 type Listener = () => void;
+type TodoListWriter = (data: ToDoListState) => void;
 
 const states = new Map<string, ToDoListState>();
 const listeners = new Map<string, Set<Listener>>();
-const savers = new Map<string, DebouncedFunc<[ToDoListState]>>();
+const savers = new Map<string, DebouncedFunc<[ToDoListState, TodoListWriter]>>();
 
 /** Non-hook accessor — use only outside React (e.g. inside async IIFEs that
  *  need a fresh post-await race check). Inside components, use `useTodoListState`. */
@@ -68,19 +69,16 @@ export function useTodoListState(scope: string): {
  * collapses to one disk write of the latest state — instead of two writes
  * racing each other.
  *
- * `doSave` is captured only on the first call for a scope; subsequent calls
- * return the existing saver and ignore the new callback. This is intentional:
- * all same-scope to-do widgets route through the same shared storage bucket
- * (see `getWidgetApi.ts`'s to-do-list branch), so any widget's
- * `dataStorage.setJson` closure leads to the same on-disk file.
+ * Each call passes the caller's own writer, and the debounce keeps the last
+ * call's arguments, so the write goes through the widget that queued it. A
+ * writer captured once per scope would keep routing through the first
+ * widget's storage even after that widget's workflow moved to another
+ * project, writing this scope's list into the other project's bucket.
  */
-export function getOrCreateTodoListSaver(
-  scope: string,
-  doSave: (data: ToDoListState) => void
-): DebouncedFunc<[ToDoListState]> {
+export function getOrCreateTodoListSaver(scope: string): DebouncedFunc<[ToDoListState, TodoListWriter]> {
   let saver = savers.get(scope);
   if (!saver) {
-    saver = debounce(doSave, 500);
+    saver = debounce((data: ToDoListState, write: TodoListWriter) => write(data), 500);
     savers.set(scope, saver);
   }
   return saver;

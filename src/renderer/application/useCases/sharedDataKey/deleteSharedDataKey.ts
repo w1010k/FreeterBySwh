@@ -7,7 +7,7 @@ import { DialogProvider } from '@/application/interfaces/dialogProvider';
 import { DataStorageRenderer } from '@/application/interfaces/dataStorage';
 import { AppStore } from '@/application/interfaces/store';
 import { EntityId } from '@/base/entity';
-import { entityStateActions } from '@/base/state/actions';
+import { entityStateActions, modalScreensStateActions } from '@/base/state/actions';
 import { getEntitiesArrayFromEntityCollection } from '@/base/entityCollection';
 import { resolveWidgetSharedKeyId } from '@/base/widget';
 import { ObjectManager } from '@common/base/objectManager';
@@ -68,6 +68,21 @@ export function createDeleteSharedDataKeyUseCase({
         id: w.id,
         changes: {
           settings: { ...current.settings, sharedKeyId: null },
+        },
+      });
+    }
+    // The settings editor that triggered the delete keeps its own draft copy of
+    // the widget. Clear the key there too, or clicking OK writes the deleted id
+    // back onto the widget and it reads the orphaned folder.
+    const draft = next.ui.modalScreens.data.widgetSettings.widgetInEnv;
+    if (draft && resolveWidgetSharedKeyId(draft.widget) === keyId) {
+      next = modalScreensStateActions.updateModalScreen(next, 'widgetSettings', {
+        widgetInEnv: {
+          ...draft,
+          widget: {
+            ...draft.widget,
+            settings: { ...draft.widget.settings, sharedKeyId: null },
+          },
         },
       });
     }

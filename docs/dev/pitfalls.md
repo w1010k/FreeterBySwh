@@ -299,6 +299,8 @@
   구독자 selector를 다시 실행한다.
 - 근거: `src/common/infra/dataStorage/setTextOnlyIfChanged.ts`, `src/common/infra/dataStorage/withJson.ts`,
   `src/common/data/stateStorage.ts` `createStateStorage`, `src/common/data/store.ts`, `src/renderer/init.ts` `prepareDataStorageForRenderer`
+- 남은 한계: main `setText`는 쓰기 오류를 로그로 남기고 삼킨다. 변경 검사 캐시는 쓰기 결과를 보기 전에 값을 기록한다. 그래서 쓰기가 실패한 뒤 같은 값의 저장은
+  건너뛴다. 고치려면 모든 저장 IPC의 계약을 바꿔야 해서 두었다 (`fileDataStorage.ts` `setText`의 `ponytail:` 주석).
 
 #### 저장된 설정과 기본값 변경
 
@@ -321,6 +323,40 @@
 - 근거: `src/renderer/application/useCases/widget/deleteWidget.ts` `createDeleteWidgetUseCase`,
   `src/renderer/application/useCases/workflow/pasteWidgetToWorkflow.ts`,
   `src/renderer/application/useCases/sharedDataKey/deleteSharedDataKey.ts`
+
+#### 설정 모달 초안과 entity
+
+- 출처: `[fork #8]`
+- 증상: (2026-10-05 이전) Note 설정에서 공유 키를 삭제하고 OK를 누르면 삭제한 키 id가 다시 저장됐다. 위젯은 비워진 고아 폴더를 읽고 썼다.
+- 원인: 설정 모달은 위젯의 초안 (`ui.modalScreens.data.widgetSettings.widgetInEnv.widget.settings`)을 따로 들고, OK 때 초안을 entity에 덮어쓴다.
+  모달 안에서 부르는 use case가 entity만 고치면 OK가 그 변경을 되돌린다.
+- 규칙: 설정 모달 안에서 entity를 고치는 use case는 열린 초안도 같이 고친다.
+- 근거: `src/renderer/application/useCases/sharedDataKey/deleteSharedDataKey.ts`,
+  `src/renderer/application/useCases/widgetSettings/saveWidgetSettings.ts`
+
+#### 모듈 스코프 debounce
+
+- 출처: `[fork]`
+- 증상: (2026-10-05 이전) Webpage 설정에서 custom action JS를 입력하고 3초 안에 다른 설정을 바꾸면, 늦게 실행된 저장이 그 변경을 되돌렸다.
+- 원인: `debounceUpdate3s`는 모듈 하나에 하나다. 대기 중인 호출은 설정 전체의 낡은 스냅샷을 들고 있다. 또 다른 위젯의 설정 모달에도 그대로 실행된다.
+- 규칙: 즉시 저장 경로는 대기 중인 호출을 `cancel()`한다. 설정 편집기가 언마운트될 때도 `cancel()`한다.
+- 근거: `src/renderer/widgets/webpage/settings.tsx` `debounceUpdate3s`
+
+#### 텔레메트리 하루 파일
+
+- 출처: `[fork #63]`
+- 증상: (잠재, 2026-10-05 이전) 하루 파일을 읽다가 실패하거나 내용이 깨져 있으면, 그날 기록 전체를 새 묶음만으로 덮어썼다.
+- 원인: `getText`는 모든 읽기 오류를 "파일 없음"과 같은 `undefined`로 돌려주고, `getJson`은 파싱 실패도 `undefined`로 돌려준다. 버퍼는 그 위에서
+  read-modify-write를 한다.
+- 규칙: `telemetryBuffer`는 원문을 읽는다. 공용 `getText` 계약은 바꾸지 않는다.
+  - 키가 있는데 읽기가 `undefined`면 그날은 쓰지 않는다. 그날 이벤트만 `TelemetryAppendError.failed`로 돌려주고, collector가 그것만 다시 대기열에 넣는다.
+    날짜 단위로 처리해서, 한 날의 실패가 다른 날을 막거나 다른 날을 두 번 쓰게 하지 않는다.
+  - 원문이 JSON 배열이 아니면 `corrupt-events-<날짜>-<시각>` 키로 원문을 옮기고 그날을 새로 시작한다. Analytics는 `events-` 접두사만 읽는다. 계속 거부하면
+    그날이 영원히 막히고 대기열만 커진다.
+  - 오늘 배열은 메모리에 캐시하되, 키가 아직 있을 때만 쓴다 (`getKeys`). Analytics 페이지의 Clear는 main에서 파일을 지우므로, 확인하지 않으면 캐시가 지운
+    기록을 되살린다.
+  - 각 flush가 하루 파일 전체를 다시 쓰는 비용은 남았다 (main 쪽 append가 다음 단계).
+- 근거: `src/renderer/infra/telemetry/telemetryBuffer.ts` `readDay`, `src/main/infra/dataStorage/fileDataStorage.ts` `getText`
 
 #### 삭제 후 남는 위젯 데이터
 
@@ -376,11 +412,22 @@
 
 - 출처: `[upstream]`
 - 증상: (잠재) 새 채널 호출이 main에서 거부된다.
-- 원인: `createIpcMainEventValidator`는 채널 접두사 `freeter:`, 발신 프레임 host `freeter-app`, 메인 프레임 여부를 검사한다. webview 게스트와 서브프레임은
-  IPC를 부를 수 없다.
+- 원인: `createIpcMainEventValidator`는 채널 접두사 `freeter:`, 발신 프레임 scheme `freeter-file:`과 host `freeter-app`, 메인 프레임 여부를 검사한다.
+  webview 게스트와 서브프레임은 IPC를 부를 수 없다. scheme 검사는 2026-10-05에 추가했다. `freeter-app`은 점 없는 이름이라, LAN에서 이 이름에 응답하는 누군가가
+  `http://freeter-app/`을 제공할 수 있기 때문이다.
+- 규칙: scheme과 host를 따로 비교한다. `URL.origin`은 쓰지 않는다. Node는 비표준 scheme의 origin을 `"null"`로 돌려준다.
 - 규칙: 새 채널 이름은 `src/common/ipc/channels.ts`에서 `makeIpcChannelName`으로 만든다. 게스트 페이지의 신호가 필요하면 main의 webContents 이벤트나
   `console-message` 경로를 쓴다.
 - 근거: `src/main/infra/ipcMain/ipcMainEventValidator.ts`, `src/common/ipc/ipc.ts` `channelPrefix`, `makeIpcChannelName`
+
+#### main에서 renderer로 보내는 알림
+
+- 출처: `[fork]`
+- 증상: (잠재, 2026-10-05 이전) OS 활동 이벤트 (다른 앱의 창 제목)와 공유 데이터 변경 알림을 `BrowserWindow.getAllWindows()`로 보냈다. 이 목록에는 게스트
+  팝업과 HTTP 인증 창도 있다.
+- 원인: 지금은 그 창들에 preload가 없어서 안전했다. 나중에 preload가 붙으면 웹 페이지가 다른 앱의 창 제목을 받는다.
+- 규칙: main → renderer 알림은 앱 창에만 보낸다 (`index.ts` `sendToAppWindow`).
+- 근거: `src/main/index.ts` `sendToAppWindow`, `src/main/controllers/sharedDataStorage.ts`
 
 #### renderer CSP와 로컬 이미지
 
@@ -398,7 +445,9 @@
 - 원인: favicon은 임의 origin에서 받는다. HTML 에러 페이지가 `<script>`로 시작하면 초기 매직 바이트 검사가 SVG로 오판했다.
 - 규칙: `iconProvider`를 고칠 때 `http:`/`https:` 화이트리스트, 256KB 상한, 4초 타임아웃, 매직 바이트 MIME 판정, "첫 512바이트 안의 `<svg>`"
   SVG 판정을 유지한다. 서드파티 favicon 서비스는 쓰지 않는다 (프라이버시).
-- 근거: CHANGES #21, `src/main/infra/iconProvider/iconProvider.ts`
+- 규칙: 상한은 본문을 읽는 동안 검사한다 (`readBodyCapped`). chunked 응답에는 `content-length`가 없다. 2026-10-05 이전에는 `arrayBuffer()`로 본문을 모두
+  받은 뒤에 검사해서, 타임아웃 4초 동안 받은 만큼 main 메모리에 쌓였다. 로컬 파일도 같다. `getImageDataUrl`은 읽기 전에 `stat`으로 크기를 검사한다.
+- 근거: CHANGES #21, `src/main/infra/iconProvider/iconProvider.ts` `readBodyCapped`, `src/main/infra/fsProvider/fsProvider.ts` `getImageDataUrl`
 
 #### Analytics 루프백 서버
 
@@ -482,8 +531,10 @@
 - 원인: webview가 `mousemove`/`mouseup`을 삼킨다. 포커스를 잃으면 `mouseup`이 오지 않는다.
 - 규칙: 드래그 중에는 전체 화면 투명 오버레이 (`.resize-overlay`)를 띄운다. `mousemove`에서 `buttons`에 왼쪽 버튼이 없으면 끝내고, `window` `blur`에도 끝낸다.
   언마운트 cleanup에서 `window` 리스너를 해제한다.
+- 위젯 타일 리사이즈에도 같은 종료 조건을 둔다. 편집 모드에서는 위젯 본문이 `inert`라 오버레이는 없다. 2026-10-05 이전에는 셸프 팝업과 타일 리사이즈에 종료 조건이
+  없었다. 그때는 포커스를 잃으면 `resizingItem`이 남아 액션바와 셸프 위젯이 계속 숨었다.
 - 근거: CHANGES #45 후속, #48, `src/renderer/ui/components/app/app.tsx`,
-  `src/renderer/ui/components/topBar/shelf/shelfItem.tsx`
+  `src/renderer/ui/components/topBar/shelf/shelfItem.tsx`, `src/renderer/ui/components/worktable/widgetLayout/widgetLayoutItemViewModel.ts`
 
 #### 탭과 세션 파티션
 
@@ -511,7 +562,10 @@
 - 원인: OAuth 팝업은 `window.opener.postMessage`로 결과를 돌려주며, opener 참조는 같은 Electron 프로세스 안에서만 유효하다.
 - 규칙: `setWindowOpenHandler`의 판정을 유지한다. 코드의 판정식은 `disposition === 'new-window' || /\bpopup\b/i.test(features)`이고, 참이면 내부
   팝업, 거짓이면 외부 브라우저다. 같은 프레임 이동은 이 핸들러를 거치지 않는다.
-- 근거: CHANGES #3, #13, `src/main/infra/browserWindow/browserWindow.ts` `rePopupFeatures`
+- 규칙: 내부 팝업이 다시 여는 창도 같은 핸들러 (`attachWindowOpenHandler`)를 거친다. 게스트 하나 아래의 내부 팝업은 동시에 `maxPopupsPerGuest` (5)개까지다.
+  팝업 제목은 페이지 origin으로 고정한다 (`popupTitle`, `page-title-updated` 차단). 팝업 webPreferences는 opener에서 상속받지 않고 명시한다. 앱 창
+  자체는 `setWindowOpenHandler`로 모든 새 창을 거부한다. 거부하지 않으면 앱 링크를 가운데 클릭할 때 preload를 상속한 두 번째 앱 페이지가 열릴 수 있다 (추정).
+- 근거: CHANGES #3, #13, #90, `src/main/infra/browserWindow/browserWindow.ts` `rePopupFeatures`, `attachWindowOpenHandler`
 
 #### did-fail-load 필터
 
@@ -573,7 +627,11 @@
 - 증상: 위젯 설정의 `sharedKeyId`를 바꿔도 이전 저장소를 계속 썼다.
 - 원인: `widgetApi`는 `widgetViewModel`의 `useMemo`(deps: `env.isPreview`, `maximizeAction`, `widget.id`,
   `widgetType?.maximizable`, `widgetType?.requiresApi`)로 고정된다. 설정 변경으로는 다시 만들어지지 않는다.
-- 규칙: 설정에 따라 달라지는 동작은 호출 시점에 상태를 읽는다. `dataStorage` 모듈은 `getStorage()`가 매 호출마다 공유 키와 To-Do 스코프를 다시 판정한다.
+- 규칙: 설정에 따라 달라지는 동작은 호출 시점에 상태를 읽는다. `dataStorage` 모듈은 `getStorage()`가 매 호출마다 공유 키를 다시 판정한다.
+- 규칙: To-Do 스코프는 위젯 API를 만들 때 위젯이 있던 워크플로우로 고정하고, 프로젝트만 매 호출 그 워크플로우에서 다시 찾는다. 위젯을 옮기면 컴포넌트가 새로
+  마운트되어 새 API를 받는다. 옛 API는 언마운트 flush를 원래 스코프에 써야 한다. 고정을 첫 저장소 호출 때 하면 안 된다. 두 번째로 마운트된 위젯은 디스크를
+  읽지 않으므로 첫 호출이 이동 뒤의 flush일 수 있다. 워크플로우를 다른 프로젝트로 옮기면 컴포넌트는 그대로이고 저장은 새 프로젝트를 따른다. 이 경로의 남은 문제는
+  "두 가지 라이브 동기화 방식"에 있다.
 - 근거: CHANGES #8, `src/renderer/ui/components/widget/widgetViewModel.ts`,
   `src/renderer/application/useCases/widget/getWidgetApi.ts` `getStorage`
 
@@ -585,6 +643,13 @@
 - 규칙: Note는 IPC broadcast + `useSharedDataChangedEffect`를 쓰고, To-Do는 renderer 안 in-memory store (`todoStore.ts`,
   `useSyncExternalStore`)를 쓴다. Note가 쓰므로 `ipcSharedDataChangedChannel`, `init.ts` 재발행, main broadcast는 지우지 않는다. 첫 디스크
   로드는 `await` 뒤에 store가 이미 채워졌는지 다시 확인한다 (경합 가드). To-Do 디스크 저장은 스코프별 하나의 saver (`getOrCreateTodoListSaver`)로 모은다.
+- 규칙: saver는 호출마다 호출한 위젯의 writer를 받는다. 2026-10-05 이전에는 스코프에서 처음 렌더링된 위젯의 `doSave`를 계속 썼다. 그 위젯이 삭제되거나 셸프로
+  옮겨지면 스코프의 저장이 엉뚱한 버킷 (`widgets/<id>/todo` 또는 `shared/to-do-list/app`)으로 갔다. 저장소 쪽은 위젯 API를 만들 때의 워크플로우로 스코프를
+  고정한다 ("widgetApi 메모이제이션").
+- 남은 문제 (잠재, 미수정): `dropOnWorkflowSwitcherUseCase`의 다른 프로젝트 분기는 `projects[*].workflowIds`만 바꾸고 Memory Saver의
+  `activeWorkflows[].prjId`는 그대로 둔다. 위젯의 `env.projectId`는 이 `prjId`에서 오므로 To-Do 화면은 옛 프로젝트 목록을 계속 보이고, 저장소는 새 프로젝트
+  버킷을 가리킨다. 그러면 편집할 때마다 옛 목록이 새 프로젝트 목록을 덮어쓴다. 2026-10-05 이전 `findWidgetProjectId`도 같았다. 탭 바는 현재 프로젝트만 보여 주고
+  drop 대상도 항상 현재 프로젝트라서, 이 분기의 UI 진입 경로는 확인되지 않았다 (features-core.md "워크플로우"). 이 분기를 살리려면 `prjId`도 함께 바꾼다.
 - 근거: CHANGES #10, #26, `src/renderer/widgets/sharedDataSync.ts`, `src/renderer/widgets/to-do-list/todoStore.ts`,
   `src/renderer/widgets/to-do-list/widget.tsx`
 
@@ -754,7 +819,21 @@
 - 원인: Windows에는 부모 종료 시그널이 없다.
 - 규칙: 장수 자식 프로세스는 `will-quit`에서 stop하고, `process.once('exit')`에서 kill하고, 스크립트 안에서 부모 PID를 감시해 스스로 끝내게 한다. 동의가 꺼져 있으면
   PowerShell을 띄우지 않는다.
-- 근거: CHANGES #64, `src/main/infra/osActivity/foregroundWindow.ts`, `src/main/index.ts`
+- 규칙: `spawn`한 프로세스에는 항상 `'error'` 리스너를 단다. 실행 파일이나 작업 폴더가 없으면 `spawn`은 ENOENT를 비동기로 낸다. 리스너가 없으면 main의 처리되지 않은
+  예외가 되어 Electron 오류 창이 뜬다 (2026-10-05 이전 `spawnDetached`). 작업 폴더가 없을 때도 메시지는 `spawn cmd.exe ENOENT`라 원인이 드러나지 않는다.
+- 규칙: 아무도 읽지 않는 stdout/stderr는 `'ignore'`로 둔다. 파이프 버퍼가 차면 자식이 멈춘다.
+- 규칙: `osActivityMonitor`는 `start()`를 다시 부르지 않는다. 그래서 `foregroundWindow`의 reader가 PowerShell이 스스로 끝나면 30초 뒤 다시 띄운다. 연속 5번
+  죽으면 멈추고, 샘플이 오면 횟수를 초기화한다.
+- 근거: CHANGES #64, `src/main/infra/osActivity/foregroundWindow.ts`, `src/main/infra/childProcessProvider/childProcessProvider.ts`, `src/main/index.ts`
+
+#### PowerShell 출력 인코딩
+
+- 출처: `[fork #64]`
+- 증상: (2026-10-05 이전) `os_window` 기록의 한글 앱 이름과 창 제목이 `�`로 깨져 저장됐다. 이미 저장된 기록은 복구할 수 없다.
+- 원인: Windows PowerShell 5.1은 리다이렉트된 stdout을 OEM 코드 페이지 (한국어 Windows는 CP949)로 쓴다. reader는 UTF-8로 읽었다. 청크 단위
+  `toString('utf-8')`은 청크 경계에서 잘린 멀티바이트 문자도 깨뜨린다.
+- 규칙: 스크립트 첫 줄에서 `[Console]::OutputEncoding`을 UTF-8로 바꾸고, Node 쪽은 `stdout.setEncoding('utf8')`로 읽는다.
+- 근거: `src/main/infra/osActivity/foregroundWindow.ts` `psScript`
 
 #### 경로 구분자
 

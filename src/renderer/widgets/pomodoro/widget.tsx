@@ -10,16 +10,9 @@ import styles from './widget.module.scss';
 import clsx from 'clsx';
 import { useAudioFile } from '@/widgets/timer/useAudioFile';
 import { timerEndSoundFilesById } from '@/widgets/timer/audio/timer-end';
+import { msecsToMMSS } from '@/widgets/timer/mmss';
 
 type Phase = 'work' | 'break';
-
-function pad2(n: number) {
-  return ('0' + n).slice(-2);
-}
-function msecsToMMSS(msecs: number) {
-  const secs = Math.max(0, Math.floor(msecs / 1000));
-  return `${pad2(Math.floor(secs / 60))}:${pad2(secs % 60)}`;
-}
 
 // dataStorage key holding the running/paused state and the session count, so
 // an active pomodoro survives widget remounts and app restarts.

@@ -166,14 +166,14 @@ export function createWidgetViewModelHook({
 
   function useViewModel(props: WidgetProps) {
     const { widget, env, maximizeAction } = props;
+    // A boolean, not the drag/resize objects: `resizingItem` is replaced on every
+    // grid step of a resize, and every mounted widget shell would re-render with it.
     const [
       editMode,
-      dragDropFrom,
-      resizingItem
+      dontShowActionBar
     ] = useAppState(state => [
       state.ui.editMode,
-      state.ui.dragDrop.from,
-      state.ui.worktable.resizingItem
+      !!state.ui.worktable.resizingItem || !!state.ui.dragDrop.from
     ])
     const [actionBarItemsViewMode, setActionBarItemsViewMode] = useState<ActionBarItems>([]);
     const [headerTabs, setHeaderTabs] = useState<WidgetHeaderTabs | null>(null);
@@ -216,7 +216,6 @@ export function createWidgetViewModelHook({
       showWidgetContextMenuUseCase(widget.id, contextMenuFactory, getContextId(<HTMLElement>event.target), event.nativeEvent.contextData);
     }, [contextMenuFactoryViewMode, editMode, env, widget.id]);
 
-    const dontShowActionBar = !!resizingItem || !!dragDropFrom;
 
     return {
       editMode,

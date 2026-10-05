@@ -7,7 +7,7 @@ import { Button, ReactComponent, WidgetReactComponentProps } from '@/widgets/app
 import { Settings } from './settings';
 import { formatStopwatch } from './stopwatch';
 import styles from './widget.module.scss';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // While running, refresh ~33x/s so the centiseconds tick smoothly. The shown
 // value is always derived from Date.now() (see computeElapsed), so a throttled
@@ -104,6 +104,20 @@ function WidgetComp({widgetApi}: WidgetReactComponentProps<Settings>) {
 
   const hasElapsed = elapsedMs > 0;
 
+  // Memoized on `laps`: the 30ms tick re-renders this component, and React
+  // skips an element it gets back unchanged, so a long lap list isn't
+  // re-formatted and reconciled 33 times a second.
+  const lapsList = useMemo(() => laps.length > 0 && <ol className={styles['laps']} reversed>
+    {/* newest first; each shows the lap's own time and the total at that point */}
+    {laps.map((total, i) => (
+      <li key={i} value={i + 1} className={styles['lap']}>
+        <span className={styles['lap-num']}>#{i + 1}</span>
+        <span className={styles['lap-delta']}>{formatStopwatch(total - (laps[i - 1] ?? 0))}</span>
+        <span className={styles['lap-total']}>{formatStopwatch(total)}</span>
+      </li>
+    )).reverse()}
+  </ol>, [laps]);
+
   return (
     <div className={styles['stopwatch']}>
       <div className={styles['time']}>{formatStopwatch(elapsedMs)}</div>
@@ -114,16 +128,7 @@ function WidgetComp({widgetApi}: WidgetReactComponentProps<Settings>) {
         {running && <Button caption='Lap' onClick={lap} size='M' />}
         {hasElapsed && <Button caption='Reset' onClick={reset} size='M' />}
       </div>
-      {laps.length > 0 && <ol className={styles['laps']} reversed>
-        {/* newest first; each shows the lap's own time and the total at that point */}
-        {laps.map((total, i) => (
-          <li key={i} value={i + 1} className={styles['lap']}>
-            <span className={styles['lap-num']}>#{i + 1}</span>
-            <span className={styles['lap-delta']}>{formatStopwatch(total - (laps[i - 1] ?? 0))}</span>
-            <span className={styles['lap-total']}>{formatStopwatch(total)}</span>
-          </li>
-        )).reverse()}
-      </ol>}
+      {lapsList}
     </div>
   );
 }

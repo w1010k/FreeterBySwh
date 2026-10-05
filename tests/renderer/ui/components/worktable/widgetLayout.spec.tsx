@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { createWidgetLayoutComponent } from '@/ui/components/worktable/widgetLayout/widgetLayout';
 import { WidgetLayoutProps, createWidgetLayoutViewModelHook } from '@/ui/components/worktable/widgetLayout/widgetLayoutViewModel';
 import { createWidgetLayoutItemComponent } from '@/ui/components/worktable/widgetLayout/widgetLayoutItem';
@@ -528,6 +528,49 @@ describe('<WidgetLayout />', () => {
       })
 
       expect(screen.queryAllByTestId(widgetLayoutItemGhostTestId).length).toBe(0);
+    });
+  });
+
+  describe('resize drag', () => {
+    const startResize = async () => {
+      const ctx = await setup({
+        isEditMode: true,
+        layoutItems: [fixtureWidgetLayoutItemA()]
+      });
+      fireEvent.mouseDown(screen.getAllByTestId(widgetLayoutItemResizeHandleTestId)[0], {pageX: 100, pageY: 100});
+      return ctx;
+    }
+
+    it('should commit on mouseup and stop listening afterwards', async () => {
+      const { resizeLayoutItemUseCase, resizeLayoutItemEndUseCase } = await startResize();
+
+      fireEvent.mouseMove(window, {buttons: 1, pageX: 120, pageY: 120});
+      fireEvent.mouseUp(window, {pageX: 120, pageY: 120});
+      fireEvent.mouseMove(window, {buttons: 1, pageX: 140, pageY: 140});
+
+      expect(resizeLayoutItemUseCase).toHaveBeenCalledTimes(1);
+      expect(resizeLayoutItemEndUseCase).toHaveBeenCalledTimes(1);
+    });
+
+    it('should commit the last previewed delta, if the window loses focus mid-drag', async () => {
+      const { resizeLayoutItemUseCase, resizeLayoutItemEndUseCase } = await startResize();
+
+      fireEvent.mouseMove(window, {buttons: 1, pageX: 120, pageY: 120});
+      fireEvent.blur(window);
+      fireEvent.mouseMove(window, {buttons: 1, pageX: 140, pageY: 140});
+
+      expect(resizeLayoutItemUseCase).toHaveBeenCalledTimes(1);
+      expect(resizeLayoutItemEndUseCase).toHaveBeenCalledTimes(1);
+      expect(resizeLayoutItemEndUseCase).toHaveBeenCalledWith(resizeLayoutItemUseCase.mock.calls[0][0]);
+    });
+
+    it('should end the drag, if a mousemove arrives with the button already released', async () => {
+      const { resizeLayoutItemUseCase, resizeLayoutItemEndUseCase } = await startResize();
+
+      fireEvent.mouseMove(window, {buttons: 0, pageX: 120, pageY: 120});
+
+      expect(resizeLayoutItemUseCase).not.toHaveBeenCalled();
+      expect(resizeLayoutItemEndUseCase).toHaveBeenCalledTimes(1);
     });
   });
 

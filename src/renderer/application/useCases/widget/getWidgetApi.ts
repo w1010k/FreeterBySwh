@@ -24,22 +24,23 @@ const todoListWidgetType = 'to-do-list';
 const appScope = 'app';
 
 /**
- * Find the project id that owns the widget by walking project → workflow →
- * layout. Returns `null` if the widget lives on the shelf (app-wide) or
- * isn't referenced by any workflow.
+ * Find the workflow whose layout holds the widget. Returns `null` if the
+ * widget lives on the shelf (app-wide) or isn't placed in any workflow.
  */
-function findWidgetProjectId(state: AppState, widgetId: EntityId): string | null {
-  const { projects, workflows } = state.entities;
-  for (const projectId of Object.keys(projects)) {
-    const project = projects[projectId];
-    if (!project) {
-      continue;
+function findWidgetWorkflowId(state: AppState, widgetId: EntityId): EntityId | null {
+  for (const workflow of Object.values(state.entities.workflows)) {
+    if (workflow && workflow.layout.some(item => item.widgetId === widgetId)) {
+      return workflow.id;
     }
-    for (const workflowId of project.workflowIds) {
-      const workflow = workflows[workflowId];
-      if (workflow && workflow.layout.some(item => item.widgetId === widgetId)) {
-        return projectId;
-      }
+  }
+  return null;
+}
+
+/** Find the project that lists the workflow, or `null` if none does. */
+function findWorkflowProjectId(state: AppState, workflowId: EntityId): EntityId | null {
+  for (const project of Object.values(state.entities.projects)) {
+    if (project && project.workflowIds.includes(workflowId)) {
+      return project.id;
     }
   }
   return null;
@@ -106,6 +107,34 @@ function _createWidgetApiFactory({
         writeText: (text) => clipboardProvider.writeText(text)
       }),
       dataStorage: (widgetId) => {
+        // To-do scope routing for this widget API instance. One instance
+        // belongs to one mounted widget component. Moving the widget to the
+        // shelf or to another workflow mounts a new component with a new API,
+        // but the old component still flushes its pending save on unmount,
+        // and a sibling's debounced save may reuse this instance's closure.
+        // Those writes must land in the scope they were queued for. So the
+        // instance pins the workflow it sits in when the API is built
+        // (`null` = shelf) and derives the project from that workflow on each
+        // call. The pin is taken here, not on the first storage call: a
+        // second same-scope widget skips the disk read, so its first storage
+        // call can be the unmount flush after the move, which would pin the
+        // new place. A workflow dragged to another project keeps the
+        // component mounted, and its writes follow the workflow to the new
+        // project. `undefined` means the widget is not a to-do widget.
+        const initState = appStore.get();
+        const todoWorkflowId: EntityId | null | undefined = initState.entities.widgets[widgetId]?.type === todoListWidgetType
+          ? findWidgetWorkflowId(initState, widgetId)
+          : undefined;
+        let todoScope = todoWorkflowId ? findWorkflowProjectId(initState, todoWorkflowId) ?? appScope : appScope;
+        const resolveTodoScope = (state: AppState) => {
+          if (todoWorkflowId === null || todoWorkflowId === undefined) {
+            todoScope = appScope;
+          } else if (state.entities.workflows[todoWorkflowId]) {
+            todoScope = findWorkflowProjectId(state, todoWorkflowId) ?? appScope;
+          }
+          // Otherwise the workflow was deleted too: keep the last known scope.
+          return todoScope;
+        };
         // Resolve the storage lazily on every call so a settings change
         // (e.g. toggling a shared key on/off) is picked up without having to
         // rebuild the widget's cached widgetApi object.
@@ -113,7 +142,10 @@ function _createWidgetApiFactory({
           const state = appStore.get();
           const widget = state.entities.widgets[widgetId];
           if (!widget) {
-            return widgetDataStorageManager.getObject(widgetId);
+            // A deleted to-do widget keeps writing to its scope's bucket.
+            return todoWorkflowId !== undefined
+              ? sharedDataStorageManager.getObject(sharedStorageId(todoListWidgetType, resolveTodoScope(state)))
+              : widgetDataStorageManager.getObject(widgetId);
           }
           const sharedKey = resolveWidgetSharedKeyId(widget);
           if (sharedKey) {
@@ -123,8 +155,7 @@ function _createWidgetApiFactory({
           // todo widgets in the same project (or 'app' scope for shelf) share
           // a single data bucket.
           if (widget.type === todoListWidgetType) {
-            const scope = findWidgetProjectId(state, widgetId) ?? appScope;
-            return sharedDataStorageManager.getObject(sharedStorageId(todoListWidgetType, scope));
+            return sharedDataStorageManager.getObject(sharedStorageId(todoListWidgetType, resolveTodoScope(state)));
           }
           return widgetDataStorageManager.getObject(widgetId);
         };

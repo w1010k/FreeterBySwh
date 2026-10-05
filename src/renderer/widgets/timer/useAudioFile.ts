@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 export function useAudioFile(file: string, volume: number) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -35,27 +35,12 @@ export function useAudioFile(file: string, volume: number) {
     }
 
     audio.currentTime = 0;
-    audio.play();
+    // A failed playback (no output device, decode error) must not surface as an
+    // unhandled rejection; the timer itself has already finished.
+    Promise.resolve(audio.play()).catch(() => undefined);
   }, []);
 
-  return { play };
-
-  // const soundPlayer = useMemo(() => file !== '' ? new Audio() : null, [file]);
-  // useEffect(() => {
-  //   if (soundPlayer) {
-  //     soundPlayer.src = file;
-  //     soundPlayer.volume = volume / 100;
-  //     soundPlayer.load();
-  //     return () => soundPlayer.pause();
-  //   }
-  //   return undefined;
-  // }, [soundPlayer, file, volume])
-  // return useMemo(() => ({
-  //   play: () => {
-  //     if (soundPlayer) {
-  //       soundPlayer.currentTime = 0;
-  //       soundPlayer.play();
-  //     }
-  //   }
-  // }), [soundPlayer])
+  // Stable identity: the timer widgets list this object in their tick
+  // callback's deps, so a new object per render would re-arm their interval.
+  return useMemo(() => ({ play }), [play]);
 }

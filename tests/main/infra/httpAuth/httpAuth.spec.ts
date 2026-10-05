@@ -46,13 +46,14 @@ describe('buildAuthPromptHtml()', () => {
 
 describe('createLoginHandler()', () => {
   const wc = {} as WebContents;
+  const nav = { isRequestForNavigation: true };
 
   it('should prevent the default (request cancellation) and pass entered credentials to the callback', async () => {
     const event = { preventDefault: jest.fn() };
     const callback = jest.fn();
     const handler = createLoginHandler(async () => ({ username: 'user', password: 'pw' }));
 
-    handler(event, wc, {}, authInfo(), callback);
+    handler(event, wc, nav, authInfo(), callback);
 
     expect(event.preventDefault).toHaveBeenCalled();
     await Promise.resolve();
@@ -63,7 +64,7 @@ describe('createLoginHandler()', () => {
     const callback = jest.fn();
     const handler = createLoginHandler(async () => null);
 
-    handler({ preventDefault: jest.fn() }, wc, {}, authInfo(), callback);
+    handler({ preventDefault: jest.fn() }, wc, nav, authInfo(), callback);
 
     await Promise.resolve();
     expect(callback).toHaveBeenCalledWith();
@@ -73,10 +74,40 @@ describe('createLoginHandler()', () => {
     const callback = jest.fn();
     const handler = createLoginHandler(async () => { throw new Error('boom'); });
 
-    handler({ preventDefault: jest.fn() }, wc, {}, authInfo(), callback);
+    handler({ preventDefault: jest.fn() }, wc, nav, authInfo(), callback);
 
     await Promise.resolve();
     await Promise.resolve();
     expect(callback).toHaveBeenCalledWith();
+  });
+
+  it('should leave a subresource challenge to the default cancel, but prompt for proxy auth', () => {
+    const prompt = jest.fn(async () => null);
+    const handler = createLoginHandler(prompt);
+    const event = { preventDefault: jest.fn() };
+
+    handler(event, wc, { isRequestForNavigation: false }, authInfo(), jest.fn());
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(prompt).not.toHaveBeenCalled();
+
+    handler(event, wc, { isRequestForNavigation: false }, authInfo({ isProxy: true }), jest.fn());
+    expect(prompt).toHaveBeenCalledTimes(1);
+  });
+
+  it('should open one prompt at a time per webContents', async () => {
+    let answer: (cred: null) => void = () => undefined;
+    const prompt = jest.fn(() => new Promise<null>(resolve => { answer = resolve; }));
+    const handler = createLoginHandler(prompt);
+    const second = { preventDefault: jest.fn() };
+
+    handler({ preventDefault: jest.fn() }, wc, nav, authInfo(), jest.fn());
+    handler(second, wc, nav, authInfo(), jest.fn());
+    expect(prompt).toHaveBeenCalledTimes(1);
+    expect(second.preventDefault).not.toHaveBeenCalled();
+
+    answer(null);
+    await Promise.resolve();
+    handler({ preventDefault: jest.fn() }, wc, nav, authInfo(), jest.fn());
+    expect(prompt).toHaveBeenCalledTimes(2);
   });
 });

@@ -9,6 +9,7 @@ import { AppState } from '@/base/state/app';
 import { fixtureAppState } from '@tests/base/state/fixtures/appState';
 import { fixtureProjectSwitcher } from '@tests/base/state/fixtures/projectSwitcher';
 import { fixtureAppStore } from '@tests/data/fixtures/appStore';
+import { fixtureProjectA } from '@tests/base/fixtures/project';
 
 async function setup(initState: AppState) {
   const [appStore] = await fixtureAppStore(initState);
@@ -66,6 +67,32 @@ describe('initTrayMenuUseCase()', () => {
     })
 
     expect(trayMenuProviderMock.setMenu).toHaveBeenCalledTimes(2);
+  });
+
+  it('should update the labels, when a project is only renamed', async () => {
+    const project = fixtureProjectA();
+    const state = fixtureAppState({
+      entities: { projects: { [project.id]: project } },
+      ui: { projectSwitcher: fixtureProjectSwitcher({ projectIds: [project.id], currentProjectId: project.id }) }
+    })
+    const {
+      initTrayMenuUseCase,
+      trayMenuProviderMock,
+      appStore
+    } = await setup(state)
+
+    initTrayMenuUseCase();
+
+    appStore.set({
+      ...state,
+      entities: {
+        ...state.entities,
+        projects: { [project.id]: { ...project, settings: { ...project.settings, name: 'Renamed' } } }
+      }
+    })
+
+    expect(trayMenuProviderMock.setMenu).toHaveBeenCalledTimes(2);
+    expect(trayMenuProviderMock.setMenu).toHaveBeenLastCalledWith([expect.objectContaining({ label: 'Renamed' })]);
   });
 
   it('should not call trayMenu\'s setMenu(), when the new state does not have changes the tray menu depends on', async () => {

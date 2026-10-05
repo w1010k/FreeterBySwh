@@ -49,10 +49,11 @@ export function createFsProvider(): FsProvider {
         return null;
       }
       try {
-        const buf = await readFile(path);
-        if (buf.byteLength > maxImageBytes) {
+        // Check the size before reading, so a huge file is never loaded into main memory.
+        if ((await stat(path)).size > maxImageBytes) {
           return null;
         }
+        const buf = await readFile(path);
         return `data:${mime};base64,${buf.toString('base64')}`;
       } catch {
         return null;

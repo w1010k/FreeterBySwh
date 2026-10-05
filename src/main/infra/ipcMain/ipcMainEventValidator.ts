@@ -5,7 +5,13 @@
 
 import { IpcMainEventValidator } from '@/controllers/interfaces/ipcMain';
 
-export function createIpcMainEventValidator(channelPrefix: string, authority: string): IpcMainEventValidator {
+/**
+ * Accepts an IPC message only from the app page itself: a known channel, sent by
+ * the main frame of a page at `scheme://authority`. The scheme is checked as well
+ * as the host, because a single-label host like `freeter-app` could also be served
+ * over http by anyone on the LAN who answers that name.
+ */
+export function createIpcMainEventValidator(channelPrefix: string, authority: string, scheme: string): IpcMainEventValidator {
   return (channel, event) => {
     if (!channel || !channel.startsWith(channelPrefix)) {
       console.error(`IpcMain event: Unknown channel '${channel}'.`)
@@ -21,15 +27,17 @@ export function createIpcMainEventValidator(channelPrefix: string, authority: st
     const { isSenderFrameMain: isMainFrame } = event;
 
     let host = '';
+    let protocol = '';
     try {
-      host = new URL(url).host;
+      ({ host, protocol } = new URL(url));
     } catch (error) {
       console.error(`IpcMain event: Invalid URL '${url}' on channel '${channel}.`)
       return false;
     }
 
-    if (host !== authority) {
-      console.error(`IpcMain event: Bad origin of '${host}' on channel '${channel}.`)
+    // `.origin` is not usable here: Node returns "null" for non-special schemes.
+    if (host !== authority || protocol !== `${scheme}:`) {
+      console.error(`IpcMain event: Bad origin of '${protocol}//${host}' on channel '${channel}.`)
       return false;
     }
 

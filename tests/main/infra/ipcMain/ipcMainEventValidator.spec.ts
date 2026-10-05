@@ -8,7 +8,7 @@ import { fixtureIpcMainEvent } from '@tests/infra/mocks/ipcMain';
 
 describe('ipcMainEventValidator()', () => {
   it('should return false for invalid channels', () => {
-    const ipcMainEventValidator = createIpcMainEventValidator('chan:', 'auth');
+    const ipcMainEventValidator = createIpcMainEventValidator('chan:', 'auth', 'scheme');
     const event = fixtureIpcMainEvent({
       senderFrame: {
         url: 'scheme://auth/'
@@ -22,7 +22,7 @@ describe('ipcMainEventValidator()', () => {
   })
 
   it('should return false for invalid urls', () => {
-    const ipcMainEventValidator = createIpcMainEventValidator('chan:', 'auth');
+    const ipcMainEventValidator = createIpcMainEventValidator('chan:', 'auth', 'scheme');
     const event = fixtureIpcMainEvent({
       senderFrame: {
         url: 'invalid-url'
@@ -36,7 +36,7 @@ describe('ipcMainEventValidator()', () => {
   })
 
   it('should return false for invalid authorities', () => {
-    const ipcMainEventValidator = createIpcMainEventValidator('chan:', 'auth');
+    const ipcMainEventValidator = createIpcMainEventValidator('chan:', 'auth', 'scheme');
     const event = fixtureIpcMainEvent({
       senderFrame: {
         url: 'scheme://invalid-auth/'
@@ -49,8 +49,22 @@ describe('ipcMainEventValidator()', () => {
     expect(res).toBe(false);
   })
 
+  it('should return false for the right host under another scheme', () => {
+    const ipcMainEventValidator = createIpcMainEventValidator('chan:', 'auth', 'scheme');
+    const event = fixtureIpcMainEvent({
+      senderFrame: {
+        url: 'http://auth/'
+      },
+      isSenderFrameMain: true
+    });
+
+    const res = ipcMainEventValidator('chan:action', event);
+
+    expect(res).toBe(false);
+  })
+
   it('should return false for events coming from a non-main frame', () => {
-    const ipcMainEventValidator = createIpcMainEventValidator('chan:', 'auth');
+    const ipcMainEventValidator = createIpcMainEventValidator('chan:', 'auth', 'scheme');
     const event = fixtureIpcMainEvent({
       senderFrame: {
         url: 'scheme://auth/'
@@ -64,7 +78,7 @@ describe('ipcMainEventValidator()', () => {
   })
 
   it('should return true for valid events', () => {
-    const ipcMainEventValidator = createIpcMainEventValidator('chan:', 'auth');
+    const ipcMainEventValidator = createIpcMainEventValidator('chan:', 'auth', 'scheme');
     const event = fixtureIpcMainEvent({
       senderFrame: {
         url: 'scheme://auth/'

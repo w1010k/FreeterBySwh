@@ -80,7 +80,8 @@ async function setup(
     dragOverTopBarListUseCase,
     dragWidgetFromTopBarListUseCase,
     dropOnTopBarListUseCase,
-    openWidgetSettingsUseCase
+    openWidgetSettingsUseCase,
+    setShelfItemSizeUseCase
   }
 }
 
@@ -881,49 +882,53 @@ describe('<Shelf />', () => {
   });
 
   describe('resizing the popup box', () => {
-    it('should remove the window drag listeners on unmount, if a resize drag is still in progress', async () => {
-      const removeSpy = jest.spyOn(window, 'removeEventListener');
-      const { comp } = await setup(fixtureAppState({
-        ui: {
-          editMode: true,
-          shelf: fixtureShelf({
-            widgetList: [fixtureWidgetListItemA()]
-          })
-        },
-      }));
-      const resizer = screen.getByRole('separator');
+    const setupResizable = () => setup(fixtureAppState({
+      ui: {
+        editMode: true,
+        shelf: fixtureShelf({
+          widgetList: [fixtureWidgetListItemA()]
+        })
+      },
+    }));
 
-      // Start a drag (attaches window mousemove/mouseup listeners) but never
-      // release the mouse, then unmount mid-drag.
-      fireEvent.mouseDown(resizer);
-      removeSpy.mockClear();
+    it('should resize while the primary button is held', async () => {
+      const { setShelfItemSizeUseCase } = await setupResizable();
 
-      comp.unmount();
+      fireEvent.mouseDown(screen.getByRole('separator'), {clientX: 100, clientY: 100});
+      fireEvent.mouseMove(window, {buttons: 1, clientX: 150, clientY: 120});
 
-      expect(removeSpy).toHaveBeenCalledWith('mousemove', expect.any(Function));
-      expect(removeSpy).toHaveBeenCalledWith('mouseup', expect.any(Function));
-
-      removeSpy.mockRestore();
+      expect(setShelfItemSizeUseCase).toHaveBeenCalledTimes(1);
     });
 
-    it('should not remove mousemove/mouseup listeners on unmount, if no resize drag was started', async () => {
-      const removeSpy = jest.spyOn(window, 'removeEventListener');
-      const { comp } = await setup(fixtureAppState({
-        ui: {
-          editMode: true,
-          shelf: fixtureShelf({
-            widgetList: [fixtureWidgetListItemA()]
-          })
-        },
-      }));
-      removeSpy.mockClear();
+    it('should stop following the cursor, if the window loses focus mid-drag', async () => {
+      const { setShelfItemSizeUseCase } = await setupResizable();
 
+      fireEvent.mouseDown(screen.getByRole('separator'), {clientX: 100, clientY: 100});
+      fireEvent.blur(window);
+      fireEvent.mouseMove(window, {buttons: 1, clientX: 150, clientY: 120});
+
+      expect(setShelfItemSizeUseCase).not.toHaveBeenCalled();
+    });
+
+    it('should end the drag, if a mousemove arrives with the button already released', async () => {
+      const { setShelfItemSizeUseCase } = await setupResizable();
+
+      fireEvent.mouseDown(screen.getByRole('separator'), {clientX: 100, clientY: 100});
+      fireEvent.mouseMove(window, {buttons: 0, clientX: 150, clientY: 120});
+      fireEvent.mouseMove(window, {buttons: 1, clientX: 160, clientY: 130});
+
+      expect(setShelfItemSizeUseCase).not.toHaveBeenCalled();
+    });
+
+    it('should drop the window drag listeners on unmount, if a resize drag is still in progress', async () => {
+      const { comp, setShelfItemSizeUseCase } = await setupResizable();
+
+      // Start a drag but never release the mouse, then unmount mid-drag.
+      fireEvent.mouseDown(screen.getByRole('separator'), {clientX: 100, clientY: 100});
       comp.unmount();
+      fireEvent.mouseMove(window, {buttons: 1, clientX: 150, clientY: 120});
 
-      expect(removeSpy).not.toHaveBeenCalledWith('mousemove', expect.any(Function));
-      expect(removeSpy).not.toHaveBeenCalledWith('mouseup', expect.any(Function));
-
-      removeSpy.mockRestore();
+      expect(setShelfItemSizeUseCase).not.toHaveBeenCalled();
     });
   });
 

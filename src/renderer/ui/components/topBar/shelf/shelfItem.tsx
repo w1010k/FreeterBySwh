@@ -53,28 +53,34 @@ export function createShelfItemComponent({
       e.stopPropagation();
       dragRef.current = { startX: e.clientX, startY: e.clientY, startW: widgetBoxWidth, startH: widgetBoxHeight };
       setIsResizing(true);
+      // One abort removes *this* drag's listeners, whichever way the drag ends,
+      // so overlapping drags can't leave a stray set attached.
+      const listeners = new AbortController();
+      const endDrag = () => {
+        dragRef.current = null;
+        setIsResizing(false);
+        listeners.abort();
+        detachResizeRef.current = null;
+      };
       const onMove = (ev: MouseEvent) => {
         const drag = dragRef.current;
         if (!drag) {
           return;
         }
+        // The button was released where we never saw the mouseup (e.g. focus
+        // left the window mid-drag): end the drag instead of following the cursor.
+        if ((ev.buttons & 1) === 0) {
+          endDrag();
+          return;
+        }
         onResizeHandler(drag.startW + (ev.clientX - drag.startX), drag.startH + (ev.clientY - drag.startY));
       };
-      function onUp() {
-        dragRef.current = null;
-        setIsResizing(false);
-        // Remove *this* drag's own listeners (not whatever the ref currently
-        // points at) so overlapping drags can't leave a stray pair attached.
-        window.removeEventListener('mousemove', onMove);
-        window.removeEventListener('mouseup', onUp);
-        detachResizeRef.current = null;
-      }
-      window.addEventListener('mousemove', onMove);
-      window.addEventListener('mouseup', onUp);
-      detachResizeRef.current = () => {
-        window.removeEventListener('mousemove', onMove);
-        window.removeEventListener('mouseup', onUp);
-      };
+      window.addEventListener('mousemove', onMove, {signal: listeners.signal});
+      window.addEventListener('mouseup', endDrag, {signal: listeners.signal});
+      // Losing focus (Alt+Tab, the global hotkey hiding the window) can swallow
+      // the mouseup, which would leave the capture overlay eating the next click.
+      window.addEventListener('blur', endDrag, {signal: listeners.signal});
+      detachResizeRef.current = () => listeners.abort();
     }, [widgetBoxWidth, widgetBoxHeight, onResizeHandler]);
 
     // Safety net: drop any still-attached drag listeners if we unmount mid-drag.

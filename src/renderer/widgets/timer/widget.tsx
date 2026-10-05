@@ -9,17 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './widget.module.scss';
 import { useAudioFile } from '@/widgets/timer/useAudioFile';
 import { timerEndSoundFilesById } from '@/widgets/timer/audio/timer-end';
-
-function padTime(time: number) {
-  return ('0' + time).slice(-2);
-}
-
-function msecsToMMSS(msecs: number) {
-  const secs = Math.floor(msecs/1000);
-  const m = Math.floor(secs/60);
-  const s = Math.floor(secs-m*60);
-  return `${padTime(m)}:${padTime(s)}`;
-}
+import { msecsToMMSS } from '@/widgets/timer/mmss';
 
 // dataStorage key holding the running/paused state, so an active timer
 // survives widget remounts and app restarts (endMsecs is an absolute

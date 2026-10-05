@@ -19,12 +19,12 @@ import {
   itemHUnitsToPx,
   itemRectUnitsToPx,
   itemWUnitsToPx,
-  itemXPxToUnits,
-  itemYPxToUnits
+  itemXDeltaPxToUnits,
+  itemYDeltaPxToUnits
 } from '@/ui/components/worktable/widgetLayout/calcs';
 import {resizeEdgesByHandleId, ResizeHandleId} from '@/ui/components/worktable/widgetLayout/resizeHandles';
 import {RectPx, WHPx, XYPx} from '@/ui/types/dimensions';
-import {DragEvent, MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useState} from 'react';
+import {DragEvent, MouseEvent as ReactMouseEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 
 export interface WidgetLayoutItemProps {
   id: string;
@@ -68,8 +68,8 @@ function calcDeltasForMouseEvent(evt: MouseEvent, fromPointPx: XYPx, colWidth: n
     y: evt.pageY - fromPointPx.yPx
   }
   const deltaUnits = {
-    x: itemXPxToUnits(deltaPx.x, colWidth) * xMulti,
-    y: itemYPxToUnits(deltaPx.y, rowHeight) * yMulti
+    x: itemXDeltaPxToUnits(deltaPx.x, colWidth) * xMulti,
+    y: itemYDeltaPxToUnits(deltaPx.y, rowHeight) * yMulti
   }
   return {
     deltaPx,
@@ -93,11 +93,16 @@ export function useWidgetLayoutItemViewModel(props: WidgetLayoutItemProps) {
 
   const isMaximized = maximized && !isEditable;
 
-  useEffect(() => {
-    if (viewportElRef.current) {
+  // The maximized tile covers the visible viewport, so it is offset by the
+  // worktable's scroll position at the moment it gets maximized (again after
+  // leaving edit mode). The worktable can't scroll while a tile is maximized
+  // (`overflow: hidden`), so one read per transition stays correct. A layout
+  // effect measures before paint, so the tile never flashes at a stale offset.
+  useLayoutEffect(() => {
+    if (isMaximized && viewportElRef.current) {
       setScrollTop(viewportElRef.current.scrollTop);
     }
-  }, [viewportElRef]);
+  }, [isMaximized, viewportElRef]);
 
   let rectPx: RectPx;
   if (resizing) {
@@ -122,10 +127,25 @@ export function useWidgetLayoutItemViewModel(props: WidgetLayoutItemProps) {
     onDragEnd(evt);
   }, [onDragEnd]);
 
-  const onResizeMouseMoveHandler = useCallback((evt: MouseEvent) => {
-    if (!isResizing) {
+  // The window listeners of a resize drag are attached once, on mousedown, and
+  // read the in-progress state and the latest render values through refs.
+  // Closing over them instead would re-attach the listeners on every mousemove.
+  const resizingRef = useRef<ResizingState | null>(null);
+  const lastDeltaUnitsRef = useRef<{ x: number, y: number }>({x: 0, y: 0});
+  const latestRef = useRef({colWidth, rowHeight, resizingMinSize, onResize, onResizeEnd});
+  useEffect(() => {
+    latestRef.current = {colWidth, rowHeight, resizingMinSize, onResize, onResizeEnd};
+  });
+  // Detaches the current drag's window listeners; also used if we unmount mid-drag.
+  const detachResizeRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => detachResizeRef.current?.(), []);
+
+  const onResizeMouseMove = useCallback((evt: MouseEvent) => {
+    const resizing = resizingRef.current;
+    if (!resizing) {
       return;
     }
+    const {colWidth, rowHeight, resizingMinSize, onResize} = latestRef.current;
 
     const minWPx = itemWUnitsToPx(resizingMinSize?.w || 1, colWidth);
     const minHPx = itemHUnitsToPx(resizingMinSize?.h || 1, rowHeight);
@@ -177,40 +197,22 @@ export function useWidgetLayoutItemViewModel(props: WidgetLayoutItemProps) {
       }
     }
 
+    lastDeltaUnitsRef.current = deltaUnits;
     onResize(deltaUnits);
-    setResizing(prev => (prev ? {
-      ...prev,
-      rectPx: newRectPx
-    } : null));
-  }, [
-    isResizing, colWidth, rowHeight, resizing,
-    onResize, resizingMinSize
-  ])
-
-  const onResizeMouseUpHandler = useCallback((evt: MouseEvent) => {
-    if (!isResizing) {
-      return;
-    }
-
-    const {deltaUnits} = calcDeltasForMouseEvent(
-      evt,
-      resizing.fromPointPx,
-      colWidth,
-      rowHeight,
-      resizing.draggingEdges.x === WorktableStateResizingItemEdgeX.Left ? -1 : 1,
-      resizing.draggingEdges.y === WorktableStateResizingItemEdgeY.Top ? -1 : 1
-    );
-
-    onResizeEnd(deltaUnits);
-    setResizing(null);
-  }, [isResizing, resizing, colWidth, rowHeight, onResizeEnd])
+    const next = {...resizing, rectPx: newRectPx};
+    resizingRef.current = next;
+    setResizing(next);
+  }, [])
 
   const onResizeMouseDownHandler = useCallback((evt: ReactMouseEvent<HTMLDivElement>, handleId: ResizeHandleId) => {
+    // Only the primary button resizes; the drag ends once it is no longer held.
+    if (evt.button !== 0) {
+      return;
+    }
     evt.preventDefault();
     evt.stopPropagation();
 
-    onResizeStart(id, resizeEdgesByHandleId[handleId]);
-    setResizing({
+    const start: ResizingState = {
       initialItemRectUnits: {x, y, w, h},
       draggingEdges: resizeEdgesByHandleId[handleId],
       fromPointPx: {
@@ -218,26 +220,52 @@ export function useWidgetLayoutItemViewModel(props: WidgetLayoutItemProps) {
         yPx: evt.pageY
       },
       rectPx
-    })
-  }, [rectPx, x, y, w, h, id, onResizeStart])
+    };
+    onResizeStart(id, start.draggingEdges);
+    resizingRef.current = start;
+    lastDeltaUnitsRef.current = {x: 0, y: 0};
+    setResizing(start);
 
-  useEffect(() => {
-    if (isResizing) {
-      window.addEventListener('mousemove', onResizeMouseMoveHandler);
-    }
-    return () => {
-      window.removeEventListener('mousemove', onResizeMouseMoveHandler);
-    }
-  }, [isResizing, onResizeMouseMoveHandler])
-
-  useEffect(() => {
-    if (isResizing) {
-      window.addEventListener('mouseup', onResizeMouseUpHandler);
-    }
-    return () => {
-      window.removeEventListener('mouseup', onResizeMouseUpHandler);
-    }
-  }, [isResizing, onResizeMouseUpHandler])
+    // One abort removes every drag listener, whichever way the drag ends.
+    const listeners = new AbortController();
+    // Commits the resize. With a mouseup we take its position; without one
+    // (focus lost, button released where we couldn't see it) we commit the last
+    // delta the user saw in the preview.
+    const endDrag = (upEvt?: MouseEvent) => {
+      const resizing = resizingRef.current;
+      if (!resizing) {
+        return;
+      }
+      const {colWidth, rowHeight, onResizeEnd} = latestRef.current;
+      const deltaUnits = upEvt
+        ? calcDeltasForMouseEvent(
+          upEvt,
+          resizing.fromPointPx,
+          colWidth,
+          rowHeight,
+          resizing.draggingEdges.x === WorktableStateResizingItemEdgeX.Left ? -1 : 1,
+          resizing.draggingEdges.y === WorktableStateResizingItemEdgeY.Top ? -1 : 1
+        ).deltaUnits
+        : lastDeltaUnitsRef.current;
+      resizingRef.current = null;
+      listeners.abort();
+      detachResizeRef.current = null;
+      onResizeEnd(deltaUnits);
+      setResizing(null);
+    };
+    window.addEventListener('mousemove', (ev: MouseEvent) => {
+      if ((ev.buttons & 1) === 0) {
+        endDrag();
+      } else {
+        onResizeMouseMove(ev);
+      }
+    }, {signal: listeners.signal});
+    window.addEventListener('mouseup', (ev: MouseEvent) => endDrag(ev), {signal: listeners.signal});
+    // Losing focus (Alt+Tab, the global hotkey hiding the window) can swallow
+    // the mouseup, which would leave `resizingItem` set and the action bars hidden.
+    window.addEventListener('blur', () => endDrag(), {signal: listeners.signal});
+    detachResizeRef.current = () => listeners.abort();
+  }, [rectPx, x, y, w, h, id, onResizeStart, onResizeMouseMove])
 
   const maximizeAction: ActionBarItem = useMemo(() => ({
     enabled: true,

@@ -150,7 +150,9 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
           }
           const built = buildEntryPaths(key, entries);
           registerEntries(built.entries);
-          built.treePaths.forEach(p => model.add(p));
+          // One batch: each separate add() would rebuild the visible tree and
+          // re-run this listener, which is O(n²) for a large folder.
+          model.batch(built.treePaths.map(path => ({ type: 'add' as const, path })));
         }).catch(() => {
           // A transient failure (locked folder, permission blip, folder removed
           // mid-read) shouldn't permanently mark the dir as loaded — drop it so a

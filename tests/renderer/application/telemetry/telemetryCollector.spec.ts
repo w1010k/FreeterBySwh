@@ -5,7 +5,7 @@
 
 import { createTelemetryCollector } from '@/application/telemetry/telemetryCollector';
 import { TelemetryConfig } from '@/base/appConfig';
-import { TelemetryBuffer } from '@/infra/telemetry/telemetryBuffer';
+import { TelemetryAppendError, TelemetryBuffer } from '@/infra/telemetry/telemetryBuffer';
 import { TelemetryEvent } from '@common/base/telemetry';
 
 function setup(initialConfig?: Partial<TelemetryConfig>) {
@@ -32,6 +32,32 @@ function setup(initialConfig?: Partial<TelemetryConfig>) {
 }
 
 describe('telemetryCollector', () => {
+  it('re-queues only the failed days when the buffer reports them', async () => {
+    const failedEvent: TelemetryEvent = { ts: 2, type: 'app_focus' };
+    const calls: TelemetryEvent[][] = [];
+    const buffer: TelemetryBuffer = {
+      appendEvents: async (events) => {
+        calls.push([...events]);
+        if (calls.length === 1) {
+          throw new TelemetryAppendError([failedEvent], new Error('locked'));
+        }
+      }
+    };
+    const collector = createTelemetryCollector({
+      now: () => 1_000_000,
+      getConfig: () => ({ enabled: true, idleTimeoutMs: 5000 }),
+      buffer,
+      heartbeatSplitMs: 60_000,
+    });
+    collector.syncCurrent('p1', 'w1');
+    await collector.flush();
+
+    await collector.flush();
+
+    expect(calls[0]).toHaveLength(2);
+    expect(calls[1]).toEqual([failedEvent]);
+  });
+
   it('records nothing while disabled', async () => {
     const { collector, config, flushAndGet } = setup({ enabled: false });
     config.enabled = false;

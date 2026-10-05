@@ -3246,6 +3246,47 @@ Webpage 위젯 안의 웹 페이지가 OS로 여는 주소의 스킴을 검사�
 - **문서**: `docs/dev/procedures.md`, `docs/dev/overview.md`, `docs/dev/decisions.md` (D59)
 - **(후속) 문서**: `README.md` (지원 운영체제, 설치 파일, 빌드 결과 설명), `docs/GUIDE.md` (설치·실행)
 
+## 90. Webpage 위젯의 인증 창·팝업 제한 *(2026-10-05)*
+
+웹 페이지가 앱 안에 띄우는 창을 줄이고, 띄운 창이 어느 사이트의 것인지 보이게 한다. 코드베이스 전체 점검에서 나온 보안 항목이다.
+
+### 사용자 관점
+
+- **HTTP 인증 창** (#71): 페이지를 열거나 이동할 때 서버가 로그인을 요구하면 전처럼 창이 뜬다. 회사 proxy 인증도 그대로다. 페이지 안의 이미지, fetch 요청 같은
+  하위 리소스가 401을 내면 이제 창을 띄우지 않고 그 요청만 실패한다. 한 위젯에는 인증 창이 한 번에 하나만 뜬다. iframe의 페이지 이동은 navigation으로 보고 창을
+  띄울 것이다 (추정, 실행으로 확인하지 않음). 멀티탭 위젯은 탭마다 별도 webview라서 이 제한도 탭마다 적용된다.
+- **내부 팝업** (#13): OAuth 로그인 창 같은 팝업의 제목 표시줄에 앱 이름 대신 사이트 origin (`https://accounts.google.com` 등)이 보인다. 페이지가 제목을 바꿀
+  수 없고, 팝업 안에서 다른 사이트로 이동하면 제목도 바뀐다.
+- 위젯 탭 (webview) 하나 아래에서 동시에 열 수 있는 팝업은 5개다. 6번째 요청은 조용히 무시된다. 탭의 webview가 다시 마운트되면 개수도 다시 센다.
+- 팝업 안에서 다시 여는 창도 위젯과 같은 규칙을 따른다. 새 탭 링크는 기본 브라우저로, 진짜 팝업은 앱 안 창으로 열린다.
+
+### 아키텍처
+
+- `main/infra/httpAuth/httpAuth.ts` `createLoginHandler`: `details.isRequestForNavigation`이나 `authInfo.isProxy`가 아니면 `preventDefault()`를
+  부르지 않고 돌아간다. Electron은 처리되지 않은 인증 요청을 취소한다. 열린 창은 webContents 단위 `WeakSet`으로 추적한다.
+- `main/infra/browserWindow/browserWindow.ts`:
+  - webview 게스트에 걸던 새 창 핸들러를 `attachWindowOpenHandler(opener, popups)`로 뺐다. `did-create-window`에서 새 팝업에도 같은 함수를 건다.
+  - `popups.open`은 게스트 하나와 그 아래 모든 팝업이 공유하는 카운터다 (`maxPopupsPerGuest` = 5).
+  - 팝업 제목은 `popupTitle(url)` (origin, 없으면 URL)이다. `page-title-updated`를 막고 `did-navigate`에서 갱신한다.
+  - 팝업 webPreferences에 `sandbox`, `contextIsolation`, `nodeIntegration: false`, `webviewTag: false`를 명시한다.
+  - 앱 창 자신에는 `setWindowOpenHandler(() => deny)`를 건다.
+
+### 까다로웠던 포인트
+
+- **거부 방법**: 인증 요청을 거부할 때 `callback()`을 부르지 않고 `preventDefault()`도 부르지 않는다. 그러면 Electron 기본 동작이 요청을 취소한다. 창이 열려 있는
+  동안 들어온 두 번째 요청도 같은 방법으로 취소한다. 기다리게 하면 앞 창이 닫힐 때까지 요청이 걸려 있다.
+- **제목 고정**: 팝업은 주소 표시줄이 없고 앱 아이콘을 단다. 페이지가 제목을 바꿀 수 있으면 가짜 로그인 화면을 앱 대화상자처럼 보이게 할 수 있다.
+- **앱 창의 새 창**: 앱 페이지의 `href="#"` 링크를 가운데 클릭하면 자식 창이 열릴 수 있었다. 자식 창은 opener의 webPreferences를 상속하므로 preload를 가진
+  두 번째 앱 페이지가 될 수 있다 (추정, 실행으로 확인하지 않음). 앱 페이지는 `window.open`을 쓰지 않으므로 모두 거부한다.
+- 같은 점검에서 IPC 발신자 검증에 scheme 검사 (`freeter-file:`)를 더했다. 사용자에게 보이는 변화는 없다.
+
+### 수정 파일
+
+- **수정**: `src/main/infra/httpAuth/httpAuth.ts`, `src/main/infra/browserWindow/browserWindow.ts`, `src/main/infra/ipcMain/ipcMainEventValidator.ts`,
+  `src/main/index.ts`
+- **테스트**: `tests/main/infra/httpAuth/httpAuth.spec.ts` (+2), `tests/main/infra/ipcMain/ipcMainEventValidator.spec.ts` (+1)
+- **문서**: `docs/dev/decisions.md` (D29 변경, D60 신규), `docs/dev/pitfalls.md`, `docs/dev/overview.md`, `docs/dev/features-widgets.md`
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

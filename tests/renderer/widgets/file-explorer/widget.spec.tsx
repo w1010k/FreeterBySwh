@@ -15,6 +15,7 @@ import * as pierreTreesReact from '@pierre/trees/react';
 interface MockModel {
   resetPaths: jest.Mock;
   add: jest.Mock;
+  batch: jest.Mock;
   getItem: jest.Mock;
   getFocusedPath: jest.Mock;
   subscribe: jest.Mock<() => void, [() => void]>;

@@ -131,7 +131,12 @@ export async function createFileDataStorage(dataType: 'string', storageDirPath: 
         } else {
           return undefined;
         }
-      } catch {
+      } catch (err) {
+        // Callers treat every failure as "no item", so a missing file stays silent,
+        // but any other read error is logged: otherwise it is indistinguishable.
+        if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+          console.error(`Failed to read data storage item '${key}':`, err);
+        }
         return undefined;
       }
     },
@@ -143,7 +148,12 @@ export async function createFileDataStorage(dataType: 'string', storageDirPath: 
         } else {
           return undefined;
         }
-      } catch {
+      } catch (err) {
+        // The write error is still swallowed (callers don't expect a rejection),
+        // but logged so a lost save leaves a trace.
+        // ponytail: the renderer's change-check caches already count this value as
+        // saved, so an identical retry is skipped; fixing that needs the IPC contract to reject.
+        console.error(`Failed to write data storage item '${key}':`, err);
         return undefined;
       }
     },

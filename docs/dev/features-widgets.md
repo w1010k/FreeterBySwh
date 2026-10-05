@@ -172,7 +172,8 @@
 
 1. 엔티티에 위젯이 없으면 위젯별 저장소.
 2. `settings.sharedKeyId`가 비어 있지 않은 문자열이면 `shared/<type>/<sharedKeyId>` [fork #8].
-3. 타입이 `to-do-list`면 `findWidgetProjectId`가 찾은 프로젝트 id (없으면 `'app'`)로 `shared/to-do-list/<scope>` [fork #9].
+3. 타입이 `to-do-list`면 `resolveTodoScope`가 찾은 프로젝트 id (없으면 `'app'`)로 `shared/to-do-list/<scope>` [fork #9]. 위젯 API를 만들 때 위젯이 있던
+   워크플로우를 고정하고, 프로젝트는 매 호출 그 워크플로우에서 찾는다. 삭제된 To-Do 위젯의 늦은 저장도 원래 스코프로 간다 (pitfalls "widgetApi 메모이제이션").
 4. 그 밖에는 위젯별 저장소.
 
 매 호출 판정이 필요한 이유: `widgetApi`는 `widget.id` 기준으로 메모이즈되므로, 설정에서 `sharedKeyId`를 바꿔도 객체가 다시 만들어지지 않는다 (상세: CHANGES #8).
@@ -188,7 +189,7 @@
 
 | 대상                  | 경로                                                                                                                                                                                                                                                                      | 출처              |
 |-----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------|
-| Note (공유 키)        | 쓰기 → main `broadcastChanged`(`src/main/controllers/sharedDataStorage.ts`)가 모든 창에 `ipcSharedDataChangedChannel` 전송 → `src/renderer/init.ts`가 `window`에 `SHARED_DATA_CHANGED_EVENT` 재발행 → `useSharedDataChangedEffect`가 같은 `widgetType`·`scope`면 `reload` | [fork #8 #10 #39] |
+| Note (공유 키)        | 쓰기 → main `src/main/controllers/sharedDataStorage.ts`가 `sendToAppWindow`로 앱 창에만 `ipcSharedDataChangedChannel` 전송 → `src/renderer/init.ts`가 `window`에 `SHARED_DATA_CHANGED_EVENT` 재발행 → `useSharedDataChangedEffect`가 같은 `widgetType`·`scope`면 `reload` | [fork #8 #10 #39] |
 | To-Do (프로젝트 공유) | renderer 모듈 스코프 store(`todoStore.ts`)의 구독자에게 동기 통지. 디스크 쓰기만 IPC                                                                                                                                                                                      | [fork #26]        |
 
 - `useSharedDataChangedEffect(widgetType, scope, shouldSkip, reload)`: `scope`가 nullish면 구독하지 않는다. `shouldSkip`·`reload`
@@ -315,12 +316,14 @@
 
 - **링크와 팝업**: `setWindowOpenHandler`가 새 탭 성격 요청 (`target="_blank"`, 기능 문자열 없는 `window.open`)은 기본 브라우저로, 팝업 성격 요청은 앱 내부
   창으로 보낸다. 팝업 판정식은 `disposition === 'new-window'` 또는 features 문자열의 `popup` 단어 (`rePopupFeatures`)다. OAuth 팝업의
-  `window.opener` 통신을 살리기 위해서다 [fork #3 #13]. 외부로 보내는 URL은 스킴이 `http`, `https`, `mailto`일 때만 넘긴다. 이 검사는 액션바와 우클릭 메뉴의
+  `window.opener` 통신을 살리기 위해서다 [fork #3 #13]. 내부 팝업은 게스트마다 동시에 5개까지 열리고, 제목은 페이지 origin으로 고정된다. 팝업 안에서 여는 창도 같은
+  판정을 거친다 [fork #90]. HTTP 인증 창은 페이지 이동과 proxy 인증에만 뜬다 [fork #71 #90]. 외부로 보내는 URL은 스킴이 `http`, `https`, `mailto`일 때만 넘긴다. 이 검사는 액션바와 우클릭 메뉴의
   "Open in web browser", "Open link in web browser" (`actions.ts`)에도 있다. 같은 프레임 이동으로 여는 앱 프로토콜은 main의 세션 권한 처리기가 같은 규칙으로 막는다 [fork #88] ([pitfalls.md](pitfalls.md)의 "게스트 URL의 스킴 검사"). 마우스 X1/X2 버튼은 커서 아래 webview를 대상으로 뒤로/앞으로 이동한다 [fork #4]. 모두 main 코드다.
 - **멀티탭** [fork #67 #69]: `url`과 `tabs`를 합친 항목이 2개 이상이면 탭마다 `Webview`를 마운트하고, 비활성 탭은 `visibility: hidden` + `inert`로 숨겨
   살려 둔다. 활성 탭만 실제 API를 받고 비활성 탭은 `updateActionBar`·`setContextMenuFactory`·`exposeApi`가 no-op인 API를 받는다. 동적 타이틀은 모든 탭에서
   no-op으로 막고 부모가 활성 탭 것을 단독 발행한다. 탭 라벨은 사용자 이름 → 페이지 제목 → 호스트명 순이다. 탭 정보 (제목, 파비콘, 로딩, 오디오)는 `onTabInfo`로 부모의 `tabInfos`
-  (탭 키 기준)에 모인다. 마지막 활성 탭은 `activeTab` 키에 저장하고, 비동기 복원 전에 사용자가 탭을 고르면 사용자 선택이 이긴다.
+  (탭 키 기준)에 모인다. 탭 패널의 React key도 탭 키다. 그래서 가운데 탭을 지워도 뒤쪽 탭의 webview가 다시 로드되지 않는다. 마지막 활성 탭은 `activeTab` 키에
+  저장하고, 비동기 복원 전에 사용자가 탭을 고르면 사용자 선택이 이긴다.
 - **기타 동작**: 페이지 제목과 URL을 이은 동적 타이틀 [fork #11], 로드 실패 오버레이 (메인 프레임이고 code ≠ -3일 때만) [fork #38], 자동 새로고침은 webview에 포커스가
   있으면 멈추고 blur부터 다시 센다 [fork #53], 음소거는 세션 한정 [fork #35], 커스텀 액션은 활성 탭에서 `executeJavaScript` [fork #70], 이동 시
   `page_visit` 기록 [fork #63], `exposeApi`로 `{ openUrl, getUrl }` 공개 [upstream].
@@ -394,10 +397,12 @@
 - **액션바와 메뉴**: 액션바 `ADD-ITEM-AT-TOP`, `MARK-ALL-INCOMPLETE`. 컨텍스트 메뉴는 위/아래에 추가, 전체 미완료/완료, 완료 항목 삭제, 항목 위에서는 완료
   토글·편집·삭제 [upstream].
 - **저장 데이터**: 키 `todo`. 위치는 프로젝트 단위 `shared/to-do-list/<projectId 또는 app>/` [fork #9].
-- **스코프**: 위젯 쪽 `scopeForEnv(env)`는 `env.projectId`(셸프면 `'app'`)를 쓰고, 저장소 라우팅 쪽 `findWidgetProjectId`는 store의 프로젝트 →
-  워크플로우 → 레이아웃을 뒤져 같은 값을 얻는다. 두 계산이 일치해야 화면과 디스크가 같은 버킷을 가리킨다.
+- **스코프**: 위젯 쪽 `scopeForEnv(env)`는 `env.projectId`(셸프면 `'app'`)를 쓰고, 저장소 라우팅 쪽 `resolveTodoScope`는 위젯 API를 만들 때의
+  워크플로우 (`findWidgetWorkflowId`)와 그 워크플로우의 프로젝트 (`findWorkflowProjectId`)로 같은 값을 얻는다. 두 계산이 일치해야 화면과 디스크가 같은 버킷을
+  가리킨다.
 - **in-memory store** [fork #26]: `todoStore.ts`의 모듈 스코프 `Map`(스코프별 상태, 구독자, 디바운스 saver)과 `useSyncExternalStore` 기반
-  `useTodoListState`. 같은 스코프의 형제 위젯이 즉시 같은 상태를 본다. 디스크 저장은 스코프당 하나인 500ms 디바운스 saver (`getOrCreateTodoListSaver`)가 한다. 첫
+  `useTodoListState`. 같은 스코프의 형제 위젯이 즉시 같은 상태를 본다. 디스크 저장은 스코프당 하나인 500ms 디바운스 saver (`getOrCreateTodoListSaver`)가 한다.
+  saver는 호출마다 호출한 위젯의 writer를 받아, 마지막으로 저장을 예약한 위젯을 거쳐 쓴다. 첫
   마운트만 디스크에서 읽고, 읽기 완료 시 store가 이미 채워졌으면 디스크 값을 버린다.
 - **remount 장치**: `<ToDoInner key={scope}>`로 스코프가 바뀌면 편집 상태까지 리셋한다.
 - **기타**: 항목 텍스트 줄바꿈 표시 [fork #18], 하단 `완료 / 전체` 카운트 [fork #50], 완료 시 `todo_done` 기록 [fork #63], 종료·언마운트
@@ -429,7 +434,8 @@
 - **설정**: `paths: List<string>`, `showFileSize`(기본 켬), `showHiddenFiles`(기본 끔) [fork #31 #32].
 - **트리 라이브러리**: `@pierre/trees`(beta, ESM 전용). 경로 문자열로 행을 식별하고 후행 `/`로 디렉터리를 표시한다. 트리 키는 이름 기반 상대 POSIX 경로이고,
   `key → 절대 경로` Map을 따로 둔다.
-- **동작**: 폴더는 펼칠 때만 `fs.readDir`로 읽는다 (lazy). 루트는 등록 순서를 유지하고 (`preparePresortedFileTreeInput`), 자식은 라이브러리 기본 정렬을 따른다.
+- **동작**: 폴더는 펼칠 때만 `fs.readDir`로 읽는다 (lazy). 읽은 자식은 `model.batch`로 한 번에 추가한다. 하나씩 `add`하면 항목마다 트리 전체 투영을 다시 계산해
+  큰 폴더에서 O(N²)이 된다. 루트는 등록 순서를 유지하고 (`preparePresortedFileTreeInput`), 자식은 라이브러리 기본 정렬을 따른다.
   읽기 실패 폴더는 다음 펼침에서 재시도한다. 숨김 판정은 이름이 `.`으로 시작하는지만 본다.
 - **액션바와 메뉴**: `REFRESH`(캐시 비우고 다시 읽기), `COLLAPSE-ALL`(캐시 유지, 접기만) [fork #61]. 우클릭 메뉴는 라이브러리 `renderContextMenu`를
   `document.body` 포털로 그린다: Open / Open in File Explorer, Open containing folder (파일), Copy Path, Copy
@@ -473,13 +479,15 @@
 #### Timer (`timer`)
 
 - **역할**: 카운트다운 타이머 [upstream].
-- **파일**: `widget.tsx`, `settings.tsx`, `useAudioFile.ts`, `audio/timer-end/`(종료 사운드 파일과 `timerEndSoundFilesById`).
+- **파일**: `widget.tsx`, `settings.tsx`, `useAudioFile.ts`, `mmss.ts`(`msecsToMMSS`, 0 미만은 `00:00`), `audio/timer-end/`(종료 사운드 파일과
+  `timerEndSoundFilesById`).
 - **설정**: `mins`, `endDesktop`(데스크톱 알림, 기본 켬) [fork #72], `endSound`, `endSoundVol`.
 - **저장 데이터**: 키 `state` = `{ endMsecs, pausedLeft }`. 실행 중이면 절대 종료 시각을 저장해 재시작 후 남은 시간으로 이어간다. 꺼진 사이 만료되면 소리·알림 없이 대기
   상태로 복원한다 [fork #73].
 - **동작**: 일시정지/재개 [fork #54], 실행·일시정지 중 헤더에 `mm:ss` 동적 타이틀 [fork #54], 종료 시 사운드와 `new Notification` [fork #72].
-- **주의점**: Pomodoro가 `timer/settings.tsx`(`endSoundOptions`), `timer/audio/timer-end`, `timer/useAudioFile.ts`,
-  `timer/icons`를 import한다. 이 모듈들을 바꾸면 Pomodoro도 영향을 받는다.
+- **주의점**: Pomodoro가 `timer/settings.tsx`(`endSoundOptions`), `timer/audio/timer-end`, `timer/useAudioFile.ts`, `timer/mmss.ts`,
+  `timer/icons`를 import한다. 이 모듈들을 바꾸면 Pomodoro도 영향을 받는다. `useAudioFile`이 돌려주는 객체는 `useMemo`로 고정된다. 두 위젯의 1초 interval은 이
+  객체를 deps로 쓰므로, 고정되지 않으면 렌더마다 interval이 다시 시작된다.
 
 #### Pomodoro (`pomodoro`)
 

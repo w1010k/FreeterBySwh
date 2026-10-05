@@ -181,8 +181,20 @@
   유효하다.
 - 버린 대안: 모든 요청을 외부로 보내기 (초기 구현, OAuth가 깨져 되돌림). webview에 preload를 주입해 `<a>` 클릭 가로채기 (Chromium이 같은 프레임 이동과 새 창 요청을 이미
   분리하므로 과함).
-- 보완: D58 (외부로 보내는 URL의 스킴 제한)
+- 보완: D58 (외부로 보내는 URL의 스킴 제한), D60 (내부 팝업 제한과 앱 창의 새 창 거부)
 - 근거: CHANGES #13, `src/main/infra/browserWindow/browserWindow.ts`
+
+#### D60. 내부 팝업 제한과 앱 창의 새 창 거부
+
+- 상태: 유효
+- 출처: `[fork #90]`
+- 결정: 내부 팝업이 여는 창도 D18 판정을 거친다 (`attachWindowOpenHandler`). 게스트 하나 아래의 내부 팝업은 동시에 5개까지다. 팝업 제목은 페이지 origin으로 고정하고
+  페이지 이동 때 갱신한다. 팝업 webPreferences (`sandbox`, `contextIsolation`, `nodeIntegration: false`, `webviewTag: false`)를 명시한다. 앱 창은 모든
+  `window.open`을 거부한다.
+- 이유: 팝업에는 주소 표시줄이 없고 앱 아이콘이 붙는다. 페이지가 제목을 바꾸면 가짜 로그인 화면을 앱 대화상자처럼 보이게 할 수 있다. 팝업 안의 `window.open`은 D18
+  판정 밖에서 관리되지 않는 창을 더 열었다. 앱 창의 새 창은 preload를 상속할 수 있다 (추정).
+- 버린 대안: 팝업에 주소 표시줄 추가 (UI 작업이 크다). 사용자 제스처 검사 (Electron이 판정 정보를 주지 않는다).
+- 근거: CHANGES #90, `src/main/infra/browserWindow/browserWindow.ts` `attachWindowOpenHandler`, `popupTitle`, `maxPopupsPerGuest`
 
 #### D58. 게스트 URL 외부 열기의 스킴 허용 목록
 
@@ -292,7 +304,11 @@
 - 출처: `[fork #71]`
 - 결정: `app.on('login')`에서 부모 창 모달로 작은 로그인 창을 띄운다. 창은 preload 없이 data URL로 만들고 결과는 `console-message` 마커로 회수한다.
 - 이유: 핸들러가 없으면 Electron이 인증 요청을 취소해, 사내 툴·NAS 관리 페이지 등이 입력 기회 없이 401로 끝났다.
-- 근거: CHANGES #71, `src/main/infra/httpAuth/httpAuth.ts`
+- 변경 (2026-10-05, #90): 창은 페이지 이동 요청 (`details.isRequestForNavigation`)이나 proxy 인증일 때만 연다. webContents마다 한 번에 하나만 연다. 나머지
+  요청은 `preventDefault()` 없이 두어 Electron 기본 동작 (취소)을 따른다. 하위 리소스 (이미지, fetch)의 401을 반복하는 페이지가 모달 창을 끝없이 띄울 수
+  있었기 때문이다. iframe 이동은 navigation으로 볼 가능성이 높다 (추정). 그 경우에는 한 번에 하나 규칙만 창이 쌓이는 것을 막는다.
+- 버린 대안: host별 취소 횟수 상한 (상태가 늘고, 이동 요청만 받으면 반복이 생기지 않음).
+- 근거: CHANGES #71, #90, `src/main/infra/httpAuth/httpAuth.ts` `createLoginHandler`
 
 #### D30. 콘텐츠 기반 아이콘과 캐시 정책
 
@@ -328,7 +344,7 @@
 
 - 상태: 일부 대체: D34 (Note는 계속 사용, To-Do는 D34로 이동)
 - 출처: `[fork #8 #10]`
-- 결정: 공유 저장소 쓰기 뒤 main이 모든 창에 broadcast하고, renderer가 `window` CustomEvent로 재발행하며, 위젯은 `useSharedDataChangedEffect`로
+- 결정: 공유 저장소 쓰기 뒤 main이 앱 창에 알리고 (2026-10-05 이전에는 모든 창), renderer가 `window` CustomEvent로 재발행하며, 위젯은 `useSharedDataChangedEffect`로
   구독한다.
 - 이유: memSaver로 위젯이 계속 마운트되어 있어 remount에 기대어 다시 읽을 수 없다. 두 위젯의 같은 구독 코드를 hook 하나로 모았다.
 - 근거: CHANGES #8, #10, `src/renderer/widgets/sharedDataSync.ts`

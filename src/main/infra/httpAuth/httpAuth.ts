@@ -110,19 +110,43 @@ function promptForCredentials(wc: WebContents, authInfo: AuthInfo): Promise<Http
 
 type LoginEvent = { preventDefault: () => void };
 type LoginCallback = (username?: string, password?: string) => void;
+type LoginDetails = { isRequestForNavigation?: boolean };
 
 /**
  * Factored out of registerHttpAuthHandler so the decision logic is testable
  * with an injected prompt (the real one opens a BrowserWindow).
+ *
+ * Only a navigation or proxy auth opens the prompt. A 401 from a subresource
+ * (an image, a fetch/XHR call) is left to Electron's default, which cancels it:
+ * otherwise a page retrying such requests could open modal windows without end.
+ * A frame navigation, iframes included, likely still counts as a navigation
+ * (not verified), so the one-at-a-time rule below is what stops stacking there.
+ * Also one prompt at a time per webContents; a challenge that arrives while one
+ * is open is cancelled the same way instead of stacking another modal.
  */
 export function createLoginHandler(
   prompt: (wc: WebContents, authInfo: AuthInfo) => Promise<HttpAuthCredentials | null>
 ) {
-  return (event: LoginEvent, wc: WebContents, _details: unknown, authInfo: AuthInfo, callback: LoginCallback) => {
+  const inFlight = new WeakSet<WebContents>();
+  return (event: LoginEvent, wc: WebContents, details: LoginDetails, authInfo: AuthInfo, callback: LoginCallback) => {
+    if (!details?.isRequestForNavigation && !authInfo.isProxy) {
+      return;
+    }
+    if (wc && inFlight.has(wc)) {
+      return;
+    }
     event.preventDefault();
+    if (wc) {
+      inFlight.add(wc);
+    }
+    const done = () => {
+      if (wc) {
+        inFlight.delete(wc);
+      }
+    };
     prompt(wc, authInfo).then(
-      cred => (cred ? callback(cred.username, cred.password) : callback()),
-      () => callback()
+      cred => { done(); return cred ? callback(cred.username, cred.password) : callback(); },
+      () => { done(); callback(); }
     );
   };
 }

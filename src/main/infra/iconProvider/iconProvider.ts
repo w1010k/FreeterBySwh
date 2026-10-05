@@ -71,6 +71,39 @@ function toBase64DataUri(mime: string, bytes: Uint8Array): string {
   return `data:${mime};base64,${buf.toString('base64')}`;
 }
 
+/**
+ * Reads a response body up to `maxBytes` and returns null as soon as it grows past
+ * that. The content-length pre-check misses chunked responses (no header), and
+ * `arrayBuffer()` would buffer the whole body before any size check.
+ */
+export async function readBodyCapped(res: Response, maxBytes: number): Promise<Uint8Array | null> {
+  if (!res.body) {
+    return new Uint8Array(0);
+  }
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    size += value.byteLength;
+    if (size > maxBytes) {
+      reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+}
+
 async function fetchBytes(url: string, accept: string, maxBytes: number): Promise<{ bytes: Uint8Array; contentType: string | null } | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -91,8 +124,8 @@ async function fetchBytes(url: string, accept: string, maxBytes: number): Promis
     if (contentLength > maxBytes) {
       return null;
     }
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    if (bytes.byteLength > maxBytes) {
+    const bytes = await readBodyCapped(res, maxBytes);
+    if (!bytes) {
       return null;
     }
     return { bytes, contentType };

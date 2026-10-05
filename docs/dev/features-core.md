@@ -262,11 +262,15 @@
   1. 핸들 `mousedown` → `resizeLayoutItemStartUseCase`가 `ui.worktable.resizingItem`에 workflow, 항목, 모서리, `minSize`를 기록한다.
   2. `mousemove`마다 `resizeLayoutItemUseCase(deltaUnits)`가 delta만 저장한다. 항목은 로컬 픽셀 rect로 그려지고, view model이
      `resizeLayoutItemCalc`로 미리보기 layout과 고스트 (`WidgetLayoutItemGhost`)를 계산한다.
-  3. `mouseup` → `resizeLayoutItemEndUseCase`가 layout을 확정하고 `resizingItem`을 지운다.
+  3. `mouseup` → `resizeLayoutItemEndUseCase`가 layout을 확정하고 `resizingItem`을 지운다. `window` `blur`나 왼쪽 버튼이 떼어진 `mousemove`도
+     마지막 미리보기 delta로 확정한다. 리스너는 드래그마다 한 번 (`AbortController`) 단다. 왼쪽 버튼이 아니면 리사이즈를 시작하지 않는다 [2026-10-05].
+- 픽셀 delta는 `itemXDeltaPxToUnits`/`itemYDeltaPxToUnits` (`round(d / (칸 + 여백))`)로 칸 수로 바꾼다. 위치 변환 함수 (`itemXPxToUnits`)는 바깥 여백을
+  빼므로 delta에 쓰면 커질 때와 줄어들 때 4px씩 어긋난다 [2026-10-05].
 - 리사이즈 중 위젯 투명도 `widgetLayoutItemResizingOpacity` 0.8 [fork #43].
 - 이동: HTML5 drag and drop. 미리보기는 `ui.dragDrop.over.worktableLayout` 좌표로 view model이 `moveLayoutItem` 또는
   `createLayoutItem`을 미리 적용해 그린다. 확정은 drop 때 `dropOnWorktableLayoutUseCase`다.
-- 최대화: 보기 모드에서 `maximizable` 위젯 타입 (현재 Note, Webpage)만 가능하다. 항목 컴포넌트의 로컬 state (`maximized`)라 저장되지 않는다.
+- 최대화: 보기 모드에서 `maximizable` 위젯 타입 (현재 Note, Webpage)만 가능하다. 항목 컴포넌트의 로컬 state (`maximized`)라 저장되지 않는다. 최대화될 때마다
+  worktable의 현재 `scrollTop`을 읽어 위치를 맞춘다 (2026-10-05 이전에는 마운트 때 한 번만 읽었다).
 
 #### 렌더링 구조
 
@@ -455,7 +459,7 @@
 | 경로                                                                               | 역할                                     |
 |------------------------------------------------------------------------------------|------------------------------------------|
 | `src/renderer/application/useCases/appMenu/initAppMenu.ts`                         | 메뉴 트리 구성, 상태 변화 때 다시 설정   |
-| `src/renderer/application/useCases/trayMenu/initTrayMenu.ts`                       | 프로젝트 목록 트레이 메뉴                |
+| `src/renderer/application/useCases/trayMenu/initTrayMenu.ts`                       | 프로젝트 목록 트레이 메뉴. 프로젝트 목록, 현재 프로젝트, 프로젝트 이름이 바뀌면 다시 만든다 |
 | `src/renderer/application/useCases/contextMenu/showContextMenu.ts`                 | 메뉴 항목 배열을 OS 컨텍스트 메뉴로 표시 |
 | `src/renderer/infra/appMenuProvider/`, `trayMenuProvider/`, `contextMenuProvider/` | IPC 래퍼 (공통 패턴의 메뉴 IPC 왕복)     |
 

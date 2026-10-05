@@ -639,9 +639,10 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
   const [activeTab, setActiveTab] = useState(0);
   // Clamp instead of resetting state so removing a middle tab keeps a sane selection.
   const active = Math.min(activeTab, Math.max(entries.length - 1, 0));
-  // Keyed by url (not index) so removing/reordering tabs doesn't hand one tab
-  // another tab's title. Duplicate-url tabs share an entry — acceptable, they
-  // show the same page. Entries of removed urls linger — harmless.
+  // Keyed by tab key (url plus `:dupN` for repeated urls), not index, so
+  // removing/reordering tabs doesn't hand one tab another tab's title, and
+  // duplicate-url tabs keep separate titles, favicons and mute state.
+  // Entries of removed tabs linger — harmless.
   const [tabInfos, setTabInfos] = useState<Record<string, Partial<TabInfo>>>({});
 
   // Restore the last active tab from widget data once on mount; a user click
@@ -743,7 +744,9 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
         // visibility (not display:none) keeps hidden webviews alive so tab
         // state (scroll, forms, logins) survives switching.
         <div
-          key={`${requireRestart}:${i}:${u}`}
+          // Keyed by tab key, not index: removing a middle tab must not
+          // remount (and reload) every webview after it.
+          key={`${requireRestart}:${tabKeys[i]}`}
           className={styles['tab-pane']}
           style={i === active ? undefined : {visibility: 'hidden'}}
           aria-hidden={i !== active}

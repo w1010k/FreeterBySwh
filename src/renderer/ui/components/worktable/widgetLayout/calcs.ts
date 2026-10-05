@@ -103,6 +103,17 @@ export function itemYPxToUnits(yPx: number, rowHeightPx: number): number {
   return _itemXYPxToUnits(yPx, rowHeightPx, layoutPadding.yPx, itemMargin.yPx)
 }
 
+// A drag distance (not a position) in whole grid steps. One step is a column
+// (row) plus one gap, with no layout padding involved, so growing and shrinking
+// snap at the same half-step.
+export function itemXDeltaPxToUnits(deltaPx: number, colWidthPx: number): number {
+  return Math.round(deltaPx / (colWidthPx + itemMargin.xPx));
+}
+
+export function itemYDeltaPxToUnits(deltaPx: number, rowHeightPx: number): number {
+  return Math.round(deltaPx / (rowHeightPx + itemMargin.yPx));
+}
+
 export function itemRectPxToUnits(rectPx: RectPx, colWidthPx: number, rowHeightPx: number): WidgetLayoutItemRect {
   const w = _itemWHPxToUnits(rectPx.wPx, colWidthPx, itemMargin.xPx);
   const h = _itemWHPxToUnits(rectPx.hPx, rowHeightPx, itemMargin.yPx);

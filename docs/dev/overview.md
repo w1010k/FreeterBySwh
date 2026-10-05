@@ -197,7 +197,9 @@ main은 `did-attach-webview`에서 guest마다 아래를 건다.
 - `will-attach-webview`: Google 도메인 (`reUrlsRequiringOriginalUA`)은 원래 Electron UA를 쓴다 [upstream]
 - `setWindowOpenHandler`: upstream은 모든 새 창을 앱 내부 자식 창으로 열었다. 포크는 진짜 팝업 (`disposition === 'new-window'` 또는 features에
   `popup`)만 자식 창 (`parent: win`, 같은 session, `outlivesOpener: false`)으로 열고, 나머지 새 탭 요청은 `sanitizeUrl` 후
-  `shell.openExternal`로 기본 브라우저에 넘긴다 [upstream, fork #3 #13 변경]. 넘기는 URL은 `isAllowedExternalUrl` (http, https, mailto만)을 통과해야 한다 [fork #88]
+  `shell.openExternal`로 기본 브라우저에 넘긴다 [upstream, fork #3 #13 변경]. 넘기는 URL은 `isAllowedExternalUrl` (http, https, mailto만)을 통과해야 한다 [fork #88].
+  이 판정은 `attachWindowOpenHandler`에 있고, 내부 팝업이 여는 창에도 붙는다. 내부 팝업은 게스트마다 동시에 5개까지, 제목은 origin 고정, webPreferences 명시다.
+  앱 창 자신은 모든 새 창을 거부한다 [fork #90]
 - `before-input-event` 키 가로채기:
 
 | 키                                             | 동작                            | 처리 위치                                                         | 출처       |
@@ -236,19 +238,19 @@ main은 `did-attach-webview`에서 guest마다 아래를 건다.
 | 알림 채널                                         | 보내는 곳                                                                    | 받는 곳                                                                             | 출처           |
 |---------------------------------------------------|------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|----------------|
 | `click-app-menu-action`, `click-tray-menu-action` | `infra/appMenuProvider`, `infra/trayProvider`                                | renderer `infra/appMenuProvider`, `infra/trayMenuProvider`                          | [upstream]     |
-| `shared-data-changed`                             | `controllers/sharedDataStorage.ts` `broadcastChanged` (쓰기 성공 후 모든 창) | `init.ts` → window 이벤트 `SHARED_DATA_CHANGED_EVENT` → `widgets/sharedDataSync.ts` | [fork #8]      |
+| `shared-data-changed`                             | `controllers/sharedDataStorage.ts` (쓰기 성공 후 `sendToAppWindow`로 앱 창에만) | `init.ts` → window 이벤트 `SHARED_DATA_CHANGED_EVENT` → `widgets/sharedDataSync.ts` | [fork #8]      |
 | `switch-workflow-by-offset`                       | webview 키 가로채기                                                          | `init.ts` → `switchWorkflowByOffsetUseCase`                                         | [fork #6]      |
 | `zoom-webpage`, `go-home-webpage`                 | webview 키 가로채기                                                          | `init.ts` → window CustomEvent                                                      | [fork #24 #27] |
 | `app-focus-changed`                               | main 창 `focus`, `blur`                                                      | `application/telemetry/startTelemetry.ts`                                           | [fork #62]     |
-| `os-activity-event`                               | `osActivityMonitor`의 `emit` (모든 창)                                       | `startTelemetry.ts`                                                                 | [fork #64]     |
+| `os-activity-event`                               | `osActivityMonitor`의 `emit` (`sendToAppWindow`로 앱 창에만)                 | `startTelemetry.ts`                                                                 | [fork #64]     |
 
 - 메뉴는 renderer가 정의한다. renderer는 `doAction`을 숫자 `actionId`로 바꿔 보내고 (`src/renderer/infra/ipc/prepareMenuItemsForIpc.ts`),
   main이 Electron 메뉴를 만든 뒤 클릭 시 `actionId`를 돌려보낸다 (`src/main/infra/utils/menu.ts`) [upstream]
 
 #### 검증과 preload
 
-- `createIpcMainEventValidator(channelPrefix, hostFreeterApp)` (`src/main/infra/ipcMain/ipcMainEventValidator.ts`): 채널
-  접두사, `senderFrame` 존재, URL 호스트가 `freeter-app`, 메인 프레임인지 검사한다. 실패하면 `handle`은 reject한다 [upstream]. webview guest와 팝업
+- `createIpcMainEventValidator(channelPrefix, hostFreeterApp, schemeFreeterFile)` (`src/main/infra/ipcMain/ipcMainEventValidator.ts`): 채널
+  접두사, `senderFrame` 존재, URL scheme이 `freeter-file:`이고 호스트가 `freeter-app`인지, 메인 프레임인지 검사한다 (scheme 검사는 2026-10-05 추가). 실패하면 `handle`은 reject한다 [upstream]. webview guest와 팝업
   창에는 preload가 없고 (Webpage 위젯은 webview preload 대신 `console-message`로 신호를 받는다), 검증기도 이들의 요청을 거부한다
 - preload (`src/renderer/preload/index.ts`)는 `contextBridge.exposeInMainWorld('freeter', { getMainApiOnce })`만 노출한다.
   `getMainApiOnce`는 첫 호출에만 `MainApi`를 돌려준다. `src/renderer/infra/mainApi/mainApi.ts`가 모듈 로드 때 한 번 받아
@@ -481,12 +483,12 @@ infra 전용 구성: `infra/protocolHandler/` (`freeter-file` 스킴 등록) [up
 | renderer 격리     | `nodeIntegration: false`, `contextIsolation: true`, `webSecurity: true`                                                                                                                       | `infra/browserWindow/browserWindow.ts`                                           | [upstream]                |
 | 앱 페이지 출처    | privileged 스킴 `freeter-file` (`standard`, `secure`, `supportFetchAPI`, `stream`). 호스트가 `freeter-app`이 아니면 404                                                                       | `infra/protocolHandler/`                                                         | [upstream]                |
 | CSP               | `default-src 'none'`, `script-src 'self'` (개발 빌드는 `'unsafe-eval'` 추가), `img-src * data:` (`data:`는 포크가 추가)                                                                       | `src/renderer/index.ejs`                                                         | [upstream, fork #21 변경] |
-| IPC 발신자 검증   | 호스트 `freeter-app`의 메인 프레임만 허용. webview, 팝업은 IPC 불가                                                                                                                           | `infra/ipcMain/ipcMainEventValidator.ts`                                         | [upstream]                |
+| IPC 발신자 검증   | `freeter-file://freeter-app`의 메인 프레임만 허용. webview, 팝업은 IPC 불가                                                                                                                  | `infra/ipcMain/ipcMainEventValidator.ts`                                         | [upstream]                |
 | MainApi 1회 전달  | `getMainApiOnce`. window 전역에 IPC 객체를 남기지 않는다                                                                                                                                      | `src/renderer/preload/index.ts`                                                  | [upstream]                |
 | 페이지 이탈 차단  | main 창 `will-navigate` 차단                                                                                                                                                                  | `infra/browserWindow/browserWindow.ts`                                           | [upstream]                |
 | 게스트 URL 외부 열기 | 새 탭 요청, Ctrl/Cmd+T, "Open in web browser", "Open link in web browser"는 `isAllowedExternalUrl` (http, https, mailto만)을 통과한 URL만 `shell.openExternal`로 넘긴다. `sanitizeUrl`은 파싱 여부만 보고 스킴은 거르지 않는다 | `infra/browserWindow/browserWindow.ts`, `src/renderer/widgets/webpage/actions.ts`, `src/common/helpers/isAllowedExternalUrl.ts` | [fork #13 #25 #88] |
 | 세션 권한 요청 | `registerPermissionHandler`가 기본 세션과 이후의 모든 세션 (webview 파티션 포함)에 처리기를 건다. `openExternal` (같은 프레임 이동으로 여는 앱 프로토콜)은 `isAllowedExternalUrl`을 통과할 때만 승인한다. 다른 권한 (알림, 카메라, 마이크 등)은 Electron 기본값처럼 모두 승인한다. 상세: [pitfalls.md](pitfalls.md)의 "세션 권한 요청 처리기" | `infra/permissions/permissionHandler.ts` | [fork #88] |
-| HTTP 인증 창      | data: URL, `sandbox: true`, `contextIsolation: true`. realm, host는 `escapeHtml` 처리                                                                                                         | `infra/httpAuth/httpAuth.ts`                                                     | [fork #71]                |
+| HTTP 인증 창      | data: URL, `sandbox: true`, `contextIsolation: true`. realm, host는 `escapeHtml` 처리. 페이지 이동과 proxy 인증에만, webContents마다 하나씩 [fork #90]                                       | `infra/httpAuth/httpAuth.ts`                                                     | [fork #71]                |
 | Analytics 서버    | `127.0.0.1` 랜덤 포트. Host 헤더 정확히 일치 (DNS rebinding 차단), 실행마다 바뀌는 토큰 경로, CORS 없음, 페이지 CSP, `Referrer-Policy: no-referrer`, 정적 파일 이름 정규식. 상세: CHANGES #87 | `infra/analyticsServer/analyticsServer.ts`                                       | [fork #87]                |
 | 파일 시스템 IPC   | `fs-read-dir`, `fs-get-image-data-url`, 공유 저장소 경로 (`widgetType`, `sharedKeyId` 인자로 경로 조립)는 main에서 경로 제한을 두지 않는다. 신뢰 경계는 IPC 발신자 검증이다                   | `infra/fsProvider/fsProvider.ts`, `src/main/index.ts` `getSharedDataStoragePath` | [fork #8 #31 #42]         |
 | 다운로드          | 저장 대화상자 없이 지정 폴더에 저장 (webview partition 포함 모든 session)                                                                                                                     | `infra/downloads/downloadManager.ts`                                             | [fork #41]                |

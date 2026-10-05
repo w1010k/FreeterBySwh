@@ -38,9 +38,6 @@ export function createAppViewModelHook({
     const [
       editMode,
       projectIds,
-      currentProjectId,
-      projects,
-      workflows,
       modalScreensOrder,
       uiTheme,
       hasTopBar,
@@ -49,9 +46,6 @@ export function createAppViewModelHook({
     ] = useAppState(state => [
       state.ui.editMode,
       state.ui.projectSwitcher.projectIds,
-      state.ui.projectSwitcher.currentProjectId,
-      state.entities.projects,
-      state.entities.workflows,
       state.ui.modalScreens.order,
       state.ui.appConfig.uiTheme,
       state.ui.topBar,
@@ -61,8 +55,6 @@ export function createAppViewModelHook({
 
     const projectList = useAppState.useEntityList(state => state.entities.projects, projectIds);
     const hasProjects = projectList.length > 0;
-    const currentWorkflow = workflows[projects[currentProjectId]?.currentWorkflowId || ''];
-    const showPalette = editMode && !!currentWorkflow;
 
     const modalScreenComps: Record<ModalScreenId, ReactNode> = {
       about: createElement(About, {}),
@@ -96,7 +88,6 @@ export function createAppViewModelHook({
 
     const uiThemeId = sanitizeUiThemeId(uiTheme);
     return {
-      showPalette,
       hasProjects,
       modalScreens,
       hasModalScreens,

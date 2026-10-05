@@ -48,8 +48,9 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
   // matters more than coalescing a stream of keystrokes. The saver is per-scope
   // (not per-widget), so two siblings editing in quick succession produce one
   // disk write of the latest state instead of two races. The returned saver has
-  // stable identity per scope, so no `useMemo` is needed.
-  const saveData = getOrCreateTodoListSaver(scope, (data) => dataStorage.setJson(dataKey, data));
+  // stable identity per scope, so no `useMemo` is needed. Each save passes this
+  // widget's own writer, so the write goes through the widget that queued it.
+  const saveData = getOrCreateTodoListSaver(scope);
 
   // Hydrate the store from disk on the first widget mount per scope. Once
   // any widget has populated the store, later mounts skip the read — they
@@ -73,8 +74,8 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
 
   const setToDoListAndSave = useCallback((next: ToDoListState) => {
     setStoreToDoList(next);
-    saveData(next);
-  }, [saveData, setStoreToDoList])
+    saveData(next, (data) => dataStorage.setJson(dataKey, data));
+  }, [dataStorage, saveData, setStoreToDoList])
 
   // Persist a pending change when the app quits (beforeunload) or the widget
   // unmounts — otherwise an edit made within the (short) debounce window would

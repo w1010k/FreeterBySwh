@@ -17,15 +17,6 @@ import {
   IpcSharedDataSetTextArgs, ipcSharedDataSetTextChannel, IpcSharedDataSetTextRes,
   ipcSharedDataChangedChannel,
 } from '@common/ipc/channels';
-import { BrowserWindow } from 'electron';
-
-function broadcastChanged(widgetType: string, sharedKeyId: string) {
-  for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed()) {
-      win.webContents.send(ipcSharedDataChangedChannel, widgetType, sharedKeyId);
-    }
-  }
-}
 
 type Deps = {
   getTextFromSharedDataStorageUseCase: GetTextFromSharedDataStorageUseCase;
@@ -33,6 +24,8 @@ type Deps = {
   deleteInSharedDataStorageUseCase: DeleteInSharedDataStorageUseCase;
   clearSharedDataStorageUseCase: ClearSharedDataStorageUseCase;
   getKeysFromSharedDataStorageUseCase: GetKeysFromSharedDataStorageUseCase;
+  /** Sends a change notice to the app page only (not to popups opened by web pages). */
+  sendToAppWindow: (channel: string, ...args: unknown[]) => void;
 }
 
 export function createSharedDataStorageControllers({
@@ -41,6 +34,7 @@ export function createSharedDataStorageControllers({
   deleteInSharedDataStorageUseCase,
   clearSharedDataStorageUseCase,
   getKeysFromSharedDataStorageUseCase,
+  sendToAppWindow,
 }: Deps): [
     Controller<IpcSharedDataGetTextArgs, IpcSharedDataGetTextRes>,
     Controller<IpcSharedDataSetTextArgs, IpcSharedDataSetTextRes>,
@@ -48,6 +42,10 @@ export function createSharedDataStorageControllers({
     Controller<IpcSharedDataClearArgs, IpcSharedDataClearRes>,
     Controller<IpcSharedDataGetKeysArgs, IpcSharedDataGetKeysRes>,
   ] {
+  // Tells the app page that a shared bucket changed, so sibling widgets reload it.
+  const broadcastChanged = (widgetType: string, sharedKeyId: string) =>
+    sendToAppWindow(ipcSharedDataChangedChannel, widgetType, sharedKeyId);
+
   return [{
     channel: ipcSharedDataGetTextChannel,
     handle: async (_event, widgetType, sharedKeyId, key) => getTextFromSharedDataStorageUseCase(widgetType, sharedKeyId, key)

@@ -138,6 +138,24 @@ import {join} from 'node:path';
 let appWindow: BrowserWindow | null = null; // ref to the app window
 
 /**
+ * Pushes a message to the app page only. Other windows (in-app popups opened by
+ * web pages, the HTTP auth prompt) must not receive app data such as other apps'
+ * window titles. `appWindow` is typed by the narrow app interface, so the Electron
+ * window is found by identity, as 'browser-window-created' below does.
+ */
+function sendToAppWindow(channel: string, ...args: unknown[]): void {
+  const win = ElectronBrowserWindow.getAllWindows().find(w => w === appWindow);
+  if (!win || win.isDestroyed()) {
+    return;
+  }
+  // The window can be torn down between the check and send.
+  try {
+    win.webContents.send(channel, ...args);
+  } catch { /* window gone */
+  }
+}
+
+/**
  * Everything run straight from the repo (`yarn dev`, `yarn prod:run`) is kept
  * fully apart from an installed release: its own data folder, its own session
  * and its own single-instance lock. `app.isPackaged` is the right test — a
@@ -231,7 +249,7 @@ if (!app.requestSingleInstanceLock()) {
   })
 
   app.whenReady().then(async () => {
-    const ipcMainEventValidator = createIpcMainEventValidator(channelPrefix, hostFreeterApp);
+    const ipcMainEventValidator = createIpcMainEventValidator(channelPrefix, hostFreeterApp, schemeFreeterFile);
     const ipcMain = createIpcMain(ipcMainEventValidator);
 
     // Route downloads (app window + every webview partition) to a folder instead
@@ -300,18 +318,7 @@ if (!app.requestSingleInstanceLock()) {
       reader: createForegroundWindowReader(),
       powerMonitor,
       now: () => Date.now(),
-      emit: (event) => {
-        for (const win of ElectronBrowserWindow.getAllWindows()) {
-          if (!win.isDestroyed()) {
-            // A window can be torn down between the guard and send; isolate each
-            // so one dead window can't abort delivery to the others.
-            try {
-              win.webContents.send(ipcOsActivityEventChannel, event);
-            } catch { /* window gone */
-            }
-          }
-        }
-      },
+      emit: (event) => sendToAppWindow(ipcOsActivityEventChannel, event),
     });
     const setOsMonitoringUseCase = createSetOsMonitoringUseCase({osActivityMonitor});
     stopOsMonitor = () => osActivityMonitor.stop();
@@ -410,6 +417,7 @@ if (!app.requestSingleInstanceLock()) {
         deleteInSharedDataStorageUseCase,
         clearSharedDataStorageUseCase,
         getKeysFromSharedDataStorageUseCase,
+        sendToAppWindow,
       }),
       ...createIconControllers({getFileIconUseCase, getFaviconUseCase}),
       ...createDownloadControllers({setDownloadDirUseCase}),
