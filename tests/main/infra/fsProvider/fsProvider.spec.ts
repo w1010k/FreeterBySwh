@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, readFile, stat, symlink, lstat, chmod } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -106,6 +106,125 @@ describe('FsProvider', () => {
       const provider = createFsProvider();
 
       expect(await provider.getImageDataUrl(join(dirPath, 'missing.png'))).toBeNull();
+    })
+  })
+
+  describe('readTextFile()', () => {
+    it('should read a Markdown file as text with its mtime', async () => {
+      const provider = createFsProvider();
+      const path = join(dirPath, 'doc.md');
+      await writeFile(path, '# 제목');
+
+      const res = await provider.readTextFile(path);
+
+      expect(res).toEqual({ text: '# 제목', mtimeMs: (await stat(path)).mtimeMs });
+    })
+
+    it('should refuse a non-Markdown file', async () => {
+      const provider = createFsProvider();
+      const path = join(dirPath, 'secret.txt');
+      await writeFile(path, 'x');
+
+      expect(await provider.readTextFile(path)).toBeNull();
+    })
+
+    it('should return null for a missing file or a folder named like Markdown', async () => {
+      const provider = createFsProvider();
+      await mkdir(join(dirPath, 'dir.md'));
+
+      expect(await provider.readTextFile(join(dirPath, 'missing.md'))).toBeNull();
+      expect(await provider.readTextFile(join(dirPath, 'dir.md'))).toBeNull();
+    })
+
+    it('should return null for a file over 10 MB', async () => {
+      const provider = createFsProvider();
+      const path = join(dirPath, 'big.md');
+      await writeFile(path, Buffer.alloc(10 * 1024 * 1024 + 1, 0x61));
+
+      expect(await provider.readTextFile(path)).toBeNull();
+    })
+  })
+
+  describe('writeTextFile()', () => {
+    it('should overwrite an existing Markdown file and return its new mtime', async () => {
+      const provider = createFsProvider();
+      const path = join(dirPath, 'doc.MD');
+      await writeFile(path, 'old');
+
+      const mtime = await provider.writeTextFile(path, 'new');
+
+      expect(await readFile(path, 'utf-8')).toBe('new');
+      expect(mtime).toBe((await stat(path)).mtimeMs);
+    })
+
+    it('should refuse to create a missing file', async () => {
+      const provider = createFsProvider();
+      const path = join(dirPath, 'new.md');
+
+      expect(await provider.writeTextFile(path, 'x')).toBeNull();
+      await expect(stat(path)).rejects.toThrow();
+    })
+
+    it('should refuse a non-Markdown file and leave it untouched', async () => {
+      const provider = createFsProvider();
+      const path = join(dirPath, 'config.json');
+      await writeFile(path, '{}');
+
+      expect(await provider.writeTextFile(path, 'x')).toBeNull();
+      expect(await readFile(path, 'utf-8')).toBe('{}');
+    })
+
+    it('should write through a symlink and keep the link', async () => {
+      const provider = createFsProvider();
+      const target = join(dirPath, 'real.md');
+      const link = join(dirPath, 'link.md');
+      await writeFile(target, 'old');
+      try {
+        await symlink(target, link);
+      } catch {
+        // Creating symlinks needs a privilege this machine may lack (Windows without developer mode).
+        return;
+      }
+
+      expect(await provider.writeTextFile(link, 'new')).not.toBeNull();
+
+      expect((await lstat(link)).isSymbolicLink()).toBe(true);
+      expect(await readFile(target, 'utf-8')).toBe('new');
+    })
+
+    // Windows has no POSIX permission bits to keep.
+    const itOnPosix = process.platform === 'win32' ? it.skip : it;
+    itOnPosix('should keep the permission bits of the file it replaces', async () => {
+      const provider = createFsProvider();
+      const path = join(dirPath, 'private.md');
+      await writeFile(path, 'old');
+      await chmod(path, 0o600);
+
+      await provider.writeTextFile(path, 'new');
+
+      expect((await stat(path)).mode & 0o777).toBe(0o600);
+    })
+
+    it('should apply overlapping writes in call order', async () => {
+      const provider = createFsProvider();
+      const path = join(dirPath, 'doc.md');
+      await writeFile(path, '');
+
+      await Promise.all([provider.writeTextFile(path, 'a'), provider.writeTextFile(path, 'b')]);
+
+      expect(await readFile(path, 'utf-8')).toBe('b');
+    })
+  })
+
+  describe('getMtime()', () => {
+    it('should return the mtime of a file, null for a missing path or a folder', async () => {
+      const provider = createFsProvider();
+      const path = join(dirPath, 'doc.md');
+      await writeFile(path, 'x');
+
+      expect(await provider.getMtime(path)).toBe((await stat(path)).mtimeMs);
+      expect(await provider.getMtime(join(dirPath, 'missing.md'))).toBeNull();
+      expect(await provider.getMtime(dirPath)).toBeNull();
     })
   })
 })

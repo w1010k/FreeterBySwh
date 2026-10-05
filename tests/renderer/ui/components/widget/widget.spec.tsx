@@ -139,6 +139,36 @@ describe('<Widget />', () => {
     expect(screen.queryByTestId(testId2)).not.toBeInTheDocument();
   })
 
+  it('should contain a widget crash in an error message with a Retry button', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    let shouldThrow = true;
+    function Crashing() {
+      if (shouldThrow) {
+        throw new Error('boom');
+      }
+      return <div data-testid={testId1}></div>;
+    }
+    await setup({
+      appState: fixtureAppState({
+        entities: {
+          widgetTypes: {
+            ...fixtureWidgetTypeAInColl({
+              id: widgetTypeId1,
+              widgetComp: { type: 'react', Comp: Crashing } as WidgetReactComponent<{prop: string}>
+            }),
+          }
+        }
+      }),
+      widget: fixtureWidgetA({ type: widgetTypeId1 }),
+    });
+
+    expect(screen.getByRole('alert')).toHaveTextContent('boom');
+    shouldThrow = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(screen.getByTestId(testId1)).toBeInTheDocument();
+    (console.error as jest.Mock).mockRestore();
+  })
+
   it('should display a widget name, if it is set', async () => {
     const widgetName = 'Widget Name';
     await setup({

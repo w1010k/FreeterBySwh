@@ -348,6 +348,13 @@ describe('getWidgetApiUseCase()', () => {
 
     widgetApi.fs.getHomeDir();
     expect(fsProvider.getHomeDir).toHaveBeenCalledTimes(1);
+
+    widgetApi.fs.readTextFile('/d/a.md');
+    expect(fsProvider.readTextFile).toHaveBeenLastCalledWith('/d/a.md');
+    widgetApi.fs.writeTextFile('/d/a.md', 'text');
+    expect(fsProvider.writeTextFile).toHaveBeenLastCalledWith('/d/a.md', 'text');
+    widgetApi.fs.getMtime('/d/a.md');
+    expect(fsProvider.getMtime).toHaveBeenLastCalledWith('/d/a.md');
   })
 
   it('should correctly setup icon module', async () => {

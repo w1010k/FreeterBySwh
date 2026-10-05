@@ -23,6 +23,9 @@ import {createSetDownloadDirUseCase} from '@/application/useCases/download/setDo
 import {createGetHomeDirUseCase} from '@/application/useCases/fs/getHomeDir';
 import {createGetImageDataUrlUseCase} from '@/application/useCases/fs/getImageDataUrl';
 import {createReadDirUseCase} from '@/application/useCases/fs/readDir';
+import {createReadTextFileUseCase} from '@/application/useCases/fs/readTextFile';
+import {createWriteTextFileUseCase} from '@/application/useCases/fs/writeTextFile';
+import {createGetMtimeUseCase} from '@/application/useCases/fs/getMtime';
 import {createSetMainShortcutUseCase} from '@/application/useCases/globalShortcut/setMainShortcut';
 import {createGetFaviconUseCase} from '@/application/useCases/icon/getFavicon';
 import {createGetFileIconUseCase} from '@/application/useCases/icon/getFileIcon';
@@ -345,6 +348,9 @@ if (!app.requestSingleInstanceLock()) {
     const readDirUseCase = createReadDirUseCase({fsProvider});
     const getHomeDirUseCase = createGetHomeDirUseCase({fsProvider});
     const getImageDataUrlUseCase = createGetImageDataUrlUseCase({fsProvider});
+    const readTextFileUseCase = createReadTextFileUseCase({fsProvider});
+    const writeTextFileUseCase = createWriteTextFileUseCase({fsProvider});
+    const getMtimeUseCase = createGetMtimeUseCase({fsProvider});
 
     const getProcessInfoUseCase = createGetProcessInfoUseCase({processProvider});
     const {isLinux} = await getProcessInfoUseCase();
@@ -397,7 +403,7 @@ if (!app.requestSingleInstanceLock()) {
       ...createContextMenuControllers({popupContextMenuUseCase}),
       ...createClipboardControllers({writeBookmarkIntoClipboardUseCase, writeTextIntoClipboardUseCase}),
       ...createShellControllers({openExternalUrlUseCase, openPathUseCase, openAppUseCase, openAppDataDirUseCase}),
-      ...createFsControllers({readDirUseCase, getHomeDirUseCase, getImageDataUrlUseCase}),
+      ...createFsControllers({readDirUseCase, getHomeDirUseCase, getImageDataUrlUseCase, readTextFileUseCase, writeTextFileUseCase, getMtimeUseCase}),
       ...createProcessControllers({getProcessInfoUseCase}),
       ...createSystemStatsControllers({getSystemStatsUseCase}),
       ...createDialogControllers({

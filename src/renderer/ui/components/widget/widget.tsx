@@ -9,6 +9,7 @@ import { WidgetProps, WidgetViewModelHook } from '@/ui/components/widget/widgetV
 import styles from './widget.module.scss';
 import clsx from 'clsx';
 import { memo, useEffect, useRef } from 'react';
+import { WidgetErrorBoundary } from './widgetErrorBoundary';
 
 type Deps = {
   useWidgetViewModel: WidgetViewModelHook;
@@ -56,7 +57,9 @@ export function createWidgetComponent({
 
     if (env.isPreview) {
       return (
-        <WidgetComp id={widget.id} env={env} settings={widget.settings} widgetApi={widgetApi} sharedState={sharedState}></WidgetComp>
+        <WidgetErrorBoundary resetKey={widget.settings}>
+          <WidgetComp id={widget.id} env={env} settings={widget.settings} widgetApi={widgetApi} sharedState={sharedState}></WidgetComp>
+        </WidgetErrorBoundary>
       )
     }
 
@@ -99,7 +102,10 @@ export function createWidgetComponent({
         ></ActionBar>
       </div>
       <div className={styles['widget-body']} data-widget-context="" {...{ inert: editMode ? true : undefined }}>
-        <WidgetComp id={widget.id} env={env} settings={widget.settings} widgetApi={widgetApi} sharedState={sharedState}></WidgetComp>
+        {/* A crash in one widget must not take down the others. */}
+        <WidgetErrorBoundary resetKey={widget.settings}>
+          <WidgetComp id={widget.id} env={env} settings={widget.settings} widgetApi={widgetApi} sharedState={sharedState}></WidgetComp>
+        </WidgetErrorBoundary>
       </div>
     </div>
   }

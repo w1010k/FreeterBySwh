@@ -35,3 +35,25 @@ export interface ReadDirOptions {
    */
   includeSizes?: boolean;
 }
+
+/**
+ * Extensions the Markdown Editor widget lists and edits. main also checks them
+ * before reading or writing a text file, so the renderer can never use those
+ * channels on other file types.
+ */
+export const markdownExtensions: readonly string[] = ['.md', '.markdown'];
+
+/** True when `path` ends with one of `markdownExtensions` (case-insensitive). */
+export function isMarkdownPath(path: string): boolean {
+  const lower = path.toLowerCase();
+  return markdownExtensions.some(ext => lower.endsWith(ext));
+}
+
+/**
+ * A text file's content with the modification time read just before it.
+ * Callers compare `mtimeMs` with a later `getMtime` result to detect a change.
+ */
+export interface TextFileContent {
+  text: string;
+  mtimeMs: number;
+}

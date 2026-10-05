@@ -305,7 +305,7 @@ export function createUiState(): UiState {
       order: []
     },
     palette: {
-      widgetTypeIds: ['calculator', 'clock', 'commander', 'd-day', 'file-explorer', 'file-opener', 'link-opener', 'note', 'pomodoro', 'spreadsheet', 'stopwatch', 'system-monitor', 'timer', 'to-do-list', 'web-query', 'webpage']
+      widgetTypeIds: ['calculator', 'clock', 'commander', 'd-day', 'file-explorer', 'file-opener', 'link-opener', 'markdown-editor', 'note', 'pomodoro', 'spreadsheet', 'stopwatch', 'system-monitor', 'timer', 'to-do-list', 'web-query', 'webpage']
     },
     projectSwitcher: {
       currentProjectId: '',

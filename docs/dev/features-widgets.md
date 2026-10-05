@@ -1,6 +1,6 @@
 ## 위젯 기능 지도
 
-위젯 16종과 위젯 시스템 기반 코드의 위치, 데이터 흐름, 저장 방식, 주의점을 담은 문서다.
+위젯 17종과 위젯 시스템 기반 코드의 위치, 데이터 흐름, 저장 방식, 주의점을 담은 문서다.
 
 - 기준 시점: 2026-10-05. upstream 기준: `v2.8.0-beta`.
 - 출처 표기: `[upstream]`(upstream v2.8.0-beta에 있던 것), `[fork #N]`(포크 추가, N은 `docs/CHANGES.md` 섹션 번호),
@@ -86,6 +86,8 @@
 - **편집 모드 본문**: `inert`로 상호작용을 막는다 [upstream]. 리사이즈나 드래그 중에는 액션바를 숨긴다 (`dontShowActionBar`).
 - **헤더 탭**: 위젯이 `setHeaderTabs`로 탭을 넘기고 편집 모드가 아니면, 헤더가 이름 대신 탭 바를 그린다. 숨은 스크롤바 대신 세로 휠을 가로 스크롤로 바꾸고, 활성 탭을
   `scrollIntoView`로 보이게 한다 [fork #67 #69].
+- **오류 격리**: 셸은 `WidgetComp`를 `WidgetErrorBoundary` (`widgetErrorBoundary.tsx`)로 감싼다 (본문과 미리보기 모두). 렌더나 effect에서 난 오류는 그
+  위젯만 `role="alert"` 안내와 Retry 버튼으로 바꾼다. `resetKey`는 `widget.settings`라서 설정을 저장하면 다시 시도한다 [fork #92].
 - **`data-widget-type` 속성**: 루트 div에 위젯 타입를 노출한다. `widget.module.scss`가 이 속성으로 Webpage 헤더 이름만 텍스트 선택을 허용한다 [fork #12].
 - **미리보기**: 위젯 설정 화면 (`openWidgetSettings`)이 `env.isPreview = true`로 위젯을 그린다. 미리보기는 셸 없이 `WidgetComp`만 렌더한다. 공통 함수
   (`updateActionBar` 등)는 no-op이고, 모듈 (`dataStorage` 등)은 실제로 동작한다. 저장소 라우팅은 store에 저장된 위젯 엔티티의 설정을 읽으므로, 설정 화면에서 바꾼
@@ -120,7 +122,7 @@
 | `terminal`    | `execCmdLines(cmdLines, cwd?)`                                           | main `execCmdLinesInTerminal`이 OS별 기본 터미널을 분리 프로세스로 실행     | [upstream]                  |
 | `widgets`     | `getWidgetsInCurrentWorkflow(typeId)`                                    | 현재 프로젝트의 현재 워크플로우에 있는 해당 타입 위젯의 `{id, name, api}`   | [upstream]                  |
 | `icon`        | `getFileIcon(path, bypassCache?)`, `getFavicon(url, bypassCache?)`       | main `iconProvider`. 세션 동안 성공·실패 결과를 Map에 캐시, 동시 요청 공유  | [fork #21]                  |
-| `fs`          | `readDir(dirPath, opts?)`, `getHomeDir()`                                | main `fsProvider`. `includeHidden`, `includeSizes` 옵션                     | [fork #31 #32]              |
+| `fs`          | `readDir(dirPath, opts?)`, `getHomeDir()`, `readTextFile(path)`, `writeTextFile(path, text)`, `getMtime(path)` | main `fsProvider`. `includeHidden`, `includeSizes` 옵션. 텍스트 읽기·쓰기는 Markdown 파일만, 쓰기는 기존 파일만 (원자적) | [fork #31 #32 #91]          |
 | `systemStats` | `getStats()`                                                             | main `systemStatsProvider` (`node:os`). CPU%는 직전 호출과의 누적 시간 차이 | [fork #60]                  |
 
 모듈별 배선 위치 (IPC 채널은 모두 `src/common/ipc/channels.ts`):
@@ -263,6 +265,7 @@
 | `file-explorer`  | File Explorer  | 2×2     | fs, shell, clipboard                   |                | 없음                                                                   | [fork #31 #32 #37 #61 #75]                   |
 | `file-opener`    | File Opener    | 1×1     | shell, icon                            | apps           | 없음                                                                   | [upstream, fork #21 #22 #63 #75 변경]        |
 | `link-opener`    | Link Opener    | 1×1     | shell, icon                            |                | 없음                                                                   | [upstream, fork #21 #22 #72 #75 변경]        |
+| `markdown-editor` | Markdown Editor | 6×6   | fs, dataStorage                        |                | `tabs`, `treeWidth`                                                    | [fork #91]                                   |
 | `note`           | Note           | 2×2     | clipboard, dataStorage                 | sharedDataKeys | `note`                                                                 | [upstream, fork #8 #10 #39 #40 #50 #72 변경] |
 | `pomodoro`       | Pomodoro       | 3×3     | dataStorage                            |                | `state`                                                                | [fork #55 #73 #77]                           |
 | `spreadsheet`    | Spreadsheet    | 4×3     | dataStorage                            |                | `sheet`, `colWidths`, `rowHeights`, `colDelta`, `headerRow`, `filters` | [fork #79 #81~#86]                           |
@@ -467,6 +470,35 @@
 - **동작**: URL마다 `shell.openExternalUrl`, URL마다 `page_visit` 기록 (text = 호스트) [fork #72].
 - **아이콘과 제목**: 첫 URL의 파비콘 (`icon.getFavicon`: `/favicon.ico` 시도 후 HTML `<link rel>` 파싱) [fork #21], 동적 타이틀은 첫 URL 호스트와
   `(+N)` [fork #22].
+
+#### Markdown Editor (`markdown-editor`)
+
+- **역할**: 지정한 폴더의 Markdown 문서를 트리로 보여 주고, 탭으로 열어 MDXEditor로 WYSIWYG 편집한다. 자동 저장하고, 다른 앱의 변경을 다시 읽는다 [fork #91].
+- **파일**: `widget.tsx` (트리, 탭 줄, 주기 갱신), `docEditor.tsx` (`DocEditor`: 탭 하나의 에디터, 저장, 외부 변경 확인), `tabs.ts` (`openTab`,
+  `closeTab`, `parseTabsState`), `treeModel.ts` (`buildChildEntries`, `isSameOrDescendantKey`, File Explorer 키 도우미 사본), `settings.tsx`.
+- **설정**: `folder: string`.
+- **저장 키**: `tabs` (`{ paths, active }`, 절대 경로. 읽은 뒤에만 다시 쓴다, `tabsLoaded`), `treeWidth` (px 숫자).
+- **트리**: 폴더 기준 상대 키. 하위 폴더와 `isMarkdownPath` 파일만, 숨김 (`.` 시작) 제외. 펼칠 때 읽고, `treeRefreshIntervalMs` (2초)마다 최상위와 펼친 폴더를
+  다시 읽어 차이를 `model.batch`의 `add`, `remove`로 넣는다. 파일 클릭은 `composedPath()`에서 `data-item-type="file"` 행을 찾는다.
+- **읽기 실패**: 폴더 읽기가 실패하면 `unreadableFolder`에 그 폴더를 기록해 안내를 띄운다. 주기 갱신은 최상위 폴더 (`''`)를 항상 다시 읽으므로 첫 읽기가
+  실패해도 회복한다. 열 수 없던 탭 (`load.kind === 'unreadable'`)은 보이는 동안 `externalCheckIntervalMs`마다 다시 읽는다.
+- **미리보기**: `env.isPreview`이면 저장된 탭을 복원하지 않고, 탭과 너비를 저장하지 않는다 (`storeJson`). 설정 화면이 같은 위젯 id로 미리보기를 그리기 때문이다.
+- **트리 너비**: splitter (`role='separator'`) 드래그는 pointer capture, ←/→ 키는 16 px. 너비 (px)는 `treeWidth` 키에 드래그가 끝날 때와 키 입력마다 저장한다.
+  CSS `max-width: 80%`가 저장값보다 우선한다.
+- **탭**: 탭마다 `DocEditor`를 마운트한 채 비활성 탭은 `hidden`으로 숨긴다 (실행 취소 기록 유지, 탭 수 제한 없음).
+- **저장**: `saveDelayMs` (0.5초) 디바운스. `onChange`의 `initialMarkdownNormalize`가 true면 건너뛴다. `matchFileFormat`으로 디스크 파일의 줄바꿈 (CRLF/LF)과
+  끝 줄바꿈을 유지한다. 탭 비활성화, 언마운트, `beforeunload`에서 `flush`.
+- **외부 변경**: 활성 탭만 `externalCheckIntervalMs` (1초)마다 `getMtime`. 바뀌면 읽어서 `diskText`와 비교하고, 다르면 대기 저장을 `cancel`하고 `setMarkdown`.
+  쓰기 진행 중 (`writesInFlight > 0`)이거나 확인 도중 쓰기가 시작됐으면 (`writesStarted` 변화) 결과를 버린다.
+- **파싱 오류**: `onError`에서 대기 저장 취소, 탭 읽기 전용. 외부 내용으로 다시 읽을 때 오류 상태를 풀고 다시 판정한다.
+- **주의점**:
+  - MDXEditor는 ESM 전용이라 Jest는 `tests/__mocks__/mdxEditor.js`를 쓴다 (`__getInstances()`로 props와 `setMarkdown` 호출을 본다).
+  - 테마 변수 재정의는 `.mdx.mdx`다. MDXEditor가 `document.body`의 팝업 컨테이너에도 같은 `className`을 단다.
+  - `suppressHtmlProcessing`을 끄면 (HTML 처리 켬) MDX 파서가 `a<b`, `x <= y` 같은 문장을 JSX로 읽어 읽기 전용이 된다. 켠 상태에서는 원시 HTML
+    (주석, `<details>`, `<br>`)이 지원하지 않는 문법 (읽기 전용)이다. 두 설정의 비교표는 CHANGES #91.
+  - 상대 경로 이미지는 앱 페이지 기준으로 풀려 보이지 않는다.
+  - 표 셀은 MDXEditor가 셀 에디터에서 따로 파싱하고, 실패하면 `onError` 없이 throw한다. 탭마다 `DocErrorBoundary`가 원문 텍스트 fallback을 보여 준다
+    (pitfalls.md "위젯 렌더 오류가 앱 전체를 내림").
 
 #### Commander (`commander`)
 

@@ -3287,6 +3287,132 @@ Webpage 위젯 안의 웹 페이지가 OS로 여는 주소의 스킴을 검사�
 - **테스트**: `tests/main/infra/httpAuth/httpAuth.spec.ts` (+2), `tests/main/infra/ipcMain/ipcMainEventValidator.spec.ts` (+1)
 - **문서**: `docs/dev/decisions.md` (D29 변경, D60 신규), `docs/dev/pitfalls.md`, `docs/dev/overview.md`, `docs/dev/features-widgets.md`
 
+## 91. Markdown Editor 위젯 *(2026-10-05)*
+
+폴더 하나를 지정하면 그 안의 Markdown 문서를 트리로 보여 주고, 선택한 문서를 탭으로 열어 WYSIWYG로 편집하는 위젯이다. Orca 같은 단일 창 도구에서 Claude가 만든
+Markdown 문서를 다른 모니터에서 읽고 고치려는 용도로 만들었다. 에디터는 [MDXEditor](https://mdxeditor.dev/) 4.3.2다.
+
+### 사용자 관점
+
+- **설정**: 폴더 경로 1개. 왼쪽 트리는 그 폴더의 하위 폴더와 `.md`, `.markdown` 파일만 보여 준다. 이름이 `.`으로 시작하는 항목은 숨긴다.
+- **트리**: 폴더는 펼칠 때 읽는다. 2초마다 최상위 폴더와 펼친 폴더를 다시 읽어, 다른 앱이 만든 파일과 지운 파일을 반영한다. 트리와 에디터 사이 경계선 (splitter)을 끌거나,
+  경계선에 포커스를 두고 ←/→ 키로 트리 너비를 바꾼다. 너비는 위젯 데이터에 저장되어 앱을 다시 켜도 남는다.
+- **탭**: 트리에서 파일을 클릭하면 새 탭으로 열린다. 이미 열린 파일이면 그 탭으로 간다. × 버튼이나 가운데 클릭으로 닫는다. 열린 탭과 활성 탭은 위젯 데이터에
+  저장되어 앱을 다시 켜도 남는다. 탭을 바꿔도 각 탭의 실행 취소 기록이 남는다.
+- **자동 저장**: 입력을 멈추고 0.5초 뒤에 파일에 쓴다. 탭을 바꾸거나 닫을 때, 위젯이 사라질 때, 창을 닫을 때는 기다리지 않고 바로 쓴다.
+- **외부 변경 반영**: 활성 탭은 1초마다 파일의 수정 시각을 본다. 다른 앱이 내용을 바꾸면 다시 읽어 에디터에 넣는다. 아직 저장되지 않은 내 편집이 있으면 그 편집을
+  버리고 외부 내용을 따른다 (사용자 결정). 숨은 탭은 다시 활성화될 때 같은 확인을 한다.
+- **에디터 오류**: 에디터가 문서를 그리다 실패하면 (예: 표 셀 안의 `<br>`) 그 탭만 원문을 읽기 전용 텍스트로 보여 주고 Retry 버튼을 띄운다.
+- **안내 문구**: 파일이 지워지면 "This file no longer exists", 저장이 실패하면 "Could not save", 에디터가 모르는 문법이 있으면 읽기 전용 안내가 뜬다.
+  10 MB를 넘는 파일과 읽을 수 없는 파일은 열지 않는다. 그런 탭은 보이는 동안 1초마다 다시 읽어, 파일이 생기거나 작아지면 저절로 열린다. 폴더를 읽을 수 없으면
+  트리 위에 안내가 뜨고, 2초마다 다시 읽어 폴더가 생기면 저절로 불러온다.
+- **편집 방식**: 툴바는 없다. Markdown 단축 입력 (`# `, `- `, `**굵게**` 등)과 Ctrl+B, Ctrl+I로 서식을 넣는다.
+
+### 아키텍처
+
+- **새 IPC 3개** (`fs-read-text-file`, `fs-write-text-file`, `fs-get-mtime`): main `fsProvider`가 처리한다. 읽기와 쓰기는 `isMarkdownPath`
+  (`src/common/base/fs.ts`)를 통과한 경로만 받는다. 쓰기는 이미 있는 파일만 덮어쓴다 (새 파일을 만들지 않는다). 읽기는 10 MB까지다. 같은 파일의 읽기와 쓰기는
+  경로별 큐로 순서를 지킨다.
+- **원자적 쓰기 재사용**: `fileDataStorage.ts`에 있던 `writeFileAtomic`과 경로별 큐를 `src/main/infra/utils/atomicFile.ts`로 옮겨 (`createInOrder`) 위젯
+  데이터 저장과 Markdown 저장이 함께 쓴다. 위젯 데이터 저장의 동작은 같다.
+- **위젯 API**: `fs` 모듈에 `readTextFile`, `writeTextFile`, `getMtime`을 더했다. 위젯은 `requiresApi: ['fs', 'dataStorage']`.
+- **위젯 파일** (`src/renderer/widgets/markdown-editor/`):
+  - `widget.tsx`: 트리 (`@pierre/trees`), 탭 줄, 탭마다 `DocEditor` 하나. 트리 상태는 폴더 기준 상대 키 → 절대 경로 Map과 폴더별 자식 키 Set이다. 주기 갱신은
+    새 목록과 이전 목록의 차이를 `model.batch`의 `add`, `remove`로 한 번에 넣는다.
+  - `docEditor.tsx`: MDXEditor 하나와 저장, 외부 변경 확인. 디스크 내용과 수정 시각 (`diskText`, `diskMtime`)을 기억해 자기 저장과 외부 변경을 구분한다.
+  - `tabs.ts` (`openTab`, `closeTab`, `parseTabsState`), `treeModel.ts` (File Explorer의 키 도우미 사본 + Markdown 필터).
+- **MDXEditor 설정**: `suppressHtmlProcessing: true`, 플러그인은 제목, 목록, 인용, 구분선, 링크, 표, 이미지, frontmatter, 코드 블록 (CodeMirror,
+  언어 자동 로드 끔), Markdown 단축 입력.
+
+### 까다로웠던 포인트
+
+- **열기만 해도 파일이 바뀌는 문제**: MDXEditor는 문서를 읽은 직후 정규화한 Markdown으로 `onChange`를 한 번 부른다. 이것을 저장하면 열기만 한 파일의 목록 기호,
+  강조 기호, 표 간격이 바뀐다. 두 번째 인자 `initialMarkdownNormalize`가 `true`이면 저장하지 않는다.
+- **첫 편집의 diff**: 실제로 편집하면 파일 전체가 MDXEditor 형식으로 다시 쓰인다. git으로 관리하는 폴더에서는 편집한 줄보다 큰 diff가 생긴다. 막을 방법이 없는
+  에디터 구조다.
+- **줄바꿈 형식**: MDXEditor는 항상 LF로 내보내고 문서 끝을 `trim`한다. 그대로 쓰면 CRLF 파일의 모든 줄과 끝 줄바꿈이 바뀐다. `matchFileFormat`이 디스크 내용
+  (`diskText`)의 줄바꿈 형식과 끝 줄바꿈을 따라 고친 뒤 저장한다.
+- **MDX 파싱**: MDXEditor 기본값은 MDX 문법 (`mdxJsx`, `mdxMd`)으로 읽는다. `suppressHtmlProcessing`으로 일반 Markdown 파서를 쓴다. 실제
+  MDXEditor로 문법 9종을 두 설정에서 열어 본 결과다 (2026-10-05, 별도 Electron 실험 창).
+
+  | 문법                              | HTML 처리 끔 (채택) | HTML 처리 켬 (기본값) |
+  |-----------------------------------|---------------------|-----------------------|
+  | `a<b`, `x <= y`                   | 편집 가능           | 읽기 전용             |
+  | `{curly}`, 표 안의 `` `<T>` ``    | 편집 가능           | 편집 가능             |
+  | `<!-- 주석 -->`, `<details>` 블록 | 읽기 전용           | 편집 가능             |
+  | 닫히지 않은 `<appData>`, 문장 안 `<br>` | 읽기 전용     | 읽기 전용             |
+  | 표 셀 안 `<br>`                   | 원문 텍스트 (#92 전에는 앱 전체가 사라짐) | 읽기 전용 |
+
+  어느 설정도 `<br>`을 편집 가능하게 열지 못한다. 문장 속 비교 기호가 더 흔하다고 보고 HTML 처리를 끈 채로 둔다.
+- **파싱 오류 시 조용한 미저장**: MDXEditor는 파싱 오류가 있어도 화면을 그리지만 `onChange`를 보내지 않는다. 그대로 두면 편집이 저장되지 않는데 사용자는 모른다.
+  `onError`에서 대기 중인 저장을 취소하고 탭을 읽기 전용으로 바꾼다.
+- **외부 반영과 실행 취소**: `setMarkdown`은 실행 취소 기록을 지우지 않고 `onChange`도 부르지 않는다. 그래서 외부 내용으로 다시 읽은 뒤 Ctrl+Z를 누르면 이전
+  내용으로 돌아가고, 그 내용이 저장되어 외부 변경을 덮는다.
+- **쓰는 중의 확인**: 저장이 진행 중이면 파일 수정 시각이 이미 바뀌었는데 `diskMtime`은 옛 값이다. 이때 확인하면 자기 저장을 외부 변경으로 오인해 입력 중인 내용을
+  덮을 수 있다. 진행 중인 쓰기 수 (`writesInFlight`)가 0일 때만 확인한다. 확인이 읽기를 기다리는 동안 저장이 시작해서 끝나기까지 하면, 읽기는 저장 전 내용을
+  돌려주는데 `writesInFlight`는 다시 0이다. 그래서 시작한 쓰기 횟수 (`writesStarted`)도 확인 전후로 비교한다 (더블체크에서 발견).
+- **설정 화면 미리보기**: 위젯 설정 화면은 같은 위젯 id와 저장소로 위젯을 한 번 더 그린다. 미리보기가 저장된 탭을 복원하면 에디터가 두 벌 마운트되고, 미리보기에서
+  바꾼 탭과 너비가 위젯 상태를 덮는다. 미리보기 (`env.isPreview`)는 빈 탭으로 시작하고 아무것도 저장하지 않는다. 미리보기에서 연 파일의 편집은 실제 파일에 저장된다.
+- **팝업 위치**: MDXEditor는 팝업 (링크 대화상자 등)을 `document.body`에 붙인 별도 컨테이너에 그리고, 거기에도 `className`을 단다. 그래서 테마 변수 재정의는
+  `.mdx.mdx` (클래스 두 번)로 라이브러리 자체 정의보다 우선하게 했다. 팝업이 body에 있으므로 위젯 타일의 `transform` 문제도 생기지 않을 것이다 (추정, 앱 실행으로
+  확인하지 않음).
+- **표 셀의 HTML로 앱 전체가 사라짐**: 표 셀에 `<br>`이 있는 문서를 열면 작업판의 위젯이 모두 사라졌다 (실제 사용 중 보고). MDXEditor는 표 셀을 셀
+  에디터에서 따로 파싱하고, 지원하지 않는 문법이면 `onError` 대신 예외를 던진다. 앱에 error boundary가 없어 React가 화면 전체를 내렸다. 탭마다
+  `DocErrorBoundary`를 두어, 그 탭만 원문을 읽기 전용 텍스트로 보여 주고 Retry 버튼을 띄운다. 이 탭에서는 편집할 수 없다.
+- **너비 조절**: 처음에는 CSS `resize: horizontal`을 썼다. 이 방식은 트리 영역 오른쪽 아래의 작은 모서리만 잡을 수 있고 경계선은 끌 수 없어서, 실제 사용에서
+  "너비 조절이 안 된다"는 보고가 나왔다. pointer capture를 쓰는 splitter로 바꿨다.
+- **트리 클릭**: 트리 행은 shadow DOM 안에 있다. 클릭 이벤트의 `composedPath()`에서 `data-item-type="file"` 행을 찾아 `data-item-path`로 파일을 연다.
+  포커스 경로를 쓰면 빈 곳을 클릭해도 이전 파일이 다시 열릴 수 있다 (추정).
+- **번들 크기**: renderer 번들이 1.35 MB에서 2.66 MB로 커졌다. CodeMirror 언어 정의가 지연 로드 청크 116개 (합계 1.27 MB)로 빌드에 들어가지만, 언어 자동
+  로드를 껐으므로 실행 중에는 읽지 않는다 (2026-10-05 `yarn prod:renderer` 측정).
+- **파일 속성 보존**: 원자적 쓰기는 임시 파일을 대상 위로 `rename`하므로, 그대로 두면 심볼릭 링크 (예: `AGENTS.md → CLAUDE.md`)가 일반 파일로 바뀌고
+  Linux의 권한 비트가 umask 기본값으로 바뀐다. main은 `realpath`로 링크 대상에 쓰고, 원래 파일의 `mode`를 임시 파일에 준다. 쓰기 순서 큐도 실제 경로로
+  묶는다. MDXEditor의 `trim()`이 지우는 UTF-8 BOM은 `matchFileFormat`이 되살린다 (더블체크에서 발견). 하드 링크는 여전히 끊어진다.
+- **임시 파일**: 원자적 쓰기는 같은 폴더에 `문서.md.tmp`를 잠깐 만든다. 트리는 Markdown 파일만 보여 주므로 나타나지 않지만, 다른 도구가 그 폴더를 감시하면 볼 수 있다.
+
+### 수정 파일
+
+- **신규**: `src/renderer/widgets/markdown-editor/` (`index.ts`, `settings.tsx`, `widget.tsx`, `docEditor.tsx`, `tabs.ts`, `treeModel.ts`,
+  `widget.module.scss`, `icons/`), `src/main/infra/utils/atomicFile.ts`, `src/main/application/useCases/fs/readTextFile.ts`, `writeTextFile.ts`,
+  `getMtime.ts`, `tests/__mocks__/mdxEditor.js`
+- **수정**: `src/common/base/fs.ts`, `src/common/ipc/channels.ts`, `src/main/application/interfaces/fsProvider.ts`,
+  `src/main/infra/fsProvider/fsProvider.ts`, `src/main/infra/dataStorage/fileDataStorage.ts`, `src/main/controllers/fs.ts`, `src/main/index.ts`,
+  `src/renderer/application/interfaces/fsProvider.ts`, `src/renderer/infra/fsProvider/fsProvider.ts`, `src/renderer/base/widgetApi.ts`,
+  `src/renderer/application/useCases/widget/getWidgetApi.ts`, `src/renderer/widgets/index.ts`, `src/renderer/base/state/ui.ts`, `src/renderer/styles.d.ts`,
+  `jest.config.js`, `package.json` (`@mdxeditor/editor` devDependency)
+- **테스트**: `tests/renderer/widgets/markdown-editor/` (`docEditor.spec.tsx`, `widget.spec.tsx`, `tabs.spec.ts`, `treeModel.spec.ts`, `settings.spec.ts`),
+  `tests/main/infra/fsProvider/fsProvider.spec.ts`, `tests/main/controllers/fs.spec.ts`, `tests/renderer/infra/fsProvider/fsProvider.spec.ts`,
+  `tests/renderer/application/useCases/widget/getWidgetApi.spec.ts`, 각 mock (`tests/main/infra/mocks/fsProvider.ts`,
+  `tests/renderer/infra/mocks/fsProvider.ts`, `tests/renderer/widgets/setupSut.tsx`, `tests/renderer/global.d.ts`)
+
+## 92. 위젯 오류 격리 *(2026-10-05)*
+
+위젯 하나가 렌더 중 오류를 내면 작업판의 위젯이 모두 사라지던 문제를 막는다. Markdown Editor (#91)에서 표 셀의 `<br>` 때문에 화면 전체가 사라진 일로 드러났다.
+
+### 사용자 관점
+
+- 오류가 난 위젯 자리에만 "This widget stopped because of an error."와 오류 메시지, Retry 버튼이 나온다. 다른 위젯과 셸 (헤더, 액션바, 편집 모드)은
+  그대로 동작한다.
+- Retry를 누르거나 그 위젯의 설정을 저장하면 위젯을 다시 그린다.
+
+### 아키텍처
+
+- `src/renderer/ui/components/widget/widgetErrorBoundary.tsx` `WidgetErrorBoundary`: 클래스 컴포넌트. `getDerivedStateFromError`로 메시지를 잡고,
+  `resetKey` (`widget.settings`)가 바뀌면 `getDerivedStateFromProps`에서 오류를 지운다.
+- `src/renderer/ui/components/widget/widget.tsx`: 위젯 본문과 미리보기의 `WidgetComp`를 감싼다.
+
+### 까다로웠던 포인트
+
+- 이전에는 앱 어디에도 error boundary가 없었다. React 19는 잡히지 않은 렌더 오류가 나면 루트 전체를 내리므로, 위젯 하나의 버그가 앱 화면 전체의 버그가 됐다.
+- boundary는 렌더와 effect의 오류만 잡는다. 이벤트 핸들러와 Promise 안의 오류는 전처럼 콘솔에만 남고 화면을 내리지 않는다.
+
+### 수정 파일
+
+- **신규**: `src/renderer/ui/components/widget/widgetErrorBoundary.tsx`
+- **수정**: `src/renderer/ui/components/widget/widget.tsx`, `src/renderer/ui/components/widget/widget.module.scss`
+- **테스트**: `tests/renderer/ui/components/widget/widget.spec.tsx` (+1)
+- **문서**: `docs/dev/features-widgets.md`, `docs/dev/pitfalls.md`
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

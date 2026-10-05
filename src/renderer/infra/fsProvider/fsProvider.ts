@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { IpcFsReadDirArgs, ipcFsReadDirChannel, IpcFsReadDirRes, IpcFsGetHomeDirArgs, ipcFsGetHomeDirChannel, IpcFsGetHomeDirRes, IpcFsGetImageDataUrlArgs, ipcFsGetImageDataUrlChannel, IpcFsGetImageDataUrlRes } from '@common/ipc/channels';
+import { IpcFsReadDirArgs, ipcFsReadDirChannel, IpcFsReadDirRes, IpcFsGetHomeDirArgs, ipcFsGetHomeDirChannel, IpcFsGetHomeDirRes, IpcFsGetImageDataUrlArgs, ipcFsGetImageDataUrlChannel, IpcFsGetImageDataUrlRes, IpcFsReadTextFileArgs, ipcFsReadTextFileChannel, IpcFsReadTextFileRes, IpcFsWriteTextFileArgs, ipcFsWriteTextFileChannel, IpcFsWriteTextFileRes, IpcFsGetMtimeArgs, ipcFsGetMtimeChannel, IpcFsGetMtimeRes } from '@common/ipc/channels';
 import { electronIpcRenderer } from '@/infra/mainApi/mainApi';
 import { FsProvider } from '@/application/interfaces/fsProvider';
 
@@ -19,6 +19,19 @@ export function createFsProvider(): FsProvider {
     ),
     getImageDataUrl: (path) => electronIpcRenderer.invoke<IpcFsGetImageDataUrlArgs, IpcFsGetImageDataUrlRes>(
       ipcFsGetImageDataUrlChannel,
+      path
+    ),
+    readTextFile: (path) => electronIpcRenderer.invoke<IpcFsReadTextFileArgs, IpcFsReadTextFileRes>(
+      ipcFsReadTextFileChannel,
+      path
+    ),
+    writeTextFile: (path, text) => electronIpcRenderer.invoke<IpcFsWriteTextFileArgs, IpcFsWriteTextFileRes>(
+      ipcFsWriteTextFileChannel,
+      path,
+      text
+    ),
+    getMtime: (path) => electronIpcRenderer.invoke<IpcFsGetMtimeArgs, IpcFsGetMtimeRes>(
+      ipcFsGetMtimeChannel,
       path
     ),
   }

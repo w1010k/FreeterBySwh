@@ -11,6 +11,7 @@ import dDay from './d-day';
 import fileExplorer from './file-explorer';
 import fileOpener from './file-opener';
 import linkOpener from './link-opener';
+import markdownEditor from './markdown-editor';
 import note from './note';
 import pomodoro from './pomodoro';
 import spreadsheet from './spreadsheet';
@@ -29,6 +30,7 @@ const widgetTypes = [
   fileExplorer,
   fileOpener,
   linkOpener,
+  markdownEditor,
   note,
   pomodoro,
   spreadsheet,

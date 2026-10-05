@@ -10,7 +10,7 @@ Claude (AI 작업자)가 코드를 고치기 전에 읽는 개발 문서다. 사
 |--------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
 | [overview.md](overview.md)                 | 앱 전체 구조: 포크 이력, 기술 스택, 디렉터리, 레이어와 DI, 창과 프로세스, IPC, 상태와 저장, main 기능 지도, 빌드, 테스트, 보안 경계                 |
 | [features-core.md](features-core.md)       | renderer 앱 기능별 코드 지도: 프로젝트, 워크플로우, worktable 레이아웃, 위젯 생애주기, 팔레트, 셸프, 메뉴, 단축키, 설정, Memory Saver, Analytics 등 |
-| [features-widgets.md](features-widgets.md) | 위젯 시스템과 위젯 16종의 코드 지도                                                                                                                 |
+| [features-widgets.md](features-widgets.md) | 위젯 시스템과 위젯 17종의 코드 지도                                                                                                                 |
 | [pitfalls.md](pitfalls.md)                 | 코드를 바꿀 때 다시 밟을 수 있는 함정과 제약 (주제별)                                                                                               |
 | [decisions.md](decisions.md)               | 설계 결정 기록: 결정, 이유, 버린 대안, 상태                                                                                                         |
 | [procedures.md](procedures.md)             | 반복 작업 절차: 검증, 새 위젯 추가, 릴리스, upstream 병합                                                                                           |

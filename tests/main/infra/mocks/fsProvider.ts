@@ -8,7 +8,10 @@ import { FsProvider } from '@/application/interfaces/fsProvider';
 const fsProvider: FsProvider = {
   readDir: jest.fn(async () => []),
   getHomeDir: jest.fn(() => ''),
-  getImageDataUrl: jest.fn(async () => null)
+  getImageDataUrl: jest.fn(async () => null),
+  readTextFile: jest.fn(async () => null),
+  writeTextFile: jest.fn(async () => null),
+  getMtime: jest.fn(async () => null)
 }
 
 export const mockFsProvider = (props: Partial<FsProvider>) => ({ ...fsProvider, ...props });

@@ -60,6 +60,8 @@ module.exports = {
       // @pierre/trees is ESM-only and can't load under Jest; map to manual mocks.
       '^@pierre/trees/react$': '<rootDir>/tests/__mocks__/pierreTreesReact.js',
       '^@pierre/trees$': '<rootDir>/tests/__mocks__/pierreTrees.js',
+      // @mdxeditor/editor is ESM-only as well; its stylesheet goes through the css rule above.
+      '^@mdxeditor/editor$': '<rootDir>/tests/__mocks__/mdxEditor.js',
       ...makeModuleNameMapper('renderer')
     },
     roots: ['<rootDir>/tests/renderer/', '<rootDir>/src/renderer/']

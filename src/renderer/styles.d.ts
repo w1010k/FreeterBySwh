@@ -9,6 +9,10 @@ declare module '*.css' {
   export default classes;
 }
 
+// MDXEditor's stylesheet, a package export that ships no type declaration
+// (the '*.css' pattern above does not cover package subpaths).
+declare module '@mdxeditor/editor/style.css';
+
 // For SCSS
 declare module '*.scss' {
   const classes: { [key: string]: string };

@@ -5,7 +5,7 @@
 
 import { MenuItemsIpc } from '@common/base/menu';
 import { ProcessInfo } from '@common/base/process';
-import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
+import { FsDirEntry, ReadDirOptions, TextFileContent } from '@common/base/fs';
 import { SystemStats } from '@common/base/systemStats';
 import { TelemetryEntitiesSnapshot } from '@common/base/telemetry';
 import { makeIpcChannelName } from '@common/ipc/ipc';
@@ -238,6 +238,21 @@ export type IpcFsGetHomeDirRes = string;
 export const ipcFsGetImageDataUrlChannel = makeIpcChannelName('fs-get-image-data-url');
 export type IpcFsGetImageDataUrlArgs = [path: string];
 export type IpcFsGetImageDataUrlRes = string | null;
+
+// Markdown files only (main checks `isMarkdownPath`); null when refused, missing or over the size cap.
+export const ipcFsReadTextFileChannel = makeIpcChannelName('fs-read-text-file');
+export type IpcFsReadTextFileArgs = [path: string];
+export type IpcFsReadTextFileRes = TextFileContent | null;
+
+// Overwrites an existing Markdown file; resolves to its new mtime, or null when refused or failed.
+export const ipcFsWriteTextFileChannel = makeIpcChannelName('fs-write-text-file');
+export type IpcFsWriteTextFileArgs = [path: string, text: string];
+export type IpcFsWriteTextFileRes = number | null;
+
+// A file's mtime in ms, or null when it is missing or not a file.
+export const ipcFsGetMtimeChannel = makeIpcChannelName('fs-get-mtime');
+export type IpcFsGetMtimeArgs = [path: string];
+export type IpcFsGetMtimeRes = number | null;
 
 
 export const ipcGetSystemStatsChannel = makeIpcChannelName('get-system-stats');

@@ -520,6 +520,18 @@
 - 버린 대안: "`rows` 키가 없으면 옛 위젯"이라는 추론 (새 키 추가 직후 자동 저장으로 옛 `cols`와 새 `rows`가 같이 굳어 신호가 무효가 됨).
 - 근거: CHANGES #86, `src/renderer/widgets/spreadsheet/settings.tsx` `SETTINGS_VERSION`
 
+#### D61. Markdown Editor의 저장과 외부 변경 반영
+
+- 상태: 유효
+- 출처: `[fork #91]`
+- 결정: 편집은 0.5초 디바운스로 저장하고, 외부 변경은 활성 탭이 1초마다 `getMtime`을 폴링해 찾는다. 저장되지 않은 편집과 외부 변경이 겹치면 외부 변경이 이긴다
+  (편집을 버리고 다시 읽는다). 탭마다 에디터를 마운트한 채 숨긴다. main의 텍스트 읽기·쓰기 IPC는 Markdown 확장자만, 쓰기는 기존 파일만 받는다.
+- 이유: Claude 같은 도구가 쓴 문서를 보고 고치는 용도라 외부 변경을 놓치지 않는 쪽이 중요하다 (사용자 결정, 2026-10-05). 폴링은 main에 감시자 수명 관리가 필요
+  없고, 다른 앱의 rename 방식 저장도 놓치지 않는다. 숨긴 에디터는 탭을 바꿔도 실행 취소 기록을 지킨다 (사용자 요구).
+- 버린 대안: 충돌 알림 후 사용자 선택 (UI 추가). 내 편집 우선 (외부 변경 유실). main `fs.watch` (감시자 수명 관리, rename 저장 누락 가능). 활성 탭 에디터 하나만
+  마운트 (탭 전환 때 실행 취소 기록 유실).
+- 근거: CHANGES #91, `src/renderer/widgets/markdown-editor/docEditor.tsx`, `src/main/infra/fsProvider/fsProvider.ts`
+
 ### 텔레메트리와 Analytics
 
 #### D53. 로컬 전용 opt-in 텔레메트리

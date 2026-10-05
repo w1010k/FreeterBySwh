@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { ipcFsReadDirChannel, ipcFsGetHomeDirChannel } from '@common/ipc/channels';
+import { ipcFsReadDirChannel, ipcFsGetHomeDirChannel, ipcFsReadTextFileChannel, ipcFsWriteTextFileChannel, ipcFsGetMtimeChannel } from '@common/ipc/channels';
 import { createFsProvider } from '@/infra/fsProvider/fsProvider';
 import { electronIpcRenderer } from '@/infra/mainApi/mainApi';
 
@@ -42,6 +42,19 @@ describe('FsProvider', () => {
 
       expect(electronIpcRenderer.invoke).toHaveBeenCalledTimes(1);
       expect(electronIpcRenderer.invoke).toHaveBeenCalledWith(ipcFsGetHomeDirChannel);
+    })
+  })
+
+  describe('text file methods', () => {
+    it('should send messages to the main process via right ipc channels with right args', async () => {
+      const fsProvider = createFsProvider();
+
+      await fsProvider.readTextFile('/d/a.md');
+      expect(electronIpcRenderer.invoke).toHaveBeenLastCalledWith(ipcFsReadTextFileChannel, '/d/a.md');
+      await fsProvider.writeTextFile('/d/a.md', 'text');
+      expect(electronIpcRenderer.invoke).toHaveBeenLastCalledWith(ipcFsWriteTextFileChannel, '/d/a.md', 'text');
+      await fsProvider.getMtime('/d/a.md');
+      expect(electronIpcRenderer.invoke).toHaveBeenLastCalledWith(ipcFsGetMtimeChannel, '/d/a.md');
     })
   })
 });

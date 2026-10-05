@@ -7,7 +7,7 @@ import { EntityId } from '@/base/entity';
 import { WidgetContextMenuFactory } from '@/base/widget';
 import { ActionBarItems } from './actionBar';
 import { ProcessInfo } from '@common/base/process';
-import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
+import { FsDirEntry, ReadDirOptions, TextFileContent } from '@common/base/fs';
 import { SystemStats } from '@common/base/systemStats';
 import { OpenDialogResult, OpenDirDialogConfig, OpenFileDialogConfig } from '@common/base/dialog';
 import { TelemetryActivityPayload, TelemetryActivityType } from '@common/base/telemetry';
@@ -102,6 +102,18 @@ interface WidgetApiModules {
     readDir: (dirPath: string, opts?: ReadDirOptions) => Promise<FsDirEntry[]>;
     /** Resolve the OS home directory (default root for file browsing). */
     getHomeDir: () => Promise<string>;
+    /**
+     * Read a Markdown file (`isMarkdownPath`) as UTF-8 text with the mtime
+     * taken just before the read. `null` when refused, missing or over 10 MB.
+     */
+    readTextFile: (path: string) => Promise<TextFileContent | null>;
+    /**
+     * Overwrite an existing Markdown file atomically. Resolves to the new
+     * mtime, or `null` when refused (not Markdown, not an existing file) or failed.
+     */
+    writeTextFile: (path: string, text: string) => Promise<number | null>;
+    /** A file's mtime in ms, or `null` when it is missing or not a file. */
+    getMtime: (path: string) => Promise<number | null>;
   };
   readonly terminal: {
     execCmdLines: (cmdLines: ReadonlyArray<string>, cwd?: string) => void;

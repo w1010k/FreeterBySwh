@@ -135,6 +135,9 @@ export function setupWidgetSut<T>(reactComp: ReactComponent<WidgetReactComponent
     fs: {
       readDir: jest.fn(async () => []),
       getHomeDir: jest.fn(async () => ''),
+      readTextFile: jest.fn(async () => null),
+      writeTextFile: jest.fn(async () => null),
+      getMtime: jest.fn(async () => null),
       ...mockWidgetApi.fs
     },
     terminal: {

@@ -3,42 +3,13 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { mkdir, rm, readFile, writeFile, readdir, stat, unlink, cp, rename, open } from 'node:fs/promises';
+import { mkdir, rm, readFile, readdir, stat, unlink, cp } from 'node:fs/promises';
 import { join, normalize } from 'node:path';
 
 import { DataStorage } from '@common/application/interfaces/dataStorage';
 import { existsSync } from 'node:original-fs';
-
-// Suffix of the scratch file setText writes before renaming it over the target.
-// Keys never map to it: storageKeyToFilePath turns '.' into '_'.
-const tmpSuffix = '.tmp';
-
-/**
- * Write `data` to `filePath` so an app crash, power loss or full disk never
- * leaves the target truncated: write a sibling temp file, flush it to disk, then
- * rename it over the target (an atomic replace within one folder). Without the
- * flush, power loss can persist the rename but not the bytes.
- */
-async function writeFileAtomic(filePath: string, data: string) {
-  const tmpPath = filePath + tmpSuffix;
-  const tmpFile = await open(tmpPath, 'w');
-  try {
-    await tmpFile.writeFile(data, { encoding: 'utf-8' });
-    await tmpFile.sync();
-  } finally {
-    await tmpFile.close();
-  }
-  try {
-    await rename(tmpPath, filePath);
-  } catch {
-    // On Windows the rename fails while the target is open elsewhere: another
-    // process (antivirus, indexer) or this app's own copyFileDataStorage, which
-    // runs outside the per-file queue. Fall back to the in-place write so the
-    // save is not lost; it is the pre-atomic behavior, only for this rare case.
-    await writeFile(filePath, data, { encoding: 'utf-8' });
-    await rm(tmpPath, { force: true });
-  }
-}
+// Keys never map to a temp file name: storageKeyToFilePath turns '.' into '_'.
+import { createInOrder, tmpSuffix, writeFileAtomic } from '@/infra/utils/atomicFile';
 
 async function getAllKeys(normStorageDirPath: string) {
   try {
@@ -100,21 +71,9 @@ export async function createFileDataStorage(dataType: 'string', storageDirPath: 
   // issued right after a write sees the new content (e.g. a widget that flushes
   // its pending save on unmount and remounts at once, as when moved between
   // worktable and shelf). It also keeps two writes from sharing the temp file.
-  // Different files still run in parallel; an entry is dropped once it settles.
   // ponytail: clear(), getKeys() and copyFileDataStorage() act on the whole
   // folder and are not ordered against these per-file operations.
-  const queues = new Map<string, Promise<void>>();
-  const inOrder = <T>(filePath: string, op: () => Promise<T>): Promise<T> => {
-    const run = (queues.get(filePath) ?? Promise.resolve()).then(op);
-    const settled = run.then(() => undefined, () => undefined);
-    queues.set(filePath, settled);
-    settled.then(() => {
-      if (queues.get(filePath) === settled) {
-        queues.delete(filePath);
-      }
-    });
-    return run;
-  };
+  const inOrder = createInOrder();
 
   return {
     deleteItem: async (key) => {

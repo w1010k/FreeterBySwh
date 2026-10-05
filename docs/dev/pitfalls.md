@@ -279,7 +279,7 @@
   같은 방식으로 실험하니 2,000회 중 2회 발생했다. 셸프 위젯은 항상 마운트되어 있어서 (`visibility: hidden`) 위젯을 옮기면 언마운트 직후 바로 다시 마운트된다. 지금은
   `setText`가 임시 파일에 쓴 뒤 `rename`하므로 빈 파일은 보이지 않는다. 하지만 대기열이 없으면 읽기가 쓰기보다 먼저 끝나 이전 내용을 읽을 수 있으므로 대기열은 여전히 필요하다.
   대기열은 두 쓰기가 같은 `.tmp` 파일을 동시에 쓰는 것도 막는다.
-- 규칙: `createFileDataStorage`의 `getText`, `setText`, `deleteItem`은 파일 경로별 대기열 (`inOrder`)을 거친다. 같은 파일을 읽고 쓰는 새 경로도 이 대기열을 거치게 한다. 렌더러의 flush 쓰기와 재마운트 읽기는 같은 깊이의 호출 경로로 IPC를 보내고, main의
+- 규칙: `createFileDataStorage`의 `getText`, `setText`, `deleteItem`은 파일 경로별 대기열 (`inOrder`, `src/main/infra/utils/atomicFile.ts` `createInOrder`)을 거친다. main `fsProvider`의 `readTextFile`, `writeTextFile`도 자기 대기열을 거친다 [fork #91]. 같은 파일을 읽고 쓰는 새 경로도 이 대기열을 거치게 한다. 렌더러의 flush 쓰기와 재마운트 읽기는 같은 깊이의 호출 경로로 IPC를 보내고, main의
   use case도 같은 깊이라서 쓰기가 대기열에 먼저 들어간다 (코드 경로 기준, 앱 실행으로는 확인하지 않음).
   폴더 단위 작업 (`clear`, `getKeys`)과 폴더 복사 (`copyFileDataStorage`)는 대기열 밖이다. 그래서 진행 중인 쓰기의 `.tmp`가 목록을 만든 뒤 사라질 수 있으므로 셋 다
   `.tmp`를 건너뛴다. 새 폴더 단위 작업도 `.tmp`를 건너뛰게 한다. 대기열 밖의 복사가 대상 파일을 열고 있으면 그 사이의 `rename`이 실패하고 직접 쓰기로 돌아간다. Analytics 서버도 telemetry를 같은 저장소 인스턴스의 `getText`로 읽으므로 대기열을 거친다. 서버는
@@ -724,6 +724,18 @@
 - 원인: `os_window` 이벤트의 `wflId`는 기록 시점에 Freeter에서 선택돼 있던 워크플로우일 뿐이다.
 - 규칙: 워크플로우 배분은 rollup의 `perWorkflowMs`(Freeter 체류)만 쓴다.
 - 근거: CHANGES #87, `src/renderer/base/telemetryInsights.ts`
+
+#### 위젯 렌더 오류가 앱 전체를 내림
+
+- 출처: `[upstream, fork #91에서 발견]`
+- 증상: Markdown Editor에서 표 셀에 `<br>`이 있는 문서를 열면 작업판의 위젯이 모두 사라졌다.
+- 원인: 앱에는 React error boundary가 없다. 위젯 하나의 렌더나 effect에서 난 예외가 루트까지 올라가 React가 트리 전체를 내린다. 이번 예외는 MDXEditor가 표 셀을
+  셀 에디터 (`CellEditor`)에서 따로 파싱하다 던진 `UnrecognizedMarkdownConstructError`다. 문서 본문 파싱과 달리 `onError`로 보고되지 않는다
+  (`suppressHtmlProcessing` 사용 시 HTML 노드).
+- 규칙: 위젯 셸이 위젯마다 `WidgetErrorBoundary`로 본문을 감싼다 (CHANGES #92). 오류가 난 위젯만 오류 안내와 Retry 버튼으로 바뀌고, 설정이 바뀌면 다시
+  시도한다. 위젯 안에서 더 좁게 격리하고 싶으면 위젯이 자기 boundary를 둔다 (Markdown Editor의 탭별 `DocErrorBoundary`). 이벤트 핸들러와 비동기 코드의 예외는
+  boundary가 잡지 않는다.
+- 근거: CHANGES #91, #92, `src/renderer/ui/components/widget/widgetErrorBoundary.tsx`, `src/renderer/widgets/markdown-editor/docEditor.tsx` `DocErrorBoundary`
 
 ### 빌드, 의존성, 테스트
 
