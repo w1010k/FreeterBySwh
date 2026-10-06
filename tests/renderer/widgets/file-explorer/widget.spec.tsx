@@ -48,19 +48,19 @@ describe('File Explorer Widget', () => {
     // roots are fed as presorted input so the tree keeps the user's order.
     setupSut(fixtureSettings({ paths: ['/home/user/Downloads', '/home/user/Documents'] }));
 
-    expect(treesMock.__getModel().resetPaths).toHaveBeenCalledWith(undefined, { preparedInput: { paths: ['Downloads/', 'Documents/'] } });
+    expect(treesMock.__getModel().resetPaths).toHaveBeenCalledWith({ preparedInput: { paths: ['Downloads/', 'Documents/'] } });
   })
 
   it('should disambiguate root nodes that share a basename', () => {
     setupSut(fixtureSettings({ paths: ['/a/src', '/b/src'] }));
 
-    expect(treesMock.__getModel().resetPaths).toHaveBeenCalledWith(undefined, { preparedInput: { paths: ['src/', 'src (2)/'] } });
+    expect(treesMock.__getModel().resetPaths).toHaveBeenCalledWith({ preparedInput: { paths: ['src/', 'src (2)/'] } });
   })
 
   it('should ignore empty path entries', () => {
     setupSut(fixtureSettings({ paths: ['', '/home/user/Documents', '  '] }));
 
-    expect(treesMock.__getModel().resetPaths).toHaveBeenCalledWith(undefined, { preparedInput: { paths: ['Documents/'] } });
+    expect(treesMock.__getModel().resetPaths).toHaveBeenCalledWith({ preparedInput: { paths: ['Documents/'] } });
   })
 
   it('should NOT open a directory on double-click (reserved for expand/collapse)', async () => {

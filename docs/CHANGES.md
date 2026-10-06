@@ -1274,6 +1274,9 @@ Webpage 위젯에 포커스가 있을 때 `F5` 또는 `Ctrl/Cmd+R`로 페이지�
    `resetPaths(paths, { preparedInput })` 경로가 **presorted 입력은 검증·재정렬 없이 그대로 신뢰**함을 확인 → 루트는
    `preparePresortedFileTreeInput(...)`로 등록 순서 그대로 넣고 (`paths` 인자는 생략: 둘 다 주면 `paths`를 기본 정렬해 presorted와 일치하는지 검증하다
    throw), 자식은 `model.add`가 기존처럼 `sort:'default'`(natural)로 삽입. comparator 재구현 없이 자식 동작은 무변경.
+   호출은 options만 받는 형태 `resetPaths({ preparedInput })`로 한다. 처음엔 `resetPaths(undefined, { preparedInput })`로 썼는데,
+   1.0.0-beta.6부터 첫 인자가 배열이 아니면 그 인자를 options로 읽어 `undefined.preparedInput`에서 throw했다 (v2.8.0-swh.18~19에서 위젯이
+   오류 화면으로 멈춤). 테스트는 `@pierre/trees`를 mock으로 대체하므로 이런 라이브러리 시그니처 변화는 잡지 못한다.
 
 > 런타임 (beta 라이브러리)의 빈 폴더 펼침·컨텍스트 메뉴 배치 등 일부 동작은 단위 테스트가 mock 기반이라, 실제 Electron에서 스모크 검증함 (트리 표시·lazy 펼침·더블클릭 열기·우클릭 메뉴
 > 위치·파일크기·검색창 모두 확인).

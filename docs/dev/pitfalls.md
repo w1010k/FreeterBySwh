@@ -619,6 +619,17 @@
 - 규칙: 이 라이브러리 입력에 한글 지원을 기대하는 기능을 얹지 않는다. 자체 검색창은 보류 과제다.
 - 근거: CHANGES #31
 
+#### beta 라이브러리의 시그니처 변화
+
+- 출처: `[fork #31]`
+- 증상: 의존성 범위 안 업데이트 (`^1.0.0-beta.4` → beta.6) 뒤 File Explorer가 `Cannot read properties of undefined (reading 'preparedInput')`
+  오류 화면으로 멈췄다. Jest는 통과했다.
+- 원인: beta.6의 `resetPaths`는 첫 인자가 배열이 아니면 그 인자를 options로 읽는다. `resetPaths(undefined, { preparedInput })`가 깨졌다. Jest는
+  수동 mock을 쓰므로 실제 라이브러리 동작을 확인하지 않는다.
+- 규칙: 라이브러리가 타입으로 선언한 오버로드만 쓴다 (`resetPaths({ preparedInput })`). `undefined as unknown as ...` 같은 캐스트로 시그니처를 우회하지 않는다.
+  `@pierre/trees`를 올린 뒤에는 앱에서 File Explorer와 Markdown Editor를 직접 열어 확인한다.
+- 근거: CHANGES #31, `src/renderer/widgets/file-explorer/widget.tsx`
+
 ### 위젯 간 공유 데이터 동기화
 
 #### widgetApi 메모이제이션

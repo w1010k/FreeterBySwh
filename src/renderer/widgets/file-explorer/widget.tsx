@@ -114,7 +114,9 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     // tree keeps the user's configured folder order verbatim instead of applying
     // its default folder sort. Children loaded lazily below still use the tree's
     // default (natural, folders-first) sibling sort, which respects `sort: 'default'`.
-    model.resetPaths(undefined as unknown as readonly string[], { preparedInput: preparePresortedFileTreeInput(built.treePaths) });
+    // Use the options-only overload: since @pierre/trees 1.0.0-beta.6 a non-array
+    // first argument is read as the options object, so `resetPaths(undefined, {...})` throws.
+    model.resetPaths({ preparedInput: preparePresortedFileTreeInput(built.treePaths) });
   }, [pathsKey, showFileSize, showHiddenFiles, model, registerEntries]);
 
   // Rebuild the root from the configured favorite folders whenever they change.
