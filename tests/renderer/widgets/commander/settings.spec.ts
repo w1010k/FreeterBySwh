@@ -14,7 +14,7 @@ describe('Commander Widget Settings', () => {
     const settings = fixtureSettings({ cmds: ['cmd1', 'cmd2'], cwd: 'some/dir' });
     setupSettingsSut(settingsEditorComp, settings);
 
-    const cmdLineInputs = screen.getByText('Command-lines').parentElement!.querySelectorAll('input');
+    const cmdLineInputs = screen.getByText('Command-Lines').parentElement!.querySelectorAll('input');
     expect(cmdLineInputs.length).toBe(2);
     expect(cmdLineInputs[0]).toHaveValue(settings.cmds[0]);
     expect(cmdLineInputs[1]).toHaveValue(settings.cmds[1]);
@@ -25,7 +25,7 @@ describe('Commander Widget Settings', () => {
     const testCmds = ['cmd1', 'cmd2'];
     const settings = fixtureSettings({ cmds: testCmds });
     const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
-    const cmdLineInputs = screen.getByText('Command-lines').parentElement!.querySelectorAll('input');
+    const cmdLineInputs = screen.getByText('Command-Lines').parentElement!.querySelectorAll('input');
     const testInput = cmdLineInputs[1];
 
     await userEvent.type(testInput, ' test');

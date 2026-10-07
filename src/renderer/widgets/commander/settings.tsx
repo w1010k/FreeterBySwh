@@ -55,7 +55,7 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
     <>
       <SettingBlock
         titleForId='cmd0'
-        title='Command-lines'
+        title='Command-Lines'
         moreInfo='Specify the command-lines to run. Each command-line will be executed in a separate shell instance.'
       >
         {settings.cmds.map((cmd, i) => (

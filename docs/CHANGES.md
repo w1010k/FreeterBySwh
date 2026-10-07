@@ -3462,7 +3462,8 @@ Webpage 위젯의 멀티탭 (#67) 순서를 설정 화면에서 바꿀 수 있�
   | Test Sound 버튼 | 볼륨 행 | 사운드 행 | 사운드 행 |
 
 - **0% 볼륨**: 이전에는 End Sound Volume에서 0%를 고르면 Timer는 80%, Pomodoro는 70%로 저장됐다. 이제 0%가 그대로 저장된다.
-- **File Explorer**: 설정 제목 "File sizes", "Hidden files"가 다른 위젯과 같은 Title Case ("File Sizes", "Hidden Files")가 된다.
+- **설정 제목 표기**: File Explorer의 "File sizes", "Hidden files"와 Commander의 "Command-lines"가 다른 위젯과 같은 Title Case ("File Sizes",
+  "Hidden Files", "Command-Lines")가 된다.
 - Clock, D-Day, Web Query 설정 화면의 모양은 바뀌지 않는다 (스타일 소스만 합쳤다).
 
 ### 아키텍처
@@ -3489,8 +3490,10 @@ Webpage 위젯의 멀티탭 (#67) 순서를 설정 화면에서 바꿀 수 있�
 
 - **신규**: `src/renderer/widgets/timer/endSoundSettings.tsx`, `src/renderer/widgets/_settingEntries.scss`
 - **수정**: `src/renderer/widgets/timer/settings.tsx`, `src/renderer/widgets/pomodoro/settings.tsx`, `src/renderer/widgets/file-explorer/settings.tsx`,
-  `src/renderer/widgets/_template/settings.tsx`, `src/renderer/widgets/{clock,d-day,web-query}/settings.module.scss`
-- **테스트**: `tests/renderer/widgets/timer/settings.spec.ts` (사운드 제목 쿼리 변경, +1), `tests/renderer/widgets/pomodoro/settings.spec.ts` (+1)
+  `src/renderer/widgets/commander/settings.tsx`, `src/renderer/widgets/_template/settings.tsx`,
+  `src/renderer/widgets/{clock,d-day,web-query}/settings.module.scss`
+- **테스트**: `tests/renderer/widgets/timer/settings.spec.ts` (사운드 제목 쿼리 변경, +1), `tests/renderer/widgets/pomodoro/settings.spec.ts` (+1),
+  `tests/renderer/widgets/commander/settings.spec.ts` (제목 텍스트 변경)
 - **문서**: `docs/dev/features-widgets.md`, `docs/dev/procedures.md`, `docs/dev/decisions.md`, `docs/dev/pitfalls.md`
 
 ## 부록: 참고 문서
