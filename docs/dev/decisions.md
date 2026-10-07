@@ -537,7 +537,12 @@
 - 상태: 유효
 - 출처: `[fork #94]`
 - 결정: 설정 블록 제목은 Title Case로 쓴다. 여러 위젯에 같은 설정이 있으면 공통 컴포넌트 하나로 그린다 (Timer와 Pomodoro의 `EndSoundSettings`). 같은
-  행 스타일은 scss partial로 나눠 쓴다 (`_settingEntries.scss`).
+  행 스타일은 scss partial로 나눠 쓴다 (`_settingEntries.scss`). 문구 규칙은 아래와 같다.
+  - 블록마다 `moreInfo` 설명을 단다 (설정이 없는 위젯의 안내 블록은 제외). 아직 맞추지 않은 곳: Clock Format, D-Day Date, `_template` Text.
+  - 체크박스 라벨은 Sentence case로 쓴다 (예: "Show seconds").
+  - 동사로 시작하는 placeholder는 "Enter ..."로 쓴다.
+  - 삭제 버튼 이름은 "Delete ..."로 쓴다.
+  - 위젯의 빈 상태 문구는 "No X configured. Add X in the widget settings." 형식으로 쓴다.
 - 이유: 같은 옵션이 위젯마다 다른 제목, 다른 버튼 위치, 다른 볼륨 목록으로 보였다. 따로 복사한 코드에서 0% 볼륨 버그도 두 번 생겼다 (사용자 결정, 2026-10-07).
 - 버린 대안: `createSettingsState`의 `typeof` 검증 헬퍼 (저장 경로를 건드려 위험이 이득보다 크다). 모든 텍스트 입력에 디바운스 (pitfalls.md "모듈 스코프
   debounce"의 버그 선례). 두 목록 방식의 통합 (Clock, D-Day, Web Query의 접근성 이름과 spec이 바뀐다. 필요하면 별도 작업).

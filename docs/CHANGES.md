@@ -3466,6 +3466,19 @@ Webpage 위젯의 멀티탭 (#67) 순서를 설정 화면에서 바꿀 수 있�
   "Hidden Files", "Command-Lines")가 된다.
 - Clock, D-Day, Web Query 설정 화면의 모양은 바뀌지 않는다 (스타일 소스만 합쳤다).
 
+### 후속: 문구 통일
+
+같은 날 저장 데이터와 로직은 그대로 두고 화면 문구만 맞췄다.
+
+| 항목 | 이전 | 이후 |
+|------|------|------|
+| 설명 아이콘 (`moreInfo`) | Timer, Pomodoro는 없음. Note는 Shared Data에만 있음 | Timer, Pomodoro, Note의 모든 블록에 있음 (End Sound 두 블록은 `EndSoundSettings` 한 곳). Clock Format, D-Day Date 블록은 아직 없음 |
+| 체크박스 라벨 | To-Do List "Move It To Bottom" | "Move it to bottom" (다른 체크박스와 같은 Sentence case) |
+| placeholder 동사 | Webpage "Type a URL", "Type CSS", "Type JS", "Type User Agent string", Commander "Set a directory path" | "Enter ..." (다른 위젯과 같음) |
+| 목록 ✕ 버튼 접근성 이름 | Clock, D-Day, Web Query "Remove clock #1" 등 | "Delete clock #1" 등 (`SettingActions`의 "Delete URL" 등과 같은 동사) |
+| 빈 상태 문구 | "Command-lines not specified.", "Files not specified", "URLs not specified", "Webpage URL not specified." | "No command-lines configured. Add command-lines in the widget settings." 형식 (File Explorer, Markdown Editor와 같음). Webpage는 "No URL configured. Enter a URL in the widget settings." |
+
+
 ### 아키텍처
 
 - `src/renderer/widgets/timer/endSoundSettings.tsx` `EndSoundSettings`: End Sound와 End Sound Volume 블록, 볼륨 목록, Test Sound 재생 (`useAudioFile`)을 담는다.
@@ -3483,7 +3496,7 @@ Webpage 위젯의 멀티탭 (#67) 순서를 설정 화면에서 바꿀 수 있�
   유지한다. 같은 패턴이 남은 곳 (Timer 시간, Pomodoro 시간과 긴 휴식, Webpage Auto-Reload)은 목록에 0이 없거나 fallback이 0이라서 안전하다.
 - 세 scss의 덮어쓰기 대상이 조금씩 달랐다 (D-Day는 `input[type=date]`, Web Query는 `select`). partial은 합집합을 쓴다. 각 위젯에 없는 컨트롤을 가리키는 선택자는
   효과가 없다. 바꾸기 전후의 sass 컴파일 결과를 비교해 이 점을 확인했다.
-- 두 가지 목록 방식 (Clock, D-Day, Web Query의 텍스트 버튼과 다른 위젯의 `SettingActions` 아이콘)은 이번에 합치지 않았다. 합치면 접근성 이름 (`Remove D-day #1`
+- 두 가지 목록 방식 (Clock, D-Day, Web Query의 텍스트 버튼과 다른 위젯의 `SettingActions` 아이콘)은 이번에 합치지 않았다. 합치면 접근성 이름 (`Delete D-day #1`
   등)과 spec이 바뀐다.
 
 ### 수정 파일
@@ -3494,6 +3507,10 @@ Webpage 위젯의 멀티탭 (#67) 순서를 설정 화면에서 바꿀 수 있�
   `src/renderer/widgets/{clock,d-day,web-query}/settings.module.scss`
 - **테스트**: `tests/renderer/widgets/timer/settings.spec.ts` (사운드 제목 쿼리 변경, +1), `tests/renderer/widgets/pomodoro/settings.spec.ts` (+1),
   `tests/renderer/widgets/commander/settings.spec.ts` (제목 텍스트 변경)
+- **후속 수정 (문구 통일)**: `src/renderer/widgets/{note,to-do-list,webpage,clock,d-day,web-query}/settings.tsx`, `src/renderer/widgets/timer/endSoundSettings.tsx`,
+  `src/renderer/widgets/{commander,file-opener,link-opener,webpage}/widget.tsx`
+- **후속 테스트**: `tests/renderer/widgets/{d-day,web-query}/settings.spec.ts` (Delete 이름), `tests/renderer/widgets/{commander,file-opener,link-opener,webpage}/widget.spec.ts`
+  (빈 상태 문구)
 - **문서**: `docs/dev/features-widgets.md`, `docs/dev/procedures.md`, `docs/dev/decisions.md`, `docs/dev/pitfalls.md`
 
 ## 부록: 참고 문서

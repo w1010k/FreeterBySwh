@@ -152,7 +152,7 @@
     `sharedKeyId`를 `null`로 바꾸고, 키 엔티티를 지운다. 설정 화면의 OK와 무관하다.
 - **편집기 공통 부품과 패턴**:
   - 블록은 `SettingBlock`, 한 줄 배치는 `SettingRow`, 행 버튼은 `SettingActions`를 쓴다 (`@/widgets/appModules`). 블록 제목은 Title Case다
-    ([decisions.md](decisions.md) D62) [fork #94].
+    ([decisions.md](decisions.md) D62) [fork #94]. 체크박스 라벨, placeholder, 삭제 버튼 이름, 위젯 빈 상태 문구의 규칙도 D62에 있다.
   - 텍스트 입력은 대부분 `onChange`마다 `updateSettings`를 부른다. 디바운스는 Webpage만 쓴다 (`DebouncedTextField`, `debounceUpdate3s`).
   - 목록형 설정은 두 방식이다. Commander, File Explorer, File Opener, Link Opener, Webpage는 `SettingRow` + `SettingActions`
     (`arrUp14Svg`/`arrDown14Svg`/`delete14Svg`)와 primary `Button`을 쓴다 [fork #75]. Clock, D-Day, Web Query는 `#N` 번호, 텍스트 버튼(↑ ↓ ✕),
