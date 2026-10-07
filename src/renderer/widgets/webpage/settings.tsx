@@ -223,7 +223,7 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
                   multiple tabs; leave it empty to use the page title.'
       >
         <SettingRow>
-          <input id="webpage-url" type="text" style={{flex: 2}} value={url} onChange={e => updateUrl(e.target.value, true)} onBlur={e=>updateUrl(e.target.value, false)} placeholder="Type a URL" />
+          <input id="webpage-url" type="text" style={{flex: 2}} value={url} onChange={e => updateUrl(e.target.value, true)} onBlur={e=>updateUrl(e.target.value, false)} placeholder="Enter a URL" />
           <input type="text" style={{flex: 1}} aria-label='Tab Name' value={urlName} onChange={e => updateUrlName(e.target.value, true)} onBlur={e=>updateUrlName(e.target.value, false)} placeholder="Tab name (optional)" />
         </SettingRow>
       </SettingBlock>
@@ -243,7 +243,7 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
               style={{flex: 2}}
               aria-label={'Tab URL ' + (i + 1)}
               value={tab.url}
-              placeholder='Type a URL'
+              placeholder='Enter a URL'
               onChange={e => updTab(i, { url: e.target.value }, true)}
               onBlur={e => updTab(i, { url: e.target.value }, false)}
             />
@@ -397,7 +397,7 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
         title='Inject CSS'
         moreInfo='Inject the following CSS style into the webpage.'
       >
-        <textarea id="webpage-inject-css" value={settings.injectedCSS} onChange={e => updateSettings({...settings, injectedCSS: e.target.value})} placeholder="Type CSS"></textarea>
+        <textarea id="webpage-inject-css" value={settings.injectedCSS} onChange={e => updateSettings({...settings, injectedCSS: e.target.value})} placeholder="Enter CSS"></textarea>
       </SettingBlock>
 
       <SettingBlock
@@ -405,7 +405,7 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
         title='Inject JS'
         moreInfo='Inject the following JS script into the webpage.'
       >
-        <textarea id="webpage-inject-js" value={injectedJs} onChange={e => updateInjectedJs(e.target.value, true)} onBlur={e=>updateInjectedJs(e.target.value, false)} placeholder="Type JS"></textarea>
+        <textarea id="webpage-inject-js" value={injectedJs} onChange={e => updateInjectedJs(e.target.value, true)} onBlur={e=>updateInjectedJs(e.target.value, false)} placeholder="Enter JS"></textarea>
       </SettingBlock>
 
       <SettingBlock
@@ -413,7 +413,7 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
         title='User Agent'
         moreInfo='Set the following User Agent string for the webpage.'
       >
-        <input id="webpage-user-agent" type="text" value={userAgent} onChange={e => updateUserAgent(e.target.value, true)} onBlur={e=>updateUserAgent(e.target.value, false)} placeholder="Type User Agent string" />
+        <input id="webpage-user-agent" type="text" value={userAgent} onChange={e => updateUserAgent(e.target.value, true)} onBlur={e=>updateUserAgent(e.target.value, false)} placeholder="Enter a User Agent string" />
       </SettingBlock>
     </>
   )

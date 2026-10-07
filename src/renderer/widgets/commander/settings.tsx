@@ -113,7 +113,7 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
             type="text"
             value={settings.cwd}
             onChange={e => updCwd(settings, e.target.value)}
-            placeholder="Set a directory path"
+            placeholder="Enter a directory path"
           />
           <SettingActions
             actions={[{
