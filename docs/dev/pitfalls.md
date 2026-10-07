@@ -342,6 +342,14 @@
 - 규칙: 즉시 저장 경로는 대기 중인 호출을 `cancel()`한다. 설정 편집기가 언마운트될 때도 `cancel()`한다.
 - 근거: `src/renderer/widgets/webpage/settings.tsx` `debounceUpdate3s`
 
+#### 숫자 select의 `|| fallback`
+
+- 출처: `[fork #94]`
+- 증상: (2026-10-07 이전) Timer와 Pomodoro 설정에서 End Sound Volume을 0%로 고르면 80% (Timer) 또는 70% (Pomodoro)가 저장됐다.
+- 원인: `onChange`가 `Number(e.target.value) || 80`을 썼다. `0`은 falsy라서 유효한 선택인 0이 fallback으로 바뀐다.
+- 규칙: 0이 들어 있는 숫자 목록은 `Number.isNaN`으로 검사한다. `|| fallback`은 목록에 0이 없거나 fallback이 0일 때만 쓴다.
+- 근거: `src/renderer/widgets/timer/endSoundSettings.tsx` `EndSoundSettings`
+
 #### 텔레메트리 하루 파일
 
 - 출처: `[fork #63]`

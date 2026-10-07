@@ -532,6 +532,17 @@
   마운트 (탭 전환 때 실행 취소 기록 유실).
 - 근거: CHANGES #91, `src/renderer/widgets/markdown-editor/docEditor.tsx`, `src/main/infra/fsProvider/fsProvider.ts`
 
+#### D62. 위젯 설정 편집기의 일관성 규칙
+
+- 상태: 유효
+- 출처: `[fork #94]`
+- 결정: 설정 블록 제목은 Title Case로 쓴다. 여러 위젯에 같은 설정이 있으면 공통 컴포넌트 하나로 그린다 (Timer와 Pomodoro의 `EndSoundSettings`). 같은
+  행 스타일은 scss partial로 나눠 쓴다 (`_settingEntries.scss`).
+- 이유: 같은 옵션이 위젯마다 다른 제목, 다른 버튼 위치, 다른 볼륨 목록으로 보였다. 따로 복사한 코드에서 0% 볼륨 버그도 두 번 생겼다 (사용자 결정, 2026-10-07).
+- 버린 대안: `createSettingsState`의 `typeof` 검증 헬퍼 (저장 경로를 건드려 위험이 이득보다 크다). 모든 텍스트 입력에 디바운스 (pitfalls.md "모듈 스코프
+  debounce"의 버그 선례). 두 목록 방식의 통합 (Clock, D-Day, Web Query의 접근성 이름과 spec이 바뀐다. 필요하면 별도 작업).
+- 근거: CHANGES #94, `src/renderer/widgets/timer/endSoundSettings.tsx`, `src/renderer/widgets/_settingEntries.scss`
+
 ### 텔레메트리와 Analytics
 
 #### D53. 로컬 전용 opt-in 텔레메트리

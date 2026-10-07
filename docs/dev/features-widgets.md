@@ -150,8 +150,14 @@
   - `create(widgetType, name)`: id를 만들어 `entities.sharedDataKeys`에 즉시 추가하고 id를 반환한다. 설정 화면을 취소해도 키는 남는다.
   - `delete(keyId)`: `deleteSharedDataKeyUseCase`가 확인 다이얼로그 뒤 즉시 실행한다. 공유 폴더를 비우고, 그 키를 쓰던 모든 위젯의 개별 저장소도 비우고, 위젯 설정의
     `sharedKeyId`를 `null`로 바꾸고, 키 엔티티를 지운다. 설정 화면의 OK와 무관하다.
-- **편집기 공통 패턴**: 텍스트 입력은 로컬 state + 디바운스로 `updateSettings`를 부른다 (예: Webpage `settings.tsx`의 `DebouncedTextField`). 목록형
-  설정의 ↑/↓ 순서 변경은 `moveItemInList`와 `arrUp14Svg`/`arrDown14Svg`를 쓴다 [fork #75].
+- **편집기 공통 부품과 패턴**:
+  - 블록은 `SettingBlock`, 한 줄 배치는 `SettingRow`, 행 버튼은 `SettingActions`를 쓴다 (`@/widgets/appModules`). 블록 제목은 Title Case다
+    ([decisions.md](decisions.md) D62) [fork #94].
+  - 텍스트 입력은 대부분 `onChange`마다 `updateSettings`를 부른다. 디바운스는 Webpage만 쓴다 (`DebouncedTextField`, `debounceUpdate3s`).
+  - 목록형 설정은 두 방식이다. Commander, File Explorer, File Opener, Link Opener, Webpage는 `SettingRow` + `SettingActions`
+    (`arrUp14Svg`/`arrDown14Svg`/`delete14Svg`)와 primary `Button`을 쓴다 [fork #75]. Clock, D-Day, Web Query는 `#N` 번호, 텍스트 버튼(↑ ↓ ✕),
+    `+ Add ...` 버튼을 쓴다. 이 세 위젯의 행 스타일은 `src/renderer/widgets/_settingEntries.scss`이고, 각 `settings.module.scss`가 `@use`한다 [fork #94].
+  - 순서 변경은 각 편집기가 배열 원소를 직접 맞바꾼다. `moveItemInList`는 설정 편집기에서 쓰지 않는다.
 
 #### 데이터 저장
 
@@ -514,13 +520,14 @@
 #### Timer (`timer`)
 
 - **역할**: 카운트다운 타이머 [upstream].
-- **파일**: `widget.tsx`, `settings.tsx`, `useAudioFile.ts`, `mmss.ts`(`msecsToMMSS`, 0 미만은 `00:00`), `audio/timer-end/`(종료 사운드 파일과
-  `timerEndSoundFilesById`).
-- **설정**: `mins`, `endDesktop`(데스크톱 알림, 기본 켬) [fork #72], `endSound`, `endSoundVol`.
+- **파일**: `widget.tsx`, `settings.tsx`, `endSoundSettings.tsx`(`EndSoundSettings`, `endSoundOptions`), `useAudioFile.ts`, `mmss.ts`(`msecsToMMSS`,
+  0 미만은 `00:00`), `audio/timer-end/`(종료 사운드 파일과 `timerEndSoundFilesById`).
+- **설정**: `mins`, `endDesktop`(데스크톱 알림, 기본 켬) [fork #72], `endSound`, `endSoundVol`. End Sound와 End Sound Volume 블록은 `EndSoundSettings`가
+  그린다. Pomodoro도 같은 컴포넌트를 쓰고, 컨트롤 id 접두사(`timer-`, `pomodoro-`)만 다르다 [fork #94].
 - **저장 데이터**: 키 `state` = `{ endMsecs, pausedLeft }`. 실행 중이면 절대 종료 시각을 저장해 재시작 후 남은 시간으로 이어간다. 꺼진 사이 만료되면 소리·알림 없이 대기
   상태로 복원한다 [fork #73].
 - **동작**: 일시정지/재개 [fork #54], 실행·일시정지 중 헤더에 `mm:ss` 동적 타이틀 [fork #54], 종료 시 사운드와 `new Notification` [fork #72].
-- **주의점**: Pomodoro가 `timer/settings.tsx`(`endSoundOptions`), `timer/audio/timer-end`, `timer/useAudioFile.ts`, `timer/mmss.ts`,
+- **주의점**: Pomodoro가 `timer/endSoundSettings.tsx`(`EndSoundSettings`, `endSoundOptions`), `timer/audio/timer-end`, `timer/useAudioFile.ts`, `timer/mmss.ts`,
   `timer/icons`를 import한다. 이 모듈들을 바꾸면 Pomodoro도 영향을 받는다. `useAudioFile`이 돌려주는 객체는 `useMemo`로 고정된다. 두 위젯의 1초 interval은 이
   객체를 deps로 쓰므로, 고정되지 않으면 렌더마다 interval이 다시 시작된다.
 
@@ -573,6 +580,6 @@
 #### 템플릿 (`_template`)
 
 - **역할**: 새 위젯 스캐폴드. `widgets/index.ts`에 등록되지 않는다.
-- **파일**: `index.ts`(`id: 'widget-id'`, `minSize: 2×2`, `requiresApi: []`), `settings.tsx`(`text` 설정 하나와 편집기),
+- **파일**: `index.ts`(`id: 'widget-id'`, `minSize: 2×2`, `requiresApi: []`), `settings.tsx`(`text` 설정 하나와 `SettingBlock` 편집기 [fork #94]),
   `widget.tsx`(설정 텍스트 표시), `icons/`.
 - **포크 변경**: 템플릿 `minSize`를 1×1에서 2×2로 바꿨다. 격자 2배 커밋 (e5fee45)에 포함된 변경이다 [fork #34].

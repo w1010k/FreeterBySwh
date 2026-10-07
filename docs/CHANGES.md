@@ -3447,6 +3447,52 @@ Webpage 위젯의 멀티탭 (#67) 순서를 설정 화면에서 바꿀 수 있�
 - **테스트**: `tests/renderer/widgets/webpage/settings.spec.ts` (+1), `tests/renderer/widgets/webpage/widget.spec.ts` (+1)
 - **문서**: `docs/dev/features-widgets.md`, `docs/dev/pitfalls.md`
 
+## 94. 위젯 설정 편집기 일관성 정리 *(2026-10-07)*
+
+같은 성격의 설정이 위젯마다 다른 제목과 다른 배치로 보이던 것을 맞춘다. 같은 코드를 위젯마다 복사해 둔 곳은 공통 부품으로 합친다. 이 정리 중에 Timer와 Pomodoro의 0% 볼륨 버그를 발견해 함께 고쳤다.
+
+### 사용자 관점
+
+- **Timer, Pomodoro 종료 사운드**: 두 위젯의 설정 블록이 같은 모양이 된다.
+
+  | 항목 | 이전 Timer | 이전 Pomodoro | 이후 (두 위젯 공통) |
+  |------|------------|---------------|---------------------|
+  | 사운드 제목 | Play Sound When Timer Ends | Phase-End Sound | End Sound |
+  | 볼륨 제목 | End Sound Volume | Sound Volume | End Sound Volume |
+  | Test Sound 버튼 | 볼륨 행 | 사운드 행 | 사운드 행 |
+
+- **0% 볼륨**: 이전에는 End Sound Volume에서 0%를 고르면 Timer는 80%, Pomodoro는 70%로 저장됐다. 이제 0%가 그대로 저장된다.
+- **File Explorer**: 설정 제목 "File sizes", "Hidden files"가 다른 위젯과 같은 Title Case ("File Sizes", "Hidden Files")가 된다.
+- Clock, D-Day, Web Query 설정 화면의 모양은 바뀌지 않는다 (스타일 소스만 합쳤다).
+
+### 아키텍처
+
+- `src/renderer/widgets/timer/endSoundSettings.tsx` `EndSoundSettings`: End Sound와 End Sound Volume 블록, 볼륨 목록, Test Sound 재생 (`useAudioFile`)을 담는다.
+  위젯은 `idPrefix`만 넘기므로 컨트롤 id (`timer-endSound`, `pomodoro-endSoundVol` 등)는 이전과 같다. `endSoundOptions`도 이 파일로 옮겼다. Pomodoro는 이미
+  timer 폴더의 모듈을 쓰고 있어서 같은 폴더에 두었다.
+- `src/renderer/widgets/_settingEntries.scss`: Clock, D-Day, Web Query의 `.entries`/`.entry`/`.num`/`.add` 규칙을 모은 scss partial이다. 각 위젯의
+  `settings.module.scss`가 `@use`하므로 규칙은 그 CSS 모듈 안에서 컴파일되고 클래스 이름도 위젯마다 따로 유지된다. 필드 너비 규칙만 각 위젯에 남는다.
+- `_template` 편집기가 `SettingBlock`을 쓴다. 새 위젯이 처음부터 다른 편집기와 같은 모양으로 시작한다.
+- 규칙: 설정 블록 제목은 Title Case (`docs/dev/decisions.md` D62).
+- 저장되는 설정 형태와 `createSettingsState`는 바꾸지 않았다. 마이그레이션은 없다.
+
+### 까다로웠던 포인트
+
+- 0% 버그의 원인은 `Number(e.target.value) || 80`이다. `0`은 falsy라서 fallback으로 바뀐다. 공통 컴포넌트는 `Number.isNaN`으로 검사하고, NaN이면 현재 값을
+  유지한다. 같은 패턴이 남은 곳 (Timer 시간, Pomodoro 시간과 긴 휴식, Webpage Auto-Reload)은 목록에 0이 없거나 fallback이 0이라서 안전하다.
+- 세 scss의 덮어쓰기 대상이 조금씩 달랐다 (D-Day는 `input[type=date]`, Web Query는 `select`). partial은 합집합을 쓴다. 각 위젯에 없는 컨트롤을 가리키는 선택자는
+  효과가 없다. 바꾸기 전후의 sass 컴파일 결과를 비교해 이 점을 확인했다.
+- 두 가지 목록 방식 (Clock, D-Day, Web Query의 텍스트 버튼과 다른 위젯의 `SettingActions` 아이콘)은 이번에 합치지 않았다. 합치면 접근성 이름 (`Remove D-day #1`
+  등)과 spec이 바뀐다.
+
+### 수정 파일
+
+- **신규**: `src/renderer/widgets/timer/endSoundSettings.tsx`, `src/renderer/widgets/_settingEntries.scss`
+- **수정**: `src/renderer/widgets/timer/settings.tsx`, `src/renderer/widgets/pomodoro/settings.tsx`, `src/renderer/widgets/file-explorer/settings.tsx`,
+  `src/renderer/widgets/_template/settings.tsx`, `src/renderer/widgets/{clock,d-day,web-query}/settings.module.scss`
+- **테스트**: `tests/renderer/widgets/timer/settings.spec.ts` (사운드 제목 쿼리 변경, +1), `tests/renderer/widgets/pomodoro/settings.spec.ts` (+1)
+- **문서**: `docs/dev/features-widgets.md`, `docs/dev/procedures.md`, `docs/dev/decisions.md`, `docs/dev/pitfalls.md`
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

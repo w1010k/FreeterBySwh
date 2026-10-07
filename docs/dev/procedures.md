@@ -24,7 +24,8 @@ CI (`.github/workflows/ci.yml`)와 같은 순서로 실행한다. 4단계 모두
 
 ### 새 위젯 추가
 
-`src/renderer/widgets/_template/`이 기준 골격이다 (`index.ts`, `settings.tsx`, `widget.tsx`, `icons/`).
+`src/renderer/widgets/_template/`이 기준 골격이다 (`index.ts`, `settings.tsx`, `widget.tsx`, `icons/`). 템플릿 편집기는 `SettingBlock`을 쓴다. 새 설정도
+`SettingBlock`으로 감싸고, 제목은 Title Case로, `titleForId`는 컨트롤 id로 쓴다 ([decisions.md](decisions.md) D62).
 
 1. `src/renderer/widgets/_template/`을 `src/renderer/widgets/<id>/`로 복사한다.
 2. `<id>/index.ts`의 `WidgetType` 필드를 채운다: `id`, `name`, `icon`, `minSize`, `description`, `requiresApi`, 필요하면
