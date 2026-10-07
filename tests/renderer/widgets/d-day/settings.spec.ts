@@ -56,7 +56,7 @@ describe('D-Day Widget Settings editor', () => {
     expect(getSettings().entries).toHaveLength(2);
   });
 
-  it('removes an entry with its remove button', async () => {
+  it('removes an entry with its delete button', async () => {
     const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, {
       showDate: false,
       entries: [
@@ -65,7 +65,7 @@ describe('D-Day Widget Settings editor', () => {
       ]
     });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Remove D-day #1' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Delete D-day #1' }));
 
     expect(getSettings().entries).toEqual([{ id: 'b', label: 'B', date: '2026-02-02' }]);
   });

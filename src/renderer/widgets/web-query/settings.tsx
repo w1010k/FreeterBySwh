@@ -306,7 +306,7 @@ Make sure that any Webpage widget you want to use for queries includes the capit
                   onChange={e => updEntry(entry.id, { query: e.target.value })}
                   placeholder="Query template (optional)"
                 />
-                <button type="button" aria-label={`Remove query #${idx + 1}`} onClick={() => removeEntry(entry.id)}>✕</button>
+                <button type="button" aria-label={`Delete query #${idx + 1}`} onClick={() => removeEntry(entry.id)}>✕</button>
               </div>
             );
           })}

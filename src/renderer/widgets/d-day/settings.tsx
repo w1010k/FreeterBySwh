@@ -131,7 +131,7 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
               value={entry.date}
               onChange={e => updEntry(entry.id, { date: e.target.value })}
             />
-            <button type="button" aria-label={`Remove D-day #${idx + 1}`} onClick={() => removeEntry(entry.id)}>✕</button>
+            <button type="button" aria-label={`Delete D-day #${idx + 1}`} onClick={() => removeEntry(entry.id)}>✕</button>
           </div>
         ))}
       </div>

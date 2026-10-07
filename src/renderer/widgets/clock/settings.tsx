@@ -128,7 +128,7 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
                 onChange={e => updEntry(entry.id, { timeZone: e.target.value })}
                 placeholder="Time zone (empty = local)"
               />
-              <button type="button" aria-label={`Remove clock #${idx + 1}`} onClick={() => removeEntry(entry.id)}>✕</button>
+              <button type="button" aria-label={`Delete clock #${idx + 1}`} onClick={() => removeEntry(entry.id)}>✕</button>
             </div>
           ))}
         </div>

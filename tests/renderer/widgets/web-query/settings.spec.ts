@@ -148,14 +148,14 @@ describe('Web Query Widget Settings', () => {
     expect(getSettings().entries[1].engine).toBe(defaultEngine.id);
   })
 
-  it('should remove a query entry on its "Remove" click', async () => {
+  it('should remove a query entry on its "Delete" click', async () => {
     const settings = {
       mode: SettingsMode.Browser,
       entries: [fixtureEntry({ id: 'a', engine: 'goog' }), fixtureEntry({ id: 'b', engine: 'bing' })]
     };
     const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
 
-    await userEvent.click(screen.getByRole('button', { name: /remove query #1/i }));
+    await userEvent.click(screen.getByRole('button', { name: /delete query #1/i }));
 
     expect(getSettings().entries).toHaveLength(1);
     expect(getSettings().entries[0].id).toBe('b');
@@ -165,7 +165,7 @@ describe('Web Query Widget Settings', () => {
     const settings = fixtureSettings1(SettingsMode.Browser, { id: 'only', engine: 'goog' });
     const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
 
-    await userEvent.click(screen.getByRole('button', { name: /remove query #1/i }));
+    await userEvent.click(screen.getByRole('button', { name: /delete query #1/i }));
 
     expect(getSettings().entries).toHaveLength(1);
     expect(getSettings().entries[0].id).not.toBe('only');
