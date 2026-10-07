@@ -93,6 +93,7 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
     <SettingBlock
       titleForId='d-day-show-date'
       title='Date'
+      moreInfo='Show each target date with its weekday below the countdown.'
     >
       <label>
         <input

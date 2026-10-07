@@ -88,7 +88,7 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
 
   return (
     <>
-      <SettingBlock titleForId='clock-format' title='Format'>
+      <SettingBlock titleForId='clock-format' title='Format' moreInfo='How every clock in this widget shows the time.'>
         <div>
           <label><input type="checkbox" id="clock-format" checked={settings.hour12} onChange={() => toggle('hour12')} /> 12-hour clock</label>
         </div>

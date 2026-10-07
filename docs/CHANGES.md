@@ -3472,7 +3472,7 @@ Webpage 위젯의 멀티탭 (#67) 순서를 설정 화면에서 바꿀 수 있�
 
 | 항목 | 이전 | 이후 |
 |------|------|------|
-| 설명 아이콘 (`moreInfo`) | Timer, Pomodoro는 없음. Note는 Shared Data에만 있음 | Timer, Pomodoro, Note의 모든 블록에 있음 (End Sound 두 블록은 `EndSoundSettings` 한 곳). Clock Format, D-Day Date 블록은 아직 없음 |
+| 설명 아이콘 (`moreInfo`) | Timer, Pomodoro는 없음. Note는 Shared Data에만 있음 | Timer, Pomodoro, Note, Clock Format, D-Day Date에 추가해 모든 블록에 있음 (End Sound 두 블록은 `EndSoundSettings` 한 곳) |
 | 체크박스 라벨 | To-Do List "Move It To Bottom" | "Move it to bottom" (다른 체크박스와 같은 Sentence case) |
 | placeholder 동사 | Webpage "Type a URL", "Type CSS", "Type JS", "Type User Agent string", Commander "Set a directory path" | "Enter ..." (다른 위젯과 같음) |
 | 목록 ✕ 버튼 접근성 이름 | Clock, D-Day, Web Query "Remove clock #1" 등 | "Delete clock #1" 등 (`SettingActions`의 "Delete URL" 등과 같은 동사) |

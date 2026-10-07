@@ -538,7 +538,7 @@
 - 출처: `[fork #94]`
 - 결정: 설정 블록 제목은 Title Case로 쓴다. 여러 위젯에 같은 설정이 있으면 공통 컴포넌트 하나로 그린다 (Timer와 Pomodoro의 `EndSoundSettings`). 같은
   행 스타일은 scss partial로 나눠 쓴다 (`_settingEntries.scss`). 문구 규칙은 아래와 같다.
-  - 블록마다 `moreInfo` 설명을 단다 (설정이 없는 위젯의 안내 블록은 제외). 아직 맞추지 않은 곳: Clock Format, D-Day Date, `_template` Text.
+  - 블록마다 `moreInfo` 설명을 단다 (설정이 없는 위젯의 안내 블록은 제외). 아직 맞추지 않은 곳: `_template` Text.
   - 체크박스 라벨은 Sentence case로 쓴다 (예: "Show seconds").
   - 동사로 시작하는 placeholder는 "Enter ..."로 쓴다.
   - 삭제 버튼 이름은 "Delete ..."로 쓴다.
