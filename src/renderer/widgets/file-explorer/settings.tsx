@@ -107,7 +107,7 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
     </SettingBlock>
     <SettingBlock
       titleForId='file-explorer-show-file-size'
-      title='File sizes'
+      title='File Sizes'
       moreInfo='Show each file’s size at the right end of its row.'
     >
       <label>
@@ -121,7 +121,7 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
     </SettingBlock>
     <SettingBlock
       titleForId='file-explorer-show-hidden-files'
-      title='Hidden files'
+      title='Hidden Files'
       moreInfo='Show entries whose name starts with a dot (e.g. .git, .env). The Windows “hidden” file attribute is not used — only the leading-dot convention.'
     >
       <label>
