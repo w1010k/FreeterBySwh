@@ -746,7 +746,7 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
 
   if (entries.length === 0) {
     return <div className={styles['not-configured']}>
-      Webpage URL not specified.
+      No URL configured. Enter a URL in the widget settings.
     </div>
   }
 

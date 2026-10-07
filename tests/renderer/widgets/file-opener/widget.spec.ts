@@ -20,28 +20,28 @@ function setupSut(settings: Settings, optional?: SetupWidgetSutOptional) {
 }
 
 describe('File Opener Widget', () => {
-  it('should render a "not specified" note, if files is empty, when type=file', () => {
+  it('should render a "not configured" note, if files is empty, when type=file', () => {
     setupSut(fixtureSettings({ type: SettingsType.File, files: [], folders: ['not-empty'] }));
 
-    expect(screen.getByText(/files not specified/i)).toBeInTheDocument();
+    expect(screen.getByText(/no files configured/i)).toBeInTheDocument();
   })
 
-  it('should render a "not specified" note, if folders is empty, when type=folder', () => {
+  it('should render a "not configured" note, if folders is empty, when type=folder', () => {
     setupSut(fixtureSettings({ type: SettingsType.Folder, files: ['not-empty'], folders: [] }));
 
-    expect(screen.getByText(/folders not specified/i)).toBeInTheDocument();
+    expect(screen.getByText(/no folders configured/i)).toBeInTheDocument();
   })
 
-  it('should render a "not specified" note, if all files are empty strings, when type=file', () => {
+  it('should render a "not configured" note, if all files are empty strings, when type=file', () => {
     setupSut(fixtureSettings({ type: SettingsType.File, files: ['', ''], folders: ['not-empty'] }));
 
-    expect(screen.getByText(/files not specified/i)).toBeInTheDocument();
+    expect(screen.getByText(/no files configured/i)).toBeInTheDocument();
   })
 
-  it('should render a "not specified" note, if all files are empty strings, when type=folder', () => {
+  it('should render a "not configured" note, if all files are empty strings, when type=folder', () => {
     setupSut(fixtureSettings({ type: SettingsType.Folder, files: ['not-empty'], folders: ['', ''] }));
 
-    expect(screen.getByText(/folders not specified/i)).toBeInTheDocument();
+    expect(screen.getByText(/no folders configured/i)).toBeInTheDocument();
   })
 
   it('should render a button with "Open File" title, if files has only one non-empty string, when type=file', () => {

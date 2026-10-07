@@ -7,7 +7,7 @@ import { Button, ReactComponent, WidgetReactComponentProps } from '@/widgets/app
 import { Settings } from './settings';
 import { openFileSvg, openFolderSvg } from '@/widgets/file-opener/icons';
 import styles from './widget.module.scss';
-import { SettingsType, settingsTypeNamesCapital } from '@/widgets/file-opener/settingsType';
+import { SettingsType, settingsTypeNames, settingsTypeNamesCapital } from '@/widgets/file-opener/settingsType';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useDynamicIcon } from '@/widgets/useDynamicIcon';
 
@@ -61,7 +61,7 @@ function WidgetComp({settings, widgetApi, sharedState}: WidgetReactComponentProp
         size='Fill'
       />
     : <div className={styles['not-configured']}>
-      {`${settingsTypeNamesCapital[settings.type]}s not specified`}
+      {`No ${settingsTypeNames[settings.type]}s configured. Add ${settingsTypeNames[settings.type]}s in the widget settings.`}
     </div>
 }
 

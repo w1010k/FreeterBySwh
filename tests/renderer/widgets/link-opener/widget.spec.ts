@@ -18,16 +18,16 @@ function setupSut(settings: Settings, optional?: SetupWidgetSutOptional) {
 }
 
 describe('Link Opener Widget', () => {
-  it('should render a "not specified" note, if urls is empty', () => {
+  it('should render a "not configured" note, if urls is empty', () => {
     setupSut(fixtureSettings({ urls: [] }));
 
-    expect(screen.getByText(/urls not specified/i)).toBeInTheDocument();
+    expect(screen.getByText(/no urls configured/i)).toBeInTheDocument();
   })
 
-  it('should render a "not specified" note, if all urls are empty strings', () => {
+  it('should render a "not configured" note, if all urls are empty strings', () => {
     setupSut(fixtureSettings({ urls: ['', ''] }));
 
-    expect(screen.getByText(/urls not specified/i)).toBeInTheDocument();
+    expect(screen.getByText(/no urls configured/i)).toBeInTheDocument();
   })
 
   it('should render a button with "Open Link" title, if urls has only one non-empty string', () => {

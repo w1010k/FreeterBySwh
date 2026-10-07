@@ -21,15 +21,15 @@ function setupWebpageWidgetSut(settings: Settings, optional?: SetupWidgetSutOpti
 }
 
 describe('Webpage Widget', () => {
-  it('should render a "not specified" note, if url is empty', () => {
+  it('should render a "not configured" note, if url is empty', () => {
     setupWebpageWidgetSut(fixtureSettings({ url: '' }));
 
-    expect(screen.getByText(/webpage url not specified/i)).toBeInTheDocument();
+    expect(screen.getByText(/no url configured/i)).toBeInTheDocument();
   })
-  it('should not render a "not specified" note, if url is not empty', () => {
+  it('should not render a "not configured" note, if url is not empty', () => {
     setupWebpageWidgetSut(fixtureSettings({ url: '127.0.0.1' }));
 
-    expect(screen.queryByText(/webpage url not specified/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no url configured/i)).not.toBeInTheDocument();
   })
   it('should render a <webview> element, if url is not empty', () => {
     const { comp } = setupWebpageWidgetSut(fixtureSettings({ url: '127.0.0.1' }));

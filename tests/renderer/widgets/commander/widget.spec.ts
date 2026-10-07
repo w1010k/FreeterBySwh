@@ -18,15 +18,15 @@ function setupCommanderWidgetSut(settings: Settings, optional?: SetupWidgetSutOp
 }
 
 describe('Commander Widget', () => {
-  it('should render a "not specified" note, if cmds is empty', () => {
+  it('should render a "not configured" note, if cmds is empty', () => {
     setupCommanderWidgetSut(fixtureSettings({ cmds: [] }));
 
-    expect(screen.getByText(/command-lines not specified/i)).toBeInTheDocument();
+    expect(screen.getByText(/no command-lines configured/i)).toBeInTheDocument();
   })
-  it('should render a "not specified" note, if all cmds are empty strings', () => {
+  it('should render a "not configured" note, if all cmds are empty strings', () => {
     setupCommanderWidgetSut(fixtureSettings({ cmds: ['', ''] }));
 
-    expect(screen.getByText(/command-lines not specified/i)).toBeInTheDocument();
+    expect(screen.getByText(/no command-lines configured/i)).toBeInTheDocument();
   })
 
   it('should render a button with "Execute Command-line" title, if cmds has only one non-empty string', () => {

@@ -57,7 +57,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
         size='Fill'
       />
     : <div className={styles['not-configured']}>
-      {'URLs not specified'}
+      {'No URLs configured. Add URLs in the widget settings.'}
     </div>
 }
 

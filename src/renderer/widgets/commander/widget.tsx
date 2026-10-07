@@ -21,7 +21,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
         size='Fill'
       />
     : <div className={styles['not-configured']}>
-      Command-lines not specified.
+      No command-lines configured. Add command-lines in the widget settings.
     </div>
 }
 
