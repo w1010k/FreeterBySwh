@@ -58,7 +58,11 @@ export function EndSoundSettings<S extends EndSoundFields>({idPrefix, settings, 
 
   return (
     <>
-      <SettingBlock titleForId={`${idPrefix}-endSound`} title='End Sound'>
+      <SettingBlock
+        titleForId={`${idPrefix}-endSound`}
+        title='End Sound'
+        moreInfo='The sound to play when the countdown ends. Use the play button to test it.'
+      >
         <SettingRow>
           <select id={`${idPrefix}-endSound`} value={settings.endSound} onChange={e => updateSettings({ ...settings, endSound: e.target.value })}>
             {endSoundOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -67,7 +71,7 @@ export function EndSoundSettings<S extends EndSoundFields>({idPrefix, settings, 
         </SettingRow>
       </SettingBlock>
 
-      <SettingBlock titleForId={`${idPrefix}-endSoundVol`} title='End Sound Volume'>
+      <SettingBlock titleForId={`${idPrefix}-endSoundVol`} title='End Sound Volume' moreInfo='The playback volume of the end sound.'>
         <select id={`${idPrefix}-endSoundVol`} value={settings.endSoundVol} onChange={e => {
           // Check for NaN instead of `|| fallback`: 0% is a valid choice and is falsy.
           const vol = Number(e.target.value);

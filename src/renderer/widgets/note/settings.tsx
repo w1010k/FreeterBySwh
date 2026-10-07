@@ -78,6 +78,7 @@ function SettingsEditorComp({settings, settingsApi, sharedState}: SettingsEditor
       <SettingBlock
         titleForId='note-spell-check'
         title='Spell Checker'
+        moreInfo='Underline misspelled words while you type.'
       >
         <div>
           <label>
@@ -93,6 +94,7 @@ function SettingsEditorComp({settings, settingsApi, sharedState}: SettingsEditor
       <SettingBlock
         titleForId='markdown'
         title='Markdown'
+        moreInfo='Edit the note in a Markdown editor instead of plain text.'
       >
         <div>
           <label>

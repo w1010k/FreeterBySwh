@@ -56,6 +56,7 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
       <SettingBlock
         titleForId='timer-mins'
         title='Timer'
+        moreInfo='How long the countdown runs.'
       >
         <select id="timer-mins" value={settings.mins} onChange={e => {
           updateSettings({
@@ -79,6 +80,7 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
       <SettingBlock
         titleForId='timer-endDesktop'
         title='Desktop Notification'
+        moreInfo='Show an OS notification when the countdown ends.'
       >
         <label>
           <input

@@ -51,19 +51,23 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
 
   return (
     <>
-      <SettingBlock titleForId='pomodoro-work' title='Work'>
+      <SettingBlock titleForId='pomodoro-work' title='Work' moreInfo='The length of one work session.'>
         <select id="pomodoro-work" value={settings.workMins} onChange={e => updateSettings({ ...settings, workMins: Number(e.target.value) || 25 })}>
           {workMinsOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </SettingBlock>
 
-      <SettingBlock titleForId='pomodoro-break' title='Break'>
+      <SettingBlock titleForId='pomodoro-break' title='Break' moreInfo='The length of the short break after each work session.'>
         <select id="pomodoro-break" value={settings.breakMins} onChange={e => updateSettings({ ...settings, breakMins: Number(e.target.value) || 5 })}>
           {breakMinsOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </SettingBlock>
 
-      <SettingBlock titleForId='pomodoro-longBreakEvery' title='Long Break'>
+      <SettingBlock
+        titleForId='pomodoro-longBreakEvery'
+        title='Long Break'
+        moreInfo='Replace the short break with a longer one after every N work sessions.'
+      >
         <SettingRow>
           <select id="pomodoro-longBreakEvery" aria-label='Long Break Frequency' value={settings.longBreakEvery} onChange={e => updateSettings({ ...settings, longBreakEvery: Number(e.target.value) || 0 })}>
             {longBreakEveryOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
