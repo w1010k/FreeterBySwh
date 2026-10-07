@@ -28,7 +28,7 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
               ...settings,
               doneToBottom: !settings.doneToBottom
             })}/>
-            Move It To Bottom
+            Move it to bottom
           </label>
         </div>
       </SettingBlock>
