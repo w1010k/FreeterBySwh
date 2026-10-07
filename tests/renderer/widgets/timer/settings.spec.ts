@@ -62,7 +62,7 @@ describe('Timer Widget Settings', () => {
     const settings = fixtureSettings({ endSound: glockenspielArpeggioId });
     setupAudioMock();
     const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
-    const select = screen.getByRole('combobox', { name: /^Play Sound When Timer Ends$/i })
+    const select = screen.getByRole('combobox', { name: /^End Sound$/i })
 
     await userEvent.selectOptions(select, '');
     expect(getSettings()).toEqual({
@@ -81,6 +81,19 @@ describe('Timer Widget Settings', () => {
     expect(getSettings()).toEqual({
       ...settings,
       endSoundVol: 30
+    });
+  })
+
+  it('should save 0% when "endSoundVol" is set to 0%', async () => {
+    const settings = fixtureSettings({ endSoundVol: 90 });
+    setupAudioMock();
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+    const select = screen.getByRole('combobox', { name: /^End Sound Volume$/i })
+
+    await userEvent.selectOptions(select, '0');
+    expect(getSettings()).toEqual({
+      ...settings,
+      endSoundVol: 0
     });
   })
 })

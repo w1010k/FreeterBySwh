@@ -3,11 +3,9 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { CreateSettingsState, ReactComponent, SettingsEditorReactComponentProps, SettingBlock, SettingRow, SettingActions } from '@/widgets/appModules';
-import { glockenspielArpeggioId, timerEndSoundFiles, timerEndSoundFilesById } from '@/widgets/timer/audio/timer-end';
-import { playSvg } from '@/widgets/timer/icons';
-import { useAudioFile } from '@/widgets/timer/useAudioFile';
-import { useCallback } from 'react';
+import { CreateSettingsState, ReactComponent, SettingsEditorReactComponentProps, SettingBlock } from '@/widgets/appModules';
+import { glockenspielArpeggioId } from '@/widgets/timer/audio/timer-end';
+import { EndSoundSettings, endSoundOptions } from '@/widgets/timer/endSoundSettings';
 
 export interface Settings {
   mins: number;
@@ -29,16 +27,6 @@ for (let mins = 5; mins <= 90; mins += 5) {
   });
 }
 
-export const endSoundOptions: SelectOption<string>[] = [
-  {
-    label: '(No Sound)',
-    value: ''
-  },
-  ...timerEndSoundFiles.map(item=>({
-    label: item.name,
-    value: item.id
-  }))
-];
 const endSoundValues = endSoundOptions.map(item=>item.value);
 function isEndSoundValue(val: unknown): val is string {
   if (typeof val !== 'string') {
@@ -53,14 +41,6 @@ function isEndSoundValue(val: unknown): val is string {
 }
 const defaultEndSound = glockenspielArpeggioId;
 
-const endSoundVolOptions: SelectOption<number>[] = [];
-for (let vol = 0; vol <= 100; vol += 10) {
-  endSoundVolOptions.push({
-    label: vol + '%',
-    value: vol
-  });
-}
-
 export const createSettingsState: CreateSettingsState<Settings> = (settings) => ({
   mins: typeof settings.mins === 'number' ? settings.mins : 25,
   endDesktop: typeof settings.endDesktop === 'boolean' ? settings.endDesktop : true,
@@ -70,11 +50,6 @@ export const createSettingsState: CreateSettingsState<Settings> = (settings) => 
 
 function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponentProps<Settings>) {
   const {updateSettings} = settingsApi;
-  const endSound = useAudioFile(timerEndSoundFilesById[settings.endSound]?.path || '', settings.endSoundVol);
-
-  const testSoundAction = useCallback(async () => {
-    endSound.play();
-  }, [endSound])
 
   return (
     <>
@@ -118,61 +93,7 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
         </label>
       </SettingBlock>
 
-      <SettingBlock
-        titleForId='timer-endSound'
-        title='Play Sound When Timer Ends'
-      >
-        <select id="timer-endSound" value={settings.endSound} onChange={e => {
-          updateSettings({
-            ...settings,
-            endSound: e.target.value
-          })
-        }}>
-          {
-            endSoundOptions.map(opt=>(
-              <option
-                key={opt.value}
-                value={opt.value}
-              >
-                {opt.label}
-              </option>
-            ))
-          }
-        </select>
-      </SettingBlock>
-
-      <SettingBlock
-        titleForId='timer-endSoundVol'
-        title='End Sound Volume'
-      >
-        <SettingRow>
-          <select id="timer-endSoundVol" value={settings.endSoundVol} onChange={e => {
-            updateSettings({
-              ...settings,
-              endSoundVol: Number(e.target.value) || 80
-            })
-          }}>
-            {
-              endSoundVolOptions.map(opt=>(
-                <option
-                  key={opt.value}
-                  value={opt.value}
-                >
-                  {opt.label}
-                </option>
-              ))
-            }
-          </select>
-          <SettingActions
-            actions={[{
-              id: 'TEST-SOUND',
-              icon: playSvg,
-              title: 'Test Sound',
-              doAction: testSoundAction
-            }]}
-          />
-        </SettingRow>
-      </SettingBlock>
+      <EndSoundSettings idPrefix='timer' settings={settings} updateSettings={updateSettings} />
 
     </>
   )

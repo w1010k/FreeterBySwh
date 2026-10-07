@@ -3,12 +3,9 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { CreateSettingsState, ReactComponent, SettingsEditorReactComponentProps, SettingBlock, SettingRow, SettingActions } from '@/widgets/appModules';
-import { endSoundOptions } from '@/widgets/timer/settings';
-import { glockenspielArpeggioId, timerEndSoundFilesById } from '@/widgets/timer/audio/timer-end';
-import { playSvg } from '@/widgets/timer/icons';
-import { useAudioFile } from '@/widgets/timer/useAudioFile';
-import { useCallback } from 'react';
+import { CreateSettingsState, ReactComponent, SettingsEditorReactComponentProps, SettingBlock, SettingRow } from '@/widgets/appModules';
+import { EndSoundSettings, endSoundOptions } from '@/widgets/timer/endSoundSettings';
+import { glockenspielArpeggioId } from '@/widgets/timer/audio/timer-end';
 
 export interface Settings {
   workMins: number;
@@ -39,13 +36,6 @@ const longBreakEveryOptions = [
   { value: 0, label: '(No long breaks)' },
   ...[2, 3, 4, 5, 6].map(n => ({ value: n, label: `Every ${n} work sessions` }))
 ];
-const volOptions = (() => {
-  const opts: { value: number; label: string }[] = [];
-  for (let v = 0; v <= 100; v += 10) {
-    opts.push({ value: v, label: `${v}%` });
-  }
-  return opts;
-})();
 
 export const createSettingsState: CreateSettingsState<Settings> = (settings) => ({
   workMins: typeof settings.workMins === 'number' ? settings.workMins : 25,
@@ -58,8 +48,6 @@ export const createSettingsState: CreateSettingsState<Settings> = (settings) => 
 
 function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponentProps<Settings>) {
   const {updateSettings} = settingsApi;
-  const endSound = useAudioFile(timerEndSoundFilesById[settings.endSound]?.path || '', settings.endSoundVol);
-  const testSoundAction = useCallback(async () => { endSound.play(); }, [endSound]);
 
   return (
     <>
@@ -86,20 +74,7 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
         </SettingRow>
       </SettingBlock>
 
-      <SettingBlock titleForId='pomodoro-endSound' title='Phase-End Sound'>
-        <SettingRow>
-          <select id="pomodoro-endSound" value={settings.endSound} onChange={e => updateSettings({ ...settings, endSound: e.target.value })}>
-            {endSoundOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-          <SettingActions actions={[{ id: 'TEST-SOUND', icon: playSvg, title: 'Test Sound', doAction: testSoundAction }]} />
-        </SettingRow>
-      </SettingBlock>
-
-      <SettingBlock titleForId='pomodoro-endSoundVol' title='Sound Volume'>
-        <select id="pomodoro-endSoundVol" value={settings.endSoundVol} onChange={e => updateSettings({ ...settings, endSoundVol: Number(e.target.value) || 70 })}>
-          {volOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-      </SettingBlock>
+      <EndSoundSettings idPrefix='pomodoro' settings={settings} updateSettings={updateSettings} />
     </>
   )
 }

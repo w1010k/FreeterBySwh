@@ -3,7 +3,10 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { createSettingsState, Settings } from '@/widgets/pomodoro/settings';
+import { createSettingsState, settingsEditorComp, Settings } from '@/widgets/pomodoro/settings';
+import { screen } from '@testing-library/react';
+import { setupSettingsSut } from '@tests/widgets/setupSut'
+import { fixtureSettings } from './fixtures';
 
 describe('Pomodoro createSettingsState()', () => {
   it('applies defaults when values are missing', () => {
@@ -25,5 +28,21 @@ describe('Pomodoro createSettingsState()', () => {
     const s = createSettingsState({ endSound: 'no-such-sound' } as Partial<Settings>);
     expect(s.endSound).not.toBe('no-such-sound');
     expect(typeof s.endSound).toBe('string');
+  });
+});
+
+describe('Pomodoro Widget Settings', () => {
+  beforeEach(() => {
+    jest.spyOn(window.Audio.prototype, 'load').mockImplementation(() => { });
+    jest.spyOn(window.Audio.prototype, 'pause').mockImplementation(() => { });
+  });
+
+  it('should save 0% when "endSoundVol" is set to 0%', async () => {
+    const settings = fixtureSettings({ endSoundVol: 70 });
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+    const select = screen.getByRole('combobox', { name: /^End Sound Volume$/i });
+
+    await userEvent.selectOptions(select, '0');
+    expect(getSettings()).toEqual({ ...settings, endSoundVol: 0 });
   });
 });
