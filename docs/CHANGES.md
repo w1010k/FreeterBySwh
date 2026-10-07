@@ -3416,6 +3416,37 @@ Markdown 문서를 다른 모니터에서 읽고 고치려는 용도로 만들�
 - **테스트**: `tests/renderer/ui/components/widget/widget.spec.tsx` (+1)
 - **문서**: `docs/dev/features-widgets.md`, `docs/dev/pitfalls.md`
 
+## 93. Webpage 위젯 탭 순서 변경 *(2026-10-07)*
+
+Webpage 위젯의 멀티탭 (#67) 순서를 설정 화면에서 바꿀 수 있게 한다. 이전에는 순서를 바꾸려면 탭을 지우고 URL을 다시 입력해야 했다.
+
+### 사용자 관점
+
+- 위젯 설정의 Tabs 목록에서 각 행의 위·아래 화살표 버튼 (Move Up, Move Down)으로 탭을 한 칸씩 옮긴다. 첫 행의 위 버튼과 마지막 행의 아래 버튼은 비활성이다.
+- 헤더 탭 바도 바뀐 순서를 따른다. 이미 열려 있던 탭은 새로고침되지 않고 스크롤, 입력, 로그인 상태를 유지한다.
+- 맨 위 URL 칸은 항상 첫 탭이며 이동 대상이 아니다.
+- 마지막 활성 탭은 위치 번호로 저장된다. 그래서 순서를 바꾼 뒤에는 같은 위치의 다른 탭이 활성 탭으로 보일 수 있다.
+
+### 아키텍처
+
+- `settings.tsx` `moveTab`: Commander, File Explorer 설정과 같은 `MOVE-UP`/`MOVE-DOWN` 액션 패턴이다. 기존 `updateTabs`로 즉시 저장한다 (디바운스 없음).
+- `widget.tsx` `paneOrder`: 탭 패널을 탭 순서가 아니라 탭 키가 처음 나타난 순서로 그린다. 새 키는 뒤에 붙고 지운 키는 빠진다. 이전 순서는 state에 두고 렌더 중에
+  갱신한다 (React의 "이전 렌더 정보 저장" 패턴).
+
+### 까다로웠던 포인트
+
+- 탭 패널의 key는 이미 탭 키라서 순서를 바꿔도 리마운트는 없다. 그러나 React는 순서가 바뀐 형제를 `insertBefore`로 옮기고, 옮긴 `<webview>`는 다시 로드된다.
+  프로젝트의 Electron으로 webview 2개를 띄워 하나를 옮겨 보니, 옮긴 쪽만 `did-start-loading`이 다시 왔고 게스트에 심은 전역 변수가 사라졌다.
+- 처음에는 키 정렬 순서로 그리려 했다. 그러면 기존 테스트와 첫 렌더의 DOM 순서가 탭 순서와 달라져서, 첫 등장 순서를 기억하는 방식으로 바꿨다.
+- 처음 구현은 `useRef`를 렌더 중에 고쳤는데 `react-hooks/refs` 경고가 5개 늘었다. state 패턴으로 바꿔 경고 수를 기준선으로 돌렸다.
+- 같은 URL을 쓰는 두 탭의 자리를 바꾸면 탭 키 (`:dupN`)와 세션 파티션은 위치를 따라가고 이름만 바뀐다. 첫 등장 탭이 평범한 파티션을 쓰는 #67 규칙을 지키기 위해서다.
+
+### 수정 파일
+
+- **수정**: `src/renderer/widgets/webpage/settings.tsx`, `src/renderer/widgets/webpage/widget.tsx`
+- **테스트**: `tests/renderer/widgets/webpage/settings.spec.ts` (+1), `tests/renderer/widgets/webpage/widget.spec.ts` (+1)
+- **문서**: `docs/dev/features-widgets.md`, `docs/dev/pitfalls.md`
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

@@ -291,6 +291,22 @@ describe('Webpage Widget', () => {
       // the remaining second tab is now c — it must not inherit b's title
       expect(lastHeaderTabs(setHeaderTabs)?.tabs[1].label).toBe('c');
     })
+    it('should keep webview elements in place when tabs are reordered', () => {
+      const setHeaderTabs = jest.fn();
+      const { comp, setSettings } = setupWebpageWidgetSut(
+        fixtureSettings({ url: 'https://a/', tabs: [{ url: 'https://b/', name: '' }, { url: 'https://c/', name: '' }] }),
+        { mockWidgetApi: { setHeaderTabs } }
+      );
+      const before = Array.from(comp.container.getElementsByTagName('webview'));
+
+      setSettings(fixtureSettings({ url: 'https://a/', tabs: [{ url: 'https://c/', name: '' }, { url: 'https://b/', name: '' }] }));
+
+      // moving a webview in the DOM reloads it, so the DOM order must not change
+      expect(Array.from(comp.container.getElementsByTagName('webview'))).toEqual(before);
+      expect(lastHeaderTabs(setHeaderTabs)?.tabs.map(t => t.label)).toEqual(['a', 'c', 'b']);
+      act(() => lastHeaderTabs(setHeaderTabs)?.onSelect(1));
+      expect(before[2].parentElement).not.toHaveStyle({ visibility: 'hidden' });
+    })
     it('should clamp the active tab when the tab list shrinks', () => {
       const setHeaderTabs = jest.fn();
       const { comp, setSettings } = setupWebpageWidgetSut(

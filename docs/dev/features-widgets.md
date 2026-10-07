@@ -327,6 +327,9 @@
   no-op으로 막고 부모가 활성 탭 것을 단독 발행한다. 탭 라벨은 사용자 이름 → 페이지 제목 → 호스트명 순이다. 탭 정보 (제목, 파비콘, 로딩, 오디오)는 `onTabInfo`로 부모의 `tabInfos`
   (탭 키 기준)에 모인다. 탭 패널의 React key도 탭 키다. 그래서 가운데 탭을 지워도 뒤쪽 탭의 webview가 다시 로드되지 않는다. 마지막 활성 탭은 `activeTab` 키에
   저장하고, 비동기 복원 전에 사용자가 탭을 고르면 사용자 선택이 이긴다.
+- **탭 순서** [fork #93]: 설정의 Tabs 행에 있는 Move Up/Move Down 버튼 (`moveTab`)이 `tabs` 안에서 이웃과 자리를 바꾼다. 맨 위 `url`은 항상 첫 탭이다. 탭
+  패널은 탭 순서가 아니라 탭 키가 처음 나타난 순서 (`paneOrder`)로 DOM에 그린다. webview를 DOM에서 옮기면 다시 로드되기 때문이다
+  ([pitfalls.md](pitfalls.md)의 "webview 요소의 DOM 이동"). `activeTab`은 위치 번호라서 순서를 바꾸면 같은 번호의 다른 탭이 활성이 될 수 있다.
 - **기타 동작**: 페이지 제목과 URL을 이은 동적 타이틀 [fork #11], 로드 실패 오버레이 (메인 프레임이고 code ≠ -3일 때만) [fork #38], 자동 새로고침은 webview에 포커스가
   있으면 멈추고 blur부터 다시 센다 [fork #53], 음소거는 세션 한정 [fork #35], 커스텀 액션은 활성 탭에서 `executeJavaScript` [fork #70], 이동 시
   `page_visit` 기록 [fork #63], `exposeApi`로 `{ openUrl, getUrl }` 공개 [upstream].

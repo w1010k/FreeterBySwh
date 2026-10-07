@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { Button, CreateSettingsState, SettingsEditorReactComponentProps, ReactComponent, SettingBlock, SettingRow, SettingActions, delete14Svg } from '@/widgets/appModules';
+import { Button, CreateSettingsState, SettingsEditorReactComponentProps, ReactComponent, SettingBlock, SettingRow, SettingActions, arrDown14Svg, arrUp14Svg, delete14Svg } from '@/widgets/appModules';
 import { debounce } from '@common/helpers/debounce';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
@@ -172,6 +172,13 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
     updateTabs(tabs.map((tab, _i) => i !== _i ? tab : { ...tab, ...patch }), shouldDebounce);
   const addTab = () => updateTabs([...tabs, { url: '', name: '' }], false);
   const deleteTab = (i: number) => updateTabs(tabs.filter((_tab, _i) => i !== _i), false);
+  // Swaps a tab with its neighbor. The header tab bar follows this order; the
+  // URL field above always stays the first tab, so it isn't part of the swap.
+  const moveTab = (i: number, dir: -1 | 1) => {
+    const newTabs = [...tabs];
+    [newTabs[i], newTabs[i + dir]] = [newTabs[i + dir], newTabs[i]];
+    updateTabs(newTabs, false);
+  };
 
   // Custom action rows: same mirror-and-debounce contract as the tab rows.
   const [customActions, setCustomActions] = useState(settings.customActions);
@@ -251,6 +258,18 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
             />
             <SettingActions
               actions={[{
+                id: 'MOVE-UP',
+                icon: arrUp14Svg,
+                title: 'Move Up',
+                enabled: i > 0,
+                doAction: async () => moveTab(i, -1)
+              }, {
+                id: 'MOVE-DOWN',
+                icon: arrDown14Svg,
+                title: 'Move Down',
+                enabled: i < tabs.length - 1,
+                doAction: async () => moveTab(i, 1)
+              }, {
                 id: 'DELETE',
                 icon: delete14Svg,
                 title: 'Delete Tab',

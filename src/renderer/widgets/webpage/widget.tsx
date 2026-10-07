@@ -634,6 +634,21 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
     });
   }, [entries]);
   const tabKeys = useMemo(() => entries.map((e, i) => e.url + dupSuffixes[i]), [entries, dupSuffixes]);
+  // DOM order of the tab panes: the order each tab key first appeared, not the
+  // current tab order. Moving a <webview> in the DOM reloads it (checked in
+  // Electron), so reordering tabs in settings must not reorder the panes. New
+  // keys append, removed keys drop out. Panes are stacked absolutely, so their
+  // DOM order is invisible. The previous order lives in state and is updated
+  // during render (React's "store info from previous renders" pattern).
+  const [prevPaneOrder, setPaneOrder] = useState(tabKeys);
+  const paneOrder = useMemo(() => {
+    const kept = prevPaneOrder.filter(k => tabKeys.includes(k));
+    const next = [...kept, ...tabKeys.filter(k => !kept.includes(k))];
+    return next.length === prevPaneOrder.length && next.every((k, i) => k === prevPaneOrder[i]) ? prevPaneOrder : next;
+  }, [prevPaneOrder, tabKeys]);
+  if (paneOrder !== prevPaneOrder) {
+    setPaneOrder(paneOrder);
+  }
   const [requireRestart, setRequireRestart] = useState(1);
   const doRestart = useCallback(() => setRequireRestart(n => n + 1), [])
   const [activeTab, setActiveTab] = useState(0);
@@ -740,7 +755,7 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
   }
 
   return <div className={styles['tabs-panes']}>
-      {entries.map(({url: u}, i) => (
+      {paneOrder.map(k => tabKeys.indexOf(k)).map(i => (
         // visibility (not display:none) keeps hidden webviews alive so tab
         // state (scroll, forms, logins) survives switching.
         <div
@@ -756,7 +771,7 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
         >
           <Webview
             {...props}
-            settings={{...settings, url: u}}
+            settings={{...settings, url: entries[i].url}}
             widgetApi={i === active ? activeApi : inactiveApi}
             onRequireRestart={doRestart}
             onTabInfo={tabInfoHandlers[i]}

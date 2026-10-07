@@ -143,6 +143,21 @@ describe('Webpage Widget Settings', () => {
     });
   })
 
+  it('should move tab rows up and down, updating the setting immediately', async () => {
+    const a = { url: 'https://a/', name: 'A' };
+    const b = { url: 'https://b/', name: '' };
+    const c = { url: 'https://c/', name: 'C' };
+    const settings = fixtureSettings({ tabs: [a, b, c] });
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+    const user = userEvent.setup({ delay: null });
+
+    await user.click(screen.getAllByRole('button', { name: /move down/i })[0]);
+    expect(getSettings()).toEqual({ ...settings, tabs: [b, a, c] });
+
+    await user.click(screen.getAllByRole('button', { name: /move up/i })[2]);
+    expect(getSettings()).toEqual({ ...settings, tabs: [b, c, a] });
+  })
+
   it('should update a tab url and name on blur', async () => {
     const settings = fixtureSettings({ tabs: [{ url: '', name: '' }] });
     const { fireEvent, userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);

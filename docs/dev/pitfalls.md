@@ -524,6 +524,16 @@
   리사이저 자리는 `false`로 둔다. Worktable 위쪽 트리를 조건부로 바꾸는 변경은 같은 문제를 다시 만든다.
 - 근거: CHANGES #45, `src/renderer/ui/components/app/app.tsx` (주석)
 
+#### webview 요소의 DOM 이동
+
+- 출처: `[fork #93]`
+- 증상: (회피) 탭 순서를 바꾸면 위치가 바뀐 탭의 webview가 새로고침되고 페이지 상태를 잃는다.
+- 원인: React는 key가 같은 자식의 순서가 바뀌면 DOM 노드를 `insertBefore`로 옮긴다. 옮긴 `<webview>`는 언마운트되지 않았어도 페이지를 다시 로드한다. 2026-10-07에
+  프로젝트의 Electron으로 따로 실험해 확인했다 (`did-start-loading`이 다시 오고 게스트의 전역 변수가 사라짐).
+- 규칙: webview를 담은 형제 목록은 표시 순서와 DOM 순서를 분리한다. Webpage 멀티탭은 탭 키가 처음 나타난 순서 (`paneOrder`)로 패널을 그리고, 패널은 absolute로
+  겹쳐 DOM 순서가 화면에 드러나지 않게 한다.
+- 근거: CHANGES #93, `src/renderer/widgets/webpage/widget.tsx` `paneOrder`
+
 #### 드래그 중 webview의 마우스 이벤트
 
 - 출처: `[fork #45 #48]`
