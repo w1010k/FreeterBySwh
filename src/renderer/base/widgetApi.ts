@@ -47,6 +47,13 @@ interface WidgetApiCommon {
    * Never pass secrets — text is stored as-is on disk (locally).
    */
   readonly logActivity: (type: TelemetryActivityType, payload?: TelemetryActivityPayload) => void;
+  /**
+   * Bring this widget into view: switch to the project and workflow whose
+   * layout holds it, then show and focus the app window. A shelf widget (always
+   * visible) or a widget placed in no workflow only gets the window shown.
+   * Used when the user clicks a notification the widget raised.
+   */
+  readonly revealWidget: () => void;
 }
 
 // Widget things available for use by other widgets via WidgetAPI.widgets

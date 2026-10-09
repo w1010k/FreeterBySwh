@@ -3513,6 +3513,55 @@ Webpage 위젯의 멀티탭 (#67) 순서를 설정 화면에서 바꿀 수 있�
   (빈 상태 문구)
 - **문서**: `docs/dev/features-widgets.md`, `docs/dev/procedures.md`, `docs/dev/decisions.md`, `docs/dev/pitfalls.md`
 
+## 95. Webpage 위젯 알림 클릭 시 위젯으로 전환 *(2026-10-09)*
+
+Webpage 위젯 안의 웹앱 (예: Telegram Web)이 띄운 Windows 알림을 클릭하면, 그 위젯이 있는 프로젝트와 워크플로우로 전환하고 알림을 띄운 탭을 활성화한 뒤 Freeter 창을 앞으로 가져온다.
+
+### 사용자 관점
+
+- 이전에는 알림을 클릭해도 Freeter 화면이 바뀌지 않았다. 다른 프로젝트나 워크플로우를 보고 있으면 사용자가 직접 위젯을 찾아가야 했다.
+- 이제 알림을 클릭하면 위젯의 프로젝트와 워크플로우로 전환한다. 멀티탭 위젯이면 알림을 띄운 탭이 활성 탭이 되고, 그 탭 선택은 다른 탭 클릭과 같이 저장된다.
+- 모든 Webpage 위젯에 적용된다 (Slack, Gmail 웹 등). 주입한 리스너는 페이지 자체의 클릭 처리를 막거나 대신하지 않는다.
+- 숨겨지거나 최소화된 Freeter 창도 앞으로 가져온다 (트레이의 Show와 같은 경로).
+- 셸프 위젯은 화면을 전환하지 않고 창만 앞으로 가져온다 (항상 보이는 위치다). Service Worker가 띄운 알림은 대상이 아니다.
+
+### 아키텍처
+
+- `src/renderer/widgets/webpage/widget.tsx` `notificationClickInjectionJs`: `dom-ready`에 주입한다. 페이지의 `window.Notification`을 하위 클래스로 바꿔
+  알림마다 click 리스너를 붙이고, 클릭되면 `__FREETER_WEBPAGE_NOTIFICATION_CLICK_<난수>__` 마커를 `console.log`로 보낸다. 줌·찾기와 같은 `console-message` 신호
+  방식이다 (#24, #36). 하위 클래스라서 `instanceof`, `permission`, `requestPermission`이 그대로 동작한다.
+- 호스트의 `handleConsoleMessage`가 마커를 받으면 `widgetApi.revealWidget()`을 부르고, 멀티탭이면 부모가 넘긴 `onSelectTab(tabIdx)`로 탭을 고른다.
+- `WidgetApiCommon.revealWidget` (`src/renderer/base/widgetApi.ts`): 새 공통 함수다. `getWidgetApi.ts`가 호출 시점의 상태에서 위젯이 든 워크플로우와 프로젝트를
+  찾아 (`findWidgetWorkflowId`, `findWorkflowProjectId`) `switchWorkflowUseCase` → `switchProjectUseCase` 순서로 부르고, 마지막에 `showBrowserWindowUseCase`로 창을 띄운다 (트레이 Show와 같은 IPC, main은 `win.show()`).
+  창은 전환 뒤에 띄워서 이미 위젯 화면이 된 상태로 나타난다. 워크플로우를 먼저 지정해야 프로젝트 전환이
+  그 프로젝트가 열어 두었던 다른 워크플로우를 거치지 않는다 (Memory Saver가 언로드한 워크플로우의 불필요한 재로드 방지). 미리보기에서는 no-op이다.
+
+### 까다로웠던 포인트
+
+- 먼저 실제 Telegram Web에서 측정했다. 알림은 Service Worker가 아니라 페이지의 `new Notification`으로 만들어지고, Windows 알림 클릭이 페이지의 `click`
+  이벤트로 전달됐다. 둘 중 하나라도 아니면 페이지 주입으로는 클릭을 잡을 수 없었다.
+- 멀티탭에서 탭마다 `() => selectTab(i)`를 넘기면 렌더마다 새 함수가 되어 `console-message` effect가 다시 돈다. 그 effect는 액션바를 갱신하므로 렌더가
+  반복될 수 있다. 안정된 `selectTab`과 탭 번호를 따로 넘긴다.
+- 비활성 탭은 no-op API를 받지만 `revealWidget`은 no-op 대상이 아니다. 숨은 탭의 알림이 이 기능의 주된 경우다.
+- 마커 위조: 게스트 페이지는 아무 문자열이나 로그로 찍을 수 있다. 고정 마커라면 어떤 페이지든 한 줄로 Freeter의 프로젝트·워크플로우를 바꾸고 창을 앞으로
+  가져올 수 있었다. 마커에 앱 실행마다 바뀌는 난수 (`crypto.getRandomValues`)를 붙이고, 주입 스크립트는 주입 시점의 `console.log`를 잡아 둔다. 그래서
+  주입 뒤에 `console.log`를 바꾼 페이지도 마커를 보지 못한다 (Electron 실험으로 확인). 한계: dom-ready 전에 `console.log`를 바꾼, Freeter를 노린
+  페이지는 마커를 읽을 수 있다.
+- 창 표시를 넣은 이유: 처음 사용자 보고는 "알림을 클릭하면 Freeter가 열린다"였지만, 측정 때 클릭에서는 화면 변화가 없었다. 페이지의 `window.focus()`에 기대지 않고
+  앱이 직접 창을 띄운다. `showBrowserWindowUseCase`는 앱 창 렌더러에서 IPC로 보내므로 sender 검증 (`createIpcMainEventValidator`)을 그대로 통과한다.
+  2026-10-09에 프로젝트의 Electron (42.11.10)으로 따로 실험해 확인한 것: `win.show()`는 최소화된 창을 복원하고, 숨긴 창을 다시 보이고, 같은 앱의 다른 창
+  뒤에 있던 창에 포커스를 준다. 실제 `<webview>` 게스트에서 주입 스크립트가 클릭 마커를 한 번만 보내고 페이지의 `onclick`도 실행됐다.
+  확인하지 못한 것: 다른 앱의 창이 앞에 있을 때 Windows 포그라운드 제한으로 작업 표시줄만 깜빡일 가능성. 알림 클릭 직후에는 Windows가 포그라운드 권한을
+  주는 것으로 보인다 (추정. 처음 사용자 보고에서 클릭으로 Freeter가 열렸음).
+
+### 수정 파일
+
+- **수정**: `src/renderer/widgets/webpage/widget.tsx`, `src/renderer/base/widgetApi.ts`, `src/renderer/application/useCases/widget/getWidgetApi.ts`,
+  `src/renderer/init.ts` (`showBrowserWindowUseCase` 생성을 `getWidgetApiUseCase` 앞으로 옮김)
+- **테스트**: `tests/renderer/application/useCases/widget/getWidgetApi.spec.ts` (+3, 공통 함수 목록에 `revealWidget`), `tests/renderer/widgets/webpage/widget.spec.ts` (+2),
+  `tests/renderer/widgets/setupSut.tsx` (mock 추가)
+- **문서**: `docs/dev/features-widgets.md`, `docs/dev/pitfalls.md`
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

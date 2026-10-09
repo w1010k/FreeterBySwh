@@ -327,6 +327,9 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
   const logTelemetryActivityUseCase = createLogTelemetryActivityUseCase({ telemetryCollector });
   const flushTelemetryUseCase = createFlushTelemetryUseCase({ telemetryCollector });
 
+  const browserWindow = createBrowserWindowProvider();
+  const showBrowserWindowUseCase = createShowBrowserWindowUseCase({ browserWindow });
+
   const getWidgetApiUseCase = createGetWidgetApiUseCase({
     appStore: store.appStore,
     clipboardProvider,
@@ -339,6 +342,9 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     terminalProvider,
     systemStatsProvider,
     getWidgetsInCurrentWorkflowUseCase,
+    switchProjectUseCase,
+    switchWorkflowUseCase,
+    showBrowserWindowUseCase,
   })
   const deleteWidgetUseCase = createDeleteWidgetUseCase({
     ...deps,
@@ -436,9 +442,6 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     openProjectManagerUseCase,
     switchWorkflowByOffsetUseCase
   });
-
-  const browserWindow = createBrowserWindowProvider();
-  const showBrowserWindowUseCase = createShowBrowserWindowUseCase({ browserWindow });
 
   const clickTrayMenuItemUseCase = createClickTrayMenuItemUseCase();
   const trayMenuProvider = createTrayMenuProvider({

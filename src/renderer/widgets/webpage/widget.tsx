@@ -57,6 +57,38 @@ const findKeyInjectionJs = `
 })();
 `;
 
+// Same console.log signalling trick: replace the page's Notification with a
+// subclass that reports clicks, so clicking an OS notification raised by the
+// page can bring the widget (project, workflow, tab) into view. A subclass
+// keeps `instanceof`, `permission` and `requestPermission` working, and the
+// class is named so `Notification.name` stays 'Notification'. The
+// page's own click handlers still run. Pages read `window.Notification` when
+// they notify, so patching on dom-ready is early enough (checked on Telegram
+// Web). Notifications shown by a service worker (`showNotification`) are not
+// covered: their clicks never reach the page.
+// Unlike the zoom/find markers, this one moves the whole app (project,
+// workflow, window focus), so it carries a random part per app run: a page
+// can't fake a click by logging a known string. The script also keeps its own
+// reference to console.log, so a page replacing console.log later can't read
+// the marker. Ceiling: a page that replaced console.log before dom-ready, on
+// purpose to target Freeter, can still read and replay it.
+export const NOTIFICATION_CLICK_MARKER =
+  `__FREETER_WEBPAGE_NOTIFICATION_CLICK_${Array.from(crypto.getRandomValues(new Uint32Array(2)), n => n.toString(36)).join('')}__`;
+const notificationClickInjectionJs = `
+(function() {
+  if (window.__freeterWebpageNotificationHooked || typeof window.Notification !== 'function') { return; }
+  window.__freeterWebpageNotificationHooked = true;
+  var Orig = window.Notification;
+  var log = console.log.bind(console);
+  window.Notification = class Notification extends Orig {
+    constructor(...args) {
+      super(...args);
+      this.addEventListener('click', function() { log('${NOTIFICATION_CLICK_MARKER}'); });
+    }
+  };
+})();
+`;
+
 interface WebviewProps extends WidgetReactComponentProps<Settings> {
   /**
    * Should be called when <Webview> tag requires a full restart by
@@ -76,9 +108,17 @@ interface WebviewProps extends WidgetReactComponentProps<Settings> {
    * navigate in lockstep (Notion does exactly this).
    */
   partitionSuffix?: string;
+  /**
+   * Multi-tab mode: the parent's tab selector and this tab's index, used to
+   * make this tab the active one when the user clicks a notification raised
+   * by its page. Passed as a stable function plus an index (not a per-tab
+   * closure) so the console-message effect doesn't re-run on every render.
+   */
+  onSelectTab?: (tabIdx: number) => void;
+  tabIdx?: number;
 }
 
-function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuffix, env, id}: WebviewProps) {
+function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuffix, onSelectTab, tabIdx, env, id}: WebviewProps) {
   const {url, sessionScope, sessionPersist, autoReload, injectedCSS, injectedJS, userAgent, customActions} = settings;
 
   const partition = useMemo(() => createPartition(sessionPersist, sessionScope, env, id) + (partitionSuffix ?? ''), [
@@ -97,7 +137,7 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
     }
   }, [onRequireRestart, partition, reqRestartIfChanged])
 
-  const {updateActionBar, setContextMenuFactory, exposeApi, setDynamicTitle} = widgetApi;
+  const {updateActionBar, setContextMenuFactory, exposeApi, setDynamicTitle, revealWidget} = widgetApi;
   const webviewRef = useRef<Electron.WebviewTag>(null);
   // Last URL logged to the activity timeline, to dedupe repeated title/navigate events.
   const lastLoggedUrlRef = useRef<string>('');
@@ -360,6 +400,8 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
       webviewEl.executeJavaScript(zoomWheelInjectionJs).catch(() => undefined);
       // Intercept Ctrl/Cmd+F to open the in-page find bar (same signalling trick).
       webviewEl.executeJavaScript(findKeyInjectionJs).catch(() => undefined);
+      // Report notification clicks so the widget can bring itself into view.
+      webviewEl.executeJavaScript(notificationClickInjectionJs).catch(() => undefined);
       // webviewEl.classList.add('is-bg-visible');
     }
     const handleDidFinishLoad = () => {
@@ -377,6 +419,13 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
     const handleConsoleMessage = (e: Electron.ConsoleMessageEvent) => {
       if (e.message && e.message.startsWith(FIND_KEY_MARKER)) {
         openFind();
+        return;
+      }
+      if (e.message && e.message.startsWith(NOTIFICATION_CLICK_MARKER)) {
+        revealWidget();
+        if (onSelectTab && tabIdx !== undefined) {
+          onSelectTab(tabIdx);
+        }
         return;
       }
       if (!e.message || !e.message.startsWith(ZOOM_WHEEL_MARKER)) {
@@ -411,7 +460,7 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
       webviewEl.removeEventListener('did-finish-load', handleDidFinishLoad);
       webviewEl.removeEventListener('console-message', handleConsoleMessage);
           };
-  }, [injectCSSInDOM, injectedCSS, injectedJS, refreshActions, openFind]);
+  }, [injectCSSInDOM, injectedCSS, injectedJS, refreshActions, openFind, revealWidget, onSelectTab, tabIdx]);
 
   // Keyboard zoom (CmdOrCtrl + = / - / 0) is routed from the main process
   // through `init.ts` as a window CustomEvent; we match our own
@@ -775,6 +824,8 @@ export function WidgetComp(props: WidgetReactComponentProps<Settings>) {
             widgetApi={i === active ? activeApi : inactiveApi}
             onRequireRestart={doRestart}
             onTabInfo={tabInfoHandlers[i]}
+            onSelectTab={selectTab}
+            tabIdx={i}
             partitionSuffix={dupSuffixes[i]}
           ></Webview>
         </div>

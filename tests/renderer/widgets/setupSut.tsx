@@ -102,6 +102,7 @@ export function setupWidgetSut<T>(reactComp: ReactComponent<WidgetReactComponent
     exposeApi: mockWidgetApi.exposeApi || jest.fn(),
     setDynamicTitle: mockWidgetApi.setDynamicTitle || jest.fn(),
     logActivity: mockWidgetApi.logActivity || jest.fn(),
+    revealWidget: mockWidgetApi.revealWidget || jest.fn(),
     clipboard: {
       writeBookmark: jest.fn(),
       writeText: jest.fn(),

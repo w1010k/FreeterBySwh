@@ -86,6 +86,9 @@ async function setup() {
   }
 
   const getWidgetsInCurrentWorkflowUseCase = jest.fn();
+  const switchProjectUseCase = jest.fn();
+  const switchWorkflowUseCase = jest.fn();
+  const showBrowserWindowUseCase = jest.fn();
 
   const [appStore] = await fixtureAppStore(fixtureAppState({}));
 
@@ -101,6 +104,9 @@ async function setup() {
     terminalProvider,
     systemStatsProvider,
     getWidgetsInCurrentWorkflowUseCase,
+    switchProjectUseCase,
+    switchWorkflowUseCase,
+    showBrowserWindowUseCase,
   });
   return {
     appStore,
@@ -115,6 +121,9 @@ async function setup() {
     sharedDataStorageManager,
     terminalProvider,
     getWidgetsInCurrentWorkflowUseCase,
+    switchProjectUseCase,
+    switchWorkflowUseCase,
+    showBrowserWindowUseCase,
 
     getWidgetApiUseCase
   }
@@ -129,6 +138,7 @@ describe('getWidgetApiUseCase()', () => {
       exposeApi: expect.any(Function),
       setDynamicTitle: expect.any(Function),
       logActivity: expect.any(Function),
+      revealWidget: expect.any(Function),
     }],
     [['clipboard'], {
       updateActionBar: expect.any(Function),
@@ -137,6 +147,7 @@ describe('getWidgetApiUseCase()', () => {
       exposeApi: expect.any(Function),
       setDynamicTitle: expect.any(Function),
       logActivity: expect.any(Function),
+      revealWidget: expect.any(Function),
       clipboard: expect.any(Object)
     }],
     [['dataStorage', 'shell'], {
@@ -146,6 +157,7 @@ describe('getWidgetApiUseCase()', () => {
       exposeApi: expect.any(Function),
       setDynamicTitle: expect.any(Function),
       logActivity: expect.any(Function),
+      revealWidget: expect.any(Function),
       dataStorage: expect.any(Object),
       shell: expect.any(Object)
     }],
@@ -156,6 +168,7 @@ describe('getWidgetApiUseCase()', () => {
       exposeApi: expect.any(Function),
       setDynamicTitle: expect.any(Function),
       logActivity: expect.any(Function),
+      revealWidget: expect.any(Function),
       icon: expect.any(Object)
     }],
   ])('should correctly add common properties and required modules to WidgetApi, when requiredModules = %j', async (requiredModules, expectWidgetApi) => {
@@ -402,6 +415,64 @@ describe('getWidgetApiUseCase()', () => {
     widgetApi.widgets.getWidgetsInCurrentWorkflow('widget-type');
     expect(getWidgetsInCurrentWorkflowUseCase).toHaveBeenCalledTimes(1);
     expect(getWidgetsInCurrentWorkflowUseCase).toHaveBeenCalledWith('widget-type');
+  })
+
+  describe('revealWidget', () => {
+    const noop = () => undefined;
+    async function setupWidgetInProject() {
+      const ctx = await setup();
+      const workflow = fixtureWorkflowA({ layout: [fixtureWidgetLayoutItemA({ widgetId })] });
+      const project = fixtureProjectA({ workflowIds: [workflow.id] });
+      const state = ctx.appStore.get();
+      ctx.appStore.set({
+        ...state,
+        entities: {
+          ...state.entities,
+          projects: { [project.id]: project },
+          workflows: { [workflow.id]: workflow },
+          widgets: { [widgetId]: fixtureWidgetA({ id: widgetId }) },
+        }
+      });
+      return { ...ctx, workflow, project };
+    }
+
+    it('switches to the project and workflow that hold the widget, then shows the window', async () => {
+      const {
+        getWidgetApiUseCase, switchProjectUseCase, switchWorkflowUseCase, showBrowserWindowUseCase, workflow, project
+      } = await setupWidgetInProject();
+      const widgetApi = getWidgetApiUseCase(widgetId, false, noop, noop, noop, noop, noop, noop, []);
+
+      widgetApi.revealWidget();
+
+      expect(switchProjectUseCase).toHaveBeenCalledWith(project.id);
+      expect(switchWorkflowUseCase).toHaveBeenCalledWith(project.id, workflow.id);
+      // Workflow first, so the project switch activates the target workflow directly.
+      expect(switchWorkflowUseCase.mock.invocationCallOrder[0]).toBeLessThan(switchProjectUseCase.mock.invocationCallOrder[0]);
+      // The window comes up last, already showing the widget.
+      expect(showBrowserWindowUseCase).toHaveBeenCalledTimes(1);
+      expect(switchProjectUseCase.mock.invocationCallOrder[0]).toBeLessThan(showBrowserWindowUseCase.mock.invocationCallOrder[0]);
+    })
+
+    it('only shows the window for a widget in no workflow (shelf)', async () => {
+      const { getWidgetApiUseCase, switchProjectUseCase, switchWorkflowUseCase, showBrowserWindowUseCase } = await setupWidgetInProject();
+
+      getWidgetApiUseCase('SHELF-WIDGET', false, noop, noop, noop, noop, noop, noop, []).revealWidget();
+
+      expect(switchProjectUseCase).not.toHaveBeenCalled();
+      expect(switchWorkflowUseCase).not.toHaveBeenCalled();
+      expect(showBrowserWindowUseCase).toHaveBeenCalledTimes(1);
+    })
+
+    it('does nothing in a preview', async () => {
+      const { getWidgetApiUseCase, switchProjectUseCase, switchWorkflowUseCase, showBrowserWindowUseCase } = await setupWidgetInProject();
+
+      const previewApi = getWidgetApiUseCase(widgetId, true, noop, noop, noop, noop, noop, noop, []);
+      previewApi.revealWidget();
+
+      expect(switchProjectUseCase).not.toHaveBeenCalled();
+      expect(switchWorkflowUseCase).not.toHaveBeenCalled();
+      expect(showBrowserWindowUseCase).not.toHaveBeenCalled();
+    })
   })
 
   describe('to-do-list dataStorage scope', () => {

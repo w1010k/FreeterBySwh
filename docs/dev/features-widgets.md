@@ -108,6 +108,7 @@
 | `setDynamicTitle(title \| null)` | 이름이 빈 위젯의 헤더 제목   | `setWidgetDynamicTitleUseCase` → `ui.widgetDynamicTitles`. 공백·빈 문자열은 null로 정규화, 같은 값은 재기록하지 않음 | [fork #11]     |
 | `setHeaderTabs(tabs \| null)`    | 헤더를 탭 바로 교체          | 셸 로컬 state                                                                                                        | [fork #67 #69] |
 | `logActivity(type, payload)`     | 활동 타임라인 기록           | `logTelemetryActivityUseCase`. 셸이 `widgetId`를 붙인다. 동의가 꺼져 있으면 collector에서 무시                       | [fork #63]     |
+| `revealWidget()`                 | 위젯이 있는 곳으로 화면 전환 | `getWidgetApi.ts`가 호출 시점의 위치를 찾아 `switchWorkflowUseCase` → `switchProjectUseCase` (워크플로우 먼저) → `showBrowserWindowUseCase`로 창 표시. 셸프나 어느 워크플로우에도 없는 위젯은 창 표시만 | [fork #95]     |
 
 #### 위젯 API 모듈
 
@@ -302,8 +303,13 @@
 - **재시작 조건**: 파티션, `injectedJS`, `userAgent`가 바뀌면 `onRequireRestart`가 `requireRestart` 카운터를 올려 webview를 key로 다시 마운트한다.
   `injectedCSS`는 `insertCSS`/`removeInsertedCSS`로 즉시 바꾼다.
 - **dom-ready 주입**: `injectedCSS`, `injectedJS`, Ctrl/Cmd+휠 가로채기 (`zoomWheelInjectionJs`), Ctrl/Cmd+F 가로채기
-  (`findKeyInjectionJs`). guest는 `console.log(마커, 값)`으로 신호를 보내고 호스트가 `console-message`에서 마커
-  (`__FREETER_WEBPAGE_ZOOM_WHEEL__`, `__FREETER_WEBPAGE_FIND_KEY__`)를 확인한다 [fork #24 #36].
+  (`findKeyInjectionJs`), 알림 클릭 보고 (`notificationClickInjectionJs`). guest는 `console.log(마커, 값)`으로 신호를 보내고 호스트가
+  `console-message`에서 마커 (`__FREETER_WEBPAGE_ZOOM_WHEEL__`, `__FREETER_WEBPAGE_FIND_KEY__`,
+  `__FREETER_WEBPAGE_NOTIFICATION_CLICK_<난수>__`)를 확인한다 [fork #24 #36 #95].
+- **알림 클릭** [fork #95]: 주입 스크립트가 페이지의 `window.Notification`을 하위 클래스로 바꿔 모든 알림에 click 리스너를 붙인다. OS 알림을 클릭하면
+  위젯이 `widgetApi.revealWidget()`으로 자기 프로젝트와 워크플로우로 전환하고 창을 앞으로 가져오며, 멀티탭이면 부모의 `selectTab(tabIdx)`로 그 탭을
+  활성화한다. 비활성 탭도 `revealWidget`은 실제 함수를 받는다 (no-op 대상이 아님). 마커에는 앱 실행마다 바뀌는 난수가 붙는다. 페이지가 고정 문자열을
+  로그로 찍어 클릭을 위조하지 못하게 하기 위해서다. Service Worker의 `showNotification` 알림은 클릭이 페이지에 오지 않아 다루지 않는다.
 - **액션바 순서** (`createActionBarItems`의 반환 배열): `HOME`, `BACK`, `FORWARD`, `AUTO-RELOAD`(`autoReload > 0`일 때), `RELOAD`,
   `ZOOM-OUT`, `ZOOM-IN`, `FIND`, `CUSTOM-ACTION-<i>`(JS가 빈 항목 제외), `MUTE`, `COPY-URL`, `OPEN-IN-BROWSER`. webview가 없거나
   시작 URL이 비면 빈 배열이다. `FIND`와 `MUTE`는 콜백 (`onFind`, `onToggleMute`)이 주어질 때만 생긴다. 툴팁에 단축키를 붙이고 수정자 표기는

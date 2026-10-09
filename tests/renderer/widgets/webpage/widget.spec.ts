@@ -4,7 +4,7 @@
  */
 
 import { Settings, SettingsSessionPersist, SettingsSessionScope } from '@/widgets/webpage/settings';
-import { widgetComp } from '@/widgets/webpage/widget'
+import { NOTIFICATION_CLICK_MARKER, widgetComp } from '@/widgets/webpage/widget'
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { fixtureSettings } from './fixtures';
@@ -143,6 +143,36 @@ describe('Webpage Widget', () => {
       (webview as unknown as { getURL: () => string }).getURL = () => 'https://x.com/other';
       act(() => { webview.dispatchEvent(new Event('did-navigate')); });
       expect(logActivity).toHaveBeenCalledTimes(2);
+    })
+  })
+
+  describe('notification click', () => {
+    // The injected script reports a page notification click as this marker.
+    const clickEvent = (message = NOTIFICATION_CLICK_MARKER) => Object.assign(new Event('console-message'), { message });
+
+    it('reveals the widget and activates the tab whose page raised the notification', () => {
+      const revealWidget = jest.fn();
+      const setHeaderTabs = jest.fn();
+      const { comp } = setupWebpageWidgetSut(
+        fixtureSettings({ url: 'https://a/', tabs: [{ url: 'https://b/', name: '' }] }),
+        { mockWidgetApi: { revealWidget, setHeaderTabs } }
+      );
+      const tabB = comp.container.getElementsByTagName('webview')[1];
+
+      act(() => { tabB.dispatchEvent(clickEvent()); });
+
+      expect(revealWidget).toHaveBeenCalledTimes(1);
+      expect(setHeaderTabs.mock.calls[setHeaderTabs.mock.calls.length - 1][0]?.active).toBe(1);
+    })
+
+    it('ignores the marker without its random part, so a page cannot fake a click', () => {
+      const revealWidget = jest.fn();
+      const { webview } = setupWebpageWidgetSut(fixtureSettings({ url: 'https://a/' }), { mockWidgetApi: { revealWidget } });
+
+      act(() => { webview.dispatchEvent(clickEvent('__FREETER_WEBPAGE_NOTIFICATION_CLICK_')); });
+
+      expect(NOTIFICATION_CLICK_MARKER).toMatch(/^__FREETER_WEBPAGE_NOTIFICATION_CLICK_[0-9a-z]+__$/);
+      expect(revealWidget).not.toHaveBeenCalled();
     })
   })
 

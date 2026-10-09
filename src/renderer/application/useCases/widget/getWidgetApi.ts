@@ -19,6 +19,9 @@ import { AppStore } from '@/application/interfaces/store';
 import { resolveWidgetSharedKeyId } from '@/base/widget';
 import { sharedStorageId } from '@common/base/sharedStorageId';
 import { AppState } from '@/base/state/app';
+import { SwitchProjectUseCase } from '@/application/useCases/projectSwitcher/switchProject';
+import { SwitchWorkflowUseCase } from '@/application/useCases/workflowSwitcher/switchWorkflow';
+import { ShowBrowserWindowUseCase } from '@/application/useCases/browserWindow/showBrowserWindow';
 
 const todoListWidgetType = 'to-do-list';
 const appScope = 'app';
@@ -58,6 +61,9 @@ interface Deps {
   terminalProvider: TerminalProvider;
   systemStatsProvider: SystemStatsProvider;
   getWidgetsInCurrentWorkflowUseCase: GetWidgetsInCurrentWorkflowUseCase;
+  switchProjectUseCase: SwitchProjectUseCase;
+  switchWorkflowUseCase: SwitchWorkflowUseCase;
+  showBrowserWindowUseCase: ShowBrowserWindowUseCase;
 }
 function _createWidgetApiFactory({
   appStore,
@@ -71,10 +77,13 @@ function _createWidgetApiFactory({
   terminalProvider,
   systemStatsProvider,
   getWidgetsInCurrentWorkflowUseCase,
+  switchProjectUseCase,
+  switchWorkflowUseCase,
+  showBrowserWindowUseCase,
 }: Deps, forPreview: boolean) {
   return createWidgetApiFactory(
     (
-      _widgetId,
+      widgetId,
       updateActionBarHandler,
       setWidgetContextMenuFactoryHandler,
       exposeApiHandler,
@@ -99,6 +108,22 @@ function _createWidgetApiFactory({
       } : () => undefined,
       logActivity: !forPreview ? (type, payload) => {
         logActivityHandler(type, payload);
+      } : () => undefined,
+      // The location is looked up on each call, not when the API is built:
+      // the widget's workflow can move to another project while it stays mounted.
+      // The workflow is made current first, so the project switch activates it
+      // directly instead of first activating (and maybe reloading, under Memory
+      // Saver) whatever workflow the project had open. The window is shown
+      // last (also for shelf widgets), so it comes up already on the widget.
+      revealWidget: !forPreview ? () => {
+        const state = appStore.get();
+        const workflowId = findWidgetWorkflowId(state, widgetId);
+        const projectId = workflowId && findWorkflowProjectId(state, workflowId);
+        if (workflowId && projectId) {
+          switchWorkflowUseCase(projectId, workflowId);
+          switchProjectUseCase(projectId);
+        }
+        showBrowserWindowUseCase();
       } : () => undefined,
     }),
     {

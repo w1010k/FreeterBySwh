@@ -493,9 +493,15 @@
 - 증상: `before-input-event`로는 `Ctrl+휠`을 받을 수 없다. 게스트가 포커스를 가지면 호스트는 `Ctrl+F`를 보지 못한다.
 - 원인: `before-input-event`는 키보드만 지원한다.
 - 규칙: `dom-ready`에서 `executeJavaScript`로 리스너를 주입하고 (`{ capture: true, passive: false }`), magic prefix `console.log`로
-  신호를 보내 호스트의 `console-message`에서 받는다 (`ZOOM_WHEEL_MARKER`, `FIND_KEY_MARKER`). prefix 매치 뒤 `Number.isFinite`로 값을 검증한다.
+  신호를 보내 호스트의 `console-message`에서 받는다 (`ZOOM_WHEEL_MARKER`, `FIND_KEY_MARKER`, `NOTIFICATION_CLICK_MARKER`). prefix 매치 뒤 `Number.isFinite`로 값을 검증한다.
   주입 호출에는 `.catch(() => undefined)`를 붙인다. 한계: DevTools에 마커 로그가 섞이고, 사이트 자체의 `Ctrl+휠` 기능은 먹히지 않는다.
-- 근거: CHANGES #24, #36, `src/renderer/widgets/webpage/widget.tsx`
+- 알림 클릭 (#95): `window.Notification` 교체는 `dom-ready`에 해도 늦지 않다. 페이지가 알림을 만들 때 전역을 읽기 때문이다 (2026-10-09 Telegram Web에서
+  확인). 페이지가 그 전에 `Notification` 참조를 따로 저장하면 교체가 닿지 않는다. Service Worker가 띄운 알림 (`registration.showNotification`)의 클릭은
+  Service Worker로 가므로 페이지 주입으로 잡을 수 없다.
+- 마커 위조: 게스트 페이지는 아무 문자열이나 `console.log`로 찍을 수 있다. 그래서 마커를 받은 호스트의 동작이 위젯 밖 (앱 화면, 창 포커스)에 미치면
+  마커에 실행마다 바뀌는 난수를 붙이고, 주입 스크립트는 주입 시점의 `console.log`를 잡아 둔다 (`NOTIFICATION_CLICK_MARKER`). 한계: dom-ready 전에
+  `console.log`를 바꾼 페이지는 마커를 읽을 수 있다. 줌·찾기 마커는 영향이 위젯 안에 머물러 고정 문자열이다.
+- 근거: CHANGES #24, #36, #95, `src/renderer/widgets/webpage/widget.tsx`
 
 #### getWebContentsId 호출 시점
 
