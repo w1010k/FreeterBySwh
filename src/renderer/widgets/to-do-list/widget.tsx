@@ -32,6 +32,7 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
   // an IPC roundtrip. Disk persistence still happens via debounced setJson.
   const { state: toDoList, setState: setStoreToDoList } = useTodoListState(scope);
   const [activeItemEditorState, setActiveItemEditorState] = useState<ActiveItemEditorState>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [dragState, setDragState] = useState<{
     draggingItemId: number | null;
     draggingOverItemId: number | null;
@@ -66,7 +67,11 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
         return;
       }
       setTodoListState(scope, sanitizeLoadedToDoListState(loaded));
-    })();
+    })().catch(() => {
+      if (!cancelled) {
+        setLoadFailed(true);
+      }
+    });
     return () => {
       cancelled = true;
     };
@@ -305,7 +310,7 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
         {totalCount === 0 ? 'No items' : `${doneCount} / ${totalCount} done`}
       </div>
     </div>
-    : <>Loading To-Do List...</>
+    : <>{loadFailed ? 'Unable to load to-do list. Restart the app to retry.' : 'Loading To-Do List...'}</>
   )
 }
 

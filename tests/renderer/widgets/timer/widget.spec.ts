@@ -20,6 +20,34 @@ function setupTimerWidgetSut(settings: Settings, optional?: SetupWidgetSutOption
 jest.useFakeTimers()
 
 describe('Timer Widget', () => {
+  it('stops a timer started before a failed restore hides its controls', async () => {
+    let rejectRead!: (error: Error) => void;
+    const getJson = jest.fn(() => new Promise((_resolve, reject) => { rejectRead = reject; }));
+    const setDynamicTitle = jest.fn();
+    const setIntervalSpy = jest.spyOn(global, 'setInterval');
+    const clearIntervalSpy = jest.spyOn(global, 'clearInterval');
+    const { userEvent } = setupTimerWidgetSut(fixtureSettings({ mins: 1 }), {
+      mockWidgetApi: { setDynamicTitle, dataStorage: { getJson, setJson: jest.fn() } }
+    });
+    await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: /start/i }));
+    expect(setDynamicTitle).toHaveBeenLastCalledWith('01:00');
+    await act(async () => { rejectRead(new Error('EACCES')); });
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(setDynamicTitle).toHaveBeenLastCalledWith(null);
+    expect(clearIntervalSpy).toHaveBeenCalledWith(setIntervalSpy.mock.results[0].value);
+    setIntervalSpy.mockRestore();
+    clearIntervalSpy.mockRestore();
+  });
+  it('does not overwrite unread timer state after a storage read failure', async () => {
+    const setJson = jest.fn();
+    setupTimerWidgetSut(fixtureSettings({}), { mockWidgetApi: { dataStorage: {
+      getJson: jest.fn().mockRejectedValue(new Error('EACCES')), setJson
+    } } });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load timer');
+    expect(screen.queryByRole('button', { name: /start/i })).not.toBeInTheDocument();
+    expect(setJson).not.toHaveBeenCalled();
+  });
+
   it('should render "05:00", if mins=5', () => {
     setupTimerWidgetSut(fixtureSettings({ mins: 5 }));
 

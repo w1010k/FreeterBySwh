@@ -47,7 +47,10 @@ export function startTelemetry({ appStore, collector }: Deps) {
   });
 
   // Start/stop OS monitoring in main to match the live consent setting.
-  const applyOsMonitoring = (enabled: boolean) => { setOsMonitoring(enabled); };
+  const applyOsMonitoring = (enabled: boolean) => {
+    collector.syncConsent();
+    setOsMonitoring(enabled);
+  };
   applyOsMonitoring(appStore.get().ui.appConfig.telemetry.enabled);
   appStore.subscribe(
     state => state.ui.appConfig.telemetry.enabled,

@@ -564,6 +564,13 @@ describe('Web Query Widget', () => {
       expect(setJson).toHaveBeenCalledWith('history', ['hello']);
     })
 
+    it('keeps unread history when a search follows a storage read failure', async () => {
+      const setJson = jest.fn();
+      const { userEvent } = setupHistory(jest.fn().mockRejectedValue(new Error('EACCES')), setJson);
+      await userEvent.type(screen.getByRole('combobox'), 'hello[enter]');
+      expect(setJson).not.toHaveBeenCalled();
+    });
+
     it('offers the loaded history as input suggestions', async () => {
       setupHistory(jest.fn().mockResolvedValue(['foo', 'bar']));
 

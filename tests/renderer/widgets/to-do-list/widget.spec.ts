@@ -24,6 +24,16 @@ function setupToDoListWidgetSut(settings: Settings, optional?: SetupWidgetSutOpt
 
 
 describe('To-Do List Widget', () => {
+  it('keeps unread data protected after a storage read failure', async () => {
+    const setJson = jest.fn();
+    setupToDoListWidgetSut(fixtureSettings({}), { mockWidgetApi: { dataStorage: {
+      getJson: jest.fn().mockRejectedValue(new Error('EACCES')), setJson
+    } } });
+    expect(await screen.findByText(/Unable to load to-do list/)).toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(setJson).not.toHaveBeenCalled();
+  });
+
   it('should show the loading status and hide the list on start', async () => {
     setupToDoListWidgetSut(fixtureSettings({}));
 

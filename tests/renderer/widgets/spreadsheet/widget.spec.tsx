@@ -36,6 +36,16 @@ beforeAll(() => {
 /** The last context-menu factory the widget handed to the app. */
 let menuFactory: WidgetContextMenuFactory | null = null;
 
+it('does not replace unread spreadsheet data after a storage read failure', async () => {
+  const setText = jest.fn();
+  const { comp } = setupWidgetSut(widgetComp, createSettingsState({v: 2, cols: 3, rows: 20}), {
+    mockWidgetApi: { dataStorage: { getText: jest.fn().mockRejectedValue(new Error('EACCES')), setText } }
+  });
+  expect(await comp.findByText(/Unable to load spreadsheet/)).toBeInTheDocument();
+  expect(comp.queryByRole('table')).not.toBeInTheDocument();
+  expect(setText).not.toHaveBeenCalled();
+});
+
 function setup(stored?: unknown, over?: Partial<Settings>, extra?: Record<string, string>) {
   menuFactory = null;
   const settings = {...createSettingsState({v: 2, cols: 3, rows: 20}), ...over} as Settings;

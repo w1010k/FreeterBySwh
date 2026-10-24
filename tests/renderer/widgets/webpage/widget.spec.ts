@@ -21,6 +21,13 @@ function setupWebpageWidgetSut(settings: Settings, optional?: SetupWidgetSutOpti
 }
 
 describe('Webpage Widget', () => {
+  it('clears the exposed API on unmount so the app store cannot retain a detached widget', () => {
+    const exposeApi = jest.fn();
+    const { comp } = setupWebpageWidgetSut(fixtureSettings({ url: 'https://example.test/' }), { mockWidgetApi: { exposeApi } });
+    expect(exposeApi).toHaveBeenLastCalledWith(expect.objectContaining({ openUrl: expect.any(Function), getUrl: expect.any(Function) }));
+    comp.unmount();
+    expect(exposeApi).toHaveBeenLastCalledWith({});
+  });
   it('should render a "not configured" note, if url is empty', () => {
     setupWebpageWidgetSut(fixtureSettings({ url: '' }));
 

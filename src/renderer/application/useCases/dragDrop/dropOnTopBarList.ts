@@ -7,6 +7,7 @@ import { IdGenerator } from '@/application/interfaces/idGenerator';
 import { removeLayoutItem } from '@/base/widgetLayout';
 import { createListItem } from '@/base/widgetList';
 import { moveEntityInList } from '@/base/entityList';
+import { stopOnWidgetCloneError } from '@/application/useCases/widget/subs/cloneWidget';
 import { AppStore } from '@/application/interfaces/store';
 import { dragDropStateActions, entityStateActions } from '@/base/state/actions';
 import { CloneWidgetToWidgetListSubCase } from '@/application/useCases/shelf/subs/cloneWidgetToWidgetList';
@@ -150,7 +151,9 @@ export function createDropOnTopBarListUseCase({
     }
   }
 
-  return dropOnTopBarListUseCase;
+  return stopOnWidgetCloneError(dropOnTopBarListUseCase, () => {
+    appStore.set(dragDropStateActions.resetAll(appStore.get()));
+  });
 }
 
 export type DropOnTopBarListUseCase = ReturnType<typeof createDropOnTopBarListUseCase>;

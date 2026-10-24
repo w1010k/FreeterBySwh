@@ -24,6 +24,8 @@ type Deps = {
 }
 
 export interface TelemetryCollector {
+  /** Reset interval boundaries when collection consent changes. */
+  syncConsent(): void;
   /** Called whenever the current project/workflow changes (via store subscription). */
   syncCurrent(projectId: string, workflowId: string): void;
   onAppFocus(): void;
@@ -108,11 +110,33 @@ export function createTelemetryCollector({
   }
 
   return {
+    syncConsent: () => {
+      // Focus is tracked even while disabled, but disabled time and input must
+      // never leak into the first batch after enabling collection.
+      const n = now();
+      const collecting = focused && getConfig().enabled;
+      focusStartTs = collecting ? n : null;
+      intervalStartTs = collecting ? n : null;
+      wflOpenTs = collecting && current?.wflId ? n : null;
+      lastActivityTs = n;
+      intervalKeystrokes = 0;
+      if (collecting) {
+        push({ ts: n, type: 'app_focus' });
+      }
+    },
     syncCurrent: (projectId, workflowId) => {
       const n = now();
       const prevWfl = current?.wflId;
       const prevPrj = current?.prjId;
       const wflChanged = workflowId !== prevWfl;
+      if (current && (wflChanged || projectId !== prevPrj) && intervalStartTs !== null) {
+        // Close under the old context before switching ids. A programmatic
+        // switch while idle must not restart an active interval.
+        const idle = n - lastActivityTs > getConfig().idleTimeoutMs;
+        emitTick(idle ? lastActivityTs : n);
+        intervalStartTs = idle ? null : n;
+        intervalKeystrokes = 0;
+      }
       if (wflChanged) {
         closeWorkflowInterval(n);
       }

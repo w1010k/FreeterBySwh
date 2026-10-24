@@ -32,6 +32,45 @@ function setup(initialConfig?: Partial<TelemetryConfig>) {
 }
 
 describe('telemetryCollector', () => {
+  it('keeps activity time and keystrokes with the workflow where they happened', async () => {
+    const { collector, advance, flushAndGet } = setup();
+    collector.syncCurrent('p1', 'w1');
+    collector.onAppFocus();
+    advance(2000);
+    collector.onActivity(true);
+    collector.syncCurrent('p2', 'w2');
+    advance(1000);
+    collector.onActivity(true);
+    collector.onAppBlur();
+
+    const ticks = (await flushAndGet()).filter(e => e.type === 'activity_tick');
+    expect(ticks).toEqual([
+      expect.objectContaining({ prjId: 'p1', wflId: 'w1', durationMs: 2000, count: 1 }),
+      expect.objectContaining({ prjId: 'p2', wflId: 'w2', durationMs: 1000, count: 1 }),
+    ]);
+  });
+
+  it('does not charge an idle gap to the next workflow', async () => {
+    const { collector, advance, flushAndGet } = setup();
+    collector.syncCurrent('p1', 'w1');
+    collector.onAppFocus();
+    advance(2000);
+    collector.onActivity(true);
+    advance(10_000);
+    collector.syncCurrent('p1', 'w2');
+    advance(3000);
+    collector.onActivity(true);
+    advance(1000);
+    collector.onActivity(false);
+    collector.onAppBlur();
+
+    const ticks = (await flushAndGet()).filter(e => e.type === 'activity_tick');
+    expect(ticks).toEqual([
+      expect.objectContaining({ wflId: 'w1', durationMs: 2000, count: 1 }),
+      expect.objectContaining({ wflId: 'w2', durationMs: 1000, count: 1 }),
+    ]);
+  });
+
   it('re-queues only the failed days when the buffer reports them', async () => {
     const failedEvent: TelemetryEvent = { ts: 2, type: 'app_focus' };
     const calls: TelemetryEvent[][] = [];

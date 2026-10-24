@@ -4,12 +4,67 @@
  */
 
 import { mkdir, rm, readFile, readdir, stat, unlink, cp } from 'node:fs/promises';
-import { join, normalize } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { DataStorage } from '@common/application/interfaces/dataStorage';
-import { existsSync } from 'node:original-fs';
 // Keys never map to a temp file name: storageKeyToFilePath turns '.' into '_'.
 import { createInOrder, tmpSuffix, writeFileAtomic } from '@/infra/utils/atomicFile';
+
+interface StorageQueue {
+  inOrder: ReturnType<typeof createInOrder>;
+  barrier: Promise<void>;
+  pending: Set<Promise<unknown>>;
+}
+
+// Look up the queue for every operation, not once per storage instance. This
+// shares ordering across instances/copies and lets idle entries leave the map.
+const storageQueues = new Map<string, StorageQueue>();
+const pathKey = (path: string) => process.platform === 'win32' ? resolve(path).toLowerCase() : resolve(path);
+
+function getStorageQueue(dirPath: string): readonly [string, StorageQueue] {
+  const key = pathKey(dirPath);
+  let queue = storageQueues.get(key);
+  if (!queue) {
+    queue = { inOrder: createInOrder(), barrier: Promise.resolve(), pending: new Set() };
+    storageQueues.set(key, queue);
+  }
+  return [key, queue];
+}
+
+function trackOperation<T>(entries: ReadonlyArray<readonly [string, StorageQueue]>, operation: Promise<T>): Promise<T> {
+  for (const [, queue] of entries) {
+    queue.pending.add(operation);
+  }
+  const settled = () => {
+    for (const [key, queue] of entries) {
+      queue.pending.delete(operation);
+      if (queue.pending.size === 0 && storageQueues.get(key) === queue) {
+        storageQueues.delete(key);
+      }
+    }
+  };
+  operation.then(settled, settled);
+  return operation;
+}
+
+function runFileOperation<T>(dirPath: string, filePath: string, op: () => Promise<T>): Promise<T> {
+  const entry = getStorageQueue(dirPath);
+  const queue = entry[1];
+  return trackOperation([entry], queue.barrier.then(() => queue.inOrder(pathKey(filePath), op)));
+}
+
+function runFolderOperation<T>(dirPaths: string[], op: () => Promise<T>): Promise<T> {
+  const entries = [...new Set(dirPaths.map(pathKey))].map(getStorageQueue);
+  const earlier = entries.flatMap(([, queue]) => [...queue.pending]);
+  const result = Promise.allSettled(earlier).then(op);
+  // Reserve every involved folder synchronously, before any asynchronous work.
+  // Opposite-direction copies then wait in call order without lock deadlocks.
+  const barrier = result.then(() => undefined, () => undefined);
+  for (const [, queue] of entries) {
+    queue.barrier = barrier;
+  }
+  return trackOperation(entries, result);
+}
 
 async function getAllKeys(normStorageDirPath: string) {
   try {
@@ -23,27 +78,38 @@ async function getAllKeys(normStorageDirPath: string) {
         return '';
       }
     }))).filter(item => !!item);
-  } catch {
-    return undefined;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return [];
+    }
+    throw err;
   }
 }
 async function clearStorage(normStorageDirPath: string) {
   let items: string[];
   try {
     items = await readdir(normStorageDirPath);
-  } catch (e) {
-    return undefined;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return undefined;
+    }
+    throw err;
   }
 
   if (items) {
-    await Promise.all(items.map(async item => {
+    const results = await Promise.allSettled(items.map(async item => {
       const filePath = join(normStorageDirPath, item);
-      // Skip temp files: a write in flight renames its temp file away between
-      // readdir and stat, and the failing stat would reject the whole clear.
+      // Failed writes and interrupted earlier runs may leave a scratch file.
       if (!item.endsWith(tmpSuffix) && (await stat(filePath)).isFile()) {
         await unlink(filePath);
       }
-    }))
+    }));
+    // A rejected deletion must not release the folder barrier while another
+    // deletion is still running and could remove a later write.
+    const failed = results.find(result => result.status === 'rejected');
+    if (failed?.status === 'rejected') {
+      throw failed.reason;
+    }
   }
 
   return undefined;
@@ -57,7 +123,7 @@ function storageKeyToFilePath(normStorageDirPath: string, key: string): string |
 }
 
 export async function createFileDataStorage(dataType: 'string', storageDirPath: string): Promise<DataStorage> {
-  const normStorageDirPath = normalize(storageDirPath);
+  const normStorageDirPath = resolve(storageDirPath);
   try {
     await mkdir(normStorageDirPath, { recursive: true });
   } catch (err) {
@@ -67,74 +133,68 @@ export async function createFileDataStorage(dataType: 'string', storageDirPath: 
     console.error(`Failed to create data storage directory "${normStorageDirPath}":`, err);
   }
 
-  // Per-file queue: get/set/delete on one file run in call order, so a read
-  // issued right after a write sees the new content (e.g. a widget that flushes
-  // its pending save on unmount and remounts at once, as when moved between
-  // worktable and shelf). It also keeps two writes from sharing the temp file.
-  // ponytail: clear(), getKeys() and copyFileDataStorage() act on the whole
-  // folder and are not ordered against these per-file operations.
-  const inOrder = createInOrder();
+  const run = <T>(filePath: string, op: () => Promise<T>) => runFileOperation(normStorageDirPath, filePath, op);
 
   return {
     deleteItem: async (key) => {
       const filePath = storageKeyToFilePath(normStorageDirPath, key);
       if (filePath) {
-        await inOrder(filePath, () => rm(filePath, { force: true }))
+        await run(filePath, () => rm(filePath, { force: true }))
       }
     },
     getText: async (key) => {
       try {
         const filePath = storageKeyToFilePath(normStorageDirPath, key);
         if (filePath) {
-          return await inOrder(filePath, () => readFile(filePath, { encoding: 'utf-8' }))
+          return await run(filePath, () => readFile(filePath, { encoding: 'utf-8' }))
         } else {
           return undefined;
         }
       } catch (err) {
-        // Callers treat every failure as "no item", so a missing file stays silent,
-        // but any other read error is logged: otherwise it is indistinguishable.
-        if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
-          console.error(`Failed to read data storage item '${key}':`, err);
+        if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
+          return undefined;
         }
-        return undefined;
+        // An unreadable file is not an empty file: callers must not overwrite it
+        // with defaults or consider its existing contents absent.
+        console.error(`Failed to read data storage item '${key}':`, err);
+        throw err;
       }
     },
     setText: async (key, data) => {
       try {
         const filePath = storageKeyToFilePath(normStorageDirPath, key);
         if (filePath) {
-          return await inOrder(filePath, () => writeFileAtomic(filePath, data))
+          return await run(filePath, () => writeFileAtomic(filePath, data))
         } else {
           return undefined;
         }
       } catch (err) {
-        // The write error is still swallowed (callers don't expect a rejection),
-        // but logged so a lost save leaves a trace.
-        // ponytail: the renderer's change-check caches already count this value as
-        // saved, so an identical retry is skipped; fixing that needs the IPC contract to reject.
         console.error(`Failed to write data storage item '${key}':`, err);
-        return undefined;
+        throw err;
       }
     },
-    clear: async () => await clearStorage(normStorageDirPath),
-    getKeys: async () => (await getAllKeys(normStorageDirPath) || [])
+    clear: () => runFolderOperation([normStorageDirPath], () => clearStorage(normStorageDirPath)),
+    getKeys: () => runFolderOperation([normStorageDirPath], () => getAllKeys(normStorageDirPath))
   }
 }
 
 export async function copyFileDataStorage(fromStorageDirPath: string, toStorageDirPath: string): Promise<boolean> {
-  const normFromStorageDirPath = normalize(fromStorageDirPath);
-  if (!existsSync(normFromStorageDirPath)) {
-    return true;
-  }
-  const normToStorageDirPath = normalize(toStorageDirPath);
-  try {
-    await mkdir(normToStorageDirPath, { recursive: true });
-    // Skip temp files: a write in flight renames its temp file away after cp
-    // lists it, and the copy would fail with ENOENT (the clone then loses data).
-    await cp(normFromStorageDirPath, normToStorageDirPath, { recursive: true, filter: src => !src.endsWith(tmpSuffix) });
-  } catch (err) {
-    return false;
-  }
+  const normFromStorageDirPath = resolve(fromStorageDirPath);
+  const normToStorageDirPath = resolve(toStorageDirPath);
+  return runFolderOperation([normFromStorageDirPath, normToStorageDirPath], async () => {
+    try {
+      await stat(normFromStorageDirPath);
+    } catch (err) {
+      return (err as NodeJS.ErrnoException).code === 'ENOENT';
+    }
+    try {
+      await mkdir(normToStorageDirPath, { recursive: true });
+      // Scratch files are not committed keys and must never enter a clone.
+      await cp(normFromStorageDirPath, normToStorageDirPath, { recursive: true, filter: src => !src.endsWith(tmpSuffix) });
+    } catch (err) {
+      return false;
+    }
 
-  return true;
+    return true;
+  });
 }

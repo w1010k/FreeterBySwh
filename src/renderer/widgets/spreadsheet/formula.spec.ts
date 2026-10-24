@@ -59,6 +59,30 @@ describe('evaluateGrid', () => {
     expect(evalOne('=A1&"-"&B1', ['x', 'y'])).toBe('x-y');
   });
 
+  it('evaluates only the selected IF branch, including nested calls and references', () => {
+    expect(evalOne('=IF(FALSE,1/0,42)')).toBe(42);
+    expect(evalOne('=IF(TRUE,42,1/0)')).toBe(42);
+    expect(evalOne('=IF(FALSE,A1,IF(TRUE,SUM(20,22),1/0))')).toBe(42);
+    expect(evalOne('=IF(FALSE,1/0)')).toBe('');
+    expect(evalOne('=IF(TRUE,1/0,42)')).toBe('#DIV/0');
+    expect(evalOne('=IF(TRUE,42,-(1/0)^2&ABS("text"))')).toBe(42);
+    expect(evalOne('=IF(FALSE,#REF,42)')).toBe(42);
+    expect(evalOne('=IF(FALSE,IF(TRUE,1/0,A1),42)')).toBe(42);
+  });
+
+  it('propagates an error in the IF condition', () => {
+    expect(evalOne('=IF(A1,1,2)', ['=1/0'])).toBe('#DIV/0');
+    expect(evalOne('=IF(A1:B1,1,2)', ['1', '=1/0'])).toBe('#DIV/0');
+  });
+
+  it('rejects malformed IF argument lists', () => {
+    expect(evalOne('=IF(TRUE,1,2')).toBe('#ERROR');
+    expect(evalOne('=IF(TRUE)')).toBe('#ERROR');
+    expect(evalOne('=IF(TRUE,1,2,3)')).toBe('#ERROR');
+    expect(evalOne('=IF(TRUE,42,1+)')).toBe('#ERROR');
+    expect(evalOne('=IF(FALSE,SUM(1,),42)')).toBe('#ERROR');
+  });
+
   it('reports errors instead of throwing or hanging', () => {
     expect(evalOne('=1/0')).toBe('#DIV/0');
     expect(evalOne('=VLOOKUP(1)')).toBe('#NAME');

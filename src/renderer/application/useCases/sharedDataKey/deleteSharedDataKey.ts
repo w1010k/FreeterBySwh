@@ -18,6 +18,7 @@ type Deps = {
   dialog: DialogProvider;
   sharedDataStorageManager: ObjectManager<DataStorageRenderer>;
   widgetDataStorageManager: ObjectManager<DataStorageRenderer>;
+  deletingSharedDataKeys?: Set<EntityId>;
 }
 
 export function createDeleteSharedDataKeyUseCase({
@@ -25,11 +26,12 @@ export function createDeleteSharedDataKeyUseCase({
   dialog,
   sharedDataStorageManager,
   widgetDataStorageManager,
+  deletingSharedDataKeys = new Set<EntityId>(),
 }: Deps) {
   return async function deleteSharedDataKeyUseCase(keyId: EntityId) {
     const initialState = appStore.get();
     const key = initialState.entities.sharedDataKeys[keyId];
-    if (!key) {
+    if (!key || deletingSharedDataKeys.has(keyId)) {
       return;
     }
 
@@ -43,50 +45,62 @@ export function createDeleteSharedDataKeyUseCase({
       defaultId: 1,
       type: 'warning',
     });
-    if (res.response !== 0) {
+    if (res.response !== 0 || deletingSharedDataKeys.has(keyId) || !appStore.get().entities.sharedDataKeys[keyId]) {
       return;
     }
 
-    // Wipe storage. Fire-and-forget is fine: the state update below removes
-    // all references, so even if a write is in flight it lands in a now-orphan
-    // directory that no widget reads from.
-    sharedDataStorageManager.getObject(sharedStorageId(key.widgetType, keyId))
-      .then(s => s.clear());
-    for (const w of affectedWidgets) {
-      widgetDataStorageManager.getObject(w.id).then(s => s.clear());
-    }
-
-    // Re-read state in case anything changed during the dialog await.
-    let next = appStore.get();
-    next = entityStateActions.sharedDataKeys.removeOne(next, keyId);
-    for (const w of affectedWidgets) {
-      const current = next.entities.widgets[w.id];
-      if (!current) {
-        continue;
+    deletingSharedDataKeys.add(keyId);
+    try {
+      const results = await Promise.allSettled([
+        sharedDataStorageManager.getObject(sharedStorageId(key.widgetType, keyId)).then(s => s.clear()),
+        ...affectedWidgets.map(w => widgetDataStorageManager.getObject(w.id).then(s => s.clear())),
+      ]);
+      const failure = results.find(result => result.status === 'rejected');
+      if (failure?.status === 'rejected') {
+        throw failure.reason;
       }
-      next = entityStateActions.widgets.updateOne(next, {
-        id: w.id,
-        changes: {
-          settings: { ...current.settings, sharedKeyId: null },
-        },
-      });
-    }
-    // The settings editor that triggered the delete keeps its own draft copy of
-    // the widget. Clear the key there too, or clicking OK writes the deleted id
-    // back onto the widget and it reads the orphaned folder.
-    const draft = next.ui.modalScreens.data.widgetSettings.widgetInEnv;
-    if (draft && resolveWidgetSharedKeyId(draft.widget) === keyId) {
-      next = modalScreensStateActions.updateModalScreen(next, 'widgetSettings', {
-        widgetInEnv: {
-          ...draft,
-          widget: {
-            ...draft.widget,
-            settings: { ...draft.widget.settings, sharedKeyId: null },
+
+      // Re-read state in case anything changed during the dialog await.
+      let next = appStore.get();
+      next = entityStateActions.sharedDataKeys.removeOne(next, keyId);
+      for (const w of affectedWidgets) {
+        const current = next.entities.widgets[w.id];
+        if (!current || resolveWidgetSharedKeyId(current) !== keyId) {
+          continue;
+        }
+        next = entityStateActions.widgets.updateOne(next, {
+          id: w.id,
+          changes: {
+            settings: { ...current.settings, sharedKeyId: null },
           },
-        },
+        });
+      }
+      // The settings editor that triggered the delete keeps its own draft copy of
+      // the widget. Clear the key there too, or clicking OK writes the deleted id
+      // back onto the widget and it reads the orphaned folder.
+      const draft = next.ui.modalScreens.data.widgetSettings.widgetInEnv;
+      if (draft && resolveWidgetSharedKeyId(draft.widget) === keyId) {
+        next = modalScreensStateActions.updateModalScreen(next, 'widgetSettings', {
+          widgetInEnv: {
+            ...draft,
+            widget: {
+              ...draft.widget,
+              settings: { ...draft.widget.settings, sharedKeyId: null },
+            },
+          },
+        });
+      }
+      appStore.set(next);
+    } catch (error) {
+      console.error('Could not delete shared data.', error);
+      await dialog.showMessageBox({
+        type: 'warning',
+        message: 'Could not delete all shared data. The shared key was kept. Check disk access and try again.',
+        buttons: ['OK'],
       });
+    } finally {
+      deletingSharedDataKeys.delete(keyId);
     }
-    appStore.set(next);
   }
 }
 

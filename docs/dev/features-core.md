@@ -597,6 +597,8 @@
 #### 수집
 
 - 동의 게이트: collector의 `push`가 이벤트마다 `getConfig().enabled` (`ui.appConfig.telemetry`)를 확인한다. 꺼져 있으면 아무것도 쌓지 않는다.
+  동의 설정이 바뀌면 `startTelemetry`가 `syncConsent()`로 시간 경계와 키 입력 수를 초기화한다. 켜기 전의 활동이 켠 뒤 기록에 섞이지 않는다.
+- 워크플로·프로젝트 전환: `syncCurrent`가 기존 id로 `activity_tick`을 먼저 마감하고 새 id로 바꾼다. 이미 유휴 상태면 마지막 입력 시각까지만 기록하고 다음 입력 전까지 활성 구간을 시작하지 않는다.
 - 신호와 수신 함수:
 
 | 신호                                                                                           | collector 함수                            |
@@ -644,6 +646,7 @@
   `appConfig.downloadDir`를 구독해 `download.setDownloadDir(dir)` (`ipcSetDownloadDirChannel`)로 보낸다. 빈 문자열이면 OS 기본 Downloads
   폴더다.
 - main: 모든 세션의 `will-download`를 가로채 저장 경로를 정한다 (`src/main/infra/downloads/downloadManager.ts`).
+  디스크에 있는 파일과 진행 중인 다운로드 경로를 함께 검사한다. 예약은 `done`이나 경로 지정 실패 때 해제한다. Windows 예약 키는 대소문자를 구분하지 않는다 [fork #97].
   상세는 [overview.md](overview.md)와 CHANGES #41 참고.
 - 설정 UI: Application Settings의 Download folder (Browse, Use default).
 
@@ -688,3 +691,11 @@
     `ref.current`를 비교해 바뀌면 다시 observe한다 [fork #45 후속, 2026-10-05].
   - jsdom에는 `ResizeObserver`가 없어 `typeof` 가드가 있다. 테스트로는 observer 동작이 드러나지 않는다.
   - (pitfalls: useElementRect의 재측정 시점)
+
+### 저장·복제 실패 처리 [fork #97]
+
+- `init.ts`는 앱 상태의 읽기·저장 실패를 각각 최초 1회 대화상자로 알린다. 상태 읽기·백업 실패 때 기본 화면은 표시하되 저장을 차단한다. 저장 실패는 최신 값 보존과 제한 재시도로 처리한다 (overview의 저장소 계층).
+- `cloneWidget`는 데이터 복사가 false를 반환하거나 reject하면 `WidgetCloneError`로 실패를 전파한다. 셸프·워크플로우 붙여넣기, 워크플로우 복제, 프로젝트 관리자, 두 드롭 경로는 상태 반영을 중단한다. 드롭 실패는 현재 드래그 상태만 해제하고 프로젝트 관리자는 편집 상태를 유지한다. 삭제 표시한 새 복제본은 디스크 복사 대상에서 제외한다.
+- 위젯 저장소 관리자의 복사는 원본 `flushWritesOnce()` 성공 뒤 수행한다. 기다리는 중 다른 키에 생긴 pending도 최종 확인한다. 실패나 더 최신 pending 값 때문에 저장을 확인할 수 없으면 오래된 디스크 데이터를 복제하지 않는다.
+- 여러 위젯 복제 중 일부만 성공한 뒤 중단하면 먼저 생성한 미참조 폴더는 남을 수 있다. 원본과 기존 배치에는 반영하지 않는다.
+- 공유 키 삭제는 조립 루트에서 주입한 `Set<EntityId>`로 삭제 중인 키를 표시한다. 캡처한 Note writer와 삭제 use case가 이를 공유한다. 모든 clear가 settle되고 성공 상태 반영 또는 실패 처리가 끝난 뒤 표시를 해제한다. 이 집합은 영속 상태에 포함하지 않는다.

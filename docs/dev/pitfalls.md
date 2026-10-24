@@ -279,11 +279,10 @@
   같은 방식으로 실험하니 2,000회 중 2회 발생했다. 셸프 위젯은 항상 마운트되어 있어서 (`visibility: hidden`) 위젯을 옮기면 언마운트 직후 바로 다시 마운트된다. 지금은
   `setText`가 임시 파일에 쓴 뒤 `rename`하므로 빈 파일은 보이지 않는다. 하지만 대기열이 없으면 읽기가 쓰기보다 먼저 끝나 이전 내용을 읽을 수 있으므로 대기열은 여전히 필요하다.
   대기열은 두 쓰기가 같은 `.tmp` 파일을 동시에 쓰는 것도 막는다.
-- 규칙: `createFileDataStorage`의 `getText`, `setText`, `deleteItem`은 파일 경로별 대기열 (`inOrder`, `src/main/infra/utils/atomicFile.ts` `createInOrder`)을 거친다. main `fsProvider`의 `readTextFile`, `writeTextFile`도 자기 대기열을 거친다 [fork #91]. 같은 파일을 읽고 쓰는 새 경로도 이 대기열을 거치게 한다. 렌더러의 flush 쓰기와 재마운트 읽기는 같은 깊이의 호출 경로로 IPC를 보내고, main의
+- 규칙: `createFileDataStorage`의 `getText`, `setText`, `deleteItem`은 파일 경로별 대기열 (`inOrder`, `src/main/infra/utils/atomicFile.ts` `createInOrder`)을 거친다. 같은 파일을 읽고 쓰는 새 경로도 이 대기열을 거치게 한다. 렌더러의 flush 쓰기와 재마운트 읽기는 같은 깊이의 호출 경로로 IPC를 보내고, main의
   use case도 같은 깊이라서 쓰기가 대기열에 먼저 들어간다 (코드 경로 기준, 앱 실행으로는 확인하지 않음).
-  폴더 단위 작업 (`clear`, `getKeys`)과 폴더 복사 (`copyFileDataStorage`)는 대기열 밖이다. 그래서 진행 중인 쓰기의 `.tmp`가 목록을 만든 뒤 사라질 수 있으므로 셋 다
-  `.tmp`를 건너뛴다. 새 폴더 단위 작업도 `.tmp`를 건너뛰게 한다. 대기열 밖의 복사가 대상 파일을 열고 있으면 그 사이의 `rename`이 실패하고 직접 쓰기로 돌아간다. Analytics 서버도 telemetry를 같은 저장소 인스턴스의 `getText`로 읽으므로 대기열을 거친다. 서버는
-  내용이 배열 모양이 아니면 그날을 빈 날로 처리한다 (CHANGES #87, `src/main/infra/analyticsServer/analyticsServer.ts`).
+  `clear`, `getKeys`, `copyFileDataStorage`는 폴더 장벽을 사용한다. 복사는 원본·대상을 동시에 예약하고, 같은 폴더를 연 여러 인스턴스도 정규화한 절대 경로로 큐를 공유한다 [fork #97]. 삭제 일부가 실패하더라도 다른 삭제가 모두 끝난 뒤 장벽을 풀어야 이후 쓰기를 지우지 않는다.
+  `.tmp`는 미완료 데이터이므로 목록과 복사에서 제외한다. `rename` 실패 때 원본 직접 쓰기로 대체하면 원자적 저장이 무너진다. 일시적인 Windows 잠금만 제한적으로 재시도하고, 실패는 호출자에게 전달한다. Analytics도 같은 저장소 대기열을 거친다.
 - 근거: CHANGES #30 후속, `src/main/infra/dataStorage/fileDataStorage.ts` `createFileDataStorage`, `tests/main/infra/dataStorage/fileDataStorageOrder.spec.ts`
 
 #### 변경 검사 래퍼의 적용 범위
@@ -294,13 +293,13 @@
 - 원인: `setTextOnlyIfChanged(withJson(storage))` 순서에서 `withJson`의 `setJson`은 안쪽 `setText`를 직접 부른다. 그래서 변경 검사는 바깥 `setText`
   호출에만 걸린다. `stateStorage`는 그때 `setJson`으로 저장했다. `store.set`은 저장 대상이 아닌 필드 (예: `widgetDynamicTitles`)만 바뀌어도 `saveState`를 부른다.
 - 현재: `stateStorage`는 JSON을 직접 만들어 바깥 `setText`로 저장하므로 변경 검사가 걸린다. `saveState`는 마지막으로 넘긴 JSON과 같으면 debounce를 건드리지 않는다.
-  위젯 코드가 `setJson`을 쓰는 경로는 여전히 변경 검사 밖이다.
+  위젯 저장은 `withJson(withWriteRetry(setTextOnlyIfChanged(raw)))` 순서여서 `setJson`도 변경 검사와 재시도를 거친다 [fork #97].
 - 규칙: store 쓰기 횟수 자체를 줄이려면 동일값 가드를 둔다 (`setWidgetDynamicTitle`, `setWorkflowBarWidth`, `setShelfItemSize` 선례). store 쓰기는 저장과 별개로
   구독자 selector를 다시 실행한다.
 - 근거: `src/common/infra/dataStorage/setTextOnlyIfChanged.ts`, `src/common/infra/dataStorage/withJson.ts`,
   `src/common/data/stateStorage.ts` `createStateStorage`, `src/common/data/store.ts`, `src/renderer/init.ts` `prepareDataStorageForRenderer`
-- 남은 한계: main `setText`는 쓰기 오류를 로그로 남기고 삼킨다. 변경 검사 캐시는 쓰기 결과를 보기 전에 값을 기록한다. 그래서 쓰기가 실패한 뒤 같은 값의 저장은
-  건너뛴다. 고치려면 모든 저장 IPC의 계약을 바꿔야 해서 두었다 (`fileDataStorage.ts` `setText`의 `ponytail:` 주석).
+- 수정 [fork #97]: main 쓰기 오류는 IPC까지 reject하고 캐시는 성공 뒤에만 갱신한다. 실패한 동일 값은 재시도 가능하다. 오래된 읽기·쓰기 결과가 삭제나 새 쓰기 뒤 캐시를 되살리지 않도록 세대를 확인한다.
+- 읽기 실패를 빈 데이터로 바꾸면 다음 자동 저장이 원본을 덮는다. stateStorage는 읽기·백업 실패 후 저장을 차단하고, 위젯은 읽기 성공 전 기본값을 저장하지 않는다.
 
 #### 저장된 설정과 기본값 변경
 
@@ -455,7 +454,17 @@
   SVG 판정을 유지한다. 서드파티 favicon 서비스는 쓰지 않는다 (프라이버시).
 - 규칙: 상한은 본문을 읽는 동안 검사한다 (`readBodyCapped`). chunked 응답에는 `content-length`가 없다. 2026-10-05 이전에는 `arrayBuffer()`로 본문을 모두
   받은 뒤에 검사해서, 타임아웃 4초 동안 받은 만큼 main 메모리에 쌓였다. 로컬 파일도 같다. `getImageDataUrl`은 읽기 전에 `stat`으로 크기를 검사한다.
+- 규칙: HTTP 오류 또는 `content-length` 초과로 본문을 읽기 전에 반환할 때도 `res.body.cancel()`로 응답을 닫는다. 반환만 하면 `finally`가 타임아웃을 해제하여
+  불필요한 다운로드와 연결이 계속 남는다. `getFavicon`의 오류·대용량 응답에서 취소 후 HTML fallback으로 넘어가는지 테스트한다.
 - 근거: CHANGES #21, `src/main/infra/iconProvider/iconProvider.ts` `readBodyCapped`, `src/main/infra/fsProvider/fsProvider.ts` `getImageDataUrl`
+
+#### 동시 다운로드의 파일 이름 충돌
+
+- 출처: `[fork #41]`
+- 증상: 같은 이름의 다운로드가 파일 생성 전에 겹치면 `existsSync`가 둘 다 false를 반환하여 같은 저장 경로를 받았다.
+- 규칙: `createDownloadManager`는 모든 세션에서 진행 중인 저장 경로를 함께 예약한다. `resolveUniqueSavePath`는 디스크 파일과 예약 경로를 모두 확인한다.
+  Windows 예약 키는 절대 경로로 정규화하고 대소문자를 통일한다. `done`의 완료·취소·실패와 `setSavePath` 예외에서 예약을 해제한다.
+- 근거: `src/main/infra/downloads/downloadManager.ts`, `tests/main/infra/downloads/downloadManager.spec.ts`
 
 #### Analytics 루프백 서버
 
@@ -914,3 +923,26 @@
 - 원인: Unix 명령에 의존했다.
 - 규칙: `package.json` scripts에는 플랫폼 중립 도구 (`cross-env`, `rimraf`, `copyfiles`, nodemon `--delay`)를 쓴다.
 - 근거: CHANGES #2, `package.json` `dev:run`
+
+#### 사용 통계의 구간 경계와 동의 변경
+
+- 출처: `[fork #97]`
+- 증상: 워크플로 전환 전의 활동 시간과 키 입력 수가 전환 후 워크플로에 몰렸다. 수집을 켜면 끄고 있던 동안의 입력 수와 시간이 함께 기록될 수 있었다.
+- 원인: `syncCurrent`가 열린 활성 구간을 마감하기 전에 현재 id를 바꿨다. 동의 게이트는 이벤트 추가만 막았고 시간·입력 누적 상태는 초기화하지 않았다.
+- 규칙: 전환 전 id로 활동 구간을 마감하고 유휴 구간은 재시작하지 않는다. 동의 변경 구독은 `syncConsent()`를 호출해 누적 값을 초기화한다. 기존에 동의한 상태에서 쌓인 pending 이벤트는 유지한다.
+- 검증: `telemetryCollector.spec.ts`는 전환 전후 시간·키 수의 귀속과 유휴 간격을 검증한다. `startTelemetry.spec.ts`는 실제 store 구독 경로에서 끈 상태로 시작하거나 껐다 켜는 경우를 검증한다.
+
+#### 전역 상태에 보관한 위젯 API의 DOM 누수
+
+- 출처: `[fork #97]`
+- 증상: Memory Saver 0에서 Webpage를 포함한 두 워크플로우를 180회 전환한 뒤 강제 GC에도 DOM 노드 약 50만 개가 남았다.
+- 원인: 전역 `entities.widgets.*.exposedApi.openUrl`이 Webview 컴포넌트의 공유 lexical context를 잡고, 그 안의 widget API가 이전 exposedApi를 가진 widget 객체를 다시 잡았다. 이 연결이 누적되며 React의 형제 위젯 DOM도 유지됐다. heap snapshot에서 weak/ephemeron 경로를 제외한 강한 참조를 확인했다.
+- 규칙: 컴포넌트 수명보다 오래 보관하는 함수는 외부 factory에서 최소 입력(ref, URL)만 닫아 두고 언마운트 때 공개 API를 비운다. DOM 제거와 GC 한 번으로 수명 정리가 증명되지는 않는다. 같은 전환을 반복해 노드·리스너·heap의 증가를 비교한다.
+- 근거: `src/renderer/widgets/webpage/widget.tsx` `createExposedApi`, `tests/renderer/widgets/webpage/widget.spec.ts`, CHANGES #97.
+
+#### 실패 재시도와 런타임 갱신
+
+- 앱 상태 쓰기 실패 때 마지막 요청 JSON을 지우면, 타이머 제목처럼 영속 데이터가 같은 store 갱신도 새 저장으로 들어간다. 3회 재시도 제한이 매번 초기화되어 오류 상황에서 쓰기와 로그가 반복된다.
+- `stateStorage`는 실패 후에도 마지막 요청 JSON을 유지한다. 미저장 데이터는 별도의 retry 저장소가 보관한다. 실제 영속 값 변경이나 flush만 재시도를 재개한다. 원시 저장소의 성공 캐시와 요청 중복 검사는 역할이 다르다.
+- 복제 준비의 flush가 시작할 때 잡은 키 목록만 확인해서는 부족하다. 기다리는 사이 다른 키의 저장이 실패할 수 있으므로 완료 직전 전체 pending이 비었는지도 확인한다.
+- 근거: `src/common/data/stateStorage.ts`, `src/common/infra/dataStorage/withWriteRetry.ts`, 두 failure 회귀 테스트 [fork #97].

@@ -24,10 +24,11 @@ import { fixtureWorkflowA } from '@tests/base/fixtures/workflow';
 import { fixtureProjectA, fixtureProjectB } from '@tests/base/fixtures/project';
 import { fixtureWidgetLayoutItemA } from '@tests/base/fixtures/widgetLayout';
 import { sharedStorageId } from '@common/base/sharedStorageId';
+import { createDeleteSharedDataKeyUseCase } from '@/application/useCases/sharedDataKey/deleteSharedDataKey';
 
 const widgetId = 'WIDGET-ID';
 
-async function setup() {
+async function setup(deletingSharedDataKeys = new Set<string>()) {
   const clipboardProvider: jest.MockedObject<ClipboardProvider> = {
     writeBookmark: jest.fn(),
     writeText: jest.fn(),
@@ -101,6 +102,7 @@ async function setup() {
     iconProvider,
     widgetDataStorageManager,
     sharedDataStorageManager,
+    deletingSharedDataKeys,
     terminalProvider,
     systemStatsProvider,
     getWidgetsInCurrentWorkflowUseCase,
@@ -307,6 +309,77 @@ describe('getWidgetApiUseCase()', () => {
     expect(widgetDataStorage.setText).toHaveBeenCalledTimes(1);
     expect(widgetDataStorage.setText).toHaveBeenCalledWith('key', 'value');
   })
+
+  it('captures text writes before a shared-key change while ordinary calls keep using the new scope', async () => {
+    const ctx = await setup();
+    const widget = fixtureWidgetA({ id: widgetId, type: 'note', settings: { sharedKeyId: null } });
+    let state = ctx.appStore.get();
+    ctx.appStore.set({ ...state, entities: { ...state.entities, widgets: { [widgetId]: widget } } });
+    const api = ctx.getWidgetApiUseCase(widgetId, false, jest.fn(), jest.fn(), jest.fn(), jest.fn(), jest.fn(), jest.fn(), ['dataStorage']);
+    const writer = api.dataStorage.captureTextWriter!();
+    state = ctx.appStore.get();
+    ctx.appStore.set({ ...state, entities: { ...state.entities,
+      widgets: { [widgetId]: { ...widget, settings: { sharedKeyId: 'KEY' } } },
+      sharedDataKeys: { KEY: { id: 'KEY', widgetType: 'note', name: 'Shared' } },
+    } });
+    await writer('note', 'private pending');
+    await api.dataStorage.setText('note', 'shared new');
+    expect(ctx.widgetDataStorage.setText).toHaveBeenCalledWith('note', 'private pending');
+    expect(ctx.sharedDataStorage.setText).toHaveBeenCalledWith('note', 'shared new');
+  });
+
+  it('cancels a captured writer after its shared key is deleted', async () => {
+    const ctx = await setup();
+    const widget = fixtureWidgetA({ id: widgetId, type: 'note', settings: { sharedKeyId: 'KEY' } });
+    let state = ctx.appStore.get();
+    ctx.appStore.set({ ...state, entities: { ...state.entities, widgets: { [widgetId]: widget },
+      sharedDataKeys: { KEY: { id: 'KEY', widgetType: 'note', name: 'Shared' } },
+    } });
+    const api = ctx.getWidgetApiUseCase(widgetId, false, jest.fn(), jest.fn(), jest.fn(), jest.fn(), jest.fn(), jest.fn(), ['dataStorage']);
+    const writer = api.dataStorage.captureTextWriter!();
+    await ctx.sharedDataStorage.clear();
+    state = ctx.appStore.get();
+    ctx.appStore.set({ ...state, entities: { ...state.entities, sharedDataKeys: {} } });
+    await writer('note', 'obsolete pending');
+    expect(ctx.sharedDataStorage.setText).not.toHaveBeenCalled();
+    expect(ctx.widgetDataStorage.setText).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])('blocks saves until all deletions settle and resumes after failure (early failure: %s)', async earlyFailure => {
+    const deleting = new Set<string>();
+    const ctx = await setup(deleting);
+    const widget = fixtureWidgetA({ id: widgetId, type: 'note', settings: { sharedKeyId: 'KEY' } });
+    const state = ctx.appStore.get();
+    ctx.appStore.set({ ...state, entities: { ...state.entities, widgets: { [widgetId]: widget },
+      sharedDataKeys: { KEY: { id: 'KEY', widgetType: 'note', name: 'Shared' } },
+    } });
+    const api = ctx.getWidgetApiUseCase(widgetId, false, jest.fn(), jest.fn(), jest.fn(), jest.fn(), jest.fn(), jest.fn(), ['dataStorage']);
+    const writer = api.dataStorage.captureTextWriter!();
+    let failClear!: (error: Error) => void;
+    ctx.widgetDataStorage.clear.mockImplementation(() => new Promise((_resolve, reject) => { failClear = reject; }));
+    if (earlyFailure) {
+      ctx.sharedDataStorage.clear.mockRejectedValueOnce(new Error('early failure'));
+    }
+    const showMessageBox = jest.fn().mockResolvedValue({ response: 0, checkboxChecked: false });
+    const remove = createDeleteSharedDataKeyUseCase({
+      appStore: ctx.appStore, sharedDataStorageManager: ctx.sharedDataStorageManager,
+      widgetDataStorageManager: ctx.widgetDataStorageManager, deletingSharedDataKeys: deleting,
+      dialog: { showMessageBox, showOpenDirDialog: jest.fn(), showOpenFileDialog: jest.fn(), showSaveFileDialog: jest.fn() },
+    });
+    const pendingDelete = remove('KEY');
+    // Resolve the confirmation and storage-manager promises, but keep private clear pending.
+    for (let i = 0; i < 5; i++) { await Promise.resolve(); }
+    expect(ctx.sharedDataStorage.clear).toHaveBeenCalled();
+    await writer('note', 'during delete');
+    expect(ctx.sharedDataStorage.setText).not.toHaveBeenCalled();
+    await remove('KEY');
+    expect(showMessageBox).toHaveBeenCalledTimes(1);
+    failClear(new Error('denied'));
+    await pendingDelete;
+    expect(deleting.size).toBe(0);
+    await writer('note', 'after failure');
+    expect(ctx.sharedDataStorage.setText).toHaveBeenCalledWith('note', 'after failure');
+  });
 
   it('should correctly setup process module', async () => {
     const {

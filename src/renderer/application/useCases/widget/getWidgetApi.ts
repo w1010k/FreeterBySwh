@@ -54,6 +54,7 @@ interface Deps {
   clipboardProvider: ClipboardProvider;
   widgetDataStorageManager: ObjectManager<DataStorageRenderer>;
   sharedDataStorageManager: ObjectManager<DataStorageRenderer>;
+  deletingSharedDataKeys?: ReadonlySet<EntityId>;
   processProvider: ProcessProvider;
   shellProvider: ShellProvider;
   fsProvider: FsProvider;
@@ -74,6 +75,7 @@ function _createWidgetApiFactory({
   iconProvider,
   widgetDataStorageManager,
   sharedDataStorageManager,
+  deletingSharedDataKeys,
   terminalProvider,
   systemStatsProvider,
   getWidgetsInCurrentWorkflowUseCase,
@@ -185,6 +187,19 @@ function _createWidgetApiFactory({
           return widgetDataStorageManager.getObject(widgetId);
         };
         return {
+          captureTextWriter: () => {
+            const widget = appStore.get().entities.widgets[widgetId];
+            const sharedKey = widget && resolveWidgetSharedKeyId(widget);
+            const storage = getStorage();
+            return async (key, value) => {
+              const target = await storage;
+              // Explicit key deletion supersedes an editor's delayed cleanup save.
+              if (sharedKey && (deletingSharedDataKeys?.has(sharedKey) || !appStore.get().entities.sharedDataKeys[sharedKey])) {
+                return;
+              }
+              await target.setText(key, value);
+            };
+          },
           clear: async () => (await getStorage()).clear(),
           getJson: async (key) => (await getStorage()).getJson(key),
           getText: async (key) => (await getStorage()).getText(key),

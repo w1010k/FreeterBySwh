@@ -3,18 +3,86 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-// Only the pure helper is under test; stub the module-level electron/fs imports
-// so importing the module doesn't require a real Electron/fs environment.
-jest.mock('electron', () => ({
-  app: { getPath: () => '', on: () => undefined },
-  session: { defaultSession: { on: () => undefined } },
-}), { virtual: true });
+// Exercise the manager's real event wiring without launching Electron.
+jest.mock('electron', () => {
+  const { EventEmitter } = jest.requireActual<typeof import('node:events')>('node:events');
+  return {
+    app: Object.assign(new EventEmitter(), { getPath: () => '' }),
+    session: { defaultSession: new EventEmitter() },
+  };
+}, { virtual: true });
 jest.mock('node:original-fs', () => ({ existsSync: () => false }), { virtual: true });
 
-import { resolveUniqueSavePath } from '@/infra/downloads/downloadManager';
+import { createDownloadManager, resolveUniqueSavePath } from '@/infra/downloads/downloadManager';
+import { app, session } from 'electron';
+import { EventEmitter } from 'node:events';
 
 const sep = process.platform === 'win32' ? '\\' : '/';
 const p = (...parts: string[]) => parts.join(sep);
+
+describe('DownloadManager', () => {
+  beforeEach(() => {
+    app.removeAllListeners();
+    session.defaultSession.removeAllListeners();
+  });
+
+  const download = (filename = 'a.txt') => Object.assign(new EventEmitter(), {
+    getFilename: () => filename,
+    setSavePath: jest.fn(),
+  });
+
+  it('should reserve distinct paths for simultaneous downloads across sessions', () => {
+    const manager = createDownloadManager();
+    manager.setDownloadDir(p('C:', 'dl'));
+    const otherSession = new EventEmitter();
+    app.emit('session-created', otherSession);
+    const first = download();
+    const second = download();
+
+    session.defaultSession.emit('will-download', {}, first);
+    otherSession.emit('will-download', {}, second);
+
+    expect(first.setSavePath).toHaveBeenCalledWith(p('C:', 'dl', 'a.txt'));
+    expect(second.setSavePath).toHaveBeenCalledWith(p('C:', 'dl', 'a (1).txt'));
+  });
+
+  it.each(['completed', 'cancelled', 'interrupted'])('should release a reservation when a download is %s', state => {
+    const manager = createDownloadManager();
+    manager.setDownloadDir(p('C:', 'dl'));
+    const first = download();
+    const second = download();
+    session.defaultSession.emit('will-download', {}, first);
+    session.defaultSession.emit('will-download', {}, second);
+    first.emit('done', {}, state);
+    const third = download();
+    session.defaultSession.emit('will-download', {}, third);
+
+    // existsSync is false: the completed file may have been moved/deleted.
+    expect(second.setSavePath).toHaveBeenCalledWith(p('C:', 'dl', 'a (1).txt'));
+    expect(third.setSavePath).toHaveBeenCalledWith(p('C:', 'dl', 'a.txt'));
+  });
+
+  it('should release the path if setting it fails', () => {
+    createDownloadManager().setDownloadDir(p('C:', 'dl'));
+    const first = download();
+    first.setSavePath.mockImplementation(() => { throw new Error('refused'); });
+    session.defaultSession.emit('will-download', {}, first);
+    const second = download();
+    session.defaultSession.emit('will-download', {}, second);
+
+    expect(second.setSavePath).toHaveBeenCalledWith(p('C:', 'dl', 'a.txt'));
+  });
+
+  it('should treat differently cased Windows paths as one reservation', () => {
+    createDownloadManager().setDownloadDir(p('C:', 'dl'));
+    const first = download('a.txt');
+    const second = download('A.txt');
+    session.defaultSession.emit('will-download', {}, first);
+    session.defaultSession.emit('will-download', {}, second);
+
+    expect(second.setSavePath).toHaveBeenCalledWith(p('C:', 'dl', process.platform === 'win32' ? 'A (1).txt' : 'A.txt'));
+  });
+});
 
 describe('resolveUniqueSavePath()', () => {
   it('should use the plain path when nothing collides', () => {

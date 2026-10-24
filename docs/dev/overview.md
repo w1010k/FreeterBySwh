@@ -315,6 +315,9 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 - 저장 생략: `saveState`는 저장할 JSON이 마지막으로 넘긴 JSON과 같으면 debounce를 건드리지 않는다. 저장 대상이 아닌 필드 (예: `ui.widgetDynamicTitles`)만
   바뀐 `set`이 저장을 계속 미루지 않게 한다 [fork #30 후속]
 
+- 읽기나 손상 원본 백업이 실패하면 기본 화면을 표시하되 해당 stateStorage의 저장을 차단한다. 성공적으로 다시 로드하기 전에는 원본을 덮어쓰지 않는다 [fork #97].
+- 저장 실패는 키별 최신 값만 메모리에 유지하고 5초 간격으로 총 3회 시도한다. 그 뒤 자동 타이머는 멈춘다. 앱 상태는 영속 값이 바뀌거나 `flush`할 때 재개하며, 제목처럼 런타임 값만 바뀌어서는 재시도를 다시 시작하지 않는다. 위젯은 새 저장 요청이나 `flush`에서 재개한다. 종료 시 완료를 기다리지는 않으므로 영구적인 디스크 오류 뒤 앱을 닫으면 미저장 값은 소실될 수 있다 [fork #97].
+
 #### 앱 상태의 영구 범위
 
 `src/renderer/base/state/app.ts`:
@@ -348,10 +351,10 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 
 | 계층                  | 위치                                                                      | 동작                                                                                                                                                                                                    |
 |-----------------------|---------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 파일 저장소 (main)    | `createFileDataStorage` (`src/main/infra/dataStorage/fileDataStorage.ts`) | 폴더 하나에 키당 파일 하나. 키의 `[^A-Za-z0-9_\-()\s]` 문자는 `_`로 바꾼다. `setText`는 `<파일>.tmp`에 쓰고 `sync`한 뒤 `rename`으로 바꾼다 (원자적 쓰기, `src/main/infra/utils/atomicFile.ts` `writeFileAtomic`). `rename`이 실패하면 (Windows에서 대상 파일이 다른 프로세스나 대기열 밖의 `copyFileDataStorage`에 열려 있을 때) 대상 파일에 직접 쓴다. `getKeys`, `clear`, `copyFileDataStorage`는 `.tmp`를 제외한다 [fork #30 후속]. 같은 파일의 `getText`, `setText`, `deleteItem`은 파일 경로별 대기열로 호출 순서대로 실행한다 [fork #30 후속]. 읽기, 쓰기 오류는 삼키고 `undefined` 반환 [upstream, fork #30 변경] |
+| 파일 저장소 (main) | `createFileDataStorage` (`src/main/infra/dataStorage/fileDataStorage.ts`) | 키별 파일, `.tmp` 쓰기·sync·rename. 일시적인 rename 잠금만 최대 4회 재시도하며 원본 직접 쓰기는 하지 않는다. ENOENT 외 읽기·쓰기·삭제 오류는 reject한다. 파일별 대기열과 폴더별 장벽을 모든 인스턴스가 공유한다. `clear`, `getKeys`, 복사는 앞선 작업을 기다리고 이후 작업을 막는다. 복사는 원본·대상 두 폴더를 함께 예약한다. `.tmp`는 키나 복사 대상에서 제외한다 [fork #97]. |
 | 저장소 캐시           | `createObjectManager` (`src/common/base/objectManager.ts`)                | id별 저장소 인스턴스를 Promise로 캐시하고 복사 함수를 함께 둔다. main (위젯, 공유)과 renderer 양쪽에서 쓴다 [upstream]                                                                                  |
 | IPC 어댑터 (renderer) | `src/renderer/infra/dataStorage/*.ts`                                     | `DataStorage` 메서드를 IPC invoke로 옮긴다                                                                                                                                                              |
-| JSON, 중복 쓰기 생략  | `withJson`, `setTextOnlyIfChanged` (`src/common/infra/dataStorage/`)      | renderer `prepareDataStorageForRenderer`가 app, 위젯, 공유 저장소에 둘 다 적용한다. telemetry는 `withJson`만 쓴다                                                                                       |
+| JSON, 중복 쓰기 생략 | `withJson`, `setTextOnlyIfChanged`, `withWriteRetry` (`src/common/infra/dataStorage/`) | 위젯·공유 저장소는 `withJson(withWriteRetry(setTextOnlyIfChanged(raw)))`. 앱 상태는 stateStorage 안에서 재시도하여 손상 원본 백업 실패가 숨겨지지 않게 한다. 캐시는 성공한 쓰기만 기억한다 [fork #97]. |
 
 #### 디스크 경로
 
@@ -491,4 +494,4 @@ infra 전용 구성: `infra/protocolHandler/` (`freeter-file` 스킴 등록) [up
 | HTTP 인증 창      | data: URL, `sandbox: true`, `contextIsolation: true`. realm, host는 `escapeHtml` 처리. 페이지 이동과 proxy 인증에만, webContents마다 하나씩 [fork #90]                                       | `infra/httpAuth/httpAuth.ts`                                                     | [fork #71]                |
 | Analytics 서버    | `127.0.0.1` 랜덤 포트. Host 헤더 정확히 일치 (DNS rebinding 차단), 실행마다 바뀌는 토큰 경로, CORS 없음, 페이지 CSP, `Referrer-Policy: no-referrer`, 정적 파일 이름 정규식. 상세: CHANGES #87 | `infra/analyticsServer/analyticsServer.ts`                                       | [fork #87]                |
 | 파일 시스템 IPC   | `fs-read-dir`, `fs-get-image-data-url`, 공유 저장소 경로 (`widgetType`, `sharedKeyId` 인자로 경로 조립)는 main에서 경로 제한을 두지 않는다. 신뢰 경계는 IPC 발신자 검증이다. Markdown Editor 전용 `fs-read-text-file`, `fs-write-text-file`, `fs-get-mtime`은 #96에서 제거했다 | `infra/fsProvider/fsProvider.ts`, `src/main/index.ts` `getSharedDataStoragePath` | [fork #8 #31 #42 #91]     |
-| 다운로드          | 저장 대화상자 없이 지정 폴더에 저장 (webview partition 포함 모든 session)                                                                                                                     | `infra/downloads/downloadManager.ts`                                             | [fork #41]                |
+| 다운로드          | 저장 대화상자 없이 지정 폴더에 저장 (webview partition 포함 모든 session). 디스크 파일과 활성 다운로드 예약 경로 모두 이름 충돌 검사 (#97)                                                                                                                     | `infra/downloads/downloadManager.ts`                                             | [fork #41]                |

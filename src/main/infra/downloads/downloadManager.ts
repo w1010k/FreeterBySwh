@@ -5,7 +5,7 @@
 
 import { app, session as electronSession, Session } from 'electron';
 import { existsSync } from 'node:original-fs';
-import { join, extname, basename } from 'node:path';
+import { join, extname, basename, resolve } from 'node:path';
 import { DownloadManager } from '@/application/interfaces/downloadManager';
 
 /**
@@ -38,12 +38,26 @@ export function resolveUniqueSavePath(dir: string, filename: string, exists: (p:
 export function createDownloadManager(): DownloadManager {
   let customDir = '';
   const targetDir = () => (customDir.trim() !== '' ? customDir : app.getPath('downloads'));
+  // Downloads in different sessions can start before either file exists. Keep
+  // those paths reserved until completion/cancellation, in addition to disk checks.
+  const reservedPaths = new Set<string>();
+  const pathKey = (path: string) => process.platform === 'win32' ? resolve(path).toLowerCase() : resolve(path);
 
   const attach = (ses: Session) => {
     ses.on('will-download', (_event, item) => {
+      let reserved: string | undefined;
       try {
-        item.setSavePath(resolveUniqueSavePath(targetDir(), item.getFilename(), existsSync));
+        const path = resolveUniqueSavePath(targetDir(), item.getFilename(), candidate =>
+          reservedPaths.has(pathKey(candidate)) || existsSync(candidate));
+        const key = pathKey(path);
+        reserved = key;
+        reservedPaths.add(key);
+        item.setSavePath(path);
+        item.once('done', () => { reservedPaths.delete(key); });
       } catch {
+        if (reserved !== undefined) {
+          reservedPaths.delete(reserved);
+        }
         // On any failure, leave Electron's default behavior (the save dialog).
       }
     });

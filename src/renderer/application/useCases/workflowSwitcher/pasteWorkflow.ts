@@ -3,6 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
+import { stopOnWidgetCloneError } from '@/application/useCases/widget/subs/cloneWidget';
 import { AppStore } from '@/application/interfaces/store';
 import { DeactivateWorkflowUseCase } from '@/application/useCases/memSaver/deactivateWorkflow';
 import { setCurrentWorkflowSubCase } from '@/application/useCases/project/subs/setCurrentWorkflow';
@@ -66,7 +67,7 @@ export function createPasteWorkflowUseCase({
     appStore.set(state);
   }
 
-  return useCase;
+  return stopOnWidgetCloneError(useCase);
 }
 
 export type PasteWorkflowUseCase = ReturnType<typeof createPasteWorkflowUseCase>;

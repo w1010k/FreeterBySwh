@@ -4,6 +4,7 @@
  */
 
 import {
+  createIconProvider,
   extractMimeFromBytes,
   isImageContentType,
   parseFaviconCandidates,
@@ -11,6 +12,30 @@ import {
   sortFaviconCandidates,
   FaviconCandidate
 } from '@/infra/iconProvider/iconProvider';
+
+describe('getFavicon response cleanup', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it.each([
+    ['HTTP error', { status: 404 }],
+    ['oversized content length', { headers: { 'content-length': String(256 * 1024 + 1) } }],
+  ])('cancels an unread %s response before trying the HTML fallback', async (_label, init) => {
+    const cancel = jest.fn();
+    const body = new ReadableStream<Uint8Array>({ cancel });
+    const cancelCountsAtFallback: number[] = [];
+    const fetchMock = jest.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(body, init))
+      .mockImplementationOnce(async () => {
+        cancelCountsAtFallback.push(cancel.mock.calls.length);
+        return new Response('');
+      });
+
+    expect(await createIconProvider().getFavicon('https://example.com/')).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(cancelCountsAtFallback).toEqual([1]);
+  });
+});
 
 function bytes(arr: number[]): Uint8Array {
   return new Uint8Array(arr);

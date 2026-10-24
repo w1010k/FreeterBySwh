@@ -24,6 +24,27 @@ const storage = (): jest.MockedObject<DataStorageRenderer> => ({
 });
 
 describe('deleteSharedDataKeyUseCase()', () => {
+  it('keeps the key and widget references when deleting storage fails', async () => {
+    const widget = fixtureWidgetA({ type: 'note', settings: { sharedKeyId: 'KEY' } });
+    const [appStore] = await fixtureAppStore(fixtureAppState({ entities: {
+      sharedDataKeys: { KEY: { id: 'KEY', widgetType: 'note', name: 'Shared' } },
+      widgets: { [widget.id]: widget },
+    } }));
+    const failedStorage = storage();
+    failedStorage.clear.mockRejectedValue(new Error('denied'));
+    const dialog: jest.MockedObject<DialogProvider> = {
+      showMessageBox: jest.fn().mockResolvedValue({ response: 0, checkboxChecked: false }),
+      showOpenDirDialog: jest.fn(), showOpenFileDialog: jest.fn(), showSaveFileDialog: jest.fn(),
+    };
+    const useCase = createDeleteSharedDataKeyUseCase({ appStore, dialog,
+      sharedDataStorageManager: createObjectManager(async () => failedStorage, async () => true),
+      widgetDataStorageManager: createObjectManager(async () => storage(), async () => true),
+    });
+    await useCase('KEY');
+    expect(appStore.get().entities.sharedDataKeys.KEY).toBeDefined();
+    expect(appStore.get().entities.widgets[widget.id]?.settings.sharedKeyId).toBe('KEY');
+    expect(dialog.showMessageBox).toHaveBeenLastCalledWith(expect.objectContaining({ message: expect.stringContaining('Could not delete') }));
+  });
   it('clears the key on the widget and on the open settings draft, so OK does not restore it', async () => {
     const widget = fixtureWidgetA({ type: 'note', settings: { sharedKeyId: 'KEY' } });
     const [appStore] = await fixtureAppStore(fixtureAppState({

@@ -3583,6 +3583,81 @@ Markdown Editor, Pomodoro, Stopwatch 위젯을 제거했다. Add Widget 목록�
 - **테스트**: 세 위젯의 전용 테스트 삭제, fs controller·provider·WidgetApi 테스트와 mock에서 제거된 API 정리, `tests/renderer/ui/components/widget/widget.spec.tsx` (제거된 세 타입의 삭제 버튼 검증)
 - **문서**: `README.md`, `docs/GUIDE.md`, `docs/dev/{README,features-widgets,overview,decisions,pitfalls}.md`
 
+## 97. 포크 기능의 경합·저장 오류 수정과 성능 최적화 *(2026-10-24)*
+
+원본 `v2.8.0-beta` 이후 변경을 점검하고, 재현한 데이터 경합·계산 오류·자원 낭비를 수정했다. 저장 형식과 기존 사용자 데이터는 바꾸지 않는다.
+
+### 사용자 관점
+
+- **동시 다운로드**: 다른 탭이나 세션에서 같은 이름을 동시에 받아도 `a.txt`, `a (1).txt`처럼 분리한다. 아직 파일이 생성되지 않았더라도 진행 중인 경로를 예약하며 완료·취소·실패 때 해제한다. 다른 프로그램이 같은 경로에 쓰는 작업까지 예약하지는 않는다.
+- **저장소 삭제**: 저장 중 전체 삭제를 실행하면 앞선 저장이 끝난 뒤 삭제한다. 이전 저장이 뒤늦게 완료되어 삭제한 키를 되살리지 않는다. 삭제 뒤 요청한 새 저장은 정상적으로 남는다.
+- **Webpage 메모리 누수**: Memory Saver로 위젯을 내렸다 다시 올릴 때 이전 화면이 메모리에 쌓이던 참조 연결을 끊었다. 전역에 등록하는 API를 작은 외부 factory로 만들고 언마운트 때 해제한다. Note Markdown 편집기의 document 리스너도 함께 정리한다.
+- **저장 실패 보호**: 실제 쓰기 실패를 성공으로 처리하지 않는다. 최신 미저장 값을 메모리에 보관하고 5초 간격으로 총 3회 시도한다. 그 뒤 자동 재시도는 멈추고 새 저장·종료 flush에서 재개한다. 앱 상태 읽기나 손상 원본 백업이 실패하면 저장을 차단하고 안내한다. 디스크 문제가 지속될 때 앱을 종료하면 메모리의 미저장 값은 보장할 수 없다.
+- **위젯 읽기 실패**: 메모·할 일·표·타이머의 읽기 실패를 빈 데이터로 취급하지 않는다. Web Query는 검색을 계속 허용하되 읽지 못한 기록을 덮지 않는다.
+- **위젯 복제**: 복사 실패를 빈 복제본 생성으로 처리하지 않고 작업을 중단한다. 원본·대상 폴더의 진행 중인 저장과 복사의 순서를 보장한다.
+- **Note 동기화**: 외부 변경을 읽는 중 사용자가 입력하거나 더 최신 읽기가 시작되면 오래된 읽기 결과를 버린다. 늦은 응답이 새 입력과 글자 수를 덮지 않는다.
+- **Spreadsheet IF**: 선택하지 않은 분기의 0 나눗셈과 순환 참조 때문에 선택한 결과까지 오류가 되는 문제를 고쳤다. 조건 자체의 오류는 유지한다.
+- **Spreadsheet 숫자 표시**: 설정별 `Intl.NumberFormat`을 재사용한다. 셀마다 로케일 포맷 설정을 다시 만드는 비용을 줄인다. 표시 문자열과 필터의 비교 값은 유지한다.
+- **파비콘 요청**: HTTP 오류나 Content-Length 초과 응답의 본문을 취소한다. 사용할 수 없는 응답을 계속 받으면서 연결과 버퍼를 붙잡는 비용을 줄인다.
+- **사용 통계 전환**: 워크플로·프로젝트를 바꾸기 전에 기존 id로 활성 구간을 마감한다. 이전 화면에서 보낸 시간과 키 입력이 다음 화면으로 넘어가지 않는다. 유휴 상태의 자동 전환은 새 활성 구간을 시작하지 않는다.
+- **사용 통계 동의**: 수집을 켜거나 끌 때 시간 경계와 입력 횟수를 초기화한다. 수집을 끄고 있던 동안의 활동이 켠 뒤의 기록에 섞이지 않는다.
+
+### 아키텍처
+
+- main의 다운로드 관리자가 활성 경로 집합을 관리한다. Windows 예약 키는 절대 경로와 소문자로 정규화한다.
+- `createFileDataStorage`는 파일별 대기열과 공유 폴더 장벽을 조합한다. 삭제·목록·복사는 앞선 작업을 기다리고 뒤의 작업을 막는다. 복사는 원본·대상 폴더를 함께 예약하며 같은 경로의 여러 저장소 인스턴스도 순서를 공유한다.
+- `writeFileAtomic`은 일시적인 rename 잠금만 최대 4회 시도한다. 원본 파일에 직접 덮어쓰는 fallback을 없애고 실패를 IPC로 전달한다. 변경 검사 캐시는 성공한 쓰기만 반영하고 오래된 비동기 결과를 배제한다.
+- 위젯 저장은 `withJson(withWriteRetry(setTextOnlyIfChanged(raw)))` 순서다. 앱 상태의 읽기·백업은 재시도 래퍼 밖에서 실패를 확인하여 기본값으로 원본이 덮이지 않게 한다.
+- Note Markdown 편집기는 DOM 제거 대신 `destroy()`로 document 리스너까지 정리한다.
+- Note는 읽기 세대 번호로 오래된 응답을 배제한다. Spreadsheet는 IF의 분기 평가를 지연하고 숫자 포맷 함수를 설정 변경 때만 만든다.
+- `syncCurrent`는 현재 id 변경 전에 활성 구간을 마감한다. `startTelemetry`의 동의 구독은 새 `syncConsent`를 호출한다. 이미 동의한 상태에서 수집한 pending 이벤트는 유지한다.
+
+### 까다로웠던 포인트
+
+- 단순한 디스크 존재 확인은 다운로드 예약을 대신하지 못한다. 아직 파일이 생성되지 않은 동시 시작을 테스트해야 한다.
+- `clear`를 파일별 대기열에만 넣으면 다른 키의 쓰기를 기다리지 못한다. 앞선 작업을 스냅샷으로 잡고 뒤에 접수된 작업에는 별도 장벽을 적용한다.
+- Note는 포커스 여부를 읽기 시작 시점에만 검사하면 부족하다. 실제 응답이 도착하기 전에 사용자가 입력할 수 있다.
+- IF는 미선택 분기를 계산하지 않아도 수식 문법은 검사해야 한다. 계산 오류와 잘못된 문법을 구분한다.
+- 통계의 동의 게이트가 이벤트 추가만 막으면, 메모리에 누적된 비동의 구간이 나중에 기록될 수 있다.
+- 성능 수치는 합성 숫자 26,000개를 포맷한 개별 함수 측정이다. 앱 전체 응답 속도나 실제 Electron 화면의 프레임 속도로 해석하지 않는다. 이 PC의 Node에서 실제 변경 전후 모듈을 각각 세 번 실행한 확인값은 705/695/729ms → 18/18/18ms였다 (고정 소수 2자리, 천 단위 구분자).
+
+### 추가 재검토 (2026-10-25)
+
+- 복제 준비 중 새로 생긴 다른 키의 미저장 값도 확인한다. 시작 시점의 키들만 성공했다고 오래된 디스크 내용을 복사하지 않는다.
+- 앱 상태 저장 실패 뒤에도 마지막 요청 JSON을 유지한다. 타이머 제목 같은 런타임 변경이 재시도 횟수를 초기화하여 계속 쓰는 문제를 막는다. 실제 영속 값 변경이나 명시적 flush는 재시도를 재개한다.
+- 프로젝트 관리자에서 복제한 뒤 삭제 표시한 대상은 복사하지 않는다. 취소한 복제의 디스크 오류 때문에 전체 저장이 중단되는 회귀를 막는다.
+- 타이머 복원 전에 Start를 누르고 읽기가 실패하면 실행 중인 타이머도 정지한다. 오류 화면 뒤에 숨은 타이머가 알림을 울리지 않게 한다.
+- Note는 편집을 시작한 저장소에 지연 저장한다. 공유 키 A에서 B로 바꿀 때 A의 마지막 입력이 B의 기존 내용을 덮는 문제를 막고, 삭제한 공유 키의 늦은 저장은 무시한다.
+- 공유 키 삭제 시작부터 모든 저장소 clear와 상태 반영이 끝날 때까지 해당 키의 지연 쓰기를 막는다. 삭제 실패 시 차단을 해제하고 다시 편집할 수 있게 한다.
+
+- 추가 재검토의 최종 검증: Jest 300 suites / 2,098 tests 통과, 세 surface 타입 검사·프로덕션 빌드 통과, lint 오류 0개(기존 경고 6개). 아래 메모리 수치는 Webpage 누수 수정 후의 1차 실측 기록이며, 후속 경합 수정은 별도 회귀 테스트로 검증했다.
+
+### 검증과 Electron 실측 (2026-10-25)
+
+- 1차 검증: 전체 Jest 300 suites / 2,089 tests, 세 surface 타입 검사, 프로덕션 빌드 통과. ESLint 오류 0개, 기존 경고 6개. 빌드는 번들 크기 경고 3개를 유지한다.
+- Windows Electron 42.11.10 / Chromium 148.0.7778.280, 임시 데이터 프로필, 프로덕션 빌드. 두 워크플로우에 각각 Spreadsheet(1,000×26), Note, Webpage(로컬 두 탭), System Monitor, Clock, D-Day, Timer, To-Do, Calculator, File Explorer를 배치했다. Memory Saver 0, telemetry 꺼짐, 창 숨김·background throttling 해제 조건이다.
+- 약 20초 워밍업 후 1초 간격 180회 전환, 90초 대기. 변경 전 298초, 후 295초 실행했다. 아래 최종 값은 대기 후 강제 GC 기준이다.
+
+| 지표 | 수정 전: 초기 → 최종 | 수정 후: 초기 → 최종 |
+|---|---:|---:|
+| 호스트 JS heap (MiB) | 6.67 → 39.22 | 6.77 → 9.72 |
+| DOM 노드 | 3,481 → 502,231 | 3,481 → 9,023 |
+| 이벤트 리스너 | 269 → 8,889 | 269 → 365 |
+| 최종 프로세스 / webContents | 6 / 3 | 6 / 3 |
+
+- 수정 후 노드는 100회까지 3,481, 120·140회에는 11,791이었다. 최종 대기 구간에서는 9,023을 유지했다. 초기값과 완전히 같다는 결론이 아니라 매 전환에 비례한 누적 증가를 없앤 결과다. 수정 후 대기 CPU 지표(`app.getAppMetrics()` 프로세스 합)는 평균 약 0.16%였다.
+- 변경 전후 전체 working set의 초기값부터 차이가 있었고 일부 이전 측정에는 별도 분리 프로브도 함께 실행했다. 전체 메모리·CPU의 개선율은 이 실행으로 단정하지 않는다. 숨김 창·로컬 페이지 결과이므로 실제 외부 사이트의 화면 지연이나 수시간 사용을 대신하지 않는다.
+- 수집한 앱 예외·renderer 종료 이벤트는 없었다. 양쪽 실행의 stderr에는 webview 교체 시 Chromium Mojo 메시지가 있었다. 이 수치를 근거로 모든 내부 진단이 없었다고 주장하지 않는다.
+- 로컬 원본 기록: `%TEMP%/freeter-runtime-audit-sWMSsH/report.json`(전), `%TEMP%/freeter-runtime-audit-vPSNVv/report.json`(후). 실행 스크립트는 `%TEMP%/freeter-runtime-audit.cjs`, 참조 분석 heap은 `%TEMP%/freeter-runtime-audit-eUnEkf/heap.heapsnapshot`이다. 임시 파일이므로 저장소에 포함하지 않는다.
+
+**수정 파일**
+
+- **수정**: `src/main/infra/{downloads/downloadManager,dataStorage/fileDataStorage,iconProvider/iconProvider}.ts`, `src/renderer/application/telemetry/{startTelemetry,telemetryCollector}.ts`, `src/renderer/widgets/note/widget.tsx`, `src/renderer/widgets/spreadsheet/{formula,grid}.ts`
+- **추가 수정**: `src/common/{data/stateStorage,data/store,infra/dataStorage/setTextOnlyIfChanged}.ts`, `src/main/infra/utils/atomicFile.ts`, `src/renderer/init.ts`, `src/renderer/data/appStateStorage.ts`, `src/renderer/widgets/webpage/widget.tsx`, 복제 use case와 위젯 로더.
+- **신규**: `src/common/infra/dataStorage/withWriteRetry.ts`.
+- **테스트**: 원자적 쓰기·실패 전파·재시도·복사 순서·위젯 읽기 실패 회귀 테스트, main의 다운로드·저장소·아이콘 테스트, Note 테스트, Spreadsheet 수식·포맷 테스트, telemetryCollector 테스트 보강. `tests/renderer/application/telemetry/startTelemetry.spec.ts` 신규.
+- **문서**: `docs/dev/{features-core,features-widgets,overview,pitfalls,decisions,procedures}.md`, `README.md`
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

@@ -58,11 +58,11 @@ import { createIconProvider } from '@/infra/iconProvider/iconProvider';
 import { createProcessProvider } from '@/infra/processProvider/processProvider';
 import { createSystemStatsProvider } from '@/infra/systemStatsProvider/systemStatsProvider';
 import { createGetWidgetApiUseCase } from '@/application/useCases/widget/getWidgetApi';
-import { DataStorageRenderer } from '@/application/interfaces/dataStorage';
 import { DataStorage } from '@common/application/interfaces/dataStorage';
 import { setTextOnlyIfChanged } from '@common/infra/dataStorage/setTextOnlyIfChanged';
+import { withWriteRetry } from '@common/infra/dataStorage/withWriteRetry';
 import { withJson } from '@common/infra/dataStorage/withJson';
-import { createObjectManager } from '@common/base/objectManager';
+import { createObjectManager, ObjectManager } from '@common/base/objectManager';
 import { copyWidgetDataStorage, createWidgetDataStorage } from '@/infra/dataStorage/widgetDataStorage';
 import { createSharedDataStorage } from '@/infra/dataStorage/sharedDataStorage';
 import { parseSharedStorageId } from '@common/base/sharedStorageId';
@@ -173,8 +173,27 @@ import { createGetTelemetryEntitiesUseCase } from '@/application/useCases/teleme
 import { createOpenAnalyticsUseCase } from '@/application/useCases/analytics/openAnalytics';
 import { openAnalyticsInBrowser } from '@/infra/analytics/analytics';
 
-function prepareDataStorageForRenderer(dataStorage: DataStorage): DataStorageRenderer {
-  return setTextOnlyIfChanged(withJson(dataStorage));
+const reportedStorageErrors = new Set<'load' | 'save'>();
+function reportStorageError(phase: 'load' | 'save', error: unknown) {
+  console.error(`Storage ${phase} failed.`, error);
+  if (reportedStorageErrors.has(phase)) {
+    return;
+  }
+  reportedStorageErrors.add(phase);
+  void createOsDialogProvider().showMessageBox({
+    type: 'warning',
+    message: phase === 'load'
+      ? 'Could not load saved app data. Saving is disabled to protect the original. Check disk access and restart Freeter.'
+      : 'Could not save changes. Freeter will retry twice and keep pending changes in memory. Check disk access before closing Freeter.',
+    buttons: ['OK'],
+  }).catch(dialogError => console.error('Could not show storage error.', dialogError));
+}
+
+const widgetStorageFlushers = new Set<() => void>();
+function prepareDataStorageForRenderer(dataStorage: DataStorage) {
+  const storage = withWriteRetry(setTextOnlyIfChanged(dataStorage), error => reportStorageError('save', error));
+  widgetStorageFlushers.add(storage.flushWrites);
+  return withJson(storage);
 }
 
 function createStore() {
@@ -183,10 +202,11 @@ function createStore() {
   const firstRunState = createAppState();
 
   const appState = entityStateActions.widgetTypes.setAll(firstRunState, registry.getWidgetTypes());
-  const dataStorage = prepareDataStorageForRenderer(createAppDataStorage());
+  const dataStorage = setTextOnlyIfChanged(createAppDataStorage());
   const [appStore, appStoreForUi] = createAppStore({
     stateStorage: createAppStateStorage(
       dataStorage,
+      reportStorageError,
     )
   }, appState, () => {
     resolve(true);
@@ -195,7 +215,10 @@ function createStore() {
   // Persist any pending (debounced) app state before the window unloads. Best-effort:
   // the save is dispatched over IPC and not awaited, but flushing here shrinks the
   // loss window from the debounce delay (~5s) to the unload moment.
-  window.addEventListener('beforeunload', () => appStore.flush());
+  window.addEventListener('beforeunload', () => {
+    appStore.flush();
+    widgetStorageFlushers.forEach(flush => flush());
+  });
 
   return {
     appStore,
@@ -289,9 +312,15 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
   const getImageDataUrlUseCase = createGetImageDataUrlUseCase({ fsProvider });
   const iconProvider = createIconProvider();
   const processProvider = await createProcessProvider();
-  const widgetDataStorageManager = createObjectManager(
+  const widgetDataStorageManager: ObjectManager<ReturnType<typeof prepareDataStorageForRenderer>> = createObjectManager(
     async widgetId => prepareDataStorageForRenderer(createWidgetDataStorage(widgetId)),
-    copyWidgetDataStorage
+    async (fromId, toId) => {
+      const source = await widgetDataStorageManager.getObject(fromId);
+      if (!await source.flushWritesOnce()) {
+        return false;
+      }
+      return copyWidgetDataStorage(fromId, toId);
+    }
   )
   const sharedDataStorageManager = createObjectManager(
     async id => {
@@ -300,11 +329,13 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     },
     async () => false
   )
+  const deletingSharedDataKeys = new Set<string>();
   const deleteSharedDataKeyUseCase = createDeleteSharedDataKeyUseCase({
     ...deps,
     dialog: osDialogProvider,
     sharedDataStorageManager,
     widgetDataStorageManager,
+    deletingSharedDataKeys,
   });
   const getWidgetSettingsApiUseCase = createGetWidgetSettingsApiUseCase({
     ...deps,
@@ -339,6 +370,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     iconProvider,
     widgetDataStorageManager,
     sharedDataStorageManager,
+    deletingSharedDataKeys,
     terminalProvider,
     systemStatsProvider,
     getWidgetsInCurrentWorkflowUseCase,
@@ -353,7 +385,15 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
 
   const cloneWidgetSubCase = createCloneWidgetSubCase({
     ...deps,
-    widgetDataStorageManager
+    widgetDataStorageManager,
+    onCopyError: error => {
+      console.error('Could not copy widget data.', error);
+      void osDialogProvider.showMessageBox({
+        type: 'warning',
+        message: 'Could not copy widget data. The original was preserved and the copy was cancelled.',
+        buttons: ['OK'],
+      }).catch(dialogError => console.error('Could not show copy error.', dialogError));
+    },
   })
   const cloneWidgetLayoutItemSubCase = createCloneWidgetLayoutItemSubCase({
     ...deps,

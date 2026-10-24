@@ -17,7 +17,7 @@ import { createCloneWorkflowSubCase } from '@/application/useCases/workflow/subs
 import { Workflow } from '@/base/workflow';
 import { Project } from '@/base/project';
 import { IdGenerator } from '@/application/interfaces/idGenerator';
-import { createCloneWidgetSubCase } from '@/application/useCases/widget/subs/cloneWidget';
+import { createCloneWidgetSubCase, WidgetCloneError } from '@/application/useCases/widget/subs/cloneWidget';
 import { createCloneWidgetLayoutItemSubCase } from '@/application/useCases/workflow/subs/cloneWidgetLayoutItem';
 import { fixtureWidgetA, fixtureWidgetB, fixtureWidgetC } from '@tests/base/fixtures/widget';
 import { Widget } from '@/base/widget';
@@ -37,7 +37,7 @@ async function setup(initState: AppState) {
   const cloneWidgetSubCase = createCloneWidgetSubCase({
     idGenerator: widgetIdGeneratorMock,
     widgetDataStorageManager: {
-      copyObjectData: jest.fn(),
+      copyObjectData: jest.fn().mockResolvedValue(true),
       getObject: jest.fn()
     }
   })
@@ -683,3 +683,24 @@ describe('saveChangesInProjectManagerUseCase()', () => {
     expect(newState).toEqual(expectState);
   });
 })
+
+it('does not copy a duplicate marked for deletion when saving the manager', async () => {
+  const workflow = fixtureWorkflowA();
+  const project = fixtureProjectA({ workflowIds: [workflow.id], currentWorkflowId: workflow.id });
+  const duplicate = fixtureProjectB({ workflowIds: [] });
+  const [appStore] = await fixtureAppStore(fixtureAppState({
+    entities: { projects: { [project.id]: project }, workflows: { [workflow.id]: workflow } },
+    ui: {
+      projectSwitcher: fixtureProjectSwitcher({ projectIds: [project.id], currentProjectId: project.id }),
+      modalScreens: { order: ['projectManager'], data: fixtureModalScreensData({ projectManager: {
+        projects: { [project.id]: project, [duplicate.id]: duplicate }, projectIds: [project.id, duplicate.id],
+        currentProjectId: project.id, duplicateProjectIds: { [duplicate.id]: project.id }, deleteProjectIds: { [duplicate.id]: true }
+      } }) }
+    }
+  }));
+  const cloneWorkflowSubCase = jest.fn().mockRejectedValue(new WidgetCloneError('Disk unavailable'));
+  await createSaveChangesInProjectManagerUseCase({ appStore, cloneWorkflowSubCase,
+    createWorkflowSubCase: jest.fn(), deactivateWorkflowUseCase: jest.fn() })();
+  expect(cloneWorkflowSubCase).not.toHaveBeenCalled();
+  expect(appStore.get().ui.modalScreens.order).not.toContain('projectManager');
+});

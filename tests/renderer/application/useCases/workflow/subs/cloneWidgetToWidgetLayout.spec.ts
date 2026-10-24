@@ -18,7 +18,7 @@ function setup() {
   const cloneWidgetSubCase = createCloneWidgetSubCase({
     idGenerator: widgetIdGeneratorMock,
     widgetDataStorageManager: {
-      copyObjectData: jest.fn(),
+      copyObjectData: jest.fn().mockResolvedValue(true),
       getObject: jest.fn()
     }
   })

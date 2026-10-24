@@ -36,9 +36,9 @@ type Deps = {
  * other's read-modify-write.
  *
  * The day file is the only copy of that day's events, so a read that can't
- * prove the file is empty must not lead to an overwrite: `getText` returns
- * `undefined` both for a missing file and for a failed read. In that case the
- * day's events are reported back in `TelemetryAppendError` for the next flush,
+ * prove the file is empty must not lead to an overwrite: `getText` rejects on
+ * I/O failure. The key check also guards adapters returning undefined while
+ * the file exists. The day's events are reported in `TelemetryAppendError` for the next flush,
  * while the other days in the batch are still written. A file that reads fine
  * but is not an event array is copied to a `corrupt-` key (outside the
  * `events-` prefix the Analytics page reads) and the day starts fresh;

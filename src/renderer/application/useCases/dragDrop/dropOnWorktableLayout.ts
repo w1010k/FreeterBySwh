@@ -7,6 +7,7 @@ import { IdGenerator } from '@/application/interfaces/idGenerator';
 import { createLayoutItem, moveLayoutItem, removeLayoutItem, WidgetLayoutItemXY } from '@/base/widgetLayout';
 import { removeEntityFromList } from '@/base/entityList';
 import { EntityId } from '@/base/entity';
+import { stopOnWidgetCloneError } from '@/application/useCases/widget/subs/cloneWidget';
 import { AppStore } from '@/application/interfaces/store';
 import { dragDropStateActions, entityStateActions } from '@/base/state/actions';
 import { addOneToEntityCollection, getOneFromEntityCollection, updateOneInEntityCollection } from '@/base/entityCollection';
@@ -188,7 +189,9 @@ export function createDropOnWorktableLayoutUseCase({
     }
   }
 
-  return dropOnWorktableLayoutUseCase;
+  return stopOnWidgetCloneError(dropOnWorktableLayoutUseCase, () => {
+    appStore.set(dragDropStateActions.resetAll(appStore.get()));
+  });
 }
 
 export type DropOnWorktableLayoutUseCase = ReturnType<typeof createDropOnWorktableLayoutUseCase>;

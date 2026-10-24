@@ -31,6 +31,8 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
   const {updateActionBar, setContextMenuFactory, dataStorage} = widgetApi;
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const loadedNote = useRef('');
+  // A read that started before a local edit or a newer read must not replace it.
+  const loadVersion = useRef(0);
   // A remote change that arrived while this note was focused: applied on blur
   // so a focused note doesn't stay stale until the next broadcast.
   const pendingReload = useRef(false);
@@ -39,6 +41,7 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
   // alone wouldn't update the editor's own rendered DOM.
   const editorRef = useRef<Editor | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [counts, setCounts] = useState({ words: 0, chars: 0 });
 
   // Update the word/char count off the keystroke path: the textarea is
@@ -55,17 +58,35 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
 
   // Save shortly after typing stops (was 3s — too long, made sibling notes feel
   // out of sync). Leaving the field flushes immediately (see handleBlur).
-  const saveNote = useMemo(() => debounce((note: string) => dataStorage.setText(keyNote, note), 800), [dataStorage]);
+  const saveNote = useMemo(() => {
+    const write = dataStorage.captureTextWriter?.() ?? dataStorage.setText;
+    return debounce((note: string) => write(keyNote, note), 800);
+  }, [dataStorage]);
   const updNote = useCallback((note: string) => {
+    loadVersion.current++;
     loadedNote.current = note;
     saveNote(note);
     updateCounts(note);
   }, [saveNote, updateCounts])
 
   const loadNote = useCallback(async function () {
+    const version = ++loadVersion.current;
     pendingReload.current = false;
-    const next = await dataStorage.getText(keyNote) || '';
+    let next: string;
+    try {
+      next = await dataStorage.getText(keyNote) || '';
+    } catch {
+      if (version === loadVersion.current) {
+        setLoadFailed(true);
+      }
+      return;
+    }
+    if (version !== loadVersion.current) {
+      return;
+    }
     loadedNote.current = next;
+    setLoadFailed(false);
+    updateCounts.cancel();
     setCounts(computeCounts(next));
     if (editorRef.current) {
       // Markdown mode: drive the editor so its rendered view updates too.
@@ -76,7 +97,7 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
       textAreaRef.current.value = next;
     }
     setIsLoaded(true);
-  }, [dataStorage]);
+  }, [dataStorage, updateCounts]);
 
   const handleChange = useCallback<ChangeEventHandler<HTMLTextAreaElement>>((e) => {
     const newNote = e.target.value;
@@ -94,7 +115,11 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
 
   useEffect(() => {
     loadNote();
-  }, [loadNote])
+    return () => {
+      loadVersion.current++;
+      updateCounts.cancel();
+    };
+  }, [loadNote, updateCounts])
 
   // Persist a pending edit when the app quits (beforeunload) or the widget
   // unmounts (e.g. switching workflows) — otherwise a change made within the
@@ -154,8 +179,9 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
       editorRef.current = null;
       if (editorEl) {
         editorEl.removeEventListener('focusout', handleBlur);
-        editorEl.remove();
       }
+      // Removing the DOM alone leaves TinyMDE's document selection listener alive.
+      editor.destroy();
     };
   }, [isLoaded, settings.markdown, settings.spellCheck, updNote, handleBlur])
 
@@ -175,7 +201,7 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
         ></textarea>
         <div className={styles['note-count']}>{counts.words} words · {counts.chars} chars</div>
       </>
-    : <>Loading Note...</>
+    : <>{loadFailed ? 'Unable to load note. Restart the app to retry.' : 'Loading Note...'}</>
   )
 }
 

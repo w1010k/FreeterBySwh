@@ -130,3 +130,11 @@ upstream (`FreeterApp/Freeter`)의 새 릴리스를 받는 절차. 2.8 병합 (�
 | react-hooks 7 신규 규칙                       | `set-state-in-effect`, `refs`를 `src/renderer/eslint.config.mjs`에서 `warn`으로 낮췄다. 후속 정리 대상이다. |
 
 근거: 커밋 0ebf9ac 메시지, `src/renderer/eslint.config.mjs`.
+
+### 위젯 생애주기 성능 확인 [fork #97]
+
+- 설치본 데이터를 쓰지 않고 임시 `appData`를 만든 Electron 프로필에서 확인한다. 프로덕션 빌드를 사용하고 외부 사이트 대신 루프백 테스트 페이지로 네트워크 변동을 줄인다.
+- Memory Saver를 전환 즉시 비활성화(0)로 설정한다. 같은 종류의 위젯이 있는 두 워크플로우를 반복 전환한다. JS heap뿐 아니라 CDP `Memory.getDOMCounters`의 nodes/listeners와 webContents 수도 함께 기록한다.
+- 전환 중 일정 주기와 전환 종료 후 대기 구간에서 GC 후 수치를 비교한다. 하나의 최종 heap 값만 비교하면 워밍업과 캐시를 누수로 오인할 수 있다.
+- 증가한 종류를 단독 위젯 프로필로 나눈다. heap snapshot의 강한 retainer 경로를 확인하고 weak/ephemeron 경로는 누수 근거에서 제외한다.
+- 숨긴 창의 측정에서는 background throttling 설정을 기록한다. 이 결과는 실제 외부 사이트의 화면 지연이나 장시간 foreground 사용 성능을 대신하지 않는다.

@@ -118,6 +118,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   // Source of truth so addToHistory can compute the next list without doing
   // side effects inside a setState updater (which can double-fire).
   const historyRef = useRef<string[]>([]);
+  const historyLoaded = useRef(false);
   // One datalist per widget instance, shared by all of its query boxes.
   const listId = useId();
 
@@ -125,18 +126,21 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     let cancelled = false;
     (async () => {
       const data = await dataStorage.getJson(historyKey);
+      if (!cancelled) {
+        historyLoaded.current = true;
+      }
       if (!cancelled && Array.isArray(data)) {
         const loaded = data.filter((x): x is string => typeof x === 'string').slice(0, maxHistory);
         historyRef.current = loaded;
         setHistory(loaded);
       }
-    })();
+    })().catch(() => undefined);
     return () => { cancelled = true; };
   }, [dataStorage]);
 
   const addToHistory = useCallback((typed: string) => {
     const query = typed.trim();
-    if (query === '') {
+    if (query === '' || !historyLoaded.current) {
       return;
     }
     const next = [query, ...historyRef.current.filter(q => q !== query)].slice(0, maxHistory);
@@ -146,6 +150,9 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   }, [dataStorage]);
 
   const clearHistory = useCallback(() => {
+    if (!historyLoaded.current) {
+      return;
+    }
     historyRef.current = [];
     setHistory([]);
     dataStorage.setJson(historyKey, []);

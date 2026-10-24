@@ -118,6 +118,15 @@ interface WebviewProps extends WidgetReactComponentProps<Settings> {
   tabIdx?: number;
 }
 
+// An API stored in app state outlives this render. Keep its lexical scope separate
+// from Webview: sharing the component context retains old widget APIs and DOM.
+function createExposedApi(ref: { current: Electron.WebviewTag | null }, url: string): WebpageExposedApi {
+  return {
+    openUrl: (nextUrl: string) => ref.current?.loadURL(nextUrl),
+    getUrl: () => url,
+  };
+}
+
 function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuffix, onSelectTab, tabIdx, env, id}: WebviewProps) {
   const {url, sessionScope, sessionPersist, autoReload, injectedCSS, injectedJS, userAgent, customActions} = settings;
 
@@ -156,10 +165,8 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
   const sanitUA = useMemo(() => userAgent.trim(), [userAgent]);
 
   useEffect(() => {
-    exposeApi<WebpageExposedApi>({
-      openUrl: (url: string) => webviewRef.current?.loadURL(url),
-      getUrl: () => url,
-    })
+    exposeApi(createExposedApi(webviewRef, url));
+    return () => exposeApi({});
   }, [exposeApi, url])
 
   // Apply the mute state to the guest. setAudioMuted persists across in-page

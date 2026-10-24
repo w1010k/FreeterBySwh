@@ -241,29 +241,17 @@ const FUNCS: Record<string, (args: Operand[]) => CellValue> = {
   ROUND: args => {
     const f = 10 ** (args.length > 1 ? toNum(args[1]) : 0);
     return Math.round(toNum(args[0]) * f) / f;
-  },
-  IF: args => {
-    if (args.length < 2) {
-      throw new FormulaError('#ERROR');
-    }
-    const cond = args[0];
-    const truthy = Array.isArray(cond)
-      ? cond.length > 0
-      : typeof cond === 'number'
-        ? cond !== 0
-        : cond.trim() !== '' && cond.toUpperCase() !== 'FALSE';
-    const picked = truthy ? args[1] : args.length > 2 ? args[2] : '';
-    return Array.isArray(picked) ? toStr(picked[0] ?? '') : picked;
   }
 };
 FUNCS.AVG = FUNCS.AVERAGE;
 
 /** Every function name the engine knows, for the editor's autocomplete. */
-export const FUNCTION_NAMES = Object.keys(FUNCS).sort();
+export const FUNCTION_NAMES = [...Object.keys(FUNCS), 'IF'].sort();
 
 /** Recursive-descent parser that evaluates as it goes — there's no AST to keep. */
 class Parser {
   private pos = 0;
+  private evaluating = true;
 
   constructor(private readonly toks: Token[], private readonly get: CellGetter) {
   }
@@ -274,6 +262,41 @@ class Parser {
       throw new FormulaError('#ERROR');
     }
     return Array.isArray(v) ? toStr(v[0] ?? '') : v;
+  }
+
+  // Parse both branches to validate syntax, but only evaluate the selected one.
+  // Skipped branches must not read cells or perform arithmetic.
+  private ifCall(): Operand {
+    const cond = this.expr();
+    const error = (Array.isArray(cond) ? cond : [cond]).find(isErrorValue);
+    if (this.evaluating && error !== undefined) {
+      throw new FormulaError(String(error));
+    }
+    const truthy = Array.isArray(cond)
+      ? cond.length > 0
+      : typeof cond === 'number'
+        ? cond !== 0
+        : cond.trim() !== '' && cond.toUpperCase() !== 'FALSE';
+    if (!this.eatPunc(',')) {
+      throw new FormulaError('#ERROR');
+    }
+    const evaluating = this.evaluating;
+    try {
+      this.evaluating = evaluating && truthy;
+      const yes = this.expr();
+      let no: Operand = '';
+      if (this.eatPunc(',')) {
+        this.evaluating = evaluating && !truthy;
+        no = this.expr();
+      }
+      if (!this.eatPunc(')')) {
+        throw new FormulaError('#ERROR');
+      }
+      const selected = truthy ? yes : no;
+      return Array.isArray(selected) ? toStr(selected[0] ?? '') : selected;
+    } finally {
+      this.evaluating = evaluating;
+    }
   }
 
   private peek(): Token | undefined {
@@ -307,7 +330,7 @@ class Parser {
         return left;
       }
       const right = this.concat();
-      left = this.compare(op, left, right) ? 'TRUE' : 'FALSE';
+      left = this.evaluating && this.compare(op, left, right) ? 'TRUE' : 'FALSE';
     }
   }
 
@@ -342,7 +365,8 @@ class Parser {
   private concat(): Operand {
     let left = this.additive();
     while (this.eatOp('&')) {
-      left = toStr(left) + toStr(this.additive());
+      const right = this.additive();
+      left = this.evaluating ? toStr(left) + toStr(right) : '';
     }
     return left;
   }
@@ -355,7 +379,7 @@ class Parser {
         return left;
       }
       const right = this.multiplicative();
-      left = op === '+' ? toNum(left) + toNum(right) : toNum(left) - toNum(right);
+      left = this.evaluating ? (op === '+' ? toNum(left) + toNum(right) : toNum(left) - toNum(right)) : 0;
     }
   }
 
@@ -366,7 +390,12 @@ class Parser {
       if (!op) {
         return left;
       }
-      const right = toNum(this.power());
+      const operand = this.power();
+      if (!this.evaluating) {
+        left = 0;
+        continue;
+      }
+      const right = toNum(operand);
       if (op === '/') {
         if (right === 0) {
           throw new FormulaError('#DIV/0');
@@ -382,7 +411,8 @@ class Parser {
     const base = this.signed();
     if (this.eatOp('^')) {
       // Right-associative, so `2^3^2` is 2^(3^2).
-      return toNum(base) ** toNum(this.power());
+      const exponent = this.power();
+      return this.evaluating ? toNum(base) ** toNum(exponent) : 0;
     }
     return base;
   }
@@ -392,7 +422,8 @@ class Parser {
   private signed(): Operand {
     const op = this.eatOp('-', '+');
     if (op) {
-      const v = toNum(this.signed());
+      const operand = this.signed();
+      const v = this.evaluating ? toNum(operand) : 0;
       return op === '-' ? -v : v;
     }
     return this.primary();
@@ -409,7 +440,11 @@ class Parser {
     }
     if (t.t === 'err') {
       // An error baked into the formula text propagates as that error.
-      throw new FormulaError(t.v);
+      this.pos++;
+      if (this.evaluating) {
+        throw new FormulaError(t.v);
+      }
+      return 0;
     }
     if (t.t === 'punc' && t.v === '(') {
       this.pos++;
@@ -421,18 +456,18 @@ class Parser {
     }
     if (t.t === 'ref') {
       this.pos++;
-      const from = parseRef(t.v);
+      const from = this.evaluating ? parseRef(t.v) : {col: 0, row: 0};
       if (this.eatPunc(':')) {
         const next = this.peek();
         if (!next || next.t !== 'ref') {
           throw new FormulaError('#REF');
         }
         this.pos++;
-        return this.range(from, parseRef(next.v));
+        return this.evaluating ? this.range(from, parseRef(next.v)) : [];
       }
       // A referenced cell holds raw text; a numeric-looking one becomes a number
       // so `=A1` right-aligns and reads as a number, the way Excel shows it.
-      const v = this.get(from.col, from.row);
+      const v = this.evaluating ? this.get(from.col, from.row) : 0;
       return typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : v;
     }
     if (t.t === 'ident') {
@@ -441,8 +476,14 @@ class Parser {
       if (name === 'TRUE' || name === 'FALSE') {
         return name;
       }
+      if (name === 'IF') {
+        if (!this.eatPunc('(')) {
+          throw new FormulaError('#NAME');
+        }
+        return this.ifCall();
+      }
       const fn = FUNCS[name];
-      if (!fn || !this.eatPunc('(')) {
+      if ((!fn && this.evaluating) || !this.eatPunc('(')) {
         throw new FormulaError('#NAME');
       }
       const args: Operand[] = [];
@@ -454,7 +495,7 @@ class Parser {
           throw new FormulaError('#ERROR');
         }
       }
-      return fn(args);
+      return this.evaluating ? fn(args) : 0;
     }
     throw new FormulaError('#ERROR');
   }

@@ -3,6 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
+import { stopOnWidgetCloneError } from '@/application/useCases/widget/subs/cloneWidget';
 import { AppStore } from '@/application/interfaces/store';
 import { CloneWidgetToWidgetLayoutSubCase } from '@/application/useCases/workflow/subs/cloneWidgetToWidgetLayout';
 import { EntityId } from '@/base/entity';
@@ -59,7 +60,7 @@ export function createPasteWidgetToWorkflowUseCase({
     });
   }
 
-  return useCase;
+  return stopOnWidgetCloneError(useCase);
 }
 
 export type PasteWidgetToWorkflowUseCase = ReturnType<typeof createPasteWidgetToWorkflowUseCase>;

@@ -116,12 +116,12 @@ async function fetchBytes(url: string, accept: string, maxBytes: number): Promis
         'User-Agent': getUserAgent()
       }
     });
-    if (!res.ok) {
-      return null;
-    }
     const contentType = res.headers.get('content-type');
     const contentLength = Number(res.headers.get('content-length') || '0');
-    if (contentLength > maxBytes) {
+    if (!res.ok || contentLength > maxBytes) {
+      // Returning without consuming or cancelling the body leaves the fetch
+      // running after its timeout is cleared, retaining a connection and buffers.
+      await res.body?.cancel();
       return null;
     }
     const bytes = await readBodyCapped(res, maxBytes);

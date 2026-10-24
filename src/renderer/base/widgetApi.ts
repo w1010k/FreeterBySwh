@@ -70,6 +70,8 @@ interface WidgetApiModules {
   readonly dataStorage: {
     getText: (key: string) => Promise<string | undefined>;
     setText: (key: string, value: string) => Promise<void>;
+    /** Bind a delayed text save to the current storage scope. Deleted shared keys cancel the save. */
+    captureTextWriter?: () => (key: string, value: string) => Promise<void>;
     getJson: (key: string) => Promise<unknown | undefined>;
     setJson: (key: string, value: unknown) => Promise<void>;
     remove: (key: string) => Promise<void>;

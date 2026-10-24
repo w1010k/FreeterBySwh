@@ -40,9 +40,8 @@ export function createStore<TState extends object, TPersistentState extends obje
       finishLoad(loadedState !== null ? mergeState(initialState, loadedState) : initialState);
     })
     .catch(err => {
-      // Don't let a failed load leave the store stuck in isLoading forever — start
-      // with defaults so the UI can mount. (getJson normally swallows I/O errors,
-      // so this is a defensive safety net for unexpected rejections.)
+      // Display defaults so the UI can mount. StateStorage blocks saves after a
+      // read/backup failure to preserve the original until a successful reload.
       console.error('Failed to load persisted state; starting with defaults.', err);
       finishLoad(initialState);
     })

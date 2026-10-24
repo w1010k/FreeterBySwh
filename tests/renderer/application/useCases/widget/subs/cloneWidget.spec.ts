@@ -11,7 +11,7 @@ import { Widget } from '@/base/widget';
 
 function setup() {
   const widgetDataStorageManagerMock: ObjectManager<DataStorageRenderer> = {
-    copyObjectData: jest.fn(),
+    copyObjectData: jest.fn().mockResolvedValue(true),
     getObject: jest.fn(),
   };
   const idGeneratorMock = jest.fn().mockImplementation(() => 'SOME-ID');
@@ -68,3 +68,17 @@ describe('cloneWidgetSubCase()', () => {
     expect(widgetDataStorageManagerMock.copyObjectData).toHaveBeenCalledWith(widget.id, widgetClone.id);
   })
 })
+
+
+describe('failed widget data copy', () => {
+  it.each(['false', 'reject'])('should reject a %s copy without returning an empty clone', async failure => {
+    const { cloneWidgetSubCase, widgetDataStorageManagerMock } = setup();
+    const copy = jest.mocked(widgetDataStorageManagerMock.copyObjectData);
+    if (failure === 'false') {
+      copy.mockResolvedValueOnce(false);
+    } else {
+      copy.mockRejectedValueOnce(new Error('Disk unavailable'));
+    }
+    await expect(cloneWidgetSubCase(fixtureWidgetA())).rejects.toThrow();
+  });
+});

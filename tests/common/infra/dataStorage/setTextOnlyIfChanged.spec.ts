@@ -7,6 +7,53 @@ import { createInMemoryDataStorage } from '@common/infra/dataStorage/inMemoryDat
 import { setTextOnlyIfChanged } from '@common/infra/dataStorage/setTextOnlyIfChanged';
 
 describe('setTextOnlyIfChanged', () => {
+  it('retries the same value after a failed write', async () => {
+    const setText = jest.fn().mockRejectedValueOnce(new Error('disk full')).mockResolvedValue(undefined);
+    const storage = setTextOnlyIfChanged({ ...createInMemoryDataStorage(), setText });
+    await expect(storage.setText('key', 'value')).rejects.toThrow('disk full');
+    await storage.setText('key', 'value');
+    expect(setText).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not cache a read that started before a newer write', async () => {
+    let resolveRead!: (text: string) => void;
+    const getText = jest.fn((_key: string) => new Promise<string>(resolve => { resolveRead = resolve; }));
+    const setText = jest.fn().mockResolvedValue(undefined);
+    const storage = setTextOnlyIfChanged({ ...createInMemoryDataStorage(), getText, setText });
+    const read = storage.getText('key');
+    await storage.setText('key', 'new');
+    resolveRead('old');
+    await read;
+    await storage.setText('key', 'old');
+    expect(setText).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not skip reverting to the old value while another write is pending', async () => {
+    let finishWrite!: () => void;
+    const setText = jest.fn().mockImplementationOnce(() => new Promise<void>(resolve => { finishWrite = resolve; }))
+      .mockResolvedValue(undefined);
+    const storage = setTextOnlyIfChanged({ ...createInMemoryDataStorage({ key: 'old' }), setText });
+    await storage.getText('key');
+    const write = storage.setText('key', 'new');
+    await storage.setText('key', 'old');
+    finishWrite();
+    await write;
+    await storage.setText('key', 'new');
+    expect(setText.mock.calls.map(call => call[1])).toEqual(['new', 'old', 'new']);
+  });
+
+  it('does not restore cache entries from a read completing after clear', async () => {
+    let finishRead!: (text: string) => void;
+    const getText = jest.fn((_key: string) => new Promise<string>(resolve => { finishRead = resolve; }));
+    const setText = jest.fn().mockResolvedValue(undefined);
+    const storage = setTextOnlyIfChanged({ ...createInMemoryDataStorage(), getText, setText });
+    const read = storage.getText('key');
+    await storage.clear();
+    finishRead('old');
+    await read;
+    await storage.setText('key', 'old');
+    expect(setText).toHaveBeenCalledWith('key', 'old');
+  });
   describe('getText', () => {
     it('should call DataStorage.getText with right params and return a right value', async () => {
       const key = 'key';

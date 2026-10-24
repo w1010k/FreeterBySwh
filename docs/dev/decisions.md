@@ -605,3 +605,13 @@
 - 결정: 세 위젯의 구현, 등록, 전용 의존성과 파일 IPC를 제거한다. 기존 배치와 설정, 위젯 저장 데이터, 원본 Markdown 파일은 보존한다. 미등록 타입은 기존 셸의 `Unknown widget type`으로 표시한다.
 - 이유: 사용자 요청으로 세 기능을 제거한다. 데이터를 자동 삭제하지 않아 코드 변경을 되돌렸을 때 기존 배치를 다시 사용할 수 있게 한다.
 - 근거: CHANGES #96, `src/renderer/widgets/index.ts`, `src/renderer/base/state/app.ts` `initAppStateWidgets`, `src/renderer/ui/components/widget/widget.tsx`
+
+#### D69. 저장 실패 전파와 제한 재시도
+
+- 상태: 유효
+- 출처: `[fork #97]`
+- 결정: main 저장 실패는 reject한다. 원자적 rename 실패를 원본 직접 쓰기로 대체하지 않는다. 위젯과 앱 상태는 최신 미저장 값만 메모리에 두고 5초 간격 총 3회 저장을 시도한다. 이후 새 저장이나 flush에서 재개한다. 앱 상태의 동일 영속 값은 실패 후에도 중복으로 처리해 런타임 갱신이 재시도를 다시 시작하지 않게 한다. 앱 상태의 읽기·백업 실패는 저장을 차단한다.
+- 이유: 실패를 성공처럼 취급하면 동일 값 재저장이 생략되고, 읽지 못한 원본이 기본값으로 덮인다. 무제한 타이머 재시도는 영구적인 디스크 오류에서 불필요한 부하를 만든다.
+- 버린 대안: rename 실패 뒤 원본 직접 쓰기 (원본이 잘릴 위험), 오류를 undefined로 변환 (없는 파일과 구분 불가), 무기한 자동 재시도 (오류·부하 반복).
+- 한계: 대기 값은 메모리이며 종료 flush는 D35의 best-effort 방식을 유지한다. 디스크 문제가 지속된 상태에서 종료하면 미저장 값을 보장할 수 없다.
+- 근거: `src/main/infra/utils/atomicFile.ts`, `src/common/infra/dataStorage/withWriteRetry.ts`, `src/common/data/stateStorage.ts`, `src/renderer/init.ts`

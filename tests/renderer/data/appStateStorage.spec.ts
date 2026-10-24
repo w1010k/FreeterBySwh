@@ -22,7 +22,8 @@ describe('AppStateStorage', () => {
       const retVal = 'value' as unknown as StateStorage<object, object>;
       mockedCreateStateStorage.mockImplementation(() => retVal);
 
-      const gotVal = createAppStateStorage(dataStorage);
+      const onError = jest.fn();
+      const gotVal = createAppStateStorage(dataStorage, onError);
       expect(mockedCreateStateStorage).toHaveBeenCalledTimes(1);
       expect(mockedCreateStateStorage).toHaveBeenCalledWith(
         dataStorage,
@@ -31,7 +32,8 @@ describe('AppStateStorage', () => {
         5000,
         migrateAppState,
         createPersistentAppState,
-        isPersistentAppState
+        isPersistentAppState,
+        onError
       );
       expect(gotVal).toBe(retVal);
     })

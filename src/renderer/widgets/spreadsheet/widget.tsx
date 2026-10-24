@@ -335,6 +335,7 @@ function SpreadsheetWidget({widgetApi, settings}: WidgetReactComponentProps<Sett
     setColDeltaState(v);
   }, []);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [sel, setSelState] = useState<Selection>({anchor: {row: 0, col: 0}, focus: {row: 0, col: 0}});
   /** Draft text while a cell is open. Null means "not editing". */
   const [draft, setDraftState] = useState<string | null>(null);
@@ -427,6 +428,10 @@ function SpreadsheetWidget({widgetApi, settings}: WidgetReactComponentProps<Sett
         setFilters(null);
       }
       setIsLoaded(true);
+    }).catch(() => {
+      if (!cancelled) {
+        setLoadFailed(true);
+      }
     });
     return () => {
       cancelled = true;
@@ -1224,7 +1229,9 @@ function SpreadsheetWidget({widgetApi, settings}: WidgetReactComponentProps<Sett
   const activeRaw = grid[active.row]?.[active.col] ?? '';
 
   if (!isLoaded) {
-    return <div className={styles['spreadsheet-widget']}/>;
+    return <div className={styles['spreadsheet-widget']}>
+      {loadFailed && 'Unable to load spreadsheet. Restart the app to retry.'}
+    </div>;
   }
 
   return (

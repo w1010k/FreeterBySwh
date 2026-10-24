@@ -45,6 +45,11 @@ export const inBox = (b: Box, row: number, col: number) =>
  * touched — text and error codes pass through untouched.
  */
 export function makeFormatter({decimals, thousands}: Pick<Settings, 'decimals' | 'thousands'>) {
+  // A formatter is shared by every cell until these settings change. Creating
+  // locale options per cell makes filtering large sheets unnecessarily costly.
+  const numberFormat = new Intl.NumberFormat('en-US', decimals === DECIMALS_AUTO
+    ? {maximumFractionDigits: 10, useGrouping: thousands}
+    : {minimumFractionDigits: decimals, maximumFractionDigits: decimals, useGrouping: thousands});
   return (v: CellValue): string => {
     if (typeof v !== 'number') {
       return v;
@@ -55,13 +60,9 @@ export function makeFormatter({decimals, thousands}: Pick<Settings, 'decimals' |
     if (decimals === DECIMALS_AUTO) {
       // Trim float noise (`=0.1+0.2`) without turning integers into `1.00`.
       const trimmed = Math.round(v * 1e10) / 1e10;
-      return thousands ? trimmed.toLocaleString('en-US', {maximumFractionDigits: 10}) : String(trimmed);
+      return thousands ? numberFormat.format(trimmed) : String(trimmed);
     }
-    return v.toLocaleString('en-US', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-      useGrouping: thousands
-    });
+    return numberFormat.format(v);
   };
 }
 

@@ -6,6 +6,9 @@
 import { createVersionedObject, isVersionedObject, MigrateVersionedObject, unwrapVersionedObject } from '@common/base/versionedObject';
 import { debounce } from '@common/helpers/debounce';
 import { DataStorage } from '@common/application/interfaces/dataStorage';
+import { withWriteRetry } from '@common/infra/dataStorage/withWriteRetry';
+
+export type StateStorageErrorHandler = (phase: 'load' | 'save', error: unknown) => void;
 
 export const appStateDataStoragKey = 'app';
 export const windowStateDataStoragKey = 'window';
@@ -31,18 +34,32 @@ export function createStateStorage<TState extends object, TPersistentState exten
    * `backUpUnloadableText`) and `loadState` resolves to null, so the store
    * falls back to defaults instead of hydrating from a broken object.
    */
-  validatePersistentState?: (state: TPersistentState) => boolean
+  validatePersistentState?: (state: TPersistentState) => boolean,
+  onError?: StateStorageErrorHandler
 ): StateStorage<TState, TPersistentState> {
+  let lastJson: string | undefined;
+  let loadFailed = false;
+  const reported = new Set<'load' | 'save'>();
+  const report = (phase: 'load' | 'save', error: unknown) => {
+    console.error(`Persisted state "${stateDataStoragKey}" ${phase} failed.`, error);
+    if (!reported.has(phase)) {
+      reported.add(phase);
+      try {
+        onError?.(phase, error);
+      } catch (reportError) {
+        console.error('Could not report a storage failure.', reportError);
+      }
+    }
+  };
+  const retryStorage = withWriteRetry(dataStorage, error => report('save', error));
   const writeJson = (json: string) => {
-    dataStorage.setText(stateDataStoragKey, json);
-  }
+    void retryStorage.setText(stateDataStoragKey, json);
+  };
   const debouncedWriteJson = debounceMsec > 0 ? debounce(writeJson, debounceMsec) : undefined;
 
-  // JSON last handed to the writer (written or still pending). A set that only
-  // touches runtime-only fields (e.g. a timer's per-second header title) yields
-  // the same JSON; skipping it keeps such sets from pushing the debounced save
-  // back forever, which would leave real changes unsaved while a timer runs.
-  let lastJson: string | undefined;
+  // This includes a queued value: runtime-only changes must not postpone its
+  // debounce forever or restart exhausted retries. Failed writes stay pending
+  // in retryStorage; flush or a changed persistent value can retry them.
 
   // The defaults the store falls back to get saved over the stored file on the
   // first change, so keep the unloadable original for manual recovery. An empty
@@ -53,28 +70,44 @@ export function createStateStorage<TState extends object, TPersistentState exten
     }
   }
 
+  const loadState = async () => {
+    const text = await dataStorage.getText(stateDataStoragKey);
+    if (text === undefined) {
+      return null;
+    }
+    try {
+      const gotData: unknown = JSON.parse(text);
+      if (typeof gotData === 'object' && gotData !== null && isVersionedObject(gotData)) {
+        const state = unwrapVersionedObject(gotData, version, migrate);
+        if (!validatePersistentState || validatePersistentState(state)) {
+          return state;
+        }
+      }
+      console.warn(`Persisted state "${stateDataStoragKey}" is not a versioned object or failed validation; falling back to defaults.`);
+    } catch (err) {
+      console.warn(`Could not load persisted state "${stateDataStoragKey}"; falling back to defaults.`, err);
+    }
+    await backUpUnloadableText(text);
+    return null;
+  };
   return {
     async loadState() {
-      const text = await dataStorage.getText(stateDataStoragKey);
-      if (text === undefined) {
-        return null;
-      }
       try {
-        const gotData: unknown = JSON.parse(text);
-        if (typeof gotData === 'object' && gotData !== null && isVersionedObject(gotData)) {
-          const state = unwrapVersionedObject(gotData, version, migrate);
-          if (!validatePersistentState || validatePersistentState(state)) {
-            return state;
-          }
-        }
-        console.warn(`Persisted state "${stateDataStoragKey}" is not a versioned object or failed validation; falling back to defaults.`);
-      } catch (err) {
-        console.warn(`Could not load persisted state "${stateDataStoragKey}"; falling back to defaults.`, err);
+        const state = await loadState();
+        loadFailed = false;
+        return state;
+      } catch (error) {
+        // Defaults can still be displayed, but must never overwrite unreadable
+        // data or an original whose recovery backup could not be written.
+        loadFailed = true;
+        report('load', error);
+        throw error;
       }
-      await backUpUnloadableText(text);
-      return null;
     },
     saveState: (state: TState) => {
+      if (loadFailed) {
+        return;
+      }
       const json = JSON.stringify(createVersionedObject(persistentStateFactory(state), version));
       if (json === lastJson) {
         return;
@@ -82,6 +115,11 @@ export function createStateStorage<TState extends object, TPersistentState exten
       lastJson = json;
       (debouncedWriteJson ?? writeJson)(json);
     },
-    flush: () => debouncedWriteJson?.flush()
+    flush: () => {
+      if (!loadFailed) {
+        debouncedWriteJson?.flush();
+        retryStorage.flushWrites();
+      }
+    }
   }
 }

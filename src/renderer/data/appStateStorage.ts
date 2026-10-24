@@ -3,13 +3,23 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { StateStorage, createStateStorage, appStateDataStoragKey } from '@common/data/stateStorage';
+import { StateStorage, StateStorageErrorHandler, createStateStorage, appStateDataStoragKey } from '@common/data/stateStorage';
 import { DataStorage } from '@common/application/interfaces/dataStorage';
 import { AppState, createPersistentAppState, currentAppStateVersion, migrateAppState, PersistentAppState, isPersistentAppState } from '@/base/state/app';
 
 export type AppStateStorage = StateStorage<AppState, PersistentAppState>
 export function createAppStateStorage(
   dataStorage: DataStorage,
+  onError?: StateStorageErrorHandler,
 ): AppStateStorage {
-  return createStateStorage(dataStorage, appStateDataStoragKey, currentAppStateVersion, 5000, migrateAppState, createPersistentAppState, isPersistentAppState);
+  return createStateStorage(
+    dataStorage,
+    appStateDataStoragKey,
+    currentAppStateVersion,
+    5000,
+    migrateAppState,
+    createPersistentAppState,
+    isPersistentAppState,
+    onError
+  );
 }

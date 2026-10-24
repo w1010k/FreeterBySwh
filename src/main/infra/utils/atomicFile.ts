@@ -3,11 +3,13 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { open, rename, rm, writeFile } from 'node:fs/promises';
+import { open, rename } from 'node:fs/promises';
 
 // Suffix of the scratch file writeFileAtomic writes before renaming it over the
 // target. Code that lists a folder written this way skips names ending with it.
 export const tmpSuffix = '.tmp';
+const renameAttempts = 4;
+const transientRenameErrors = new Set(['EBUSY', 'EACCES', 'EPERM']);
 
 /**
  * Write `data` to `filePath` so an app crash, power loss or full disk never
@@ -31,16 +33,18 @@ export async function writeFileAtomic(filePath: string, data: string, mode?: num
   } finally {
     await tmpFile.close();
   }
-  try {
-    await rename(tmpPath, filePath);
-  } catch {
-    // On Windows the rename fails while the target is open elsewhere: another
-    // process (antivirus, indexer, an editor) or this app's own
-    // copyFileDataStorage, which runs outside the per-file queue. Fall back to
-    // the in-place write so the save is not lost; it is the pre-atomic
-    // behavior, only for this rare case.
-    await writeFile(filePath, data, { encoding: 'utf-8' });
-    await rm(tmpPath, { force: true });
+  for (let attempt = 1; attempt <= renameAttempts; attempt++) {
+    try {
+      await rename(tmpPath, filePath);
+      return;
+    } catch (err) {
+      // AV/indexers can briefly hold a Windows sharing lock. Retry the atomic
+      // replace only; an in-place fallback could truncate the last good copy.
+      if (attempt === renameAttempts || !transientRenameErrors.has((err as NodeJS.ErrnoException).code ?? '')) {
+        throw err;
+      }
+      await new Promise<void>(resolve => setTimeout(resolve, 25 * attempt));
+    }
   }
 }
 

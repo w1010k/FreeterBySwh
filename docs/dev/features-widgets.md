@@ -366,6 +366,7 @@
 - **수식**: 사칙연산, `^`(우결합, 단항 마이너스가 더 강하게 묶임: `-2^2 = 4`), 비교, `&`, 셀 참조와 범위, `$` 절대 참조, 함수 `SUM`, `AVERAGE`(=`AVG`),
   `MIN`, `MAX`, `COUNT`, `ABS`, `ROUND`, `IF`. 오류 코드 `#VALUE`, `#DIV/0`, `#NAME`, `#REF`, `#CIRC`, `#ERROR`, `#NUM`(표시).
   `evaluateGrid`는 lazy 평가 + 캐시, `visiting` 집합으로 순환 참조 감지. 열 상한 16384 [fork #79 #83].
+  `IF`는 양쪽 분기의 문법을 검사하되 선택한 분기만 계산한다. 선택하지 않은 분기의 0 나눗셈·순환 참조는 결과에 영향을 주지 않고, 조건의 오류는 전파한다.
 - **참조 이동**: `translateRefs`(복사·채우기), `adjustRefs`(행/열 삽입·삭제, 삭제된 줄 참조는 `#REF`). 앱 내부 복사는 클립보드에 `text/x-freeter-sheet`
   타입으로 출처 좌표를 싣는다 [fork #83 #84].
 - **편집 기능**: 수식 입력줄, 방향키 참조 선택 (점선 강조), 함수명 자동완성 (`FUNCTION_NAMES`), 채우기 핸들과 연속 데이터 인식, Ctrl+D/R, 실행 취소 100단계 (값·열 너비·행
@@ -374,6 +375,7 @@
   상태는 실행 취소·정렬·붙여넣기·열 삽입/삭제와 맞물린다 [fork #86].
 - **컨텍스트 메뉴**: 앱 네이티브 메뉴 (`setContextMenuFactory`). Cut/Copy/Paste는 네이티브 role이라 키보드 단축키와 같은 클립보드 이벤트로 수렴한다 [fork #84].
 - **렌더 성능**: 보이는 행 ±8줄만 렌더하는 행 윈도잉 (누적 오프셋 + 이진 탐색), 행 단위 `memo`, 필터가 켜졌을 때만 전체 표시 문자열 계산 [fork #86].
+  숫자 표시는 `makeFormatter`마다 `Intl.NumberFormat` 하나를 재사용한다. 셀마다 로케일 포맷터를 만들지 않아 필터·열 너비 자동 맞춤의 반복 포맷 비용을 줄인다.
 - **주의점**:
   - 이벤트 핸들러에서 렌더된 state를 읽지 않는다. draft, 선택, 채우기 범위, 수식 입력줄 대상은 ref 미러를 읽는다. 같은 원인의 버그가 다섯 번 반복됐다 (CHANGES #83).
   - jsdom에서 통과해도 실제 브라우저에서 깨지는 레이아웃·마우스 버그가 많다. `fireEvent`가 `act()`로 상태를 매번 flush하기 때문이다 (CHANGES #81~#86).
@@ -400,6 +402,7 @@
   - textarea가 uncontrolled (`defaultValue` + ref)다. 외부 변경은 `textAreaRef.current.value`나 마크다운 편집기의 `setContent()`로 직접 넣는다
     (CHANGES #8, #39).
   - 포커스 중 도착한 공유 변경은 버리지 않고 보류했다가 blur 때 반영한다. 마크다운 모드의 포커스 대상은 편집기 요소 (`editor.e`)다 (CHANGES #39).
+  - 비동기 재읽기는 `loadVersion`으로 요청 세대를 확인한다. 요청 뒤의 사용자 편집·새 요청·언마운트가 이전 결과를 무효화한다. 새 내용을 적용하거나 언마운트할 때 글자 수 디바운스도 취소한다.
   - 글자 수를 `setDynamicTitle`로 내보내면 키 입력마다 앱 store에 쓰게 된다. 그래서 위젯 내부 state로 표시한다 (CHANGES #50).
 
 #### To-Do List (`to-do-list`)
@@ -551,3 +554,13 @@
 - **파일**: `index.ts`(`id: 'widget-id'`, `minSize: 2×2`, `requiresApi: []`), `settings.tsx`(`text` 설정 하나와 `SettingBlock` 편집기 [fork #94]),
   `widget.tsx`(설정 텍스트 표시), `icons/`.
 - **포크 변경**: 템플릿 `minSize`를 1×1에서 2×2로 바꿨다. 격자 2배 커밋 (e5fee45)에 포함된 변경이다 [fork #34].
+
+### 저장 실패와 위젯 생애주기 보완 [fork #97]
+
+- Note·To-Do·Spreadsheet는 읽기 실패를 빈 내용으로 초기화하지 않는다. 로드 실패 안내를 표시하고, 읽기 성공 전 편집·자동 저장을 막는다. Timer도 복원 실패 뒤 초기 상태를 저장하지 않는다. Web Query는 검색 기능을 유지하되 읽지 못한 검색 기록을 새 기록으로 덮지 않는다.
+- Note의 Markdown 모드는 언마운트 때 `Editor.destroy()`를 호출한다. 편집기 DOM만 제거하면 document의 selectionchange 리스너가 편집기와 내용을 계속 참조한다.
+- 위젯·공유 저장소의 재시도·캐시 계약은 overview의 저장소 계층을 따른다. 영구적인 저장 오류에서 앱을 닫으면 메모리에만 남은 값을 잃을 수 있다.
+- Webpage가 전역 상태에 등록하는 API는 `createExposedApi(ref, url)`에서 만든다. 컴포넌트 안의 클로저는 공유 lexical context를 통해 이전 widget API와 React 트리까지 붙잡을 수 있다. 언마운트에는 빈 API를 등록하고 DOM ref도 React가 비운다. Memory Saver 반복 전환의 detached DOM 증가를 실제 heap에서 확인해 수정했다.
+
+- Note의 디바운스는 `widgetApi.dataStorage.captureTextWriter()`로 편집 시작 시 저장 목적지를 고정한다. 공유 키 변경 뒤 cleanup이 새 키의 내용을 덮지 않게 한다. 일반 get/set 및 To-Do의 프로젝트 추적은 동적 경로를 유지한다. 키 삭제 중에는 캡처한 쓰기를 무시하며, 삭제 실패 후에는 다시 허용한다. 삭제 완료로 키가 사라지면 기존 캡처 쓰기는 계속 무시한다.
+- Timer 복원 전에 사용자가 Start를 눌렀더라도 읽기가 실패하면 실행 상태를 지운다. 오류 화면에서 Pause/Reset이 사라진 뒤 숨은 타이머가 만료 알림을 울리지 않게 한다.

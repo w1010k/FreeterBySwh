@@ -28,6 +28,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   // A timer that expired while the app was closed restores as idle (no
   // retroactive sound/notification).
   const [restored, setRestored] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const userActedRef = useRef(false);
   useEffect(() => {
     let cancelled = false;
@@ -45,7 +46,15 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
       if (!cancelled) {
         setRestored(true);
       }
-    })().catch(() => setRestored(true));
+    })().catch(() => {
+      if (!cancelled) {
+        // A user may have started before this read settled. Stop that timer
+        // before the error screen removes its Pause/Reset controls.
+        setEndMsecs(0);
+        setPausedLeft(null);
+        setLoadFailed(true);
+      }
+    });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -126,6 +135,9 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     setPausedLeft(null);
   }, [])
 
+  if (loadFailed) {
+    return <div role="alert">Unable to load timer. Restart the app to retry.</div>;
+  }
   if (!isActive) {
     return <Button
       onClick={start}

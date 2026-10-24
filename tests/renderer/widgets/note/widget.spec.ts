@@ -4,9 +4,11 @@
  */
 
 import { computeCounts, widgetComp } from '@/widgets/note/widget'
+import { Settings } from '@/widgets/note/settings';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { SHARED_DATA_CHANGED_EVENT } from '@/base/sharedDataEvents';
+import { Editor } from 'tiny-markdown-editor';
 
 // Lightweight stand-in for the markdown editor so we can assert the widget
 // drives it via setContent() on remote reloads (jsdom can't host the real
@@ -26,6 +28,7 @@ jest.mock('tiny-markdown-editor', () => {
     addEventListener() { /* no-op for tests */ }
     setContent(c: string) { this.content = c; }
     getContent() { return this.content; }
+    destroy = jest.fn(() => this.e.remove());
   }
   return { Editor };
 });
@@ -33,7 +36,7 @@ jest.mock('tiny-markdown-editor', () => {
 jest.useFakeTimers();
 
 function setupNoteWidgetSut(optional?: SetupWidgetSutOptional) {
-  return setupWidgetSut(widgetComp, { spellCheck: false, markdown: false, sharedKeyId: null }, optional);
+  return setupWidgetSut<Settings>(widgetComp, { spellCheck: false, markdown: false, sharedKeyId: null }, optional);
 }
 
 describe('computeCounts()', () => {
@@ -53,6 +56,47 @@ describe('computeCounts()', () => {
 })
 
 describe('Note Widget', () => {
+  it('flushes the previous note to its captured storage when the shared key changes', async () => {
+    const values: Record<string, string> = { self: 'private', shared: 'shared original' };
+    let current = 'self';
+    const dataStorage = {
+      getText: jest.fn(async () => values[current]),
+      setText: jest.fn(async (_key: string, text: string) => { values[current] = text; }),
+      captureTextWriter: () => {
+        const captured = current;
+        return async (_key: string, text: string) => { values[captured] = text; };
+      },
+    };
+    const { setSettings } = setupNoteWidgetSut({ mockWidgetApi: { dataStorage } });
+    await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('private'));
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'private edit' } });
+    current = 'shared';
+    setSettings({ spellCheck: false, markdown: false, sharedKeyId: 'KEY' });
+    await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('shared original'));
+    expect(values.self).toBe('private edit');
+    expect(values.shared).toBe('shared original');
+  });
+  it('destroys the markdown editor and its document listeners on unmount', async () => {
+    const { comp } = setupWidgetSut(widgetComp, { spellCheck: false, markdown: true, sharedKeyId: null }, {
+      mockWidgetApi: { dataStorage: { getText: jest.fn().mockResolvedValue('saved note') } }
+    });
+    await waitFor(() => expect(document.querySelector('.TinyMDE')).toBeInTheDocument());
+    const editor = (Editor as unknown as { last: { destroy: jest.Mock } }).last;
+    comp.unmount();
+    expect(editor.destroy).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('.TinyMDE')).not.toBeInTheDocument();
+  });
+
+  it('keeps unread data protected after a storage read failure', async () => {
+    const setText = jest.fn();
+    setupNoteWidgetSut({ mockWidgetApi: { dataStorage: {
+      getText: jest.fn().mockRejectedValue(new Error('EACCES')), setText
+    } } });
+    expect(await screen.findByText(/Unable to load note/)).toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(setText).not.toHaveBeenCalled();
+  });
+
   it('should show the loading status and hide the textbox on start', async () => {
     setupNoteWidgetSut();
 
@@ -211,6 +255,48 @@ describe('Note Widget', () => {
     act(() => { fireEvent.blur(textbox); });
     await waitFor(() => expect(textbox).toHaveValue('NEW'));
   })
+
+  it('should preserve edits made while a shared-note reload is pending', async () => {
+    let resolveReload!: (text: string) => void;
+    const getText = jest.fn().mockResolvedValueOnce('OLD').mockImplementationOnce(
+      () => new Promise<string>(resolve => { resolveReload = resolve; })
+    );
+    const setText = jest.fn();
+    setupWidgetSut(widgetComp, { spellCheck: false, markdown: false, sharedKeyId: 'K' }, {
+      mockWidgetApi: { dataStorage: { getText, setText } }
+    });
+    await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('OLD'));
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(SHARED_DATA_CHANGED_EVENT, { detail: { widgetType: 'note', sharedKeyId: 'K' } }));
+    });
+    const textbox = screen.getByRole('textbox');
+    fireEvent.change(textbox, { target: { value: 'MY EDIT' } });
+    await act(async () => { resolveReload('REMOTE'); });
+
+    expect(textbox).toHaveValue('MY EDIT');
+    act(() => jest.advanceTimersByTime(800));
+    expect(setText).toHaveBeenLastCalledWith('note', 'MY EDIT');
+  });
+
+  it('should ignore a shared-note reload superseded by a newer reload', async () => {
+    let resolveOlder!: (text: string) => void;
+    const getText = jest.fn().mockResolvedValueOnce('OLD').mockImplementationOnce(
+      () => new Promise<string>(resolve => { resolveOlder = resolve; })
+    ).mockResolvedValueOnce('NEWEST');
+    setupWidgetSut(widgetComp, { spellCheck: false, markdown: false, sharedKeyId: 'K' }, {
+      mockWidgetApi: { dataStorage: { getText } }
+    });
+    await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('OLD'));
+    const broadcast = () => window.dispatchEvent(new CustomEvent(SHARED_DATA_CHANGED_EVENT, {
+      detail: { widgetType: 'note', sharedKeyId: 'K' }
+    }));
+    act(() => { broadcast(); broadcast(); });
+    await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('NEWEST'));
+    await act(async () => { resolveOlder('STALE'); });
+
+    expect(screen.getByRole('textbox')).toHaveValue('NEWEST');
+  });
 
   it('markdown mode: should drive the editor via setContent() on a remote change', async () => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
