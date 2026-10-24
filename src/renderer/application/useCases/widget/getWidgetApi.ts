@@ -209,9 +209,6 @@ function _createWidgetApiFactory({
       fs: () => ({
         readDir: (dirPath, opts) => fsProvider.readDir(dirPath, opts),
         getHomeDir: () => fsProvider.getHomeDir(),
-        readTextFile: (path) => fsProvider.readTextFile(path),
-        writeTextFile: (path, text) => fsProvider.writeTextFile(path, text),
-        getMtime: (path) => fsProvider.getMtime(path)
       }),
       terminal: () => ({
         execCmdLines: (cmdLines, cwd) => terminalProvider.execCmdLines(cmdLines, cwd)

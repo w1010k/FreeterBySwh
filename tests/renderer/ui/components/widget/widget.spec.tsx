@@ -913,6 +913,20 @@ describe('<Widget />', () => {
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
   })
 
+  it.each(['markdown-editor', 'pomodoro', 'stopwatch'])('should allow deleting a removed %s widget in edit mode', async (type) => {
+    const env = fixtureWidgetEnvAreaShelf();
+    const { deleteWidgetUseCase } = await setup({
+      appState: fixtureAppState({ entities: { widgetTypes: {} }, ui: { editMode: true } }),
+      widget: fixtureWidgetA({ id: widgetId, type }),
+      env,
+    });
+
+    expect(screen.getByText('Unknown widget type')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /delete widget/i }));
+
+    expect(deleteWidgetUseCase).toHaveBeenCalledWith(widgetId, env);
+  });
+
   it('should have access to own id', async () => {
     const testWidgetId = 'TEST-WIDGET-ID';
     await setup({

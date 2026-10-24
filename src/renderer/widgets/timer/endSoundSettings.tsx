@@ -14,7 +14,7 @@ interface SelectOption<T> {
   label: string;
 }
 
-/** End sound choices shared by Timer and Pomodoro; `''` means no sound. */
+/** End sound choices used by Timer; `''` means no sound. */
 export const endSoundOptions: SelectOption<string>[] = [
   {
     label: '(No Sound)',
@@ -48,9 +48,8 @@ interface EndSoundSettingsProps<S extends EndSoundFields> {
 }
 
 /**
- * The "End Sound" and "End Sound Volume" setting blocks, shared by Timer and Pomodoro
- * so both widgets show the same titles, the same volume list, and the Test Sound button
- * next to the sound picker.
+ * Timer's "End Sound" and "End Sound Volume" setting blocks, with the Test Sound
+ * button next to the sound picker.
  */
 export function EndSoundSettings<S extends EndSoundFields>({idPrefix, settings, updateSettings}: EndSoundSettingsProps<S>) {
   const endSound = useAudioFile(timerEndSoundFilesById[settings.endSound]?.path || '', settings.endSoundVol);

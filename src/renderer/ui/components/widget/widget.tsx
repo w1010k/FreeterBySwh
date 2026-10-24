@@ -52,7 +52,10 @@ export function createWidgetComponent({
     }
 
     if (!WidgetComp) {
-      return <div>Unknown widget type</div>
+      return <div>
+        <div>Unknown widget type</div>
+        {editMode && <ActionBar actionBarItems={actionBarItems}></ActionBar>}
+      </div>
     }
 
     if (env.isPreview) {

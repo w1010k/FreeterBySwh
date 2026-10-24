@@ -3562,6 +3562,27 @@ Webpage 위젯 안의 웹앱 (예: Telegram Web)이 띄운 Windows 알림을 클
   `tests/renderer/widgets/setupSut.tsx` (mock 추가)
 - **문서**: `docs/dev/features-widgets.md`, `docs/dev/pitfalls.md`
 
+## 96. Markdown Editor·Pomodoro·Stopwatch 제거 *(2026-10-24)*
+
+Markdown Editor, Pomodoro, Stopwatch 위젯을 제거했다. Add Widget 목록에서 세 위젯이 사라지고, 기존 배치는 `Unknown widget type`으로 표시된다. 기존 배치는 편집 모드에서 삭제할 수 있다. Note의 마크다운 편집과 Timer는 유지한다.
+
+### 아키텍처
+
+세 위젯의 구현, 아이콘, 전용 테스트와 등록을 제거했다. Markdown Editor만 사용하던 `@mdxeditor/editor`와 전이 의존성, Jest mock, 스타일 선언도 제거했다. 전용 파일 API (`readTextFile`, `writeTextFile`, `getMtime`)는 WidgetApi부터 main provider와 IPC 채널까지 제거했다. File Explorer의 폴더 조회와 배경 이미지 읽기, 공통 원자적 저장 유틸리티는 유지한다.
+
+### 까다로웠던 포인트
+
+- 위젯 등록만 제거해도 기존 `initAppStateWidgets`가 미등록 타입의 설정을 보존하고 셸이 안내를 표시한다. 미등록 위젯에도 편집 모드의 액션바를 표시해 직접 삭제할 수 있게 했다. 자동 마이그레이션으로 배치나 데이터를 삭제하지 않는다. 원본 Markdown 파일과 위젯 저장 데이터도 변경하지 않아 코드 변경을 되돌릴 수 있다.
+- Note는 별도의 `tiny-markdown-editor`를 사용한다. 이 의존성은 유지한다.
+- Pomodoro가 사용하던 사운드·시간 포맷 모듈은 Timer가 계속 사용한다. 공통 위젯 오류 격리도 유지한다.
+
+**수정 파일**
+
+- **삭제**: `src/renderer/widgets/{markdown-editor,pomodoro,stopwatch}/`, `src/main/application/useCases/fs/{readTextFile,writeTextFile,getMtime}.ts`, `tests/__mocks__/mdxEditor.js`
+- **수정**: `src/renderer/widgets/index.ts`, `src/renderer/base/state/ui.ts`, `src/renderer/base/widgetApi.ts`, main·renderer의 fs provider와 인터페이스, `src/main/controllers/fs.ts`, `src/main/index.ts`, `src/common/{base/fs,ipc/channels}.ts`, `getWidgetApi.ts`, Timer 주석, `package.json`, `yarn.lock`, Jest 설정과 스타일 타입 선언, `src/renderer/ui/components/widget/widget.tsx`
+- **테스트**: 세 위젯의 전용 테스트 삭제, fs controller·provider·WidgetApi 테스트와 mock에서 제거된 API 정리, `tests/renderer/ui/components/widget/widget.spec.tsx` (제거된 세 타입의 삭제 버튼 검증)
+- **문서**: `README.md`, `docs/GUIDE.md`, `docs/dev/{README,features-widgets,overview,decisions,pitfalls}.md`
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

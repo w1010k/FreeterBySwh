@@ -8,8 +8,8 @@ function pad2(n: number) {
 }
 
 /**
- * Formats a countdown's remaining time as MM:SS for the Timer and Pomodoro
- * widgets. Clamped at 0: the last tick can land a few ms past the end, which
+ * Formats a countdown's remaining time as MM:SS for the Timer
+ * widget. Clamped at 0: the last tick can land a few ms past the end, which
  * must read 00:00, not a negative time.
  */
 export function msecsToMMSS(msecs: number) {

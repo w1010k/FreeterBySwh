@@ -452,7 +452,7 @@
 
 #### D45. 타이머 계열 실행 상태 영속화
 
-- 상태: 유효
+- 상태: 일부 대체: D63 (Pomodoro·Stopwatch 제거, Timer는 유지)
 - 출처: `[fork #73]`
 - 결정: Timer·Stopwatch·Pomodoro는 실행 상태를 위젯 dataStorage (`state` 키)에 절대 타임스탬프로 저장한다. 앱이 꺼진 사이 만료된 페이즈는 재생하지 않고 대기 상태로
   복원한다.
@@ -522,7 +522,7 @@
 
 #### D61. Markdown Editor의 저장과 외부 변경 반영
 
-- 상태: 유효
+- 상태: 대체됨: D63 (위젯 제거)
 - 출처: `[fork #91]`
 - 결정: 편집은 0.5초 디바운스로 저장하고, 외부 변경은 활성 탭이 1초마다 `getMtime`을 폴링해 찾는다. 저장되지 않은 편집과 외부 변경이 겹치면 외부 변경이 이긴다
   (편집을 버리고 다시 읽는다). 탭마다 에디터를 마운트한 채 숨긴다. main의 텍스트 읽기·쓰기 IPC는 Markdown 확장자만, 쓰기는 기존 파일만 받는다.
@@ -536,7 +536,7 @@
 
 - 상태: 유효
 - 출처: `[fork #94]`
-- 결정: 설정 블록 제목은 Title Case로 쓴다. 여러 위젯에 같은 설정이 있으면 공통 컴포넌트 하나로 그린다 (Timer와 Pomodoro의 `EndSoundSettings`). 같은
+- 결정: 설정 블록 제목은 Title Case로 쓴다. 여러 위젯에 같은 설정이 있으면 공통 컴포넌트 하나로 그린다 (도입 당시 Timer와 Pomodoro의 `EndSoundSettings`, #96 이후 Timer만 사용). 같은
   행 스타일은 scss partial로 나눠 쓴다 (`_settingEntries.scss`). 문구 규칙은 아래와 같다.
   - 블록마다 `moreInfo` 설명을 단다 (설정이 없는 위젯의 안내 블록은 제외). 아직 맞추지 않은 곳: `_template` Text.
   - 체크박스 라벨은 Sentence case로 쓴다 (예: "Show seconds").
@@ -597,3 +597,11 @@
   것이고, 동의를 끈 사람도 쌓인 데이터를 보고 지울 수 있어야 한다.
 - 근거: CHANGES #87, `src/main/infra/analyticsServer/analyticsServer.ts`, `src/renderer/analyticsPage/`,
   `src/renderer/base/telemetryInsights.ts`
+
+#### D63. Markdown Editor·Pomodoro·Stopwatch 제거
+
+- 상태: 유효
+- 출처: `[fork #96]`
+- 결정: 세 위젯의 구현, 등록, 전용 의존성과 파일 IPC를 제거한다. 기존 배치와 설정, 위젯 저장 데이터, 원본 Markdown 파일은 보존한다. 미등록 타입은 기존 셸의 `Unknown widget type`으로 표시한다.
+- 이유: 사용자 요청으로 세 기능을 제거한다. 데이터를 자동 삭제하지 않아 코드 변경을 되돌렸을 때 기존 배치를 다시 사용할 수 있게 한다.
+- 근거: CHANGES #96, `src/renderer/widgets/index.ts`, `src/renderer/base/state/app.ts` `initAppStateWidgets`, `src/renderer/ui/components/widget/widget.tsx`

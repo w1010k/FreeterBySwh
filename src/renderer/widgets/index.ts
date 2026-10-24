@@ -11,11 +11,8 @@ import dDay from './d-day';
 import fileExplorer from './file-explorer';
 import fileOpener from './file-opener';
 import linkOpener from './link-opener';
-import markdownEditor from './markdown-editor';
 import note from './note';
-import pomodoro from './pomodoro';
 import spreadsheet from './spreadsheet';
-import stopwatch from './stopwatch';
 import systemMonitor from './system-monitor';
 import timer from './timer';
 import toDoList from './to-do-list';
@@ -30,11 +27,8 @@ const widgetTypes = [
   fileExplorer,
   fileOpener,
   linkOpener,
-  markdownEditor,
   note,
-  pomodoro,
   spreadsheet,
-  stopwatch,
   systemMonitor,
   timer,
   toDoList,

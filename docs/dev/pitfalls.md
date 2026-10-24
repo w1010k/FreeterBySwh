@@ -651,7 +651,7 @@
 - 원인: beta.6의 `resetPaths`는 첫 인자가 배열이 아니면 그 인자를 options로 읽는다. `resetPaths(undefined, { preparedInput })`가 깨졌다. Jest는
   수동 mock을 쓰므로 실제 라이브러리 동작을 확인하지 않는다.
 - 규칙: 라이브러리가 타입으로 선언한 오버로드만 쓴다 (`resetPaths({ preparedInput })`). `undefined as unknown as ...` 같은 캐스트로 시그니처를 우회하지 않는다.
-  `@pierre/trees`를 올린 뒤에는 앱에서 File Explorer와 Markdown Editor를 직접 열어 확인한다.
+  `@pierre/trees`를 올린 뒤에는 앱에서 File Explorer를 직접 열어 확인한다.
 - 근거: CHANGES #31, `src/renderer/widgets/file-explorer/widget.tsx`
 
 ### 위젯 간 공유 데이터 동기화
@@ -768,9 +768,9 @@
   셀 에디터 (`CellEditor`)에서 따로 파싱하다 던진 `UnrecognizedMarkdownConstructError`다. 문서 본문 파싱과 달리 `onError`로 보고되지 않는다
   (`suppressHtmlProcessing` 사용 시 HTML 노드).
 - 규칙: 위젯 셸이 위젯마다 `WidgetErrorBoundary`로 본문을 감싼다 (CHANGES #92). 오류가 난 위젯만 오류 안내와 Retry 버튼으로 바뀌고, 설정이 바뀌면 다시
-  시도한다. 위젯 안에서 더 좁게 격리하고 싶으면 위젯이 자기 boundary를 둔다 (Markdown Editor의 탭별 `DocErrorBoundary`). 이벤트 핸들러와 비동기 코드의 예외는
+  시도한다. 위젯 안에서 더 좁게 격리하고 싶으면 위젯이 자기 boundary를 둔다 (제거 전 Markdown Editor의 탭별 `DocErrorBoundary` 사례). 이벤트 핸들러와 비동기 코드의 예외는
   boundary가 잡지 않는다.
-- 근거: CHANGES #91, #92, `src/renderer/ui/components/widget/widgetErrorBoundary.tsx`, `src/renderer/widgets/markdown-editor/docEditor.tsx` `DocErrorBoundary`
+- 근거: CHANGES #91, #92, `src/renderer/ui/components/widget/widgetErrorBoundary.tsx` (Markdown Editor는 #96에서 제거됨)
 
 ### 빌드, 의존성, 테스트
 

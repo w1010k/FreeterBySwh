@@ -1,6 +1,6 @@
 ## 위젯 기능 지도
 
-위젯 17종과 위젯 시스템 기반 코드의 위치, 데이터 흐름, 저장 방식, 주의점을 담은 문서다.
+위젯 15종과 위젯 시스템 기반 코드의 위치, 데이터 흐름, 저장 방식, 주의점을 담은 문서다.
 
 - 기준 시점: 2026-10-05. upstream 기준: `v2.8.0-beta`.
 - 출처 표기: `[upstream]`(upstream v2.8.0-beta에 있던 것), `[fork #N]`(포크 추가, N은 `docs/CHANGES.md` 섹션 번호),
@@ -123,7 +123,7 @@
 | `terminal`    | `execCmdLines(cmdLines, cwd?)`                                           | main `execCmdLinesInTerminal`이 OS별 기본 터미널을 분리 프로세스로 실행     | [upstream]                  |
 | `widgets`     | `getWidgetsInCurrentWorkflow(typeId)`                                    | 현재 프로젝트의 현재 워크플로우에 있는 해당 타입 위젯의 `{id, name, api}`   | [upstream]                  |
 | `icon`        | `getFileIcon(path, bypassCache?)`, `getFavicon(url, bypassCache?)`       | main `iconProvider`. 세션 동안 성공·실패 결과를 Map에 캐시, 동시 요청 공유  | [fork #21]                  |
-| `fs`          | `readDir(dirPath, opts?)`, `getHomeDir()`, `readTextFile(path)`, `writeTextFile(path, text)`, `getMtime(path)` | main `fsProvider`. `includeHidden`, `includeSizes` 옵션. 텍스트 읽기·쓰기는 Markdown 파일만, 쓰기는 기존 파일만 (원자적) | [fork #31 #32 #91]          |
+| `fs`          | `readDir(dirPath, opts?)`, `getHomeDir()` | main `fsProvider`. `includeHidden`, `includeSizes` 옵션. 전용 텍스트 읽기·쓰기·mtime API는 #96에서 제거 | [fork #31 #32 #91]          |
 | `systemStats` | `getStats()`                                                             | main `systemStatsProvider` (`node:os`). CPU%는 직전 호출과의 누적 시간 차이 | [fork #60]                  |
 
 모듈별 배선 위치 (IPC 채널은 모두 `src/common/ipc/channels.ts`):
@@ -231,7 +231,7 @@
 - **아이콘 렌더**: `Button`(`src/renderer/ui/components/basic/button/button.tsx`)의 `iconImgSrc`가 있으면 `<img>`로 그린다. 렌더러 CSP
   (`src/renderer/index.ejs`)의 `img-src`에 `data:`가 필요하다 [fork #21].
 - **`setDynamicTitle` 사용처**: Webpage (페이지 제목 + URL), Link Opener (첫 URL host, `(+N)`), File Opener (첫 경로 basename,
-  `(+N)`), Timer와 Pomodoro (실행·일시정지 중 남은 시간). 사용자가 이름을 지정하면 표시되지 않는다.
+  `(+N)`), Timer (실행·일시정지 중 남은 시간). 사용자가 이름을 지정하면 표시되지 않는다.
 - **정리 규칙**: 동적 타이틀을 쓰는 위젯은 언마운트·조건 변경 시 `setDynamicTitle(null)`을 부른다 (예: `file-opener/widget.tsx`, `timer/widget.tsx`의
   effect cleanup).
 
@@ -272,11 +272,8 @@
 | `file-explorer`  | File Explorer  | 2×2     | fs, shell, clipboard                   |                | 없음                                                                   | [fork #31 #32 #37 #61 #75]                   |
 | `file-opener`    | File Opener    | 1×1     | shell, icon                            | apps           | 없음                                                                   | [upstream, fork #21 #22 #63 #75 변경]        |
 | `link-opener`    | Link Opener    | 1×1     | shell, icon                            |                | 없음                                                                   | [upstream, fork #21 #22 #72 #75 변경]        |
-| `markdown-editor` | Markdown Editor | 6×6   | fs, dataStorage                        |                | `tabs`, `treeWidth`                                                    | [fork #91]                                   |
 | `note`           | Note           | 2×2     | clipboard, dataStorage                 | sharedDataKeys | `note`                                                                 | [upstream, fork #8 #10 #39 #40 #50 #72 변경] |
-| `pomodoro`       | Pomodoro       | 3×3     | dataStorage                            |                | `state`                                                                | [fork #55 #73 #77]                           |
 | `spreadsheet`    | Spreadsheet    | 4×3     | dataStorage                            |                | `sheet`, `colWidths`, `rowHeights`, `colDelta`, `headerRow`, `filters` | [fork #79 #81~#86]                           |
-| `stopwatch`      | Stopwatch      | 3×3     | dataStorage                            |                | `state`                                                                | [fork #52 #73 #77]                           |
 | `system-monitor` | System Monitor | 3×3     | systemStats                            |                | 없음                                                                   | [fork #60]                                   |
 | `timer`          | Timer          | 1×1     | dataStorage                            |                | `state`                                                                | [upstream, fork #54 #72 #73 변경]            |
 | `to-do-list`     | To-Do List     | 4×2     | dataStorage                            |                | `todo` (프로젝트 공유)                                                 | [upstream, fork #9 #18 #26 #40 #50 #63 변경] |
@@ -488,32 +485,8 @@
 
 #### Markdown Editor (`markdown-editor`)
 
-- **역할**: 지정한 폴더의 Markdown 문서를 트리로 보여 주고, 탭으로 열어 MDXEditor로 WYSIWYG 편집한다. 자동 저장하고, 다른 앱의 변경을 다시 읽는다 [fork #91].
-- **파일**: `widget.tsx` (트리, 탭 줄, 주기 갱신), `docEditor.tsx` (`DocEditor`: 탭 하나의 에디터, 저장, 외부 변경 확인), `tabs.ts` (`openTab`,
-  `closeTab`, `parseTabsState`), `treeModel.ts` (`buildChildEntries`, `isSameOrDescendantKey`, File Explorer 키 도우미 사본), `settings.tsx`.
-- **설정**: `folder: string`.
-- **저장 키**: `tabs` (`{ paths, active }`, 절대 경로. 읽은 뒤에만 다시 쓴다, `tabsLoaded`), `treeWidth` (px 숫자).
-- **트리**: 폴더 기준 상대 키. 하위 폴더와 `isMarkdownPath` 파일만, 숨김 (`.` 시작) 제외. 펼칠 때 읽고, `treeRefreshIntervalMs` (2초)마다 최상위와 펼친 폴더를
-  다시 읽어 차이를 `model.batch`의 `add`, `remove`로 넣는다. 파일 클릭은 `composedPath()`에서 `data-item-type="file"` 행을 찾는다.
-- **읽기 실패**: 폴더 읽기가 실패하면 `unreadableFolder`에 그 폴더를 기록해 안내를 띄운다. 주기 갱신은 최상위 폴더 (`''`)를 항상 다시 읽으므로 첫 읽기가
-  실패해도 회복한다. 열 수 없던 탭 (`load.kind === 'unreadable'`)은 보이는 동안 `externalCheckIntervalMs`마다 다시 읽는다.
-- **미리보기**: `env.isPreview`이면 저장된 탭을 복원하지 않고, 탭과 너비를 저장하지 않는다 (`storeJson`). 설정 화면이 같은 위젯 id로 미리보기를 그리기 때문이다.
-- **트리 너비**: splitter (`role='separator'`) 드래그는 pointer capture, ←/→ 키는 16 px. 너비 (px)는 `treeWidth` 키에 드래그가 끝날 때와 키 입력마다 저장한다.
-  CSS `max-width: 80%`가 저장값보다 우선한다.
-- **탭**: 탭마다 `DocEditor`를 마운트한 채 비활성 탭은 `hidden`으로 숨긴다 (실행 취소 기록 유지, 탭 수 제한 없음).
-- **저장**: `saveDelayMs` (0.5초) 디바운스. `onChange`의 `initialMarkdownNormalize`가 true면 건너뛴다. `matchFileFormat`으로 디스크 파일의 줄바꿈 (CRLF/LF)과
-  끝 줄바꿈을 유지한다. 탭 비활성화, 언마운트, `beforeunload`에서 `flush`.
-- **외부 변경**: 활성 탭만 `externalCheckIntervalMs` (1초)마다 `getMtime`. 바뀌면 읽어서 `diskText`와 비교하고, 다르면 대기 저장을 `cancel`하고 `setMarkdown`.
-  쓰기 진행 중 (`writesInFlight > 0`)이거나 확인 도중 쓰기가 시작됐으면 (`writesStarted` 변화) 결과를 버린다.
-- **파싱 오류**: `onError`에서 대기 저장 취소, 탭 읽기 전용. 외부 내용으로 다시 읽을 때 오류 상태를 풀고 다시 판정한다.
-- **주의점**:
-  - MDXEditor는 ESM 전용이라 Jest는 `tests/__mocks__/mdxEditor.js`를 쓴다 (`__getInstances()`로 props와 `setMarkdown` 호출을 본다).
-  - 테마 변수 재정의는 `.mdx.mdx`다. MDXEditor가 `document.body`의 팝업 컨테이너에도 같은 `className`을 단다.
-  - `suppressHtmlProcessing`을 끄면 (HTML 처리 켬) MDX 파서가 `a<b`, `x <= y` 같은 문장을 JSX로 읽어 읽기 전용이 된다. 켠 상태에서는 원시 HTML
-    (주석, `<details>`, `<br>`)이 지원하지 않는 문법 (읽기 전용)이다. 두 설정의 비교표는 CHANGES #91.
-  - 상대 경로 이미지는 앱 페이지 기준으로 풀려 보이지 않는다.
-  - 표 셀은 MDXEditor가 셀 에디터에서 따로 파싱하고, 실패하면 `onError` 없이 throw한다. 탭마다 `DocErrorBoundary`가 원문 텍스트 fallback을 보여 준다
-    (pitfalls.md "위젯 렌더 오류가 앱 전체를 내림").
+- **상태**: 제거됨 [fork #96]. 구현, 등록, MDXEditor 의존성 및 전용 파일 읽기·쓰기·mtime IPC를 제거했다. Note의 마크다운 편집은 유지한다.
+- **기존 데이터**: `initAppStateWidgets`는 미등록 타입의 설정을 보존한다. 셸은 `Unknown widget type`을 표시하며 편집 모드의 액션바로 삭제할 수 있다 (`widget.tsx`, #96). 원본 Markdown 파일과 위젯 저장 데이터는 자동 삭제하지 않는다.
 
 #### Commander (`commander`)
 
@@ -529,30 +502,19 @@
 - **파일**: `widget.tsx`, `settings.tsx`, `endSoundSettings.tsx`(`EndSoundSettings`, `endSoundOptions`), `useAudioFile.ts`, `mmss.ts`(`msecsToMMSS`,
   0 미만은 `00:00`), `audio/timer-end/`(종료 사운드 파일과 `timerEndSoundFilesById`).
 - **설정**: `mins`, `endDesktop`(데스크톱 알림, 기본 켬) [fork #72], `endSound`, `endSoundVol`. End Sound와 End Sound Volume 블록은 `EndSoundSettings`가
-  그린다. Pomodoro도 같은 컴포넌트를 쓰고, 컨트롤 id 접두사(`timer-`, `pomodoro-`)만 다르다 [fork #94].
+  그린다 [fork #94].
 - **저장 데이터**: 키 `state` = `{ endMsecs, pausedLeft }`. 실행 중이면 절대 종료 시각을 저장해 재시작 후 남은 시간으로 이어간다. 꺼진 사이 만료되면 소리·알림 없이 대기
   상태로 복원한다 [fork #73].
 - **동작**: 일시정지/재개 [fork #54], 실행·일시정지 중 헤더에 `mm:ss` 동적 타이틀 [fork #54], 종료 시 사운드와 `new Notification` [fork #72].
-- **주의점**: Pomodoro가 `timer/endSoundSettings.tsx`(`EndSoundSettings`, `endSoundOptions`), `timer/audio/timer-end`, `timer/useAudioFile.ts`, `timer/mmss.ts`,
-  `timer/icons`를 import한다. 이 모듈들을 바꾸면 Pomodoro도 영향을 받는다. `useAudioFile`이 돌려주는 객체는 `useMemo`로 고정된다. 두 위젯의 1초 interval은 이
-  객체를 deps로 쓰므로, 고정되지 않으면 렌더마다 interval이 다시 시작된다.
+- **주의점**: `useAudioFile`이 돌려주는 객체는 `useMemo`로 고정된다. Timer의 1초 interval은 이 객체를 deps로 쓰므로, 고정되지 않으면 렌더마다 interval이 다시 시작된다.
 
 #### Pomodoro (`pomodoro`)
 
-- **역할**: 작업/휴식 카운트다운 자동 전환, 전환마다 사운드, 완료 세션 수 표시 [fork #55].
-- **설정**: `workMins`, `breakMins`, `longBreakMins`, `longBreakEvery`(0이면 끔, 기본 4), `endSound`,
-  `endSoundVol` [fork #55 #77].
-- **저장 데이터**: 키 `state` = `{ phase, endMsecs, pausedLeft, doneWork }`. 긴 휴식 여부는 `doneWork`에서 파생한다. 꺼진 사이 페이즈가 끝났으면 놓친
-  전환을 재생하지 않고 대기 상태로 복원한다 (코드의 `ponytail:` 주석) [fork #73 #77].
-- **동작**: 동작 중이면 `Work 24:59`, `Long Break 14:59` 형식의 동적 타이틀을 표시한다 (`phaseLabel` + `mmss`).
+- **상태**: 제거됨 [fork #96]. 구현과 등록을 제거했다. 기존 배치와 저장 데이터의 처리는 위 Markdown Editor와 같다. Timer는 유지한다.
 
 #### Stopwatch (`stopwatch`)
 
-- **역할**: 0부터 올라가는 스톱워치, 1/100초 표시 [fork #52].
-- **설정**: 없음 (`Record<string, never>`).
-- **저장 데이터**: 키 `state` = `{ accumulated, startTs, laps }`. 실행 중이었다면 앱이 꺼져 있던 시간도 흐른 것으로 센다 [fork #73 #77].
-- **동작**: 경과 시간을 항상 `Date.now()` 기준으로 계산해 틱 누락에도 드리프트가 없다. 실행 중에만 짧은 간격 (`tickMsec`)으로 갱신한다. 랩 기록 [fork #77]. 포맷 함수
-  `formatStopwatch`(`stopwatch.ts`).
+- **상태**: 제거됨 [fork #96]. 구현과 등록을 제거했다. 기존 배치와 저장 데이터는 보존하며 미등록 위젯의 편집 모드 액션바로 삭제할 수 있다.
 
 #### Clock (`clock`)
 
