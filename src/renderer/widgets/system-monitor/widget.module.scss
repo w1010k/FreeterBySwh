@@ -10,9 +10,11 @@
   padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  // `safe` keeps the top rows reachable when the content outgrows a small widget and scrolls.
+  justify-content: safe center;
   gap: 10px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .metric {
@@ -50,6 +52,30 @@
   height: 100%;
   background-color: var(--freeter-primary60);
   transition: width 300ms ease;
+}
+
+.cores {
+  display: flex;
+  gap: 2px;
+  height: 14px;
+  margin-top: 4px;
+}
+
+.core {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  border-radius: 1px;
+  background-color: var(--freeter-widgetBackground);
+  border: 1px solid var(--freeter-textareaBorder);
+  overflow: hidden;
+}
+
+.core-fill {
+  width: 100%;
+  background-color: var(--freeter-primary60);
+  transition: height 300ms ease;
 }
 
 .detail {

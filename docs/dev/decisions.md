@@ -447,8 +447,10 @@
 - 상태: 유효
 - 출처: `[fork #60]`
 - 결정: CPU·RAM은 main의 `node:os`로 읽고 새 위젯 capability `systemStats`로 넘긴다. CPU%는 직전 샘플과의 누적 cpu times 차이다.
+  디스크·가동 시간·Freeter 사용량도 같은 capability에 더한다. 배터리만 renderer의 `navigator.getBattery()`로 읽는다 (Chromium이 renderer에 제공하고 이벤트로 갱신된다) [fork #98].
+- 디스크 범위: 시스템 드라이브 하나만 읽는다. 모든 드라이브 문자를 `statfs`로 순회하면 연결이 끊긴 네트워크 드라이브에서 호출이 멈출 수 있다 (추론, 미실측) [fork #98].
 - 이유: renderer (샌드박스)에서는 시스템 메트릭을 읽을 수 없다.
-- 근거: CHANGES #60, `src/main/infra/systemStatsProvider/`
+- 근거: CHANGES #60 #98, `src/main/infra/systemStatsProvider/`
 
 #### D45. 타이머 계열 실행 상태 영속화
 

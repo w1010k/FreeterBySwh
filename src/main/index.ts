@@ -349,7 +349,7 @@ if (!app.requestSingleInstanceLock()) {
     const getProcessInfoUseCase = createGetProcessInfoUseCase({processProvider});
     const {isLinux} = await getProcessInfoUseCase();
 
-    const systemStatsProvider = createSystemStatsProvider();
+    const systemStatsProvider = createSystemStatsProvider(() => app.getAppMetrics());
     const getSystemStatsUseCase = createGetSystemStatsUseCase({systemStatsProvider});
 
     const dialogProvider = createDialogProvider();

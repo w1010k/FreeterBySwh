@@ -3658,6 +3658,44 @@ Markdown Editor, Pomodoro, Stopwatch 위젯을 제거했다. Add Widget 목록�
 - **테스트**: 원자적 쓰기·실패 전파·재시도·복사 순서·위젯 읽기 실패 회귀 테스트, main의 다운로드·저장소·아이콘 테스트, Note 테스트, Spreadsheet 수식·포맷 테스트, telemetryCollector 테스트 보강. `tests/renderer/application/telemetry/startTelemetry.spec.ts` 신규.
 - **문서**: `docs/dev/{features-core,features-widgets,overview,pitfalls,decisions,procedures}.md`, `README.md`
 
+## 98. System Monitor 지표 확장 *(2026-10-27)*
+
+System Monitor 위젯이 CPU·RAM 외에 새 의존성 없이 얻을 수 있는 지표를 함께 표시한다. 기존 CPU·RAM 표시는 그대로다.
+
+### 사용자 관점
+
+| 행 | 표시 | 출처 |
+|---|---|---|
+| CPU | 전체 %와 막대 아래 코어별 세로 막대 (코어가 2개 이상일 때) | main `os.cpus()` |
+| RAM | 기존과 같음 | main `os.totalmem`·`freemem` |
+| Disk | 시스템 드라이브 사용률과 `사용량 / 전체` (읽기 실패 시 숨김) | main `fs.statfsSync` |
+| Freeter | 앱 전체 프로세스 (Webpage 위젯 포함)의 CPU %와 메모리 | main `app.getAppMetrics()` |
+| Battery | 잔량 %와 `Charging`/`On battery` (배터리가 있을 때만) | renderer `navigator.getBattery()` |
+| Uptime | `3d 4h 12m` 형식의 시스템 가동 시간 | main `os.uptime()` |
+
+행이 늘어 작은 위젯에서는 내용이 세로로 스크롤된다. 지표별 표시/숨김 설정은 없다.
+
+### 아키텍처
+
+- `SystemStats`에 `cpuCorePercents`, `appCpuPercent`, `appMemBytes`, `disk`, `uptimeSec`을 더했다. IPC 채널과 capability (`systemStats`)는 그대로다.
+- main provider는 `getAppMetrics` 함수를 인자로 받는다. `index.ts`가 `() => app.getAppMetrics()`를 넘기므로 테스트는 electron을 mock하지 않는다.
+- 배터리는 renderer에서 읽는다. `useBattery`가 `getBattery()`를 한 번 얻고 이벤트로 갱신하므로 폴링하지 않는다.
+- 새 값도 기존 500ms 재사용 창 안에서 계산하므로 위젯이 여러 개여도 `getAppMetrics()`·`statfsSync()` 호출은 샘플당 1회다.
+
+### 까다로웠던 포인트
+
+- **Electron 단위 (Electron 42 실측)**: `percentCPUUsage`는 이미 전체 코어 기준 비율이다. 16코어 PC에서 코어 하나를 2초 동안 바쁘게 돌리면 약 5.9%가 나왔다. 그래서 코어 수로 나누지 않는다. `workingSetSize`는 KB다.
+- **배터리 없음 판별**: Chromium은 배터리가 없는 PC를 "충전 중, 100%, chargingTime 0"으로 보고한다 (이 PC에서 실측). 완충 상태로 전원에 연결된 노트북도 같은 값이라 함께 숨겨진다. 의존성 없이 둘을 구별할 방법이 없다.
+- **디스크 범위**: 시스템 드라이브 하나만 읽는다. 모든 드라이브를 순회하면 끊긴 네트워크 드라이브에서 호출이 멈출 수 있다고 판단했다 (추론).
+- **스크롤과 가운데 정렬**: flex 컨테이너의 `justify-content: center`는 내용이 넘치면 위쪽을 스크롤로 닿을 수 없게 자른다. `safe center`로 바꿨다.
+- `os.loadavg()`는 Windows에서 항상 `[0, 0, 0]`이라 넣지 않았다.
+
+**수정 파일**
+
+- **수정**: `src/common/base/systemStats.ts`, `src/main/infra/systemStatsProvider/systemStatsProvider.ts`, `src/main/index.ts`, `src/renderer/widgets/system-monitor/{index.ts,settings.tsx,systemMonitor.ts,widget.tsx,widget.module.scss}`
+- **테스트**: `tests/main/infra/systemStatsProvider/systemStatsProvider.spec.ts` (코어별·앱 합산·디스크 실패), `tests/renderer/widgets/system-monitor/{systemMonitor,widget}.spec.ts(x)` (가동 시간 포맷, 새 행, 배터리 표시/숨김)
+- **문서**: `README.md`, `docs/GUIDE.md`, `docs/dev/{features-widgets,overview,decisions}.md`
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { formatBytes, toPercent } from '@/widgets/system-monitor/systemMonitor';
+import { formatBytes, formatUptime, toPercent } from '@/widgets/system-monitor/systemMonitor';
 
 describe('formatBytes', () => {
   it('formats sizes with sensible units', () => {
@@ -28,5 +28,19 @@ describe('toPercent', () => {
     expect(toPercent(-5)).toBe(0);
     expect(toPercent(150)).toBe(100);
     expect(toPercent(NaN)).toBe(0);
+  });
+});
+
+describe('formatUptime', () => {
+  it('omits leading zero units', () => {
+    expect(formatUptime(59)).toBe('0m');
+    expect(formatUptime(12 * 60)).toBe('12m');
+    expect(formatUptime(4 * 3600 + 12 * 60)).toBe('4h 12m');
+    expect(formatUptime(3 * 86400 + 12 * 60)).toBe('3d 0h 12m');
+  });
+
+  it('treats invalid input as 0', () => {
+    expect(formatUptime(-1)).toBe('0m');
+    expect(formatUptime(NaN)).toBe('0m');
   });
 });

@@ -12,7 +12,7 @@ export const createSettingsState: CreateSettingsState<Settings> = () => ({});
 function SettingsEditorComp(_props: SettingsEditorReactComponentProps<Settings>) {
   return (
     <SettingBlock title='System Monitor'>
-      <div>This widget has no settings. It shows live CPU and RAM usage.</div>
+      <div>This widget has no settings. It shows live CPU, RAM, system drive, Freeter&apos;s own usage, battery (when present) and uptime.</div>
     </SettingBlock>
   );
 }

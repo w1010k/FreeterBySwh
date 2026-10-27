@@ -49,7 +49,7 @@
 
 ### 시나리오 ④ — 개발/운영 대시보드
 
-**File Explorer**(즐겨찾기 폴더 트리) + **Commander**(자주 쓰는 명령을 클릭 한 번에 터미널 실행) + **Link/File Opener**(링크·파일을 버튼 하나로 열기) + **System Monitor**(CPU·RAM 실시간)를 묶으면, 손이 자주 가는 운영 도구들이 한 판에 모입니다.
+**File Explorer**(즐겨찾기 폴더 트리) + **Commander**(자주 쓰는 명령을 클릭 한 번에 터미널 실행) + **Link/File Opener**(링크·파일을 버튼 하나로 열기) + **System Monitor**(CPU·RAM·디스크 실시간)를 묶으면, 손이 자주 가는 운영 도구들이 한 판에 모입니다.
 
 ---
 
@@ -169,7 +169,7 @@ Markdown Editor, Pomodoro, Stopwatch는 제거되었습니다. 기존 배치는 
 | 위젯 | 무엇을 | 언제 쓰나 |
 |---|---|---|
 | **Calculator** | 버튼·키보드 입력 사칙연산 계산기 | 잠깐 계산할 때 |
-| **System Monitor** | 내 컴퓨터의 CPU·RAM 사용량 실시간 표시 | 무거운 작업 중 자원을 곁눈질할 때 |
+| **System Monitor** | 내 컴퓨터의 CPU (코어별 포함)·RAM·시스템 드라이브·Freeter 자체 사용량, 배터리, 가동 시간 실시간 표시 | 무거운 작업 중 자원을 곁눈질할 때 |
 | **Spreadsheet** | 수식(SUM·AVERAGE·IF 등), 정렬·필터, 실행 취소를 지원하는 작은 표 | 간단한 계산표나 목록을 작업판에 둘 때 |
 
 > 각 위젯의 포크 추가 기능(자동 아이콘, 동적 타이틀, 단축키 등)의 자세한 내역은 [`docs/CHANGES.md`](CHANGES.md)에 정리돼 있습니다.

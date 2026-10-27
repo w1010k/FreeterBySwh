@@ -20,6 +20,18 @@ export function formatBytes(bytes: number): string {
   return `${v.toFixed(decimals)} ${units[i]}`;
 }
 
+/** Compact duration, e.g. 274320 → "3d 4h 12m". Larger units are omitted while zero. */
+export function formatUptime(sec: number): string {
+  const totalMin = Number.isFinite(sec) && sec > 0 ? Math.floor(sec / 60) : 0;
+  const d = Math.floor(totalMin / 1440);
+  const h = Math.floor(totalMin / 60) % 24;
+  const m = totalMin % 60;
+  if (d > 0) {
+    return `${d}d ${h}h ${m}m`;
+  }
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
 /** Clamp a value to an integer percentage 0–100. */
 export function toPercent(value: number): number {
   if (!Number.isFinite(value)) {

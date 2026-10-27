@@ -124,7 +124,7 @@
 | `widgets`     | `getWidgetsInCurrentWorkflow(typeId)`                                    | 현재 프로젝트의 현재 워크플로우에 있는 해당 타입 위젯의 `{id, name, api}`   | [upstream]                  |
 | `icon`        | `getFileIcon(path, bypassCache?)`, `getFavicon(url, bypassCache?)`       | main `iconProvider`. 세션 동안 성공·실패 결과를 Map에 캐시, 동시 요청 공유  | [fork #21]                  |
 | `fs`          | `readDir(dirPath, opts?)`, `getHomeDir()` | main `fsProvider`. `includeHidden`, `includeSizes` 옵션. 전용 텍스트 읽기·쓰기·mtime API는 #96에서 제거 | [fork #31 #32 #91]          |
-| `systemStats` | `getStats()`                                                             | main `systemStatsProvider` (`node:os`). CPU%는 직전 호출과의 누적 시간 차이 | [fork #60]                  |
+| `systemStats` | `getStats()`                                                             | main `systemStatsProvider` (`node:os`, `fs.statfsSync`, `app.getAppMetrics`). CPU%는 직전 호출과의 누적 시간 차이 | [fork #60 #98]              |
 
 모듈별 배선 위치 (IPC 채널은 모두 `src/common/ipc/channels.ts`):
 
@@ -274,7 +274,7 @@
 | `link-opener`    | Link Opener    | 1×1     | shell, icon                            |                | 없음                                                                   | [upstream, fork #21 #22 #72 #75 변경]        |
 | `note`           | Note           | 2×2     | clipboard, dataStorage                 | sharedDataKeys | `note`                                                                 | [upstream, fork #8 #10 #39 #40 #50 #72 변경] |
 | `spreadsheet`    | Spreadsheet    | 4×3     | dataStorage                            |                | `sheet`, `colWidths`, `rowHeights`, `colDelta`, `headerRow`, `filters` | [fork #79 #81~#86]                           |
-| `system-monitor` | System Monitor | 3×3     | systemStats                            |                | 없음                                                                   | [fork #60]                                   |
+| `system-monitor` | System Monitor | 3×3     | systemStats                            |                | 없음                                                                   | [fork #60 #98]                               |
 | `timer`          | Timer          | 1×1     | dataStorage                            |                | `state`                                                                | [upstream, fork #54 #72 #73 변경]            |
 | `to-do-list`     | To-Do List     | 4×2     | dataStorage                            |                | `todo` (프로젝트 공유)                                                 | [upstream, fork #9 #18 #26 #40 #50 #63 변경] |
 | `web-query`      | Web Query      | 4×2     | shell, widgets, dataStorage            |                | `history`                                                              | [upstream, fork #46 #47 #59 #66 변경]        |
@@ -541,12 +541,17 @@
 
 #### System Monitor (`system-monitor`)
 
-- **역할**: CPU·RAM 사용량 막대 표시 [fork #60].
+- **역할**: CPU (전체와 코어별), RAM, 시스템 드라이브, Freeter 자체 사용량, 배터리, 가동 시간 표시 [fork #60 #98].
 - **설정**: 없음.
 - **동작**: 마운트 동안 2초 (`pollMsec`)마다 `systemStats.getStats()`를 부른다. 보이지 않는 워크플로우에 마운트된 동안에도 폴링한다 (가시성 조건 없음). IPC 오류는 무시하고
-  마지막 값을 유지한다. 포맷 함수 `formatBytes`, `toPercent`(`systemMonitor.ts`).
-- **main 쪽**: `src/main/infra/systemStatsProvider/systemStatsProvider.ts`가 `node:os`의 `cpus`, `totalmem`, `freemem`으로
-  계산한다. CPU%는 직전 호출 이후 구간 사용률이다.
+  마지막 값을 유지한다. 포맷 함수 `formatBytes`, `formatUptime`, `toPercent`(`systemMonitor.ts`). 내용이 위젯보다 길면 세로로 스크롤한다
+  (`justify-content: safe center`라서 위쪽 행이 잘리지 않는다).
+- **배터리**: renderer의 `navigator.getBattery()`를 `useBattery`가 한 번 얻고 `levelchange`·`chargingchange`·`chargingtimechange` 이벤트로 갱신한다 (폴링 없음).
+  API가 없거나 "충전 중, 100%, chargingTime 0"이면 행을 숨긴다. Chromium은 배터리가 없는 PC를 이렇게 보고하므로 완충 상태로 전원에 연결된 노트북도 숨겨진다 [fork #98].
+- **main 쪽**: `src/main/infra/systemStatsProvider/systemStatsProvider.ts`가 계산한다. CPU%(전체·코어별)는 `cpus()` 누적 시간의 직전 호출 이후 차이다.
+  RAM은 `totalmem`·`freemem`, 가동 시간은 `uptime`, 디스크는 시스템 드라이브 (Windows `SystemDrive`, 그 외 `/`) 하나의 `statfsSync`이고 실패하면 `null`이다.
+  Freeter 사용량은 `index.ts`가 주입한 `app.getAppMetrics()`의 합이다. `percentCPUUsage`는 이미 전체 코어 기준 비율이라 코어 수로 나누지 않고,
+  `workingSetSize`는 KB라서 1024를 곱한다 (Electron 42에서 실측) [fork #98].
 
 #### 템플릿 (`_template`)
 

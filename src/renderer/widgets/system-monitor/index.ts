@@ -16,7 +16,7 @@ const widgetType: WidgetType<Settings> = {
     w: 3,
     h: 3
   },
-  description: 'The System Monitor widget shows live CPU and RAM usage of your computer.',
+  description: 'The System Monitor widget shows live CPU (overall and per core), RAM, system drive, Freeter\'s own usage, battery and uptime of your computer.',
   createSettingsState,
   settingsEditorComp,
   widgetComp,
