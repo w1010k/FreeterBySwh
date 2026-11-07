@@ -178,7 +178,11 @@ describe('createWidgetAiActions() settings and move', () => {
   it('describes settings and move for the confirm dialog', async () => {
     const { get, widget, to } = await setup2();
     const d = (id: string, input: unknown) => get(id).describe(get(id).parse(input));
-    expect(d('widget.updateSettings', { widgetId: widget.id, settings: { size: 1, a: 2 } })).toBe('Change settings of widget "Ideas": size, a');
+    expect(d('widget.updateSettings', { widgetId: widget.id, settings: { size: 1, a: 'x' } })).toBe('Change settings of widget "Ideas": {"size":1,"a":"x"}');
+    // The values are what the user approves (e.g. a script injected into web pages), so long ones are cut, not hidden.
+    const long = d('widget.updateSettings', { widgetId: widget.id, settings: { injectedJS: 'y'.repeat(1000) } });
+    expect(long.startsWith('Change settings of widget "Ideas": {"injectedJS":"yyy')).toBe(true);
+    expect(long.endsWith('... (1017 characters)')).toBe(true);
     expect(d('widget.move', { widgetId: widget.id, toWorkflowId: to.id })).toBe('Move widget "Ideas" to workflow "Do"');
   });
 });

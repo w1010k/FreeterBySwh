@@ -25,6 +25,12 @@ const widgetName = (state: AppState, id: EntityId) => {
   return widget ? getWidgetDisplayName(widget, state.entities.widgetTypes[widget.type]) : id;
 }
 
+/** JSON for a confirm line; long values are cut with the full length noted. */
+const shortJson = (v: unknown, max = 300) => {
+  const json = JSON.stringify(v);
+  return json.length > max ? `${json.slice(0, max)}... (${json.length} characters)` : json;
+};
+
 const findWorkflowOfWidget = (state: AppState, widgetId: EntityId) =>
   Object.values(state.entities.workflows).find(w => w?.layout.some(item => item.widgetId === widgetId));
 
@@ -179,7 +185,8 @@ export function createWidgetAiActions({
       const settings = o && asRecord(o.settings);
       return o && isNonEmptyString(o.widgetId) && settings ? { widgetId: o.widgetId, settings } : undefined;
     },
-    describe: ({ widgetId, settings }) => `Change settings of widget "${widgetName(appStore.get(), widgetId)}": ${Object.keys(settings).join(', ')}`,
+    // The values are shown: a setting can be a script injected into web pages (Webpage injectedJS).
+    describe: ({ widgetId, settings }) => `Change settings of widget "${widgetName(appStore.get(), widgetId)}": ${shortJson(settings)}`,
     run: ({ widgetId, settings }) => {
       const state = appStore.get();
       const widget = state.entities.widgets[widgetId];
