@@ -170,6 +170,7 @@ import { createAiControlProvider } from '@/infra/aiControlProvider/aiControlProv
 import { createRunAiRequestUseCase } from '@/application/useCases/ai/runAiRequest';
 import { AiAction } from '@/base/ai/aiAction';
 import { createAppAiActions } from '@/application/useCases/ai/actions/appActions';
+import { createWidgetAiActions } from '@/application/useCases/ai/actions/widgetActions';
 import { AiRpcRequest } from '@common/ai/protocol';
 import { WEBPAGE_ZOOM_EVENT, WebpageZoomEventDetail } from '@/widgets/webpage/zoomEvents';
 import { WEBPAGE_GO_HOME_EVENT, WebpageGoHomeEventDetail } from '@/widgets/webpage/homeEvents';
@@ -897,6 +898,7 @@ export async function init() {
   const aiControlProvider = createAiControlProvider();
   const aiActions: AiAction[] = [
     ...createAppAiActions({ appStore: store.appStore, createWorkflowSubCase, deactivateWorkflowUseCase, renameWorkflowUseCase }),
+    ...createWidgetAiActions({ appStore: store.appStore, createWidgetSubCase, addItemToWidgetLayoutSubCase }),
   ];
   const runAiRequestUseCase = createRunAiRequestUseCase({ actions: aiActions, aiControl: aiControlProvider, appStore: store.appStore });
   electronIpcRenderer.on(ipcAiActionRequestChannel, (reqId, req) => {
