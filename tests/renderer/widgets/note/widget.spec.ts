@@ -55,6 +55,30 @@ describe('computeCounts()', () => {
   })
 })
 
+describe('Note Widget AI api', () => {
+  it('exposes get/set that show and save like a user edit, refuses while focused, and clears on unmount', async () => {
+    const exposeApi = jest.fn();
+    const setText = jest.fn();
+    const { comp } = setupNoteWidgetSut({ mockWidgetApi: { exposeApi, dataStorage: { getText: jest.fn().mockResolvedValue('saved'), setText } } });
+    const textarea = await screen.findByDisplayValue('saved');
+    const api = exposeApi.mock.calls.at(-1)?.[0] as { note: { get(): string | undefined; set(t: string): boolean } };
+    expect(api.note.get()).toBe('saved');
+    let ok = false;
+    act(() => {
+      ok = api.note.set('from AI');
+    });
+    expect(ok).toBe(true);
+    expect(textarea).toHaveValue('from AI');
+    expect(api.note.get()).toBe('from AI');
+    expect(setText).toHaveBeenLastCalledWith('note', 'from AI');
+    act(() => textarea.focus());
+    expect(api.note.set('typing clash')).toBe(false);
+    expect(textarea).toHaveValue('from AI');
+    comp.unmount();
+    expect(exposeApi).toHaveBeenLastCalledWith({});
+  });
+});
+
 describe('Note Widget', () => {
   it('flushes the previous note to its captured storage when the shared key changes', async () => {
     const values: Record<string, string> = { self: 'private', shared: 'shared original' };

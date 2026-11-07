@@ -12,6 +12,7 @@ import { createContextMenuFactory, textAreaContextId } from '@/widgets/note/cont
 import { createActionBarItems } from '@/widgets/note/actionBar';
 import { Editor } from 'tiny-markdown-editor';
 import { useSharedDataChangedEffect } from '@/widgets/sharedDataSync';
+import { NoteAiApi } from '@/widgets/note/aiActions';
 
 const keyNote = 'note';
 const noteWidgetType = 'note';
@@ -28,7 +29,7 @@ export function computeCounts(text: string) {
 }
 
 function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
-  const {updateActionBar, setContextMenuFactory, dataStorage} = widgetApi;
+  const {updateActionBar, setContextMenuFactory, dataStorage, exposeApi} = widgetApi;
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const loadedNote = useRef('');
   // A read that started before a local edit or a newer read must not replace it.
@@ -136,19 +137,20 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
   // Live sync via shared storage; skip reload while the user is typing in
   // this textarea, since their own debounced save echoes back as a broadcast
   // and we don't want to clobber unsaved keystrokes.
+  // In markdown mode the focused element is the tiny-markdown-editor div, not the textarea.
+  const isEditing = useCallback(() => {
+    const editorEl = editorRef.current?.e;
+    return editorEl ? editorEl.contains(document.activeElement) : document.activeElement === textAreaRef.current;
+  }, []);
+
   useSharedDataChangedEffect(
     noteWidgetType,
     settings.sharedKeyId,
     () => {
       // While the user is editing this note, defer the remote change to blur
       // (handleBlur) instead of dropping it — otherwise a focused note would
-      // stay stale until the next broadcast. In markdown mode the focused
-      // element is the tiny-markdown-editor div, not the textarea.
-      const editorEl = editorRef.current?.e;
-      const editing = editorEl
-        ? editorEl.contains(document.activeElement)
-        : document.activeElement === textAreaRef.current;
-      if (editing) {
+      // stay stale until the next broadcast.
+      if (isEditing()) {
         pendingReload.current = true;
         return true;
       }
@@ -156,6 +158,34 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
     },
     loadNote
   );
+
+  // AI actions (aiActions.ts): show and save the text like a user edit. Refused while
+  // the user is typing here, so neither side's edit is lost. The exposed object closes
+  // over refs only and is cleared on unmount (pitfalls: exposed API leaks).
+  const aiSetRef = useRef<(text: string) => boolean>(() => false);
+  useEffect(() => {
+    aiSetRef.current = (text) => {
+      if (isEditing()) {
+        return false;
+      }
+      if (editorRef.current) {
+        editorRef.current.setContent(text);
+      } else if (textAreaRef.current) {
+        textAreaRef.current.value = text;
+      }
+      updNote(text);
+      saveNote.flush();
+      return true;
+    };
+  }, [isEditing, updNote, saveNote]);
+  useEffect(() => {
+    if (!isLoaded) {
+      return undefined;
+    }
+    const note: NoteAiApi = { get: () => loadedNote.current, set: (text) => aiSetRef.current(text) };
+    exposeApi({ note });
+    return () => exposeApi({});
+  }, [exposeApi, isLoaded]);
 
   // Markdown editor lifecycle. Create the tiny-markdown-editor when markdown is
   // on, wiring its change → save and its blur (focusout) → flush/deferred-reload

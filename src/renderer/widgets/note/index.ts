@@ -7,6 +7,7 @@ import { WidgetType } from '@/widgets/appModules';
 import { settingsEditorComp, Settings, createSettingsState } from './settings';
 import { widgetComp } from './widget';
 import { widgetSvg } from './icons';
+import { noteAiActions } from './aiActions';
 
 const widgetType: WidgetType<Settings> = {
   id: 'note',
@@ -22,7 +23,8 @@ const widgetType: WidgetType<Settings> = {
   settingsEditorComp,
   widgetComp,
   requiresApi: ['clipboard', 'dataStorage'],
-  requiresState: ['sharedDataKeys']
+  requiresState: ['sharedDataKeys'],
+  aiActions: noteAiActions
 }
 
 export default widgetType;
