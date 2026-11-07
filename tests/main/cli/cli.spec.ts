@@ -45,6 +45,26 @@ describe('runCli', () => {
     expect(connect).toHaveBeenCalledWith('ep.json', 'cli');
   });
 
+  it('run --input - reads the JSON from stdin (shells such as PowerShell strip quotes from arguments)', async () => {
+    const { io } = makeIo();
+    const { client, connect } = fakeConnect({});
+    (io.stdin as PassThrough).end('{"name":"회의"}');
+    await expect(runCli(['run', 'workflow.rename', '--input', '-'], io, connect)).resolves.toBe(0);
+    expect(client.call).toHaveBeenCalledWith('actions.run', { actionId: 'workflow.rename', input: { name: '회의' } });
+  });
+
+  it('run --input-file reads the JSON from a UTF-8 file', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'freeter-in-'));
+    const file = join(dir, 'in.json');
+    await writeFile(file, '{"name":"회의"}');
+    const { io } = makeIo();
+    const { client, connect } = fakeConnect({});
+    await expect(runCli(['run', 'workflow.rename', '--input-file', file], io, connect)).resolves.toBe(0);
+    expect(client.call).toHaveBeenCalledWith('actions.run', { actionId: 'workflow.rename', input: { name: '회의' } });
+    const bad = makeIo();
+    await expect(runCli(['run', 'x.y', '--input-file', join(dir, 'missing.json')], bad.io, connect)).resolves.toBe(2);
+  });
+
   it('run without --input sends {}', async () => {
     const { io } = makeIo();
     const { client, connect } = fakeConnect({});

@@ -33,6 +33,14 @@ export type ConnectAiClient = (endpointPath: string, origin: AiOrigin) => Promis
 
 const notRunning = () => new Error('Freeter is not running');
 
+async function readAll(stream: NodeJS.ReadableStream): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
 export function defaultEndpointPath(env: Record<string, string | undefined>, platform: NodeJS.Platform, homeDir: string): string {
   if (env.FREETER_AI_ENDPOINT) {
     return env.FREETER_AI_ENDPOINT;
@@ -128,7 +136,9 @@ export function createReconnectingAiClient(first: AiClient, reopen: () => Promis
 
 const usage = `Usage:
   freeter actions [--json]              List what an agent can do in Freeter
-  freeter run <action> [--input <JSON>] Run an action (write actions ask the user first)
+  freeter run <action> [--input <JSON> | --input - | --input-file <path>]
+                                        Run an action (write actions ask the user first);
+                                        '-' reads the JSON from stdin
   freeter guide                         Print a usage guide for AI agents
   freeter mcp                           Run as a stdio MCP server
 `;
@@ -144,7 +154,9 @@ This CLI drives the running Freeter app.
 | Command | Does |
 |---------|------|
 | \`freeter actions --json\` | List actions with their input JSON Schema |
-| \`freeter run <action> --input '<JSON>'\` | Run an action; prints the result as JSON |
+| \`freeter run <action> --input-file <path>\` | Run an action with the JSON input in a UTF-8 file; prints the result as JSON |
+| \`freeter run <action> --input -\` | Same, reading the JSON from stdin |
+| \`freeter run <action> --input '<JSON>'\` | Same, JSON as an argument (POSIX shells only: PowerShell and cmd.exe drop its quotes) |
 | \`freeter mcp\` | Same actions as MCP tools over stdio (\`.\` in ids becomes \`_\`) |
 
 Start with \`freeter run app.describe\` to get the ids of projects, workflows, widgets and widget types.
@@ -177,11 +189,18 @@ export async function runCli(argv: string[], io: CliIo, connect: ConnectAiClient
     request = { method: 'actions.list', params: {} };
   } else if (command === 'run' && rest[0] && !rest[0].startsWith('-')) {
     let input: unknown = {};
-    if (rest[1] === '--input') {
+    if (rest[1] === '--input' || rest[1] === '--input-file') {
+      let text: string;
       try {
-        input = JSON.parse(rest[2] ?? '');
+        // '-' and --input-file exist because shells such as PowerShell strip the quotes of a JSON argument.
+        text = rest[1] === '--input-file' ? await readFile(rest[2] ?? '', 'utf8') : rest[2] === '-' ? await readAll(io.stdin) : rest[2] ?? '';
       } catch {
-        return fail(2, `--input is not valid JSON\n${usage}`);
+        return fail(2, `Cannot read ${rest[2]}\n${usage}`);
+      }
+      try {
+        input = JSON.parse(text.replace(/^\uFEFF/, ''));
+      } catch {
+        return fail(2, `The input is not valid JSON\n${usage}`);
       }
     } else if (rest.length > 1) {
       return fail(2, usage);
