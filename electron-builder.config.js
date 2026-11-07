@@ -10,6 +10,10 @@ module.exports = {
     to: './',
     filter: ['package.json']
   }],
+  // node-pty is an N-API module: the binary from `yarn install` (prebuilt on Windows,
+  // compiled on Linux) loads in Electron as is. Rebuilding it for Electron fails on Windows
+  // (its winpty build step), so the rebuild is skipped.
+  npmRebuild: false,
   // `freeter` CLI wrappers, outside app.asar so a shell can run them.
   extraResources: [{
     from: 'resources/bin',
