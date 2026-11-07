@@ -4,7 +4,8 @@
  */
 
 import { createServer, Server, Socket } from 'node:net';
-import { chmod, rm } from 'node:fs/promises';
+import { chmod, mkdir, rm } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { aiOrigins, AiRpcRequest, AiRpcResult, createLineSplitter, encodeLine, toRpcResponse } from '@common/ai/protocol';
 
 type Deps = {
@@ -60,6 +61,8 @@ function parseRequest(line: string, token: string): { req: AiRpcRequest } | { id
 export function createAiControlServer({ path, token, handle }: Deps): AiControlServer {
   let server: Server | undefined;
   const sockets = new Set<Socket>();
+  // Windows named pipes live in their own namespace; anything else is a socket file on disk.
+  const isSocketFile = !path.startsWith('\\\\.\\pipe\\');
 
   const onConnection = (socket: Socket) => {
     sockets.add(socket);
@@ -86,8 +89,9 @@ export function createAiControlServer({ path, token, handle }: Deps): AiControlS
 
   return {
     async start() {
-      if (process.platform !== 'win32') {
-        // A socket file left by a crashed run blocks listen().
+      if (isSocketFile) {
+        // First run: the ai/ folder does not exist yet. A socket file left by a crashed run blocks listen().
+        await mkdir(dirname(path), { recursive: true });
         await rm(path, { force: true });
       }
       const srv = createServer(onConnection);
@@ -99,7 +103,7 @@ export function createAiControlServer({ path, token, handle }: Deps): AiControlS
         });
       });
       server = srv;
-      if (process.platform !== 'win32') {
+      if (isSocketFile) {
         await chmod(path, 0o600);
       }
     },

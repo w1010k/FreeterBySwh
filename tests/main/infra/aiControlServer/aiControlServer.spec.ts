@@ -106,6 +106,14 @@ describe('createAiControlServer', () => {
     await server.stop();
   });
 
+  // Node's net on Windows only listens on named pipes, so this runs on Linux (CI) only.
+  (process.platform === 'win32' ? it.skip : it)('creates the socket folder when it does not exist yet (first run on Linux)', async () => {
+    const path = join(tmpdir(), `freeter-test-${randomBytes(6).toString('hex')}`, 'ai', 'control.sock');
+    const server = createAiControlServer({ path, token, handle: async () => ({ ok: true, value: 1 }) });
+    await expect(server.start()).resolves.toBeUndefined();
+    await server.stop();
+  });
+
   it('destroys the socket when a line exceeds AI_MAX_LINE_BYTES', async () => {
     const { server, socket, closed } = await setup();
     socket.on('error', () => undefined);
