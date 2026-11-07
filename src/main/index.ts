@@ -132,8 +132,15 @@ import {withJson} from '@common/infra/dataStorage/withJson';
 import {hostFreeterApp, schemeFreeterFile} from '@common/infra/network';
 import {ipcOsActivityEventChannel} from '@common/ipc/channels';
 import {channelPrefix} from '@common/ipc/ipc';
-import {app, BrowserWindow as ElectronBrowserWindow, powerMonitor} from 'electron';
+import {app, BrowserWindow as ElectronBrowserWindow, dialog as electronDialog, powerMonitor} from 'electron';
 import {join} from 'node:path';
+import {randomBytes} from 'node:crypto';
+import {createAiActionBridge} from '@/application/ai/aiActionBridge';
+import {createConfirmAiActionUseCase} from '@/application/useCases/ai/confirmAiAction';
+import {createAiControllers} from '@/controllers/ai';
+import {createAiControlServer} from '@/infra/aiControlServer/aiControlServer';
+import {getAiPipePath, removeAiEndpointSync, writeAiEndpoint} from '@/infra/aiControlServer/endpoint';
+import {ipcAiActionRequestChannel} from '@common/ipc/channels';
 
 let appWindow: BrowserWindow | null = null; // ref to the app window
 
@@ -213,6 +220,10 @@ if (!app.requestSingleInstanceLock()) {
   // port is released with the app.
   let stopAnalyticsServer: (() => void) | undefined;
 
+  // Set after the AI control server starts; on quit it closes the pipe and
+  // removes ai/endpoint.json so the `freeter` CLI reports "not running".
+  let stopAiControl: (() => void) | undefined;
+
   const processProvider = createProcessProvider();
   const processInfo = processProvider.getProcessInfo();
   const {isDevMode} = processInfo;
@@ -244,6 +255,8 @@ if (!app.requestSingleInstanceLock()) {
     stopOsMonitor?.();
     // Close the local Analytics page server.
     stopAnalyticsServer?.();
+    // Close the AI control pipe and remove its endpoint file.
+    stopAiControl?.();
     // Unregister global shortcuts
     globalShortcutProvider.destroy();
   })
@@ -341,6 +354,49 @@ if (!app.requestSingleInstanceLock()) {
     const openAnalyticsInBrowserUseCase = createOpenAnalyticsInBrowserUseCase({analyticsServer, shellProvider});
     stopAnalyticsServer = () => analyticsServer.stop();
 
+    // AI control: external agents reach the app through a local pipe (spec
+    // docs/superpowers/specs/2026-11-07-ai-infra-design.md). Requests run in the
+    // renderer, which owns the app state; writes are confirmed here first.
+    const aiActionBridge = createAiActionBridge({
+      send: (reqId, req) => sendToAppWindow(ipcAiActionRequestChannel, reqId, req),
+      timeoutMs: 150000,
+    });
+    const confirmAiActionUseCase = createConfirmAiActionUseCase({
+      showWindow: () => {
+        if (appWindow && !appWindow.isVisible()) {
+          appWindow.show();
+        }
+        if (appWindow?.isMinimized()) {
+          appWindow.restore();
+        }
+      },
+      showConfirmBox: async (message, signal) => {
+        const win = ElectronBrowserWindow.getAllWindows().find(w => w === appWindow);
+        const opts: Electron.MessageBoxOptions = {
+          message, buttons: ['Allow', 'Deny'], defaultId: 1, cancelId: 1, type: 'question', signal
+        };
+        const {response} = win ? await electronDialog.showMessageBox(win, opts) : await electronDialog.showMessageBox(opts);
+        return response === 0;
+      },
+      timeoutMs: 120000,
+    });
+    const aiToken = randomBytes(32).toString('hex');
+    const aiPipePath = getAiPipePath(appDataDir, process.platform);
+    const aiControlServer = createAiControlServer({path: aiPipePath, token: aiToken, handle: aiActionBridge.request});
+    aiControlServer.start()
+      .then(() => writeAiEndpoint(appDataDir, {pipe: aiPipePath, token: aiToken, pid: process.pid}))
+      .then(() => {
+        stopAiControl = () => {
+          aiControlServer.stop();
+          removeAiEndpointSync(appDataDir);
+        };
+      })
+      .catch(err => {
+        // The app works without AI control; e.g. another process holds the pipe name.
+        console.error('AI control server failed to start', err);
+        aiControlServer.stop();
+      });
+
     const fsProvider = createFsProvider();
     const readDirUseCase = createReadDirUseCase({fsProvider});
     const getHomeDirUseCase = createGetHomeDirUseCase({fsProvider});
@@ -429,7 +485,8 @@ if (!app.requestSingleInstanceLock()) {
         getKeysFromTelemetryDataStorageUseCase,
       }),
       ...createOsActivityControllers({setOsMonitoringUseCase}),
-      ...createAnalyticsControllers({openAnalyticsInBrowserUseCase})
+      ...createAnalyticsControllers({openAnalyticsInBrowserUseCase}),
+      ...createAiControllers({aiActionBridge, confirmAiActionUseCase})
     ])
 
     const [windowStore] = createWindowStore({

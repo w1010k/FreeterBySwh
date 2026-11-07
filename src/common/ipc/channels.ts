@@ -3,6 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
+import { AiOrigin, AiRpcRequest, AiRpcResult } from '@common/ai/protocol';
 import { MenuItemsIpc } from '@common/base/menu';
 import { ProcessInfo } from '@common/base/process';
 import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
@@ -242,3 +243,15 @@ export type IpcFsGetImageDataUrlRes = string | null;
 export const ipcGetSystemStatsChannel = makeIpcChannelName('get-system-stats');
 export type IpcGetSystemStatsArgs = [];
 export type IpcGetSystemStatsRes = SystemStats;
+
+/** main → renderer: run an AI control request. The renderer answers on `ai-action-response`. */
+export const ipcAiActionRequestChannel = makeIpcChannelName('ai-action-request');
+export type IpcAiActionRequestArgs = [reqId: number, req: AiRpcRequest];
+
+export const ipcAiActionResponseChannel = makeIpcChannelName('ai-action-response');
+export type IpcAiActionResponseArgs = [reqId: number, res: AiRpcResult];
+export type IpcAiActionResponseRes = void;
+
+export const ipcAiConfirmChannel = makeIpcChannelName('ai-confirm');
+export type IpcAiConfirmArgs = [origin: AiOrigin, describe: string];
+export type IpcAiConfirmRes = boolean;
