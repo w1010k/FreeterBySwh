@@ -21,8 +21,10 @@ export function createCloneWidgetSubCase({
   onCopyError,
 }: Deps) {
   async function subCase(widget: Widget): Promise<Widget> {
+    // exposedApi holds live functions of the mounted original; the clone gets its own when it mounts.
+    const { exposedApi: _exposedApi, ...rest } = widget;
     const newWidget: Widget = {
-      ...widget,
+      ...rest,
       id: idGenerator()
     }
     try {

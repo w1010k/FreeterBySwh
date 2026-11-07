@@ -32,6 +32,12 @@ beforeEach(() => {
 })
 
 describe('cloneWidgetSubCase()', () => {
+  it('does not copy the exposed API: it belongs to the mounted original (AI actions would reach the original)', async () => {
+    const { cloneWidgetSubCase } = setup();
+    const clone = await cloneWidgetSubCase(fixtureWidgetA({ exposedApi: { note: {} } }));
+    expect(clone).not.toHaveProperty('exposedApi');
+  });
+
   it('should create a widget clone with a new id in the entities state', async () => {
     const widget = fixtureWidgetA();
     const widgetClone: Widget = {
