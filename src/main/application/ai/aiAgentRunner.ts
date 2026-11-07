@@ -39,6 +39,7 @@ interface Conversation {
 }
 
 const MAX_PROMPT = 100000;
+const LINGER_MS = 5000;
 // Model names go on a command line (through cmd.exe for .cmd CLIs): letters, digits and ._:-[] only.
 const safeModel = /^[A-Za-z0-9._:[\]-]{1,100}$/;
 const efforts: readonly AgentEffort[] = ['low', 'medium', 'high'];
@@ -73,7 +74,10 @@ export function createAiAgentRunner({ findProgram, spawn, kill, emit, argsFor, n
         return;
       }
       finished = true;
-      conv.running = undefined;
+      // A process that exits late must not clear the next turn's state.
+      if (conv.running?.proc === proc) {
+        conv.running = undefined;
+      }
       if (error) {
         emit(id, { type: 'error', message: error });
       }
@@ -88,11 +92,22 @@ export function createAiAgentRunner({ findProgram, spawn, kill, emit, argsFor, n
     };
     conv.running = { proc, finish: end };
 
+    let exited = false;
     proc.stdout?.on('data', createLineSplitter(line => {
       conv.sessionId = agentSessionId(conv.tool, line) ?? conv.sessionId;
       for (const event of parseAgentLine(conv.tool, line)) {
-        done ||= event.type === 'done';
         emit(id, event.type === 'done' ? { ...event, sessionId: event.sessionId ?? conv.sessionId } : event);
+        if (event.type === 'done' && !done) {
+          // The answer is complete; the CLI can take seconds to exit (MCP server shutdown),
+          // so the next turn may start now. One that never exits is ended.
+          done = true;
+          end();
+          setTimeout(() => {
+            if (!exited) {
+              kill(proc);
+            }
+          }, LINGER_MS);
+        }
       }
     }, () => {
       end('The CLI printed a line too long to read');
@@ -103,7 +118,10 @@ export function createAiAgentRunner({ findProgram, spawn, kill, emit, argsFor, n
       stderr = (stderr + String(d)).slice(-2000);
     });
     proc.on('error', err => end(err.message));
-    proc.on('exit', () => end(done ? undefined : (stderr.trim() || 'The CLI stopped without an answer')));
+    proc.on('exit', () => {
+      exited = true;
+      end(done ? undefined : (stderr.trim() || 'The CLI stopped without an answer'));
+    });
     proc.stdin?.write(req.prompt);
     proc.stdin?.end();
   };

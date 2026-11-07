@@ -125,6 +125,18 @@ describe('createAiAgentRunner', () => {
     expect(events).toEqual([['conv-1', { type: 'error', message: 'No answer in time; stopped' }]]);
   });
 
+  it('ends the turn at its final event even if the CLI is slow to exit, and kills a CLI that lingers', async () => {
+    jest.useFakeTimers({ doNotFake: ['setImmediate'] });
+    const { runner, procs, kill } = setup();
+    runner.send(null, { tool: 'codex', prompt: 'a' });
+    procs[0].line({ type: 'thread.started', thread_id: 't1' });
+    procs[0].line({ type: 'turn.completed' });
+    await tick();
+    expect(runner.send('conv-1', { tool: 'codex', prompt: 'b' })).toMatchObject({ ok: true });
+    jest.advanceTimersByTime(5000);
+    expect(kill).toHaveBeenCalledWith(procs[0]);
+  });
+
   it('stopAll kills every running turn', () => {
     const { runner, kill } = setup();
     runner.send(null, { tool: 'claude', prompt: 'a' });
