@@ -172,6 +172,7 @@ import { AiAction } from '@/base/ai/aiAction';
 import { createAppAiActions } from '@/application/useCases/ai/actions/appActions';
 import { createWidgetAiActions } from '@/application/useCases/ai/actions/widgetActions';
 import { createProjectAiActions } from '@/application/useCases/ai/actions/projectActions';
+import { createSettingsAiActions } from '@/application/useCases/ai/actions/settingsActions';
 import { AiRpcRequest } from '@common/ai/protocol';
 import { WEBPAGE_ZOOM_EVENT, WebpageZoomEventDetail } from '@/widgets/webpage/zoomEvents';
 import { WEBPAGE_GO_HOME_EVENT, WebpageGoHomeEventDetail } from '@/widgets/webpage/homeEvents';
@@ -593,6 +594,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     ...createAppAiActions({ appStore: store.appStore, createWorkflowSubCase, deactivateWorkflowUseCase, renameWorkflowUseCase }),
     ...createWidgetAiActions({ appStore: store.appStore, createWidgetSubCase, addItemToWidgetLayoutSubCase }),
     ...createProjectAiActions({ appStore: store.appStore, idGenerator: uuidv4IdGenerator, createWorkflowSubCase, deactivateWorkflowUseCase }),
+    ...createSettingsAiActions({ appStore: store.appStore }),
   ];
   const runAiRequestUseCase = createRunAiRequestUseCase({ actions: aiActions, aiControl: aiControlProvider, appStore: store.appStore });
 
