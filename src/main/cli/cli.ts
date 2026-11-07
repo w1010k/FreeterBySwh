@@ -118,11 +118,16 @@ export async function connectAiClient(endpointPath: string, origin: AiOrigin): P
  */
 export function createReconnectingAiClient(first: AiClient, reopen: () => Promise<AiClient>): AiClient {
   let current = first;
+  // Calls that find the connection closed at the same time share one reconnect.
+  let reopening: Promise<AiClient> | undefined;
   return {
     async call(method, params) {
       if (current.isClosed()) {
         try {
-          current = await reopen();
+          reopening ??= reopen().finally(() => {
+            reopening = undefined;
+          });
+          current = await reopening;
         } catch (err) {
           return { ok: false, code: 'failed', message: err instanceof Error ? err.message : String(err) };
         }
@@ -133,6 +138,13 @@ export function createReconnectingAiClient(first: AiClient, reopen: () => Promis
     isClosed: () => current.isClosed()
   };
 }
+
+/** Stands in until the first connection: every call reconnects. */
+const closedClient: AiClient = {
+  call: async () => ({ ok: false, code: 'failed', message: 'Freeter is not running' }),
+  close: () => undefined,
+  isClosed: () => true,
+};
 
 const usage = `Usage:
   freeter actions [--json]              List what an agent can do in Freeter
@@ -214,6 +226,16 @@ export async function runCli(argv: string[], io: CliIo, connect: ConnectAiClient
   // Freeter's agent runner starts `freeter mcp` with FREETER_AI_ORIGIN=agent-runner.
   const origin: AiOrigin = envOrigin ?? (command === 'mcp' ? 'mcp' : 'cli');
   const endpointPath = defaultEndpointPath(io.env, process.platform, io.env.USERPROFILE ?? io.env.HOME ?? '');
+  if (!request) {
+    // An MCP host may start before Freeter (e.g. at login): connect on the first call, and again after a restart.
+    const client = createReconnectingAiClient(closedClient, () => connect(endpointPath, origin));
+    try {
+      await runMcpServer(io, client, version);
+    } finally {
+      client.close();
+    }
+    return 0;
+  }
   let client: AiClient;
   try {
     client = await connect(endpointPath, origin);
@@ -222,10 +244,6 @@ export async function runCli(argv: string[], io: CliIo, connect: ConnectAiClient
   }
 
   try {
-    if (!request) {
-      await runMcpServer(io, createReconnectingAiClient(client, () => connect(endpointPath, origin)), version);
-      return 0;
-    }
     const res = await client.call(request.method, request.params);
     if (!res.ok) {
       return fail(1, `${res.code}: ${res.message}`);

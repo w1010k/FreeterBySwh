@@ -89,6 +89,16 @@ describe('runCli', () => {
     expect(connect).not.toHaveBeenCalled();
   });
 
+  it('mcp starts even when Freeter is not running yet, and connects on the first call', async () => {
+    const { io, out } = makeIo();
+    const connect = jest.fn(async () => {
+      throw new Error('Freeter is not running');
+    });
+    (io.stdin as PassThrough).end(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) + String.fromCharCode(10));
+    await expect(runCli(['mcp'], io, connect)).resolves.toBe(0);
+    expect(JSON.parse(out().trim())).toMatchObject({ id: 1, error: { message: 'Freeter is not running' } });
+  });
+
   it('returns 3 with "Freeter is not running" when connect throws', async () => {
     const { io, err } = makeIo();
     const connect = jest.fn(async () => {
@@ -116,13 +126,14 @@ describe('runCli', () => {
   });
 
   it('mcp uses FREETER_AI_ORIGIN when set (the app agent runner), else mcp', async () => {
+    // The connection opens on the first call.
     const a = makeIo({ FREETER_AI_ORIGIN: 'agent-runner' });
-    (a.io.stdin as PassThrough).end();
+    (a.io.stdin as PassThrough).end(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) + String.fromCharCode(10));
     const ca = fakeConnect({});
     await runCli(['mcp'], a.io, ca.connect);
     expect(ca.connect).toHaveBeenCalledWith('ep.json', 'agent-runner');
     const b = makeIo();
-    (b.io.stdin as PassThrough).end();
+    (b.io.stdin as PassThrough).end(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) + String.fromCharCode(10));
     const cb = fakeConnect({});
     await runCli(['mcp'], b.io, cb.connect);
     expect(cb.connect).toHaveBeenCalledWith('ep.json', 'mcp');
@@ -152,6 +163,21 @@ describe('createReconnectingAiClient', () => {
     const client = createReconnectingAiClient(makeClient(true, 'old'), reopen);
     await expect(client.call('actions.list', {})).resolves.toEqual({ ok: true, value: 'new' });
     expect(reopen).toHaveBeenCalledTimes(1);
+  });
+
+  it('shares one reconnect between calls made at the same time', async () => {
+    const reopen = jest.fn(async () => makeClient(false, 'new'));
+    const client = createReconnectingAiClient(makeClient(true, 'old'), reopen);
+    await Promise.all([client.call('actions.list', {}), client.call('actions.list', {})]);
+    expect(reopen).toHaveBeenCalledTimes(1);
+  });
+
+  it('close closes the connection in use, not the first one', async () => {
+    const fresh = makeClient(false, 'new');
+    const client = createReconnectingAiClient(makeClient(true, 'old'), async () => fresh);
+    await client.call('actions.list', {});
+    client.close();
+    expect(fresh.close).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the open connection', async () => {
