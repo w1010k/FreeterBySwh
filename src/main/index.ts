@@ -133,7 +133,10 @@ import {hostFreeterApp, schemeFreeterFile} from '@common/infra/network';
 import {ipcOsActivityEventChannel} from '@common/ipc/channels';
 import {channelPrefix} from '@common/ipc/ipc';
 import {app, BrowserWindow as ElectronBrowserWindow, dialog as electronDialog, powerMonitor} from 'electron';
-import {join} from 'node:path';
+import {delimiter as pathDelimiter, join} from 'node:path';
+import type * as NodePty from 'node-pty';
+import {createTerminalHost} from '@/application/terminal/terminalHost';
+import {createPtyControllers} from '@/controllers/pty';
 import {randomBytes, randomUUID} from 'node:crypto';
 import {ChildProcess, spawn as spawnChild} from 'node:child_process';
 import {mkdir, writeFile} from 'node:fs/promises';
@@ -144,7 +147,7 @@ import {createConfirmAiActionUseCase} from '@/application/useCases/ai/confirmAiA
 import {createAiControllers} from '@/controllers/ai';
 import {createAiControlServer} from '@/infra/aiControlServer/aiControlServer';
 import {getAiPipePath, removeAiEndpointSync, writeAiEndpoint} from '@/infra/aiControlServer/endpoint';
-import {ipcAiActionRequestChannel, ipcAiAgentEventChannel} from '@common/ipc/channels';
+import {ipcAiActionRequestChannel, ipcAiAgentEventChannel, ipcPtyDataChannel, ipcPtyExitChannel} from '@common/ipc/channels';
 
 let appWindow: BrowserWindow | null = null; // ref to the app window
 
@@ -231,6 +234,9 @@ if (!app.requestSingleInstanceLock()) {
   // Set after the agent runner is created; on quit it ends running Claude Code / Codex turns.
   let stopAiAgents: (() => void) | undefined;
 
+  // Set after the terminal host is created; on quit it ends the in-app terminals' shells.
+  let stopTerminals: (() => void) | undefined;
+
   const processProvider = createProcessProvider();
   const processInfo = processProvider.getProcessInfo();
   const {isDevMode} = processInfo;
@@ -265,6 +271,7 @@ if (!app.requestSingleInstanceLock()) {
     // Close the AI control pipe and remove its endpoint file.
     stopAiControl?.();
     stopAiAgents?.();
+    stopTerminals?.();
     // Unregister global shortcuts
     globalShortcutProvider.destroy();
   })
@@ -439,6 +446,39 @@ if (!app.requestSingleInstanceLock()) {
     });
     stopAiAgents = () => aiAgentRunner.stopAll();
 
+    // In-app terminals (pseudo-terminals). The shell gets the AI control endpoint and, in
+    // an installed app, the `freeter` wrappers on PATH, so agents started in it can use them.
+    const ptyEnv: Record<string, string> = {
+      ...Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => typeof e[1] === 'string')),
+      FREETER_AI_ENDPOINT: join(aiDir, 'endpoint.json'),
+      FREETER_AI_ORIGIN: 'terminal',
+    };
+    if (app.isPackaged) {
+      ptyEnv.PATH = [join(process.resourcesPath, 'bin'), process.env.PATH ?? ''].join(pathDelimiter);
+    }
+    // Loaded lazily: if the native module cannot load (e.g. no build for this platform),
+    // only terminals are unavailable; the app still starts.
+    let nodePty: typeof NodePty | undefined;
+    import('node-pty').then(m => {
+      nodePty = m;
+    }, err => console.error('Terminals unavailable: node-pty failed to load', err));
+    const terminalHost = createTerminalHost({
+      spawnPty: (shell, o) => {
+        if (!nodePty) {
+          throw new Error('Terminals are unavailable on this system');
+        }
+        return nodePty.spawn(shell, [], {name: 'xterm-256color', ...o});
+      },
+      defaultShell: process.platform === 'win32' ? 'powershell.exe' : (process.env.SHELL || '/bin/bash'),
+      env: ptyEnv,
+      emitData: (id, data) => sendToAppWindow(ipcPtyDataChannel, id, data),
+      emitExit: (id, code) => sendToAppWindow(ipcPtyExitChannel, id, code),
+      newId: () => randomUUID(),
+      batchMs: 16,
+      maxBuffer: 1024 * 1024,
+    });
+    stopTerminals = () => terminalHost.killAll();
+
     const fsProvider = createFsProvider();
     const readDirUseCase = createReadDirUseCase({fsProvider});
     const getHomeDirUseCase = createGetHomeDirUseCase({fsProvider});
@@ -528,7 +568,8 @@ if (!app.requestSingleInstanceLock()) {
       }),
       ...createOsActivityControllers({setOsMonitoringUseCase}),
       ...createAnalyticsControllers({openAnalyticsInBrowserUseCase}),
-      ...createAiControllers({aiActionBridge, confirmAiActionUseCase, aiAgentRunner})
+      ...createAiControllers({aiActionBridge, confirmAiActionUseCase, aiAgentRunner}),
+      ...createPtyControllers({terminalHost})
     ])
 
     const [windowStore] = createWindowStore({

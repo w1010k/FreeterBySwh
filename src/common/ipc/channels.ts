@@ -270,6 +270,33 @@ export const ipcAiAgentCancelChannel = makeIpcChannelName('ai-agent-cancel');
 export type IpcAiAgentCancelArgs = [conversationId: string];
 export type IpcAiAgentCancelRes = void;
 
+/** Shells in pseudo-terminals for in-app terminal views ('terminal-*' channels run the OS terminal app). */
+export const ipcPtyCreateChannel = makeIpcChannelName('pty-create');
+export type IpcPtyCreateArgs = [o: { cols: number; rows: number; shell?: string; cwd?: string; command?: string }];
+export type IpcPtyCreateRes = { ok: true; terminalId: string } | { ok: false; message: string };
+
+export const ipcPtyWriteChannel = makeIpcChannelName('pty-write');
+export type IpcPtyWriteArgs = [terminalId: string, data: string];
+export type IpcPtyWriteRes = void;
+
+export const ipcPtyResizeChannel = makeIpcChannelName('pty-resize');
+export type IpcPtyResizeArgs = [terminalId: string, cols: number, rows: number];
+export type IpcPtyResizeRes = void;
+
+export const ipcPtyBufferChannel = makeIpcChannelName('pty-buffer');
+export type IpcPtyBufferArgs = [terminalId: string];
+export type IpcPtyBufferRes = string | undefined;
+
+export const ipcPtyKillChannel = makeIpcChannelName('pty-kill');
+export type IpcPtyKillArgs = [terminalId: string];
+export type IpcPtyKillRes = void;
+
+/** main → renderer: output of a terminal (batched) and its exit. */
+export const ipcPtyDataChannel = makeIpcChannelName('pty-data');
+export type IpcPtyDataArgs = [terminalId: string, data: string];
+export const ipcPtyExitChannel = makeIpcChannelName('pty-exit');
+export type IpcPtyExitArgs = [terminalId: string, exitCode: number];
+
 /** main → renderer: one event of a running turn. */
 export const ipcAiAgentEventChannel = makeIpcChannelName('ai-agent-event');
 export type IpcAiAgentEventArgs = [conversationId: string, event: AgentEvent];

@@ -32,6 +32,10 @@ module.exports = {
     })]
   },
   target: 'electron-main',
+  // Native module: loaded from node_modules at run time (electron-builder unpacks its .node files).
+  externals: {
+    'node-pty': 'commonjs node-pty',
+  },
   module: {
     rules: [
       {
