@@ -10,10 +10,10 @@ import { createLineSplitter } from '@common/ai/protocol';
 /** The part of a child process the runner uses. */
 export interface AgentProcess {
   pid?: number;
-  stdin: { write(s: string): unknown; end(): unknown } | null;
+  stdin: { write(s: string): unknown; end(): unknown; on(event: 'error', fn: (err: Error) => void): unknown } | null;
   stdout: NodeJS.ReadableStream | null;
   stderr: NodeJS.ReadableStream | null;
-  on(event: 'exit', fn: (code: number | null) => void): unknown;
+  on(event: 'exit' | 'close', fn: (code: number | null) => void): unknown;
   on(event: 'error', fn: (err: Error) => void): unknown;
 }
 
@@ -96,6 +96,9 @@ export function createAiAgentRunner({ findProgram, spawn, kill, emit, argsFor, n
     proc.stdout?.on('data', createLineSplitter(line => {
       conv.sessionId = agentSessionId(conv.tool, line) ?? conv.sessionId;
       for (const event of parseAgentLine(conv.tool, line)) {
+        if (finished) {
+          return; // cancelled, timed out or already answered: later output is dropped
+        }
         emit(id, event.type === 'done' ? { ...event, sessionId: event.sessionId ?? conv.sessionId } : event);
         if (event.type === 'done' && !done) {
           // The answer is complete; the CLI can take seconds to exit (MCP server shutdown),
@@ -120,8 +123,15 @@ export function createAiAgentRunner({ findProgram, spawn, kill, emit, argsFor, n
     proc.on('error', err => end(err.message));
     proc.on('exit', () => {
       exited = true;
+    });
+    // 'close' comes after the last stdout data; 'exit' can come before it.
+    proc.on('close', () => {
+      exited = true;
       end(done ? undefined : (stderr.trim() || 'The CLI stopped without an answer'));
     });
+    // A CLI that exits before reading the whole prompt makes the write fail (EPIPE / EOF);
+    // the exit itself is reported through 'close'.
+    proc.stdin?.on('error', () => undefined);
     proc.stdin?.write(req.prompt);
     proc.stdin?.end();
   };

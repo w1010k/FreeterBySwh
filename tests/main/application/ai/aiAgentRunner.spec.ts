@@ -24,6 +24,7 @@ class FakeProcess extends EventEmitter implements AgentProcess {
   }
   exit(code: number) {
     this.emit('exit', code);
+    this.emit('close', code);
   }
 }
 
@@ -135,6 +136,31 @@ describe('createAiAgentRunner', () => {
     expect(runner.send('conv-1', { tool: 'codex', prompt: 'b' })).toMatchObject({ ok: true });
     jest.advanceTimersByTime(5000);
     expect(kill).toHaveBeenCalledWith(procs[0]);
+  });
+
+  it('judges the turn when the output is complete, even if the exit event came before the last line', async () => {
+    const { runner, procs, events } = setup();
+    runner.send(null, { tool: 'claude', prompt: 'a' });
+    procs[0].emit('exit', 0);
+    procs[0].line({ type: 'result', subtype: 'success', is_error: false, session_id: 's1' });
+    await tick();
+    procs[0].emit('close', 0);
+    expect(events).toEqual([['conv-1', { type: 'done', sessionId: 's1', costUsd: undefined }]]);
+  });
+
+  it('sends nothing more for a turn after it was cancelled', async () => {
+    const { runner, procs, events } = setup();
+    runner.send(null, { tool: 'claude', prompt: 'a' });
+    runner.cancel('conv-1');
+    procs[0].line({ type: 'assistant', message: { content: [{ type: 'text', text: 'late' }] } });
+    await tick();
+    expect(events).toEqual([['conv-1', { type: 'error', message: 'Cancelled' }]]);
+  });
+
+  it('survives a CLI that exits before reading the whole prompt (stdin write error)', () => {
+    const { runner, procs } = setup();
+    runner.send(null, { tool: 'claude', prompt: 'a' });
+    expect(() => procs[0].stdin.emit('error', new Error('write EOF'))).not.toThrow();
   });
 
   it('stopAll kills every running turn', () => {
