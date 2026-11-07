@@ -10,7 +10,7 @@ import { deleteWidgetsFromWidgetLayoutSubCase } from '@/application/useCases/wor
 import { asRecord, idSchema, isNonEmptyString, isOptionalString, notFound, okNull } from '@/application/useCases/ai/actions/inputs';
 import { AiAction } from '@/base/ai/aiAction';
 import { EntityId } from '@/base/entity';
-import { addOneToEntityCollection, removeManyFromEntityCollection, updateOneInEntityCollection } from '@/base/entityCollection';
+import { addOneToEntityCollection, removeManyFromEntityCollection, updateManyInEntityCollection, updateOneInEntityCollection } from '@/base/entityCollection';
 import { AppState } from '@/base/state/app';
 import { getWidgetDisplayName } from '@/base/widget';
 
@@ -140,5 +140,108 @@ export function createWidgetAiActions({
     }
   };
 
-  return [addWidget, renameWidget, deleteWidget] as AiAction[];
+  const getWidget: AiAction<{ widgetId: string }> = {
+    id: 'widget.get',
+    description: 'Read a widget: type, name, settings, and its workflow (null for a widget on the shelf).',
+    kind: 'read',
+    inputSchema: { type: 'object', properties: { widgetId: idSchema }, required: ['widgetId'] },
+    parse: (input) => {
+      const o = asRecord(input);
+      return o && isNonEmptyString(o.widgetId) ? { widgetId: o.widgetId } : undefined;
+    },
+    describe: ({ widgetId }) => `Read widget "${widgetName(appStore.get(), widgetId)}"`,
+    run: ({ widgetId }) => {
+      const state = appStore.get();
+      const widget = state.entities.widgets[widgetId];
+      if (!widget) {
+        return notFound('widget', widgetId);
+      }
+      return {
+        ok: true,
+        value: {
+          id: widget.id,
+          type: widget.type,
+          name: widgetName(state, widgetId),
+          settings: widget.settings,
+          workflowId: findWorkflowOfWidget(state, widgetId)?.id ?? null
+        }
+      };
+    }
+  };
+
+  const updateSettings: AiAction<{ widgetId: string; settings: Record<string, unknown> }> = {
+    id: 'widget.updateSettings',
+    description: 'Change some settings of a widget (see widget.get for the current ones). Values of a wrong type fall back to the widget\'s defaults.',
+    kind: 'write',
+    inputSchema: { type: 'object', properties: { widgetId: idSchema, settings: { type: 'object' } }, required: ['widgetId', 'settings'] },
+    parse: (input) => {
+      const o = asRecord(input);
+      const settings = o && asRecord(o.settings);
+      return o && isNonEmptyString(o.widgetId) && settings ? { widgetId: o.widgetId, settings } : undefined;
+    },
+    describe: ({ widgetId, settings }) => `Change settings of widget "${widgetName(appStore.get(), widgetId)}": ${Object.keys(settings).join(', ')}`,
+    run: ({ widgetId, settings }) => {
+      const state = appStore.get();
+      const widget = state.entities.widgets[widgetId];
+      const widgetType = widget && state.entities.widgetTypes[widget.type];
+      if (!widget || !widgetType) {
+        return notFound('widget', widgetId);
+      }
+      // The widget type's own factory is the validator: it replaces wrong-typed values with defaults.
+      const newSettings = widgetType.createSettingsState({ ...widget.settings, ...settings });
+      appStore.set({
+        ...state,
+        entities: {
+          ...state.entities,
+          widgets: updateOneInEntityCollection(state.entities.widgets, { id: widgetId, changes: { settings: newSettings } })
+        }
+      });
+      return { ok: true, value: { settings: newSettings } };
+    }
+  };
+
+  const moveWidget: AiAction<{ widgetId: string; toWorkflowId: string }> = {
+    id: 'widget.move',
+    description: 'Move a widget from its workflow to another workflow.',
+    kind: 'write',
+    inputSchema: { type: 'object', properties: { widgetId: idSchema, toWorkflowId: idSchema }, required: ['widgetId', 'toWorkflowId'] },
+    parse: (input) => {
+      const o = asRecord(input);
+      return o && isNonEmptyString(o.widgetId) && isNonEmptyString(o.toWorkflowId) ? { widgetId: o.widgetId, toWorkflowId: o.toWorkflowId } : undefined;
+    },
+    describe: ({ widgetId, toWorkflowId }) => {
+      const state = appStore.get();
+      return `Move widget "${widgetName(state, widgetId)}" to workflow "${state.entities.workflows[toWorkflowId]?.settings.name ?? toWorkflowId}"`;
+    },
+    run: ({ widgetId, toWorkflowId }) => {
+      const state = appStore.get();
+      const from = findWorkflowOfWidget(state, widgetId);
+      if (!from) {
+        return notFound('widget in a workflow', widgetId);
+      }
+      const to = state.entities.workflows[toWorkflowId];
+      if (!to) {
+        return notFound('workflow', toWorkflowId);
+      }
+      if (from.id === to.id) {
+        return okNull;
+      }
+      const item = from.layout.find(i => i.widgetId === widgetId);
+      const [fromLayout] = deleteWidgetsFromWidgetLayoutSubCase([widgetId], from.layout);
+      const toLayout = addItemToWidgetLayoutSubCase(widgetId, to.layout, { w: item?.rect.w ?? 1, h: item?.rect.h ?? 1 });
+      appStore.set({
+        ...state,
+        entities: {
+          ...state.entities,
+          workflows: updateManyInEntityCollection(state.entities.workflows, [
+            { id: from.id, changes: { layout: fromLayout } },
+            { id: to.id, changes: { layout: toLayout } }
+          ])
+        }
+      });
+      return okNull;
+    }
+  };
+
+  return [addWidget, renameWidget, deleteWidget, getWidget, updateSettings, moveWidget] as AiAction[];
 }
