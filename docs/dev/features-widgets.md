@@ -55,6 +55,7 @@
 | `createSettingsState`              | 부분 설정을 받아 완전한 설정 반환   | 생성 시 `{}`, 로드 시 저장값으로 호출. 타입 검증, 기본값, 마이그레이션 담당                                                                             |
 | `requiresApi`                      | 받을 `WidgetApi` 모듈 이름 목록     | 선언하지 않은 모듈은 `widgetApi`에 속성 자체가 없다 (`createWidgetApiFactory`가 `availableModules`만 조립)                                              |
 | `requiresState`                    | 받을 공유 상태 슬라이스             | `apps`(File Opener), `sharedDataKeys`(Note)                                                                                                             |
+| `aiActions`                        | AI 에이전트가 쓸 위젯 작업          | `WidgetAiAction[]` (`src/renderer/base/ai/widgetAiAction.ts`). 아래 "AI 작업" 참조 [fork #99]                                                          |
 
 #### 위젯 인스턴스와 설정
 
@@ -211,7 +212,30 @@
 - 공개: 위젯이 `exposeApi(api)`를 부르면 엔티티의 `exposedApi`에 저장된다 (`setExposedApi.ts`).
 - 조회: 다른 위젯이 `widgets.getWidgetsInCurrentWorkflow<T>(typeId)`로 현재 워크플로우의 같은 타입 위젯 목록과 각 `api`를 받는다
   (`widgetApiWidgets/getWidgetsInCurrentWorkflow.ts`). 셸프 위젯과 다른 워크플로우의 위젯은 결과에서 빠진다.
-- 현재 유일한 사용처: Web Query의 Webpages 모드가 Webpage 위젯의 `WebpageExposedApi { openUrl, getUrl }`을 쓴다 [upstream].
+- 위젯 사이의 사용처: Web Query의 Webpages 모드가 Webpage 위젯의 `WebpageExposedApi { openUrl, getUrl }`을 쓴다 [upstream].
+- AI 작업도 `exposedApi`를 쓴다 (아래 "AI 작업") [fork #99].
+
+#### AI 작업 [fork #99]
+
+- 선언: `WidgetType.aiActions`의 각 `WidgetAiAction` (`name`, `kind`, `properties`, `parse`, `describe(input, widgetName, settings)`, `run({api, settings}, input)`)이
+  앱 작업 `<위젯 타입 id>.<name>`이 된다. 입력에 `widgetId`가 자동으로 붙는다 (`src/renderer/application/useCases/ai/actions/widgetTypeActions.ts`).
+- 실행 경로: 마운트된 위젯이 `exposeApi`로 내보낸 함수를 부른다. 위젯 자신의 메모리 상태와 저장 경로를 그대로 쓰므로 외부 저장소 쓰기와 경합이 없다.
+  `exposedApi`가 비어 있으면 (Memory Saver로 내린 워크플로우) `not_ready`를 돌려주고, 에이전트는 `workflow.switch`로 올린 뒤 다시 시도한다.
+- 내보내는 객체는 ref만 닫고, 언마운트 때 `exposeApi({})`로 비운다 (pitfalls.md "전역 상태에 보관한 위젯 API의 DOM 누수"). 버튼 하나와 같은 동작은
+  `useExposedAiFunction` (`src/renderer/widgets/aiTrigger.ts`)을 쓴다. 이 훅은 `exposeApi`를 통째로 바꾸므로 위젯 하나에 한 번만 쓴다.
+- 확인 문구는 실행될 내용을 그대로 보인다: 열 링크, 실행할 명령줄과 폴더 (`describe`가 위젯 설정을 받는다).
+
+| 위젯 | 작업 | 내보내는 API |
+|------|------|--------------|
+| To-Do List | `getItems`, `addItem`, `setDone`, `editItem`, `deleteItem` | `{ todo: { get, set } }` (scope store와 debounce 저장) |
+| Note | `getText`, `setText`, `appendText` | `{ note: { get, set } }`. 사용자가 입력 중이면 `set`이 false |
+| Spreadsheet | `getCells`, `setCells` (A1 기준 블록, 최대 10000셀) | `{ sheet: { get, set } }`. 붙여넣기와 같다 (undo 한 단계). 셀 편집 중이면 false |
+| Webpage | `navigate` (http/https만) | 기존 `{ openUrl, getUrl }` |
+| Link Opener, File Opener, Commander | `openLinks`, `openFiles`, `runCommands` | 버튼과 같은 함수 |
+| Web Query | `query { text, entry? }` | `{ query(text, entryIndex) }`. 폼 제출과 같은 `runQuery`, 기록에도 남는다 |
+| Timer | `control { command: start, pause, resume, reset }` | `{ control }`. 화면에 없는 버튼은 false |
+
+AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explorer)은 `widget.updateSettings`로 설정만 바꾼다.
 
 #### minSize와 기본 크기
 

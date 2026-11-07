@@ -635,6 +635,15 @@
 - 이유: 앱 상태 store와 use case가 renderer에 있다. main에 같은 로직을 두면 상태가 둘로 갈라진다. 기존 삭제 use case는 자체 확인 상자를 띄워 확인이 두 번 뜬다.
 - 근거: `src/renderer/application/useCases/ai/`, `src/renderer/init.ts` `createUseCases`
 
+#### D73. 위젯 AI 작업은 마운트된 위젯의 exposeApi로 실행
+
+- 상태: 유효
+- 출처: `[fork #99]`
+- 결정: 위젯 내용·동작 작업은 `WidgetType.aiActions`로 선언하고, 마운트된 위젯이 `exposeApi`로 내보낸 함수를 통해 실행한다. 위젯이 내려가 있으면 `not_ready`.
+- 이유: To-Do List는 프로젝트 scope의 모듈 store와 debounce 저장을, Note는 캡처한 writer와 공유 키 동기화를 쓴다. 저장소에 직접 쓰면 위젯 메모리 상태가 덮어쓰거나 경합한다. 위젯 자신의 경로를 쓰면 화면, 저장, 실행 취소가 모두 사용자 편집과 같다.
+- 버린 대안: 저장소 직접 쓰기 + 다시 읽기 이벤트 (spec 초안. 위젯마다 경합 규칙이 달라 위험), 내려간 워크플로우 자동 활성화 (사용자 화면을 몰래 바꾼다).
+- 근거: `src/renderer/application/useCases/ai/actions/widgetTypeActions.ts`, `src/renderer/widgets/*/aiActions.ts`
+
 #### D72. AI 쓰기 확인은 main의 OS 메시지 상자
 
 - 상태: 유효
