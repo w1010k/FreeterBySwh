@@ -5,6 +5,7 @@
 
 import {WidgetType} from '@/widgets/appModules';
 import {widgetSvg} from './icons';
+import {spreadsheetAiActions} from './aiActions';
 import {createSettingsState, Settings, settingsEditorComp} from './settings';
 import {widgetComp} from './widget';
 
@@ -20,7 +21,8 @@ const widgetType: WidgetType<Settings> = {
   createSettingsState,
   settingsEditorComp,
   widgetComp,
-  requiresApi: ['dataStorage']
+  requiresApi: ['dataStorage'],
+  aiActions: spreadsheetAiActions
 }
 
 export default widgetType;

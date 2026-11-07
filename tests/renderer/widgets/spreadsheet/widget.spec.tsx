@@ -104,6 +104,32 @@ async function click(index: number) {
 }
 
 describe('Spreadsheet Widget', () => {
+  it('exposes an AI api that reads and writes cells like a paste, and clears it on unmount', async () => {
+    const exposeApi = jest.fn();
+    const settings = createSettingsState({v: 2, cols: 3, rows: 20}) as Settings;
+    const store: Record<string, string> = {sheet: JSON.stringify([['2', '3']])};
+    const {comp} = setupWidgetSut(widgetComp, settings, {
+      mockWidgetApi: {
+        exposeApi,
+        dataStorage: {getText: jest.fn(async (key: string) => store[key]), setText: jest.fn(async (key: string, v: string) => {
+          store[key] = v;
+        })}
+      }
+    });
+    await cells();
+    await waitFor(() => expect(exposeApi.mock.calls.at(-1)?.[0]).toHaveProperty('sheet'));
+    const api = exposeApi.mock.calls.at(-1)?.[0] as {sheet: {get(): string[][]; set(r: number, c: number, v: string[][]): boolean}};
+    expect(api.sheet.get()[0].slice(0, 2)).toEqual(['2', '3']);
+    let ok = false;
+    act(() => {
+      ok = api.sheet.set(0, 2, [['=A1*B1']]);
+    });
+    expect(ok).toBe(true);
+    expect(await sheetText(2)).toBe('6');
+    comp.unmount();
+    expect(exposeApi).toHaveBeenLastCalledWith({});
+  });
+
   it('renders headers and the stored sheet', async () => {
     setup([['2', '3', '=A1*B1']]);
     await cells();

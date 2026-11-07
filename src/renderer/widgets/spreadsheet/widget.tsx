@@ -54,6 +54,7 @@ import {
   uniqueValues
 } from './grid';
 import {MAX_COLS, Settings} from './settings';
+import {SpreadsheetAiApi} from './aiActions';
 import styles from './widget.module.scss';
 
 const keySheet = 'sheet';
@@ -277,7 +278,7 @@ const SheetRow = memo(function SheetRow(p: SheetRowProps) {
 });
 
 function SpreadsheetWidget({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
-  const {dataStorage} = widgetApi;
+  const {dataStorage, exposeApi} = widgetApi;
   const {decimals, thousands, formulaBar, rowHeight} = settings;
   const startRows = settings.rows;
 
@@ -600,6 +601,28 @@ function SpreadsheetWidget({widgetApi, settings}: WidgetReactComponentProps<Sett
     setRows(next);
     saveSheet(next);
   }, [saveSheet, setRows, remember]);
+
+  // AI actions (aiActions.ts): a write is a paste (one undo step, saved). Refused while
+  // a cell editor is open, so the user's draft is not overwritten. The exposed object
+  // closes over refs only and is cleared on unmount (pitfalls: exposed API leaks).
+  const aiSetRef = useRef<SpreadsheetAiApi['set']>(() => false);
+  useEffect(() => {
+    aiSetRef.current = (row, col, values) => {
+      if (draftRef.current !== null) {
+        return false;
+      }
+      commitRows(applyPatch(rowsRef.current, {row, col}, values, cols));
+      return true;
+    };
+  }, [commitRows, cols]);
+  useEffect(() => {
+    if (!isLoaded) {
+      return undefined;
+    }
+    const sheet: SpreadsheetAiApi = {get: () => rowsRef.current, set: (row, col, values) => aiSetRef.current(row, col, values)};
+    exposeApi({sheet});
+    return () => exposeApi({});
+  }, [exposeApi, isLoaded]);
 
   /** Puts a whole snapshot back, used by both undo and redo. */
   const restore = useCallback((snap: Snapshot) => {
