@@ -3,6 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
+import { WidgetAiAction } from '@/base/ai/widgetAiAction';
 import { Entity } from '@/base/entity';
 import { SharedStateSliceName } from '@/base/state/shared';
 import { WidgetSettings } from '@/base/widget';
@@ -30,4 +31,6 @@ export interface WidgetType<TSettings = WidgetSettings> extends Entity {
   readonly createSettingsState: CreateSettingsState<TSettings>;
   readonly requiresApi?: WidgetApiModuleName[]; // specifies WidgetAPI modules it requires access to
   readonly requiresState?: SharedStateSliceName[];
+  /** What AI agents may do with a widget of this type (see base/ai/widgetAiAction.ts). */
+  readonly aiActions?: readonly WidgetAiAction[];
 }
