@@ -159,7 +159,17 @@ import { createGetWidgetsInCurrentWorkflowUseCase } from '@/application/useCases
 import { createSetExposedApiUseCase } from '@/application/useCases/widget/setExposedApi';
 import { createSetWidgetDynamicTitleUseCase } from '@/application/useCases/widget/setWidgetDynamicTitle';
 import { electronIpcRenderer } from '@/infra/mainApi/mainApi';
-import { ipcGoHomeWebpageChannel, ipcSharedDataChangedChannel, ipcSwitchWorkflowByOffsetChannel, ipcZoomWebpageChannel } from '@common/ipc/channels';
+import {
+  ipcAiActionRequestChannel,
+  ipcGoHomeWebpageChannel,
+  ipcSharedDataChangedChannel,
+  ipcSwitchWorkflowByOffsetChannel,
+  ipcZoomWebpageChannel
+} from '@common/ipc/channels';
+import { createAiControlProvider } from '@/infra/aiControlProvider/aiControlProvider';
+import { createRunAiRequestUseCase } from '@/application/useCases/ai/runAiRequest';
+import { AiAction } from '@/base/ai/aiAction';
+import { AiRpcRequest } from '@common/ai/protocol';
 import { WEBPAGE_ZOOM_EVENT, WebpageZoomEventDetail } from '@/widgets/webpage/zoomEvents';
 import { WEBPAGE_GO_HOME_EVENT, WebpageGoHomeEventDetail } from '@/widgets/webpage/homeEvents';
 import { SHARED_DATA_CHANGED_EVENT, SharedDataChangedEventDetail } from '@/base/sharedDataEvents';
@@ -878,6 +888,17 @@ export async function init() {
     if (typeof widgetType === 'string' && typeof sharedKeyId === 'string') {
       const detail: SharedDataChangedEventDetail = { widgetType, sharedKeyId };
       window.dispatchEvent(new CustomEvent(SHARED_DATA_CHANGED_EVENT, { detail }));
+    }
+  });
+
+  // AI control requests (from the `freeter` CLI / MCP via the main process).
+  // The main process validated the token; the runner validates the input.
+  const aiControlProvider = createAiControlProvider();
+  const aiActions: AiAction[] = [];
+  const runAiRequestUseCase = createRunAiRequestUseCase({ actions: aiActions, aiControl: aiControlProvider, appStore: store.appStore });
+  electronIpcRenderer.on(ipcAiActionRequestChannel, (reqId, req) => {
+    if (typeof reqId === 'number' && typeof req === 'object' && req !== null) {
+      runAiRequestUseCase(req as AiRpcRequest).then(res => aiControlProvider.respond(reqId, res));
     }
   });
 
