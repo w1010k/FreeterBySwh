@@ -40,7 +40,7 @@ export function createWidgetTypeAiActions({ appStore, widgetTypes }: Deps): AiAc
     describe: ({ widgetId, input }) => {
       const { widgets } = appStore.get().entities;
       const widget = widgets[widgetId];
-      return action.describe(input, widget ? getWidgetDisplayName(widget, widgetType) : widgetId);
+      return action.describe(input, widget ? getWidgetDisplayName(widget, widgetType) : widgetId, widget?.settings);
     },
     run: ({ widgetId, input }) => {
       const widget = appStore.get().entities.widgets[widgetId];

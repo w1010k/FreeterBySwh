@@ -17,7 +17,7 @@ const addItem: WidgetAiAction<{ text: string }> = {
   properties: { text: { type: 'string' } },
   required: ['text'],
   parse: (input) => (typeof input.text === 'string' ? { text: input.text } : undefined),
-  describe: ({ text }, widgetName) => `Add "${text}" to "${widgetName}"`,
+  describe: ({ text }, widgetName, settings) => `Add "${text}" to "${widgetName}" ${JSON.stringify(settings)}`,
   run: ({ api, settings }, { text }) => ({ ok: true, value: { added: (api.add as (t: string) => string)(text), settings } }),
 };
 
@@ -54,7 +54,7 @@ describe('createWidgetTypeAiActions()', () => {
     const { actions, widget } = await setup({ add: (t: string) => `+${t}` });
     const input = actions[0].parse({ widgetId: widget.id, text: 'milk' });
     await expect(Promise.resolve(actions[0].run(input))).resolves.toEqual({ ok: true, value: { added: '+milk', settings: { s: 1 } } });
-    expect(actions[0].describe(input)).toBe('Add "milk" to "Tasks"');
+    expect(actions[0].describe(input)).toBe('Add "milk" to "Tasks" {"s":1}');
   });
 
   it('returns not_ready when the widget is not mounted (no exposed api)', async () => {

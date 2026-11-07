@@ -28,7 +28,7 @@ export interface WidgetAiAction<I = unknown> {
   required?: string[];
   /** Type guard for the untrusted input (without `widgetId`). */
   parse(input: Record<string, unknown>): I | undefined;
-  /** English one-liner for the confirm dialog. */
-  describe(input: I, widgetName: string): string;
+  /** English one-liner for the confirm dialog; `settings` lets it name what will run (links, commands). */
+  describe(input: I, widgetName: string, settings: unknown): string;
   run(ctx: WidgetAiActionContext, input: I): Promise<AiRpcResult> | AiRpcResult;
 }
