@@ -95,6 +95,19 @@ describe('runCli', () => {
     expect(out()).toContain('app.describe');
   });
 
+  it('mcp uses FREETER_AI_ORIGIN when set (the app agent runner), else mcp', async () => {
+    const a = makeIo({ FREETER_AI_ORIGIN: 'agent-runner' });
+    (a.io.stdin as PassThrough).end();
+    const ca = fakeConnect({});
+    await runCli(['mcp'], a.io, ca.connect);
+    expect(ca.connect).toHaveBeenCalledWith('ep.json', 'agent-runner');
+    const b = makeIo();
+    (b.io.stdin as PassThrough).end();
+    const cb = fakeConnect({});
+    await runCli(['mcp'], b.io, cb.connect);
+    expect(cb.connect).toHaveBeenCalledWith('ep.json', 'mcp');
+  });
+
   it('uses FREETER_AI_ORIGIN when it is a valid origin, else cli', async () => {
     const a = makeIo({ FREETER_AI_ORIGIN: 'terminal' });
     const ca = fakeConnect({ 'actions.list': list });

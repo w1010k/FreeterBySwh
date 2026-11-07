@@ -134,13 +134,17 @@ import {ipcOsActivityEventChannel} from '@common/ipc/channels';
 import {channelPrefix} from '@common/ipc/ipc';
 import {app, BrowserWindow as ElectronBrowserWindow, dialog as electronDialog, powerMonitor} from 'electron';
 import {join} from 'node:path';
-import {randomBytes} from 'node:crypto';
+import {randomBytes, randomUUID} from 'node:crypto';
+import {ChildProcess, spawn as spawnChild} from 'node:child_process';
+import {mkdir, writeFile} from 'node:fs/promises';
+import {createAiAgentRunner} from '@/application/ai/aiAgentRunner';
+import {buildAgentArgs, findOnPath, spawnSpec} from '@/infra/aiAgent/agentCommand';
 import {createAiActionBridge} from '@/application/ai/aiActionBridge';
 import {createConfirmAiActionUseCase} from '@/application/useCases/ai/confirmAiAction';
 import {createAiControllers} from '@/controllers/ai';
 import {createAiControlServer} from '@/infra/aiControlServer/aiControlServer';
 import {getAiPipePath, removeAiEndpointSync, writeAiEndpoint} from '@/infra/aiControlServer/endpoint';
-import {ipcAiActionRequestChannel} from '@common/ipc/channels';
+import {ipcAiActionRequestChannel, ipcAiAgentEventChannel} from '@common/ipc/channels';
 
 let appWindow: BrowserWindow | null = null; // ref to the app window
 
@@ -224,6 +228,9 @@ if (!app.requestSingleInstanceLock()) {
   // removes ai/endpoint.json so the `freeter` CLI reports "not running".
   let stopAiControl: (() => void) | undefined;
 
+  // Set after the agent runner is created; on quit it ends running Claude Code / Codex turns.
+  let stopAiAgents: (() => void) | undefined;
+
   const processProvider = createProcessProvider();
   const processInfo = processProvider.getProcessInfo();
   const {isDevMode} = processInfo;
@@ -257,6 +264,7 @@ if (!app.requestSingleInstanceLock()) {
     stopAnalyticsServer?.();
     // Close the AI control pipe and remove its endpoint file.
     stopAiControl?.();
+    stopAiAgents?.();
     // Unregister global shortcuts
     globalShortcutProvider.destroy();
   })
@@ -397,6 +405,40 @@ if (!app.requestSingleInstanceLock()) {
         aiControlServer.stop();
       });
 
+    // Agent runner: Freeter runs Claude Code / Codex itself, in an empty folder, with
+    // `freeter mcp` (this same executable as Node, ELECTRON_RUN_AS_NODE) as their only tools.
+    const aiDir = join(appDataDir, 'ai');
+    const aiWorkDir = join(aiDir, 'empty');
+    const aiMcp = {
+      command: process.execPath,
+      args: [join(__dirname, 'cli.js'), 'mcp'],
+      env: {ELECTRON_RUN_AS_NODE: '1', FREETER_AI_ENDPOINT: join(aiDir, 'endpoint.json'), FREETER_AI_ORIGIN: 'agent-runner'},
+    };
+    const aiMcpConfigPath = join(aiDir, 'mcp-claude.json');
+    mkdir(aiWorkDir, {recursive: true})
+      .then(() => writeFile(aiMcpConfigPath, JSON.stringify({mcpServers: {freeter: aiMcp}})))
+      .catch(err => console.error('AI agent folder setup failed', err));
+    const aiAgentRunner = createAiAgentRunner({
+      findProgram: tool => findOnPath(process.platform === 'win32' ? [`${tool}.exe`, `${tool}.cmd`] : [tool], process.env.PATH ?? ''),
+      spawn: (program, args) => {
+        const spec = spawnSpec(program, args, process.platform);
+        return spawnChild(spec.command, spec.args, {cwd: aiWorkDir, windowsVerbatimArguments: spec.verbatim, windowsHide: true});
+      },
+      kill: proc => {
+        // A CLI runs its own children (MCP server, model processes): end the whole tree.
+        if (process.platform === 'win32' && proc.pid !== undefined) {
+          spawnChild('taskkill', ['/PID', String(proc.pid), '/T', '/F'], {windowsHide: true});
+        } else {
+          (proc as ChildProcess).kill();
+        }
+      },
+      emit: (conversationId, event) => sendToAppWindow(ipcAiAgentEventChannel, conversationId, event),
+      argsFor: (tool, o) => buildAgentArgs(tool, {mcpConfigPath: aiMcpConfigPath, mcp: aiMcp, ...o}),
+      newId: () => randomUUID(),
+      timeoutMs: 300000,
+    });
+    stopAiAgents = () => aiAgentRunner.stopAll();
+
     const fsProvider = createFsProvider();
     const readDirUseCase = createReadDirUseCase({fsProvider});
     const getHomeDirUseCase = createGetHomeDirUseCase({fsProvider});
@@ -486,7 +528,7 @@ if (!app.requestSingleInstanceLock()) {
       }),
       ...createOsActivityControllers({setOsMonitoringUseCase}),
       ...createAnalyticsControllers({openAnalyticsInBrowserUseCase}),
-      ...createAiControllers({aiActionBridge, confirmAiActionUseCase})
+      ...createAiControllers({aiActionBridge, confirmAiActionUseCase, aiAgentRunner})
     ])
 
     const [windowStore] = createWindowStore({

@@ -4,6 +4,7 @@
  */
 
 import { AiOrigin, AiRpcRequest, AiRpcResult } from '@common/ai/protocol';
+import { AgentEvent, AgentSendRequest, AgentTool } from '@common/ai/agent';
 import { MenuItemsIpc } from '@common/base/menu';
 import { ProcessInfo } from '@common/base/process';
 import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
@@ -255,3 +256,20 @@ export type IpcAiActionResponseRes = void;
 export const ipcAiConfirmChannel = makeIpcChannelName('ai-confirm');
 export type IpcAiConfirmArgs = [origin: AiOrigin, describe: string];
 export type IpcAiConfirmRes = boolean;
+
+/** Agent runner: Freeter runs Claude Code / Codex itself (for its own AI screens). */
+export const ipcAiAgentDetectChannel = makeIpcChannelName('ai-agent-detect');
+export type IpcAiAgentDetectArgs = [];
+export type IpcAiAgentDetectRes = Record<AgentTool, boolean>;
+
+export const ipcAiAgentSendChannel = makeIpcChannelName('ai-agent-send');
+export type IpcAiAgentSendArgs = [conversationId: string | null, req: AgentSendRequest];
+export type IpcAiAgentSendRes = { ok: true; conversationId: string } | { ok: false; message: string };
+
+export const ipcAiAgentCancelChannel = makeIpcChannelName('ai-agent-cancel');
+export type IpcAiAgentCancelArgs = [conversationId: string];
+export type IpcAiAgentCancelRes = void;
+
+/** main → renderer: one event of a running turn. */
+export const ipcAiAgentEventChannel = makeIpcChannelName('ai-agent-event');
+export type IpcAiAgentEventArgs = [conversationId: string, event: AgentEvent];

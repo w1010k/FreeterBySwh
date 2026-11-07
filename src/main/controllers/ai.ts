@@ -5,27 +5,42 @@
 
 import { Controller } from '@/controllers/controller';
 import { AiActionBridge } from '@/application/ai/aiActionBridge';
+import { AiAgentRunner } from '@/application/ai/aiAgentRunner';
 import { ConfirmAiActionUseCase } from '@/application/useCases/ai/confirmAiAction';
 import {
   IpcAiActionResponseArgs,
   IpcAiActionResponseRes,
+  IpcAiAgentCancelArgs,
+  IpcAiAgentCancelRes,
+  IpcAiAgentDetectArgs,
+  IpcAiAgentDetectRes,
+  IpcAiAgentSendArgs,
+  IpcAiAgentSendRes,
   IpcAiConfirmArgs,
   IpcAiConfirmRes,
   ipcAiActionResponseChannel,
+  ipcAiAgentCancelChannel,
+  ipcAiAgentDetectChannel,
+  ipcAiAgentSendChannel,
   ipcAiConfirmChannel
 } from '@common/ipc/channels';
 
 type Deps = {
   aiActionBridge: AiActionBridge;
   confirmAiActionUseCase: ConfirmAiActionUseCase;
+  aiAgentRunner: Pick<AiAgentRunner, 'detect' | 'send' | 'cancel'>;
 }
 
 export function createAiControllers({
   aiActionBridge,
   confirmAiActionUseCase,
+  aiAgentRunner,
 }: Deps): [
     Controller<IpcAiActionResponseArgs, IpcAiActionResponseRes>,
     Controller<IpcAiConfirmArgs, IpcAiConfirmRes>,
+    Controller<IpcAiAgentDetectArgs, IpcAiAgentDetectRes>,
+    Controller<IpcAiAgentSendArgs, IpcAiAgentSendRes>,
+    Controller<IpcAiAgentCancelArgs, IpcAiAgentCancelRes>,
   ] {
   return [{
     channel: ipcAiActionResponseChannel,
@@ -33,5 +48,14 @@ export function createAiControllers({
   }, {
     channel: ipcAiConfirmChannel,
     handle: async (_event, origin, describe) => confirmAiActionUseCase(origin, describe)
+  }, {
+    channel: ipcAiAgentDetectChannel,
+    handle: async () => aiAgentRunner.detect()
+  }, {
+    channel: ipcAiAgentSendChannel,
+    handle: async (_event, conversationId, req) => aiAgentRunner.send(conversationId, req)
+  }, {
+    channel: ipcAiAgentCancelChannel,
+    handle: async (_event, conversationId) => aiAgentRunner.cancel(conversationId)
   }]
 }

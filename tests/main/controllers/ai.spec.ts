@@ -3,15 +3,28 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { ipcAiActionResponseChannel, ipcAiConfirmChannel } from '@common/ipc/channels';
+import {
+  ipcAiActionResponseChannel,
+  ipcAiAgentCancelChannel,
+  ipcAiAgentDetectChannel,
+  ipcAiAgentSendChannel,
+  ipcAiConfirmChannel
+} from '@common/ipc/channels';
 import { createAiControllers } from '@/controllers/ai';
 import { fixtureIpcMainEvent } from '@tests/infra/mocks/ipcMain';
 
 function setup() {
   const aiActionBridge = { request: jest.fn(), resolve: jest.fn() };
   const confirmAiActionUseCase = jest.fn(async () => true);
-  const [responseController, confirmController] = createAiControllers({ aiActionBridge, confirmAiActionUseCase });
-  return { aiActionBridge, confirmAiActionUseCase, responseController, confirmController };
+  const aiAgentRunner = {
+    detect: jest.fn(() => ({ claude: true, codex: false })),
+    send: jest.fn(() => ({ ok: true as const, conversationId: 'c1' })),
+    cancel: jest.fn(),
+    stopAll: jest.fn(),
+  };
+  const [responseController, confirmController, detectController, sendController, cancelController] =
+    createAiControllers({ aiActionBridge, confirmAiActionUseCase, aiAgentRunner });
+  return { aiActionBridge, confirmAiActionUseCase, aiAgentRunner, responseController, confirmController, detectController, sendController, cancelController };
 }
 
 describe('AiControllers', () => {
@@ -27,5 +40,16 @@ describe('AiControllers', () => {
     expect(confirmController.channel).toBe(ipcAiConfirmChannel);
     await expect(confirmController.handle(fixtureIpcMainEvent(), 'mcp', 'Do X')).resolves.toBe(true);
     expect(confirmAiActionUseCase).toHaveBeenCalledWith('mcp', 'Do X');
+  });
+
+  it('passes agent detect, send and cancel to the runner', async () => {
+    const { aiAgentRunner, detectController, sendController, cancelController } = setup();
+    expect([detectController.channel, sendController.channel, cancelController.channel])
+      .toEqual([ipcAiAgentDetectChannel, ipcAiAgentSendChannel, ipcAiAgentCancelChannel]);
+    await expect(detectController.handle(fixtureIpcMainEvent())).resolves.toEqual({ claude: true, codex: false });
+    await expect(sendController.handle(fixtureIpcMainEvent(), null, { tool: 'claude', prompt: 'hi' })).resolves.toEqual({ ok: true, conversationId: 'c1' });
+    expect(aiAgentRunner.send).toHaveBeenCalledWith(null, { tool: 'claude', prompt: 'hi' });
+    await cancelController.handle(fixtureIpcMainEvent(), 'c1');
+    expect(aiAgentRunner.cancel).toHaveBeenCalledWith('c1');
   });
 });

@@ -192,7 +192,8 @@ export async function runCli(argv: string[], io: CliIo, connect: ConnectAiClient
   }
 
   const envOrigin = aiOrigins.find(o => o === io.env.FREETER_AI_ORIGIN);
-  const origin: AiOrigin = command === 'mcp' ? 'mcp' : envOrigin ?? 'cli';
+  // Freeter's agent runner starts `freeter mcp` with FREETER_AI_ORIGIN=agent-runner.
+  const origin: AiOrigin = envOrigin ?? (command === 'mcp' ? 'mcp' : 'cli');
   const endpointPath = defaultEndpointPath(io.env, process.platform, io.env.USERPROFILE ?? io.env.HOME ?? '');
   let client: AiClient;
   try {
