@@ -7,6 +7,7 @@ import { WidgetType } from '@/widgets/appModules';
 import { settingsEditorComp, Settings, createSettingsState } from './settings';
 import { widgetComp } from './widget';
 import { widgetSvg } from './icons';
+import { fileOpenerAiActions } from './aiActions';
 
 const widgetType: WidgetType<Settings> = {
   id: 'file-opener',
@@ -21,7 +22,8 @@ const widgetType: WidgetType<Settings> = {
   settingsEditorComp,
   widgetComp,
   requiresApi: ['shell', 'icon'],
-  requiresState: ['apps']
+  requiresState: ['apps'],
+  aiActions: fileOpenerAiActions
 }
 
 export default widgetType;

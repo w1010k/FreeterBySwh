@@ -7,6 +7,7 @@ import { WidgetType } from '@/widgets/appModules';
 import { settingsEditorComp, Settings, createSettingsState } from './settings';
 import { widgetComp } from './widget';
 import { widgetSvg } from './icons';
+import { linkOpenerAiActions } from './aiActions';
 
 const widgetType: WidgetType<Settings> = {
   id: 'link-opener',
@@ -20,7 +21,8 @@ const widgetType: WidgetType<Settings> = {
   createSettingsState,
   settingsEditorComp,
   widgetComp,
-  requiresApi: ['shell', 'icon']
+  requiresApi: ['shell', 'icon'],
+  aiActions: linkOpenerAiActions
 }
 
 export default widgetType;

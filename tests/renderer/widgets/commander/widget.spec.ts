@@ -18,6 +18,13 @@ function setupCommanderWidgetSut(settings: Settings, optional?: SetupWidgetSutOp
 }
 
 describe('Commander Widget', () => {
+  it('exposes runCommands for AI actions, doing what a click does', () => {
+    const exposeApi = jest.fn();
+    const execCmdLines = jest.fn();
+    setupCommanderWidgetSut(fixtureSettings({ cmds: ['', 'cmd1'], cwd: 'C:/r' }), { mockWidgetApi: { exposeApi, terminal: { execCmdLines } } });
+    (exposeApi.mock.calls.at(-1)?.[0] as { runCommands: () => void }).runCommands();
+    expect(execCmdLines).toHaveBeenCalledWith(['cmd1'], 'C:/r');
+  });
   it('should render a "not configured" note, if cmds is empty', () => {
     setupCommanderWidgetSut(fixtureSettings({ cmds: [] }));
 

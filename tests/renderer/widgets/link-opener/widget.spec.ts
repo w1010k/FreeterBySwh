@@ -18,6 +18,15 @@ function setupSut(settings: Settings, optional?: SetupWidgetSutOptional) {
 }
 
 describe('Link Opener Widget', () => {
+  it('exposes openLinks for AI actions, doing what a click does', () => {
+    const exposeApi = jest.fn();
+    const openExternalUrl = jest.fn();
+    const { comp } = setupSut(fixtureSettings({ urls: ['https://a.test', ''] }), { mockWidgetApi: { exposeApi, shell: { openExternalUrl } } });
+    (exposeApi.mock.calls.at(-1)?.[0] as { openLinks: () => void }).openLinks();
+    expect(openExternalUrl).toHaveBeenCalledWith('https://a.test');
+    comp.unmount();
+    expect(exposeApi).toHaveBeenLastCalledWith({});
+  });
   it('should render a "not configured" note, if urls is empty', () => {
     setupSut(fixtureSettings({ urls: [] }));
 

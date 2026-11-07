@@ -55,7 +55,7 @@ describe('noteAiActions', () => {
 
   it('describes writes for the confirm dialog with the text size', () => {
     const { get } = setup('');
-    expect(get('setText').describe({ text: 'abc' }, 'Ideas')).toBe('Replace the text of note "Ideas" (3 characters)');
-    expect(get('appendText').describe({ text: 'ab' }, 'Ideas')).toBe('Append 2 characters to note "Ideas"');
+    expect(get('setText').describe({ text: 'abc' }, 'Ideas', {})).toBe('Replace the text of note "Ideas" (3 characters)');
+    expect(get('appendText').describe({ text: 'ab' }, 'Ideas', {})).toBe('Append 2 characters to note "Ideas"');
   });
 });

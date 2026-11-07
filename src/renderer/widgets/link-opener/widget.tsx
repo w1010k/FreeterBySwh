@@ -9,6 +9,7 @@ import { openLinkSvg } from '@/widgets/link-opener/icons';
 import styles from './widget.module.scss';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useDynamicIcon } from '@/widgets/useDynamicIcon';
+import { useExposedAiFunction } from '@/widgets/aiTrigger';
 import { sanitizeUrl } from '@common/helpers/sanitizeUrl';
 
 function hostFromUrl(raw: string): string {
@@ -21,7 +22,7 @@ function hostFromUrl(raw: string): string {
 }
 
 function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) {
-  const { shell, icon, setDynamicTitle, logActivity } = widgetApi;
+  const { shell, icon, setDynamicTitle, logActivity, exposeApi } = widgetApi;
 
   const urls = useMemo(() => settings.urls.filter(url => url !== ''), [settings.urls]);
   const { icon: favicon, retryIfMissing } = useDynamicIcon(icon.getFavicon, urls[0] ?? '');
@@ -47,6 +48,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     });
     retryIfMissing();
   }, [urls, shell, retryIfMissing, logActivity]);
+  useExposedAiFunction(exposeApi, 'openLinks', onClick);
 
   return urls.length>0
     ? <Button

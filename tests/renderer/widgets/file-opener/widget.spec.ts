@@ -20,6 +20,13 @@ function setupSut(settings: Settings, optional?: SetupWidgetSutOptional) {
 }
 
 describe('File Opener Widget', () => {
+  it('exposes openFiles for AI actions, doing what a click does', () => {
+    const exposeApi = jest.fn();
+    const openPath = jest.fn();
+    setupSut(fixtureSettings({ type: SettingsType.File, files: ['C:/a.txt'], folders: [] }), { mockWidgetApi: { exposeApi, shell: { openPath } } });
+    (exposeApi.mock.calls.at(-1)?.[0] as { openFiles: () => void }).openFiles();
+    expect(openPath).toHaveBeenCalledWith('C:/a.txt');
+  });
   it('should render a "not configured" note, if files is empty, when type=file', () => {
     setupSut(fixtureSettings({ type: SettingsType.File, files: [], folders: ['not-empty'] }));
 

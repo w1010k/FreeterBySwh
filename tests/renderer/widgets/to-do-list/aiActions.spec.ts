@@ -69,8 +69,8 @@ describe('toDoListAiActions', () => {
 
   it('describes writes for the confirm dialog', () => {
     const { get } = setup(twoItems);
-    expect(get('addItem').describe({ text: 'milk' }, 'Groceries')).toBe('Add "milk" to to-do list "Groceries"');
-    expect(get('setDone').describe({ itemId: 1, done: true }, 'G')).toBe('Mark item 1 done in to-do list "G"');
-    expect(get('deleteItem').describe({ itemId: 1 }, 'G')).toBe('Delete item 1 from to-do list "G"');
+    expect(get('addItem').describe({ text: 'milk' }, 'Groceries', {})).toBe('Add "milk" to to-do list "Groceries"');
+    expect(get('setDone').describe({ itemId: 1, done: true }, 'G', {})).toBe('Mark item 1 done in to-do list "G"');
+    expect(get('deleteItem').describe({ itemId: 1 }, 'G', {})).toBe('Delete item 1 from to-do list "G"');
   });
 });

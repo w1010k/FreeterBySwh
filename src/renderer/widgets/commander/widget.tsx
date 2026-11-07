@@ -7,15 +7,19 @@ import { Button, ReactComponent, WidgetReactComponentProps } from '@/widgets/app
 import { Settings } from './settings';
 import { execCommandSvg } from '@/widgets/commander/icons';
 import styles from './widget.module.scss';
+import { useCallback, useMemo } from 'react';
+import { useExposedAiFunction } from '@/widgets/aiTrigger';
 
 function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) {
-  const { terminal } = widgetApi;
+  const { terminal, exposeApi } = widgetApi;
   const { cwd} = settings;
-  const cmds = settings.cmds.filter(cmd=>cmd!=='');
+  const cmds = useMemo(() => settings.cmds.filter(cmd=>cmd!==''), [settings.cmds]);
+  const runCommands = useCallback(() => terminal.execCmdLines(cmds, cwd !== '' ? cwd : undefined), [terminal, cmds, cwd]);
+  useExposedAiFunction(exposeApi, 'runCommands', runCommands);
 
   return cmds.length>0
     ? <Button
-        onClick={_ => terminal.execCmdLines(cmds, cwd !== '' ? cwd : undefined )}
+        onClick={runCommands}
         iconSvg={execCommandSvg}
         title={`Execute Command-line${cmds.length>1 ? 's' : ''}`}
         size='Fill'

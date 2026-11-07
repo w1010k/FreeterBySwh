@@ -10,6 +10,7 @@ import styles from './widget.module.scss';
 import { SettingsType, settingsTypeNames, settingsTypeNamesCapital } from '@/widgets/file-opener/settingsType';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useDynamicIcon } from '@/widgets/useDynamicIcon';
+import { useExposedAiFunction } from '@/widgets/aiTrigger';
 
 function basenameOf(path: string): string {
   const segments = path.split(/[/\\]/).filter(s => s !== '');
@@ -17,7 +18,7 @@ function basenameOf(path: string): string {
 }
 
 function WidgetComp({settings, widgetApi, sharedState}: WidgetReactComponentProps<Settings>) {
-  const { shell, icon, setDynamicTitle } = widgetApi;
+  const { shell, icon, setDynamicTitle, exposeApi } = widgetApi;
   const { files, folders, type, openIn } = settings;
   const {apps} = sharedState.apps;
   const openInApp = openIn !== '' ? apps[openIn] : undefined;
@@ -41,7 +42,7 @@ function WidgetComp({settings, widgetApi, sharedState}: WidgetReactComponentProp
     return () => setDynamicTitle(null);
   }, [paths, setDynamicTitle]);
 
-  const onBtnClick: React.MouseEventHandler<HTMLButtonElement> = useCallback(_ => {
+  const openFiles = useCallback(() => {
     if (openInApp) {
       const { execPath, cmdArgs} = openInApp.settings;
       shell.openApp( execPath, [...cmdArgs ? [cmdArgs] : [], ...paths])
@@ -51,10 +52,11 @@ function WidgetComp({settings, widgetApi, sharedState}: WidgetReactComponentProp
     paths.forEach(path => widgetApi.logActivity('file_open', { text: basenameOf(path), detail: path }));
     retryIfMissing();
   }, [openInApp, paths, shell, retryIfMissing, widgetApi])
+  useExposedAiFunction(exposeApi, 'openFiles', openFiles);
 
   return paths.length>0
     ? <Button
-        onClick={onBtnClick}
+        onClick={openFiles}
         iconSvg={fallbackIconSvg}
         iconImgSrc={osIcon ?? undefined}
         title={`Open ${settingsTypeNamesCapital[settings.type]}${paths.length>1 ? 's' : ''}`}
