@@ -54,11 +54,11 @@ export async function connectAiClient(endpointPath: string, origin: AiOrigin): P
   }
   // A crash leaves endpoint.json behind; the dead pipe then refuses the connection.
   const socket = await new Promise<ReturnType<typeof netConnect>>((resolve, reject) => {
+    const onError = () => reject(notRunning());
     const s = netConnect(pipe, () => {
       s.off('error', onError);
       resolve(s);
     });
-    const onError = () => reject(notRunning());
     s.once('error', onError);
   });
 

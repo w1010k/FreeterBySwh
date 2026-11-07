@@ -24,7 +24,7 @@ function makeIo(env: Record<string, string | undefined> = {}) {
 
 function fakeConnect(results: Partial<Record<'actions.list' | 'actions.run', AiRpcResult>>) {
   const client: AiClient = {
-    call: jest.fn(async (method: 'actions.list' | 'actions.run') => results[method] ?? { ok: true, value: null }),
+    call: jest.fn(async (method: 'actions.list' | 'actions.run'): Promise<AiRpcResult> => results[method] ?? { ok: true, value: null }),
     close: jest.fn(),
   };
   const connect = jest.fn(async (_path: string, _origin: AiOrigin) => client);
