@@ -246,6 +246,9 @@ main은 `did-attach-webview`에서 guest마다 아래를 건다.
 
 - 메뉴는 renderer가 정의한다. renderer는 `doAction`을 숫자 `actionId`로 바꿔 보내고 (`src/renderer/infra/ipc/prepareMenuItemsForIpc.ts`),
   main이 Electron 메뉴를 만든 뒤 클릭 시 `actionId`를 돌려보낸다 (`src/main/infra/utils/menu.ts`) [upstream]
+- main → renderer 요청-응답은 AI 제어에만 있다. main이 `ai-action-request` 알림을 `[reqId, req]`로 보내고, renderer (`init.ts`)가 실행 뒤
+  `ai-action-response` invoke로 `[reqId, res]`를 돌려준다. main `createAiActionBridge`가 `reqId`별로 150초 기다리고, 늦은 응답은 버린다. 쓰기 확인은
+  renderer가 `ai-confirm` invoke로 main에 요청한다 [fork #99]
 
 #### 검증과 preload
 
@@ -375,6 +378,7 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 | `widgets/<widgetId>/<key>`                | 위젯별 데이터                                                                                                           | [upstream]   |
 | `shared/<widgetType>/<sharedKeyId>/<key>` | 공유 데이터 키 버킷. `sharedKeyId`는 idGenerator가 만든 id다. To-Do List 프로젝트 동기화는 `shared/to-do-list/<scope>/` | [fork #8 #9] |
 | `telemetry/events-YYYY-MM-DD`             | 사용 통계 일자 파일                                                                                                     | [fork #62]   |
+| `ai/endpoint.json`, `ai/control.sock`     | AI 제어 연결 정보 (`pipe`, `token`, `pid`, 실행 중에만 존재)와 Linux 소켓                                               | [fork #99]   |
 
 - `isDevMode` (`process.env.NODE_ENV !== 'production'`, `src/main/infra/processProvider/processProvider.ts`)는 renderer
   출처 (개발 서버 또는 빌드 파일)와 DevTools를 정한다. `app.isPackaged`는 데이터 폴더, 앱 이름, 창 제목 고정을 정한다. `yarn prod:run`은 production 빌드지만
@@ -407,6 +411,7 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 | icon                 | 파일 아이콘, 파비콘 (MIME 바이트 검사, 진행 중 요청 공유)                                                                                                                   | `useCases/icon/`, `infra/iconProvider/iconProvider.ts`                                                                                         | [fork #21]                      |
 | systemStats          | CPU 사용률 (직전 호출 대비, 전체·코어별), 메모리, 시스템 드라이브 사용량, 가동 시간, Freeter 프로세스 합계 CPU·메모리 [fork #98]                                           | `infra/systemStatsProvider/systemStatsProvider.ts`                                                                                             | [fork #60]                      |
 | download             | 모든 session의 다운로드를 지정 폴더로 저장, 이름 충돌 시 ` (n)`                                                                                                             | `infra/downloads/downloadManager.ts` (`resolveUniqueSavePath`)                                                                                 | [fork #41]                      |
+| ai                   | AI 제어 서버 (named pipe/Unix 소켓, 줄 단위 JSON-RPC, 토큰), renderer로 요청 전달, 쓰기 확인 상자 (120초 abort, 한 번에 하나)                                                | `infra/aiControlServer/`, `application/ai/aiActionBridge.ts`, `useCases/ai/confirmAiAction.ts`, `controllers/ai.ts`, CLI는 `cli/`               | [fork #99]                      |
 
 infra 전용 구성: `infra/protocolHandler/` (`freeter-file` 스킴 등록) [upstream], `infra/ipcMain/` [upstream],
 `infra/httpAuth/` [fork #71], `infra/permissions/` (세션 권한 처리기) [fork #88].
@@ -418,6 +423,7 @@ infra 전용 구성: `infra/protocolHandler/` (`freeter-file` 스킴 등록) [up
 | 스크립트                          | 설정                          | 엔트리                                 | 출력                                                | target             |
 |-----------------------------------|-------------------------------|----------------------------------------|-----------------------------------------------------|--------------------|
 | `dev:main`, `prod:main`           | `webpack.main.config.js`      | `src/main/index.ts`                    | `build/main.js`                                     | `electron-main`    |
+| (위와 같은 실행)                  | `webpack.main.config.js`      | `src/main/cli/index.ts`                | `build/cli.js` (`freeter` CLI)                      | `electron-main` [fork #99] |
 | `dev:preload`, `prod:preload`     | `webpack.preload.config.js`   | `src/renderer/preload/index.ts`        | `build/preload.js`                                  | `electron-preload` |
 | `dev:renderer`, `prod:renderer`   | `webpack.renderer.config.js`  | `src/renderer/index.tsx`               | `build/renderer.js`, `build/index.html`, sprite SVG | `web`              |
 | `dev:analytics`, `prod:analytics` | `webpack.analytics.config.js` | `src/renderer/analyticsPage/index.tsx` | `build/analytics/`                                  | `web` [fork #87]   |
@@ -495,3 +501,4 @@ infra 전용 구성: `infra/protocolHandler/` (`freeter-file` 스킴 등록) [up
 | Analytics 서버    | `127.0.0.1` 랜덤 포트. Host 헤더 정확히 일치 (DNS rebinding 차단), 실행마다 바뀌는 토큰 경로, CORS 없음, 페이지 CSP, `Referrer-Policy: no-referrer`, 정적 파일 이름 정규식. 상세: CHANGES #87 | `infra/analyticsServer/analyticsServer.ts`                                       | [fork #87]                |
 | 파일 시스템 IPC   | `fs-read-dir`, `fs-get-image-data-url`, 공유 저장소 경로 (`widgetType`, `sharedKeyId` 인자로 경로 조립)는 main에서 경로 제한을 두지 않는다. 신뢰 경계는 IPC 발신자 검증이다. Markdown Editor 전용 `fs-read-text-file`, `fs-write-text-file`, `fs-get-mtime`은 #96에서 제거했다 | `infra/fsProvider/fsProvider.ts`, `src/main/index.ts` `getSharedDataStoragePath` | [fork #8 #31 #42 #91]     |
 | 다운로드          | 저장 대화상자 없이 지정 폴더에 저장 (webview partition 포함 모든 session). 디스크 파일과 활성 다운로드 예약 경로 모두 이름 충돌 검사 (#97)                                                                                                                     | `infra/downloads/downloadManager.ts`                                             | [fork #41]                |
+| AI 제어 서버      | 로컬 pipe/소켓만 연다 (네트워크 포트 없음). 실행마다 바뀌는 토큰을 모든 요청에서 검사한다 (pipe 기본 ACL은 측정하지 못했다). 한 줄 1MiB 초과면 연결 종료. 입력 검증은 renderer 작업의 `parse`. 쓰기는 OS 확인 상자의 Allow 뒤에만 실행. 상세: CHANGES #99 | `infra/aiControlServer/`, `src/renderer/application/useCases/ai/` | [fork #99]                |

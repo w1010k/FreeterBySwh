@@ -483,6 +483,21 @@
 - 규칙: 외부 문자열은 `escapeHtml`을 거친다. 결과 회수는 `console-message` 마커 방식이다.
 - 근거: CHANGES #71, `src/main/infra/httpAuth/httpAuth.ts` `escapeHtml`, `createLoginHandler`
 
+#### AI 작업과 기존 use case의 확인 상자
+
+- 출처: `[fork #99]`
+- 증상: (회피) AI 작업이 `deleteWorkflowUseCase`나 `deleteWidgetUseCase`를 호출하면 AI 확인 상자 뒤에 기존 확인 상자가 한 번 더 뜬다.
+- 원인: 기존 삭제 use case가 자체 `dialog.showMessageBox`를 띄운다.
+- 규칙: AI 작업은 sub use case (`deleteWorkflowsSubCase` 등)를 조합한다. 새 작업을 더할 때 호출하는 use case가 대화상자를 띄우는지 먼저 본다. `run`은 시작할 때 `appStore.get()`으로 상태를 다시 읽는다. 확인 상자가 열린 동안 사용자가 대상을 지울 수 있다.
+- 근거: `src/renderer/application/useCases/ai/actions/`, decisions.md D71
+
+#### Codex의 MCP 도구 승인
+
+- 출처: `[fork #99]`
+- 증상: `codex exec`가 Freeter MCP 도구를 찾지만 "MCP tool call requires approval, but approval policy is never"로 호출하지 않는다. 그 뒤 셸 명령으로 대신하려 한다.
+- 규칙: Codex에는 `-c mcp_servers.<이름>.default_tools_approval_mode="approve"`를 넘긴다. 쓰기 확인은 Freeter가 받으므로 자동 승인이 안전하다. Codex는 셸 명령을 끌 수 없어 PC의 파일을 읽을 수 있다.
+- 근거: 2026-11-07 실측 (codex-cli 0.164.0), spec `docs/superpowers/specs/2026-11-07-ai-infra-design.md`
+
 ### webview와 Webpage 위젯
 
 #### webview 포커스 중의 키 입력
@@ -782,6 +797,14 @@
 - 근거: CHANGES #91, #92, `src/renderer/ui/components/widget/widgetErrorBoundary.tsx` (Markdown Editor는 #96에서 제거됨)
 
 ### 빌드, 의존성, 테스트
+
+#### `yarn test:typecheck`가 검사하지 않는 파일
+
+- 출처: `[fork #99]`
+- 증상: `src/renderer/init.ts`의 `init()`이 `createUseCases()` 안의 지역 변수를 참조했는데 `yarn test:typecheck`, `yarn lint`, `yarn prod`가 모두 통과했다. 앱 실행 때 renderer 콘솔에 `ReferenceError`가 났다.
+- 원인: `test:typecheck`는 `tests/<surface>/tsconfig.json`만 검사한다. 테스트가 import하지 않는 조립 루트 (`src/renderer/init.ts`, `src/main/index.ts`)는 빠진다. production webpack은 타입 검사를 하지 않는다 (`ForkTsCheckerWebpackPlugin`은 개발 빌드만).
+- 규칙: 조립 루트를 바꾸면 `npx tsc --noEmit -p src/renderer/tsconfig.json` (main은 `src/main/tsconfig.json`)을 따로 실행하거나 `yarn dev`의 타입 검사 출력을 본다.
+- 근거: CHANGES #99, `package.json` `test:typecheck:*`, `webpack.*.config.js`
 
 #### Yarn 유지와 upstream 병합
 

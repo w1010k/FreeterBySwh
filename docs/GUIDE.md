@@ -208,6 +208,16 @@ Markdown Editor, Pomodoro, Stopwatch는 제거되었습니다. 기존 배치는 
 - **Note 공유**: 한 노트를 여러 워크플로우에서 같이 보려면 Note 설정에서 공유 키를 만들어 다른 Note에도 같은 키를 지정하세요.
 - **To-Do List**는 설정 없이도 같은 프로젝트 안에서 자동으로 동기화됩니다.
 
+### AI 에이전트로 Freeter 다루기
+
+PC에 설치한 Claude Code나 Codex 같은 AI 에이전트가 실행 중인 Freeter의 프로젝트, 워크플로우, 위젯을 다룰 수 있습니다. Freeter를 켜 둔 상태에서 씁니다.
+
+- **명령 위치**: `<설치 폴더>\resources\bin\freeter.cmd` (Linux는 `resources/bin/freeter`). 자주 쓰면 이 폴더를 PATH에 추가하세요.
+- **주요 명령**: `freeter actions`는 할 수 있는 작업 목록, `freeter run app.describe`는 현재 구조, `freeter run workflow.create --input "{\"projectId\":\"...\",\"name\":\"회의\"}"`는 워크플로우 생성입니다. 에이전트에게는 `freeter guide`의 출력을 읽게 하면 됩니다.
+- **MCP 연결**: Claude Code는 MCP 설정에 `"command": "<경로>\\freeter.cmd", "args": ["mcp"]`를 넣습니다. Codex는 `-c mcp_servers.freeter.command=...`와 함께 `-c mcp_servers.freeter.default_tools_approval_mode="approve"`가 필요합니다 (Codex는 기본으로 MCP 도구 호출을 막습니다).
+- **확인 상자**: 무언가를 바꾸는 작업은 Freeter가 "An AI agent ... wants to: ..." 상자를 띄웁니다. **Allow**를 눌러야 실행되고, 2분 안에 답하지 않으면 거절됩니다.
+- **보내는 데이터**: 에이전트가 읽은 프로젝트·워크플로우·위젯 이름은 그 에이전트의 회사 (Anthropic, OpenAI 등)로 전송됩니다.
+
 ---
 
 ## 6. 데이터 보관·백업 / FAQ

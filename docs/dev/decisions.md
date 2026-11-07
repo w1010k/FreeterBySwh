@@ -617,3 +617,29 @@
 - 버린 대안: rename 실패 뒤 원본 직접 쓰기 (원본이 잘릴 위험), 오류를 undefined로 변환 (없는 파일과 구분 불가), 무기한 자동 재시도 (오류·부하 반복).
 - 한계: 대기 값은 메모리이며 종료 flush는 D35의 best-effort 방식을 유지한다. 디스크 문제가 지속된 상태에서 종료하면 미저장 값을 보장할 수 없다.
 - 근거: `src/main/infra/utils/atomicFile.ts`, `src/common/infra/dataStorage/withWriteRetry.ts`, `src/common/data/stateStorage.ts`, `src/renderer/init.ts`
+
+#### D70. AI 제어 통로: 로컬 pipe + CLI + MCP
+
+- 상태: 유효
+- 출처: `[fork #99]`
+- 결정: 외부 에이전트는 실행 중인 앱의 로컬 pipe (Windows named pipe, Linux 소켓)로 Freeter를 다룬다. 통로는 `freeter` CLI와 `freeter mcp` 두 개이고 같은 작업 목록을 쓴다. CLI는 Freeter 실행 파일을 `ELECTRON_RUN_AS_NODE=1`로 띄워 실행하고, MCP는 SDK 없이 직접 구현한다. 접근 통제는 실행마다 바뀌는 토큰 (`ai/endpoint.json`)이다.
+- 이유: CLI는 셸 명령을 쓸 수 있는 모든 에이전트와 사람이 쓴다. MCP는 도구 목록이 정해져 있다. Claude Code의 MCP 서버는 턴마다 새 프로세스라 상태를 가질 수 없어 실행 중인 앱에 중계해야 한다. 새 런타임이나 의존성이 필요 없다.
+- 버린 대안: 루프백 HTTP 서버 (포트가 열리고 DNS rebinding 방어가 필요), `@modelcontextprotocol/sdk` (지금 쓰는 메서드 4개에 비해 큼), 에이전트별 권한 장치 (`--permission-prompt-tool`은 Claude 전용).
+- 근거: `docs/superpowers/specs/2026-11-07-ai-infra-design.md`, `src/main/infra/aiControlServer/`, `src/main/cli/`
+
+#### D71. AI 작업은 renderer에서 sub use case로 실행
+
+- 상태: 유효
+- 출처: `[fork #99]`
+- 결정: main은 요청을 renderer로 넘기고, renderer의 `AiAction` 목록이 기존 sub use case를 조합해 실행한다. 기존 삭제 use case (`deleteWorkflow`, `deleteWidget`)는 쓰지 않는다.
+- 이유: 앱 상태 store와 use case가 renderer에 있다. main에 같은 로직을 두면 상태가 둘로 갈라진다. 기존 삭제 use case는 자체 확인 상자를 띄워 확인이 두 번 뜬다.
+- 근거: `src/renderer/application/useCases/ai/`, `src/renderer/init.ts` `createUseCases`
+
+#### D72. AI 쓰기 확인은 main의 OS 메시지 상자
+
+- 상태: 유효
+- 출처: `[fork #99]`
+- 결정: 쓰기 작업 전 main이 `dialog.showMessageBox`에 `signal`을 넘겨 확인을 받는다. 120초가 지나면 abort로 상자를 닫고 거절한다. 확인은 차례로 하나씩 띄운다. 문구는 앱 UI와 같은 영어다.
+- 이유: 시간 제한 뒤 상자가 실제로 닫혀야 늦은 Allow가 실행되지 않는다. renderer에서 시간 제한을 걸면 상자가 화면에 남는다. 확인 위치가 Freeter 하나라 CLI, MCP, Claude, Codex가 모두 같은 확인을 거친다.
+- 버린 대안: renderer 자체 모달 (첫 버전에 UI 작업이 필요), "이번 대화에서 모두 허용" (요청 범위 밖).
+- 근거: `src/main/application/useCases/ai/confirmAiAction.ts`, `src/main/index.ts`

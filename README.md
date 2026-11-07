@@ -185,6 +185,8 @@ Freeter는 자유 소프트웨어이며, [라이선스][license] 조건에 따�
 
 98. System Monitor 지표 확장 - CPU 코어별 막대, 시스템 드라이브 사용량, Freeter 자체 CPU·메모리, 배터리 잔량 (배터리가 있을 때), 가동 시간을 함께 표시. *(2026-10-27)*
 
+99. AI 제어 통로 - Claude Code·Codex 같은 AI 에이전트가 `freeter` CLI나 `freeter mcp`로 프로젝트·워크플로·위젯을 다루고, 쓰기 작업은 Freeter 확인 상자에서 허용한 뒤에만 실행. *(2026-11-07)*
+
 부가적으로 OS 노출 라벨 (트레이 툴팁, 윈도우 타이틀, 앱 메뉴, About 모달 등)도 **Freeter-SWH**로 일괄 교체해서 원본과 혼동되지 않게 했습니다.
 
 [home]: https://freeter.io/

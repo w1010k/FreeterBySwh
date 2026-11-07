@@ -692,6 +692,14 @@
   - jsdom에는 `ResizeObserver`가 없어 `typeof` 가드가 있다. 테스트로는 observer 동작이 드러나지 않는다.
   - (pitfalls: useElementRect의 재측정 시점)
 
+### AI 제어 (외부 에이전트) [fork #99]
+
+- 흐름: `freeter` CLI 또는 `freeter mcp` → main 제어 서버 (`src/main/infra/aiControlServer/`) → `ai-action-request` 알림 → `init()`의 리스너 → `runAiRequestUseCase` → 쓰기면 `ai-confirm`으로 main 확인 상자 → `AiAction.run` → `ai-action-response`.
+- 작업 목록: `createUseCases()` 안에서 `createAppAiActions` (`app.describe`, `project.switch`, `workflow.create/rename/delete/switch`)와 `createWidgetAiActions` (`widget.add/rename/delete`)를 합친다. 작업 정의는 `src/renderer/application/useCases/ai/actions/`, 공통 입력 검사는 `inputs.ts`.
+- `AiAction` (`src/renderer/base/ai/aiAction.ts`): `parse`는 외부 입력의 타입 가드, `describe`는 확인 상자 문구 (영어), `run`은 상태를 다시 읽고 `AiRpcResult`를 돌려준다. 없는 대상은 `not_found`.
+- `runAiRequestUseCase`: `actions.list`는 로딩 중에도 답한다. `actions.run`은 로딩 중 `not_ready`, 없는 id는 `unknown_action`, 검증 실패는 `invalid_input` (확인 없이), 거절은 `denied`, 예외는 `failed`.
+- 새 작업 추가: 작업 파일에 `AiAction`을 더하고 테스트를 `tests/renderer/application/useCases/ai/actions/`에 둔다. 호출하는 use case가 자체 대화상자를 띄우지 않는지 확인한다 (pitfalls.md).
+
 ### 저장·복제 실패 처리 [fork #97]
 
 - `init.ts`는 앱 상태의 읽기·저장 실패를 각각 최초 1회 대화상자로 알린다. 상태 읽기·백업 실패 때 기본 화면은 표시하되 저장을 차단한다. 저장 실패는 최신 값 보존과 제한 재시도로 처리한다 (overview의 저장소 계층).

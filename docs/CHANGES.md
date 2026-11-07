@@ -3696,6 +3696,47 @@ System Monitor 위젯이 CPU·RAM 외에 새 의존성 없이 얻을 수 있는 
 - **테스트**: `tests/main/infra/systemStatsProvider/systemStatsProvider.spec.ts` (코어별·앱 합산·디스크 실패), `tests/renderer/widgets/system-monitor/{systemMonitor,widget}.spec.ts(x)` (가동 시간 포맷, 새 행, 배터리 표시/숨김)
 - **문서**: `README.md`, `docs/GUIDE.md`, `docs/dev/{features-widgets,overview,decisions}.md`
 
+## 99. AI 제어 통로: freeter CLI와 MCP *(2026-11-07)*
+
+실행 중인 Freeter를 외부 AI 에이전트 (Claude Code, Codex 등)가 다룰 수 있게 했다. 에이전트는 `freeter` CLI를 셸 명령으로 실행하거나, `freeter mcp`를 MCP 서버로 연결한다. 쓰기 작업은 Freeter가 확인 상자로 허용을 받은 뒤에만 실행한다. AI 인프라 설계 (`docs/superpowers/specs/2026-11-07-ai-infra-design.md`)의 단계 1이다. 채팅, 터미널 위젯 같은 화면은 아직 없다.
+
+### 사용자 관점
+
+| 명령 | 동작 |
+|---|---|
+| `freeter actions [--json]` | 에이전트가 할 수 있는 작업 목록 |
+| `freeter run <작업> [--input <JSON>]` | 작업 실행. 결과는 JSON으로 출력 |
+| `freeter guide` | 에이전트용 사용법 (작업 목록 포함) |
+| `freeter mcp` | stdio MCP 서버 (도구 이름은 `.`을 `_`로 바꾼 작업 id) |
+
+- 작업 9개: `app.describe` (읽기), `project.switch`, `workflow.create/rename/delete/switch`, `widget.add/rename/delete`.
+- 쓰기 작업마다 `An AI agent (via <출처>) wants to: <내용>` 확인 상자가 뜬다. 버튼은 Allow, Deny이고 기본값은 Deny다. 120초 안에 답이 없으면 상자를 닫고 거절한다. 창이 숨겨져 있으면 먼저 보인다.
+- 종료 코드: 0 성공, 1 작업 실패 (거절 포함), 2 사용법 오류, 3 Freeter 미실행.
+- 설치본은 `<설치 폴더>\resources\bin\freeter.cmd` (Linux는 `resources/bin/freeter`)로 실행한다. 시스템 PATH에는 넣지 않는다. 저장소 실행은 `node build/cli.js`와 환경 변수 `FREETER_AI_ENDPOINT`를 쓴다.
+
+### 아키텍처
+
+- **제어 서버 (main)**: `node:net`으로 Windows named pipe (`\\.\pipe\freeter-swh-<appDataDir 해시 12자>`) 또는 Linux 소켓 (`<appDataDir>/ai/control.sock`, 0600)을 연다. 줄 단위 JSON-RPC 2.0, 메서드는 `actions.list`, `actions.run` 두 개다. 연결 정보는 `<appDataDir>/ai/endpoint.json` (`pipe`, `token`, `pid`)에 쓰고 종료 때 지운다. 토큰은 실행마다 새로 만든다.
+- **실행 위치 (renderer)**: 앱 상태와 use case가 renderer에 있으므로 main은 요청을 `ai-action-request` 알림으로 넘기고, renderer가 `ai-action-response` invoke로 답한다. main → renderer 요청-응답 방식은 이번에 처음 생겼다. 응답 대기는 150초.
+- **작업 목록**: `AiAction` (`id`, `description`, `kind`, `inputSchema`, `parse`, `describe`, `run`). `parse`가 신뢰 경계의 입력 검증이고, `inputSchema`는 에이전트에게 보여 주는 문서다. 작업은 기존 sub use case를 조합한다.
+- **확인 장치 (main)**: OS 메시지 상자에 `signal`을 넘겨 120초 뒤 실제로 닫는다. 확인은 한 번에 하나씩 차례로 띄운다.
+- **CLI**: `build/cli.js`는 main webpack의 두 번째 entry다. `electron`을 import하지 않으므로 일반 Node와 `ELECTRON_RUN_AS_NODE=1`로 띄운 Freeter 실행 파일 양쪽에서 돈다. 래퍼는 `extraResources`로 `resources/bin`에 들어간다. MCP는 SDK 없이 직접 구현했다 (initialize, ping, tools/list, tools/call).
+
+### 까다로웠던 포인트
+
+- **확인 중복**: 기존 `deleteWorkflow`, `deleteWidget` use case는 자체 확인 상자를 띄운다. AI 작업이 이를 쓰면 확인이 두 번 뜬다. 그래서 `deleteWorkflowsSubCase`, `deleteWidgetsFromWidgetLayoutSubCase`를 직접 쓴다.
+- **typecheck 사각지대**: `yarn test:typecheck`는 `tests/<surface>/tsconfig.json`만 검사한다. 테스트가 import하지 않는 `src/renderer/init.ts`는 검사되지 않고, production webpack 빌드도 타입 검사를 하지 않는다. `init()`에서 `createUseCases()` 안의 지역 변수를 참조한 실수가 런타임 `ReferenceError`로만 드러났다.
+- **PowerShell과 GUI 실행 파일**: PowerShell에서 `Freeter-SWH.exe`를 직접 실행하면 출력과 종료 코드를 받지 못했다. `.cmd` 래퍼를 거치면 cmd와 PowerShell 모두 정상이다 (실측).
+- **비정상 종료 뒤 남은 endpoint.json**: 죽은 pipe에 연결이 거절되므로 CLI는 "Freeter is not running"과 종료 코드 3으로 끝난다.
+- **Codex 승인 정책**: `codex exec`는 MCP 도구 호출을 기본으로 막는다. `-c mcp_servers.<이름>.default_tools_approval_mode="approve"`가 필요하다. 확인은 Freeter가 받으므로 자동 승인으로 둬도 된다.
+
+**수정 파일**
+
+- **신규**: `src/common/ai/protocol.ts`, `src/main/infra/aiControlServer/{aiControlServer,endpoint}.ts`, `src/main/application/ai/aiActionBridge.ts`, `src/main/application/useCases/ai/confirmAiAction.ts`, `src/main/controllers/ai.ts`, `src/main/cli/{index,cli,mcp}.ts`, `src/renderer/base/ai/aiAction.ts`, `src/renderer/application/interfaces/aiControlProvider.ts`, `src/renderer/infra/aiControlProvider/aiControlProvider.ts`, `src/renderer/application/useCases/ai/runAiRequest.ts`, `src/renderer/application/useCases/ai/actions/{appActions,widgetActions,inputs}.ts`, `resources/bin/{freeter,freeter.cmd}`, `.gitattributes`
+- **수정**: `src/common/ipc/channels.ts`, `src/main/index.ts`, `src/renderer/init.ts`, `webpack.main.config.js`, `electron-builder.config.js`
+- **테스트**: `tests/common/ai/protocol.spec.ts`, `tests/main/infra/aiControlServer/*`, `tests/main/application/ai/aiActionBridge.spec.ts`, `tests/main/application/useCases/ai/confirmAiAction.spec.ts`, `tests/main/controllers/ai.spec.ts`, `tests/main/cli/{cli,mcp}.spec.ts`, `tests/renderer/application/useCases/ai/**`
+- **문서**: `README.md`, `docs/GUIDE.md`, `docs/dev/{overview,decisions,pitfalls,features-core}.md`
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)
