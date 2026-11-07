@@ -67,6 +67,21 @@ describe('confirmAiActionUseCase', () => {
     expect(showConfirmBox).toHaveBeenCalledTimes(2);
   });
 
+  it('counts the time limit from the request, so a queued confirm cannot outlive it', async () => {
+    jest.useFakeTimers();
+    const showConfirmBox = jest.fn((_m: string, s: AbortSignal) =>
+      new Promise<boolean>(resolve => s.addEventListener('abort', () => resolve(false))));
+    const confirm = createConfirmAiActionUseCase({ showWindow: jest.fn(), showConfirmBox, timeoutMs: 1000 });
+    const p1 = confirm('cli', 'A');
+    const p2 = confirm('cli', 'B');
+    await flush();
+    jest.advanceTimersByTime(1000);
+    await expect(p1).resolves.toBe(false);
+    await expect(p2).resolves.toBe(false);
+    // B's time ran out while A was open, so B's box is never shown.
+    expect(showConfirmBox).toHaveBeenCalledTimes(1);
+  });
+
   it('treats a box that throws as a denial and keeps the queue going', async () => {
     const showConfirmBox = jest.fn()
       .mockImplementationOnce(async () => {
