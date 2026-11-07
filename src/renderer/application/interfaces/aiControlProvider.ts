@@ -8,4 +8,6 @@ import { AiOrigin, AiRpcResult } from '@common/ai/protocol';
 export interface AiControlProvider {
   confirm(reqId: number, origin: AiOrigin, describe: string): Promise<boolean>;
   respond(reqId: number, res: AiRpcResult): Promise<void>;
+  /** Tells main the page now listens for requests. */
+  ready(): Promise<void>;
 }

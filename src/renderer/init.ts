@@ -916,6 +916,7 @@ export async function init() {
       runAiRequestUseCase(req as AiRpcRequest, reqId).then(res => aiControlProvider.respond(reqId, res)).catch(err => console.error('AI request failed', err));
     }
   });
+  aiControlProvider.ready().catch(err => console.error('AI control unavailable', err));
 
   const stateHooks = createUiHooks(store, useCases);
   const { App } = createUI(stateHooks, useCases);

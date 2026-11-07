@@ -18,11 +18,14 @@ import {
   IpcAiAgentSendRes,
   IpcAiConfirmArgs,
   IpcAiConfirmRes,
+  IpcAiReadyArgs,
+  IpcAiReadyRes,
   ipcAiActionResponseChannel,
   ipcAiAgentCancelChannel,
   ipcAiAgentDetectChannel,
   ipcAiAgentSendChannel,
-  ipcAiConfirmChannel
+  ipcAiConfirmChannel,
+  ipcAiReadyChannel
 } from '@common/ipc/channels';
 
 type Deps = {
@@ -41,6 +44,7 @@ export function createAiControllers({
     Controller<IpcAiAgentDetectArgs, IpcAiAgentDetectRes>,
     Controller<IpcAiAgentSendArgs, IpcAiAgentSendRes>,
     Controller<IpcAiAgentCancelArgs, IpcAiAgentCancelRes>,
+    Controller<IpcAiReadyArgs, IpcAiReadyRes>,
   ] {
   return [{
     channel: ipcAiActionResponseChannel,
@@ -57,5 +61,8 @@ export function createAiControllers({
   }, {
     channel: ipcAiAgentCancelChannel,
     handle: async (_event, conversationId) => aiAgentRunner.cancel(conversationId)
+  }, {
+    channel: ipcAiReadyChannel,
+    handle: async () => aiActionBridge.setReady(true)
   }]
 }

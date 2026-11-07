@@ -18,14 +18,21 @@ export interface AiActionBridge {
   resolve(reqId: number, res: AiRpcResult): void;
   /** Aborted when the request ends without an answer: its confirm box must close and not run anything. */
   signalFor(reqId: number): AbortSignal | undefined;
+  /** The app page listens for requests (it says so after loading; a reload clears it). */
+  setReady(ready: boolean): void;
 }
 
 export function createAiActionBridge({ send, timeoutMs }: Deps): AiActionBridge {
   let nextId = 1;
+  let ready = false;
   const pending = new Map<number, { resolve: (res: AiRpcResult) => void; ended: AbortController }>();
 
   return {
     request(req, signal) {
+      if (!ready) {
+        // Nothing would answer: say so now instead of after the timeout.
+        return Promise.resolve({ ok: false, code: 'not_ready', message: 'Freeter is starting or reloading; retry in a moment' });
+      }
       const reqId = nextId++;
       return new Promise<AiRpcResult>(resolve => {
         const ended = new AbortController();
@@ -60,6 +67,9 @@ export function createAiActionBridge({ send, timeoutMs }: Deps): AiActionBridge 
     },
     signalFor(reqId) {
       return pending.get(reqId)?.ended.signal;
+    },
+    setReady(value) {
+      ready = value;
     }
   };
 }

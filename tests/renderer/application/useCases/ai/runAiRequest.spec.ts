@@ -28,7 +28,7 @@ function makeAction(overrides: Partial<AiAction<{ n: number }>> = {}): AiAction<
 
 async function setup(actions: AiAction[], confirmAnswer = true, appStoreOverride?: AppStore) {
   const [appStore] = await fixtureAppStore(fixtureAppState({}));
-  const aiControl = { confirm: jest.fn(async () => confirmAnswer), respond: jest.fn() };
+  const aiControl = { confirm: jest.fn(async () => confirmAnswer), respond: jest.fn(), ready: jest.fn() };
   const runAiRequestUseCase = createRunAiRequestUseCase({ actions, aiControl, appStore: appStoreOverride ?? appStore });
   return { aiControl, runAiRequestUseCase };
 }

@@ -11,12 +11,16 @@ import {
   IpcAiConfirmArgs,
   IpcAiConfirmRes,
   ipcAiActionResponseChannel,
-  ipcAiConfirmChannel
+  ipcAiConfirmChannel,
+  IpcAiReadyArgs,
+  IpcAiReadyRes,
+  ipcAiReadyChannel
 } from '@common/ipc/channels';
 
 export function createAiControlProvider(): AiControlProvider {
   return {
     confirm: (reqId, origin, describe) => electronIpcRenderer.invoke<IpcAiConfirmArgs, IpcAiConfirmRes>(ipcAiConfirmChannel, reqId, origin, describe),
     respond: (reqId, res) => electronIpcRenderer.invoke<IpcAiActionResponseArgs, IpcAiActionResponseRes>(ipcAiActionResponseChannel, reqId, res),
+    ready: () => electronIpcRenderer.invoke<IpcAiReadyArgs, IpcAiReadyRes>(ipcAiReadyChannel),
   }
 }

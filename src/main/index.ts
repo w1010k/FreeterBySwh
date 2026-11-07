@@ -600,6 +600,9 @@ if (!app.requestSingleInstanceLock()) {
           devTools: isDevMode,
         }
       )
+      // A (re)load drops the page's listener; it says ai-ready again once it listens.
+      ElectronBrowserWindow.getAllWindows().find(w => w === appWindow)?.webContents
+        .on('did-start-loading', () => aiActionBridge.setReady(false));
 
       app.on('browser-window-created', (_e, win) => {
         // Disable menu in child windows

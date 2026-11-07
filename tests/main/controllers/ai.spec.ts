@@ -8,14 +8,15 @@ import {
   ipcAiAgentCancelChannel,
   ipcAiAgentDetectChannel,
   ipcAiAgentSendChannel,
-  ipcAiConfirmChannel
+  ipcAiConfirmChannel,
+  ipcAiReadyChannel
 } from '@common/ipc/channels';
 import { createAiControllers } from '@/controllers/ai';
 import { fixtureIpcMainEvent } from '@tests/infra/mocks/ipcMain';
 
 function setup() {
   const confirmSignal = new AbortController().signal;
-  const aiActionBridge = { request: jest.fn(), resolve: jest.fn(), signalFor: jest.fn(() => confirmSignal) };
+  const aiActionBridge = { request: jest.fn(), resolve: jest.fn(), signalFor: jest.fn(() => confirmSignal), setReady: jest.fn() };
   const confirmAiActionUseCase = jest.fn(async () => true);
   const aiAgentRunner = {
     detect: jest.fn(() => ({ claude: true, codex: false })),
@@ -23,11 +24,11 @@ function setup() {
     cancel: jest.fn(),
     stopAll: jest.fn(),
   };
-  const [responseController, confirmController, detectController, sendController, cancelController] =
+  const [responseController, confirmController, detectController, sendController, cancelController, readyController] =
     createAiControllers({ aiActionBridge, confirmAiActionUseCase, aiAgentRunner });
   return {
     confirmSignal, aiActionBridge, confirmAiActionUseCase, aiAgentRunner,
-    responseController, confirmController, detectController, sendController, cancelController
+    responseController, confirmController, detectController, sendController, cancelController, readyController
   };
 }
 
@@ -45,6 +46,13 @@ describe('AiControllers', () => {
     await expect(confirmController.handle(fixtureIpcMainEvent(), 4, 'mcp', 'Do X')).resolves.toBe(true);
     expect(aiActionBridge.signalFor).toHaveBeenCalledWith(4);
     expect(confirmAiActionUseCase).toHaveBeenCalledWith('mcp', 'Do X', confirmSignal);
+  });
+
+  it('marks the bridge ready when the app page says it listens', async () => {
+    const { aiActionBridge, readyController } = setup();
+    expect(readyController.channel).toBe(ipcAiReadyChannel);
+    await readyController.handle(fixtureIpcMainEvent());
+    expect(aiActionBridge.setReady).toHaveBeenCalledWith(true);
   });
 
   it('passes agent detect, send and cancel to the runner', async () => {
