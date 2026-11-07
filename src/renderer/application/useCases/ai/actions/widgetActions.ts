@@ -190,7 +190,17 @@ export function createWidgetAiActions({
     parse: (input) => {
       const o = asRecord(input);
       const settings = o && asRecord(o.settings);
-      return o && isNonEmptyString(o.widgetId) && settings ? { widgetId: o.widgetId, settings } : undefined;
+      if (!o || !isNonEmptyString(o.widgetId) || !settings) {
+        return undefined;
+      }
+      // The settings editor offers only existing shared keys; a missing one makes the widget drop every save.
+      const state = appStore.get();
+      const after = settingsAfter(state, o.widgetId, settings)?.after as { sharedKeyId?: unknown } | undefined;
+      const keyId = after?.sharedKeyId;
+      if (typeof keyId === 'string' && !Object.hasOwn(state.entities.sharedDataKeys, keyId)) {
+        return undefined;
+      }
+      return { widgetId: o.widgetId, settings };
     },
     // Shows what will be stored, not the input: a setting can be a script injected into web pages (Webpage injectedJS).
     describe: ({ widgetId, settings }) => {

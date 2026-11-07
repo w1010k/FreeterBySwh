@@ -186,3 +186,27 @@ describe('createWidgetAiActions() settings and move', () => {
     expect(d('widget.move', { widgetId: widget.id, toWorkflowId: to.id })).toBe('Move widget "Ideas" to workflow "Do"');
   });
 });
+
+describe('widget.updateSettings with shared data keys', () => {
+  it('accepts only a shared key that exists (a missing one silently stops the note from saving)', async () => {
+    const noteType = fixtureWidgetTypeA({
+      requiresState: ['sharedDataKeys'],
+      createSettingsState: s => ({ sharedKeyId: typeof s.sharedKeyId === 'string' && s.sharedKeyId !== '' ? s.sharedKeyId : null })
+    });
+    const note = fixtureWidgetA({ type: noteType.id, settings: { sharedKeyId: null } });
+    const state = fixtureAppState({ entities: { widgets: { [note.id]: note }, widgetTypes: { [noteType.id]: noteType } } });
+    const [appStore] = await fixtureAppStore({
+      ...state,
+      entities: { ...state.entities, sharedDataKeys: { K1: { id: 'K1', name: 'Shared' } } }
+    } as typeof state);
+    const actions = createWidgetAiActions({
+      appStore,
+      createWidgetSubCase: createCreateWidgetSubCase({ idGenerator: () => newId }),
+      addItemToWidgetLayoutSubCase: createAddItemToWidgetLayoutSubCase({ idGenerator: () => 'L' }),
+    });
+    const update = actions.find(a => a.id === 'widget.updateSettings') as AiAction;
+    expect(update.parse({ widgetId: note.id, settings: { sharedKeyId: 'missing' } })).toBeUndefined();
+    expect(update.parse({ widgetId: note.id, settings: { sharedKeyId: 'K1' } })).toBeDefined();
+    expect(update.parse({ widgetId: note.id, settings: { sharedKeyId: null } })).toBeDefined();
+  });
+});
