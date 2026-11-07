@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { createTerminalHost, PtyProcess } from '@/application/terminal/terminalHost';
+import { createTerminalHost, prependPath, PtyProcess } from '@/application/terminal/terminalHost';
 
 class FakePty implements PtyProcess {
   written: string[] = [];
@@ -126,5 +126,13 @@ describe('createTerminalHost', () => {
     host.create({ cols: 80, rows: 24 });
     host.killAll();
     expect(ptys.map(p => p.killed)).toEqual([true, true]);
+  });
+});
+
+describe('prependPath', () => {
+  it('keeps one PATH entry whatever its case (Windows names it Path), with the folder first', () => {
+    expect(prependPath({ Path: 'C:\w', Other: '1' }, 'C:\bin', ';')).toEqual({ PATH: 'C:\bin;C:\w', Other: '1' });
+    expect(prependPath({ PATH: '/usr/bin' }, '/opt/bin', ':')).toEqual({ PATH: '/opt/bin:/usr/bin' });
+    expect(prependPath({}, '/opt/bin', ':')).toEqual({ PATH: '/opt/bin' });
   });
 });

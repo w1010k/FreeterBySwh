@@ -135,7 +135,7 @@ import {channelPrefix} from '@common/ipc/ipc';
 import {app, BrowserWindow as ElectronBrowserWindow, dialog as electronDialog, powerMonitor} from 'electron';
 import {delimiter as pathDelimiter, join} from 'node:path';
 import type * as NodePty from 'node-pty';
-import {createTerminalHost} from '@/application/terminal/terminalHost';
+import {createTerminalHost, prependPath} from '@/application/terminal/terminalHost';
 import {createPtyControllers} from '@/controllers/pty';
 import {randomBytes, randomUUID} from 'node:crypto';
 import {ChildProcess, spawn as spawnChild} from 'node:child_process';
@@ -448,14 +448,12 @@ if (!app.requestSingleInstanceLock()) {
 
     // In-app terminals (pseudo-terminals). The shell gets the AI control endpoint and, in
     // an installed app, the `freeter` wrappers on PATH, so agents started in it can use them.
-    const ptyEnv: Record<string, string> = {
+    const baseEnv: Record<string, string> = {
       ...Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => typeof e[1] === 'string')),
       FREETER_AI_ENDPOINT: join(aiDir, 'endpoint.json'),
       FREETER_AI_ORIGIN: 'terminal',
     };
-    if (app.isPackaged) {
-      ptyEnv.PATH = [join(process.resourcesPath, 'bin'), process.env.PATH ?? ''].join(pathDelimiter);
-    }
+    const ptyEnv = app.isPackaged ? prependPath(baseEnv, join(process.resourcesPath, 'bin'), pathDelimiter) : baseEnv;
     // Loaded lazily: if the native module cannot load (e.g. no build for this platform),
     // only terminals are unavailable; the app still starts.
     let nodePty: typeof NodePty | undefined;

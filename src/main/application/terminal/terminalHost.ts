@@ -110,3 +110,14 @@ export function createTerminalHost({ spawnPty, defaultShell, env, emitData, emit
 }
 
 export type TerminalHost = ReturnType<typeof createTerminalHost>;
+
+/**
+ * `env` with `dir` first on PATH, under one PATH key. Windows names it "Path"; node-pty
+ * passes keys as they are, so a second "PATH" key would leave the shell on the old one.
+ */
+export function prependPath(env: Record<string, string>, dir: string, delimiter: string): Record<string, string> {
+  const pathKeys = Object.keys(env).filter(k => k.toUpperCase() === 'PATH');
+  const rest = Object.fromEntries(Object.entries(env).filter(([k]) => !pathKeys.includes(k)));
+  const current = pathKeys.map(k => env[k]).find(v => v !== '') ?? '';
+  return { ...rest, PATH: current ? `${dir}${delimiter}${current}` : dir };
+}
