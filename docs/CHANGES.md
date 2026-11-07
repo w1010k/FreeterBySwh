@@ -3721,6 +3721,12 @@ System Monitor 위젯이 CPU·RAM 외에 새 의존성 없이 얻을 수 있는 
 - 종료 코드: 0 성공, 1 작업 실패 (거절 포함), 2 사용법 오류, 3 Freeter 미실행.
 - 설치본은 `<설치 폴더>\resources\bin\freeter.cmd` (Linux는 `resources/bin/freeter`)로 실행한다. 시스템 PATH에는 넣지 않는다. 저장소 실행은 `node build/cli.js`와 환경 변수 `FREETER_AI_ENDPOINT`를 쓴다.
 
+### 화면 없이 먼저 만든 인프라
+
+- **에이전트 실행기**: Freeter가 설치된 `claude`나 `codex`를 직접 실행한다. 빈 폴더에서, `freeter mcp`만 도구로 붙여 실행하고, 대화를 이어 간다. 두 CLI의 출력을 공통 이벤트 (텍스트, 도구 호출, 완료, 오류)로 바꿔 renderer에 보낸다 (IPC `ai-agent-*`). 실제 Claude와 Codex로 "워크플로 이름 읽기 → 대화 이어 가기"를 확인했다.
+- **앱 안 터미널**: node-pty로 셸을 실행한다 (IPC `pty-*`). 셸에는 AI 제어 연결 정보와 (설치본에서) `freeter` 명령 폴더가 들어가, 그 안에서 실행한 에이전트도 Freeter를 다룰 수 있다.
+- 두 기능을 쓰는 화면 (채팅, 한 줄 질문, 터미널 위젯)은 다음 작업이다.
+
 ### 아키텍처
 
 - **제어 서버 (main)**: `node:net`으로 Windows named pipe (`\\.\pipe\freeter-swh-<appDataDir 해시 12자>`) 또는 Linux 소켓 (`<appDataDir>/ai/control.sock`, 0600)을 연다. 줄 단위 JSON-RPC 2.0, 메서드는 `actions.list`, `actions.run` 두 개다. 연결 정보는 `<appDataDir>/ai/endpoint.json` (`pipe`, `token`, `pid`)에 쓰고 종료 때 지운다. 토큰은 실행마다 새로 만든다.
@@ -3743,7 +3749,8 @@ System Monitor 위젯이 CPU·RAM 외에 새 의존성 없이 얻을 수 있는 
 **수정 파일**
 
 - **신규**: `src/common/ai/protocol.ts`, `src/main/infra/aiControlServer/{aiControlServer,endpoint}.ts`, `src/main/application/ai/aiActionBridge.ts`, `src/main/application/useCases/ai/confirmAiAction.ts`, `src/main/controllers/ai.ts`, `src/main/cli/{index,cli,mcp}.ts`, `src/renderer/base/ai/aiAction.ts`, `src/renderer/application/interfaces/aiControlProvider.ts`, `src/renderer/infra/aiControlProvider/aiControlProvider.ts`, `src/renderer/application/useCases/ai/runAiRequest.ts`, `src/renderer/application/useCases/ai/actions/{appActions,widgetActions,inputs}.ts`, `resources/bin/{freeter,freeter.cmd}`, `.gitattributes`
-- **수정**: `src/common/ipc/channels.ts`, `src/main/index.ts`, `src/renderer/init.ts`, `webpack.main.config.js`, `electron-builder.config.js`
+- **신규 (후속 단계)**: `src/renderer/application/useCases/ai/actions/{projectActions,settingsActions,widgetTypeActions}.ts`, `src/renderer/base/ai/widgetAiAction.ts`, `src/renderer/widgets/aiTrigger.ts`, `src/renderer/widgets/{to-do-list,note,spreadsheet,webpage,link-opener,file-opener,commander,web-query,timer}/aiActions.ts`, `src/common/ai/agent.ts`, `src/main/application/ai/aiAgentRunner.ts`, `src/main/infra/aiAgent/{agentCommand,agentEvents}.ts`, `src/main/application/terminal/terminalHost.ts`, `src/main/controllers/pty.ts`
+- **수정**: `src/common/ipc/channels.ts`, `src/main/index.ts`, `src/renderer/init.ts`, `src/renderer/base/widgetType.ts`, 위 9개 위젯의 `index.ts`·`widget.tsx`, `webpack.main.config.js`, `electron-builder.config.js`, `package.json` (`node-pty`)
 - **테스트**: `tests/common/ai/protocol.spec.ts`, `tests/main/infra/aiControlServer/*`, `tests/main/application/ai/aiActionBridge.spec.ts`, `tests/main/application/useCases/ai/confirmAiAction.spec.ts`, `tests/main/controllers/ai.spec.ts`, `tests/main/cli/{cli,mcp}.spec.ts`, `tests/renderer/application/useCases/ai/**`
 - **문서**: `README.md`, `docs/GUIDE.md`, `docs/dev/{overview,decisions,pitfalls,features-core}.md`
 

@@ -644,6 +644,26 @@
 - 버린 대안: 저장소 직접 쓰기 + 다시 읽기 이벤트 (spec 초안. 위젯마다 경합 규칙이 달라 위험), 내려간 워크플로우 자동 활성화 (사용자 화면을 몰래 바꾼다).
 - 근거: `src/renderer/application/useCases/ai/actions/widgetTypeActions.ts`, `src/renderer/widgets/*/aiActions.ts`
 
+#### D74. 에이전트 실행기: 턴마다 CLI 한 번 실행
+
+- 상태: 유효
+- 출처: `[fork #99]`
+- 결정: Freeter가 `claude -p`, `codex exec`를 턴마다 실행하고 `--resume`/`exec resume`으로 대화를 잇는다. 작업 폴더는 빈 `ai/empty`, 도구는 `freeter mcp`뿐이다 (Claude는 `--tools ""`, Codex는 read-only sandbox). 결과 이벤트가 오면 턴을 끝내고, 5초 뒤에도 남은 CLI는 종료한다. `.cmd` CLI (npm의 codex)는 cmd.exe로 실행하고 cross-spawn 방식으로 인자를 두 번 escape한다.
+- 이유: 사용자의 구독과 로그인을 그대로 쓰고, Freeter는 계정을 다루지 않는다 (Lomar와 같은 방식). 긴 수명의 CLI 프로세스 (stream-json 입력)는 검증하지 않았다.
+- 버린 대안: `--permission-prompt-tool`로 확인 받기 (Claude 전용, D72가 대신), `cross-spawn` 의존성 추가 (escape 함수 두 개로 충분).
+- 한계: Codex는 셸을 끌 수 없어 PC 파일을 읽을 수 있다. 대화 기록은 각 CLI의 저장 위치에 남는다.
+- 근거: `src/main/application/ai/aiAgentRunner.ts`, `src/main/infra/aiAgent/`, `tests/main/application/ai/aiAgentRunner.e2e.spec.ts` (실제 CLI, 수동)
+
+#### D75. 네이티브 의존성 node-pty 도입
+
+- 상태: 유효
+- 출처: `[fork #99]`
+- 결정: 앱 안 터미널을 위해 `node-pty`를 쓴다. main 번들에서 externals로 두고, 시작 때 지연 로딩한다 (실패하면 터미널만 쓸 수 없다). electron-builder의 네이티브 재빌드는 끈다 (`npmRebuild: false`).
+- 이유: Claude Code 같은 대화형 TUI는 pipe로는 동작하지 않고 pty가 필요하다. node-pty는 N-API 모듈이라 `yarn install`의 바이너리가 Electron에서 그대로 로드된다 (Electron 42에서 실측). D55 등의 "네이티브 의존성 0" 방침을 이 기능에 한해 바꾼다.
+- 버린 대안: `child_process` pipe (대화형 TUI가 동작하지 않음), 외부 터미널만 쓰기 (앱 안에 둘 수 없음), electron-builder 재빌드 (Windows에서 winpty 빌드 단계가 실패).
+- 한계: Linux용 prebuild가 없어 Linux CI는 설치 때 소스 빌드한다 (검증하지 않음). 패키지에 darwin, arm64 prebuild도 들어간다.
+- 근거: `package.json`, `webpack.main.config.js` externals, `electron-builder.config.js`, `src/main/index.ts`
+
 #### D72. AI 쓰기 확인은 main의 OS 메시지 상자
 
 - 상태: 유효

@@ -249,6 +249,7 @@ main은 `did-attach-webview`에서 guest마다 아래를 건다.
 - main → renderer 요청-응답은 AI 제어에만 있다. main이 `ai-action-request` 알림을 `[reqId, req]`로 보내고, renderer (`init.ts`)가 실행 뒤
   `ai-action-response` invoke로 `[reqId, res]`를 돌려준다. main `createAiActionBridge`가 `reqId`별로 150초 기다리고, 늦은 응답은 버린다. 쓰기 확인은
   renderer가 `ai-confirm` invoke로 main에 요청한다 [fork #99]
+- 에이전트 실행기와 앱 안 터미널: renderer가 `ai-agent-detect/send/cancel`, `pty-create/write/resize/buffer/kill`을 invoke하고, main이 `ai-agent-event`, `pty-data`, `pty-exit` 알림을 보낸다. 아직 이 채널을 쓰는 화면은 없다 [fork #99]
 
 #### 검증과 preload
 
@@ -379,6 +380,7 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 | `shared/<widgetType>/<sharedKeyId>/<key>` | 공유 데이터 키 버킷. `sharedKeyId`는 idGenerator가 만든 id다. To-Do List 프로젝트 동기화는 `shared/to-do-list/<scope>/` | [fork #8 #9] |
 | `telemetry/events-YYYY-MM-DD`             | 사용 통계 일자 파일                                                                                                     | [fork #62]   |
 | `ai/endpoint.json`, `ai/control.sock`     | AI 제어 연결 정보 (`pipe`, `token`, `pid`, 실행 중에만 존재)와 Linux 소켓                                               | [fork #99]   |
+| `ai/empty`, `ai/mcp-claude.json`          | 에이전트 실행기의 작업 폴더 (비어 있음)와 Claude용 MCP 설정                                                              | [fork #99]   |
 
 - `isDevMode` (`process.env.NODE_ENV !== 'production'`, `src/main/infra/processProvider/processProvider.ts`)는 renderer
   출처 (개발 서버 또는 빌드 파일)와 DevTools를 정한다. `app.isPackaged`는 데이터 폴더, 앱 이름, 창 제목 고정을 정한다. `yarn prod:run`은 production 빌드지만
@@ -412,6 +414,8 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 | systemStats          | CPU 사용률 (직전 호출 대비, 전체·코어별), 메모리, 시스템 드라이브 사용량, 가동 시간, Freeter 프로세스 합계 CPU·메모리 [fork #98]                                           | `infra/systemStatsProvider/systemStatsProvider.ts`                                                                                             | [fork #60]                      |
 | download             | 모든 session의 다운로드를 지정 폴더로 저장, 이름 충돌 시 ` (n)`                                                                                                             | `infra/downloads/downloadManager.ts` (`resolveUniqueSavePath`)                                                                                 | [fork #41]                      |
 | ai                   | AI 제어 서버 (named pipe/Unix 소켓, 줄 단위 JSON-RPC, 토큰), renderer로 요청 전달, 쓰기 확인 상자 (120초 abort, 한 번에 하나)                                                | `infra/aiControlServer/`, `application/ai/aiActionBridge.ts`, `useCases/ai/confirmAiAction.ts`, `controllers/ai.ts`, CLI는 `cli/`               | [fork #99]                      |
+| aiAgent              | 에이전트 실행기: `claude`/`codex`를 빈 폴더에서 실행하고 `freeter mcp`를 붙인다. stream-json/`--json` 출력을 공통 이벤트로 바꿔 `ai-agent-event`로 보낸다. 결과 이벤트에서 턴을 끝내고, 5초 뒤에도 남은 CLI는 종료. 턴당 300초 | `application/ai/aiAgentRunner.ts`, `infra/aiAgent/agentCommand.ts` (인자, PATH 탐색, .cmd escape), `infra/aiAgent/agentEvents.ts` | [fork #99]                      |
+| terminal (pty)       | 앱 안 터미널: node-pty로 셸 실행, 출력 16ms 묶음 전송, 터미널마다 최근 1MiB 보관 (다시 붙을 때 그리기용). 셸 env에 AI 제어 endpoint와 설치본의 `freeter` 래퍼 폴더 | `application/terminal/terminalHost.ts`, `controllers/pty.ts`. node-pty는 지연 로딩 (`index.ts`)                                          | [fork #99]                      |
 
 infra 전용 구성: `infra/protocolHandler/` (`freeter-file` 스킴 등록) [upstream], `infra/ipcMain/` [upstream],
 `infra/httpAuth/` [fork #71], `infra/permissions/` (세션 권한 처리기) [fork #88].
@@ -422,7 +426,7 @@ infra 전용 구성: `infra/protocolHandler/` (`freeter-file` 스킴 등록) [up
 
 | 스크립트                          | 설정                          | 엔트리                                 | 출력                                                | target             |
 |-----------------------------------|-------------------------------|----------------------------------------|-----------------------------------------------------|--------------------|
-| `dev:main`, `prod:main`           | `webpack.main.config.js`      | `src/main/index.ts`                    | `build/main.js`                                     | `electron-main`    |
+| `dev:main`, `prod:main`           | `webpack.main.config.js`      | `src/main/index.ts`                    | `build/main.js` (`node-pty`는 externals, 실행 때 node_modules에서 로드) | `electron-main`    |
 | (위와 같은 실행)                  | `webpack.main.config.js`      | `src/main/cli/index.ts`                | `build/cli.js` (`freeter` CLI)                      | `electron-main` [fork #99] |
 | `dev:preload`, `prod:preload`     | `webpack.preload.config.js`   | `src/renderer/preload/index.ts`        | `build/preload.js`                                  | `electron-preload` |
 | `dev:renderer`, `prod:renderer`   | `webpack.renderer.config.js`  | `src/renderer/index.tsx`               | `build/renderer.js`, `build/index.html`, sprite SVG | `web`              |

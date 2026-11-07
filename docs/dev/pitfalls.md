@@ -798,6 +798,18 @@
 
 ### 빌드, 의존성, 테스트
 
+#### npm `.cmd` CLI 실행과 인자 escape
+
+- 출처: `[fork #99]`
+- 증상: (회피) Node는 `.cmd`를 셸 없이 실행하지 못한다 (EINVAL). `shell: true`로 실행하면 인자가 escape되지 않아 따옴표, `&`, `%`가 깨진다. npm이 설치한 codex가 `codex.cmd`다.
+- 규칙: `spawnSpec` (`src/main/infra/aiAgent/agentCommand.ts`)을 쓴다. cmd.exe `/d /s /c`와 `windowsVerbatimArguments`로 실행하고, 인자는 cross-spawn 방식으로 따옴표를 씌운 뒤 메타 문자를 두 번 escape한다 (shim의 `%*`가 한 번 더 펼친다). 실제 shim 왕복 테스트가 `tests/main/infra/aiAgent/agentCommand.spec.ts`에 있다.
+
+#### node-pty 재빌드와 Linux 빌드
+
+- 출처: `[fork #99]`
+- 증상: electron-builder가 `@electron/rebuild`로 node-pty를 다시 빌드하다 Windows에서 실패한다 (`GetCommitHash.bat` 없음, winpty).
+- 규칙: `npmRebuild: false`를 유지한다. node-pty는 N-API라 재빌드가 필요 없다. Linux는 prebuild가 없어 `yarn install` 때 node-gyp로 빌드된다 (python3, make, g++ 필요). main 번들에서 node-pty를 externals에서 빼면 webpack이 `.node`를 묶지 못해 실패한다.
+
 #### `yarn test:typecheck`가 검사하지 않는 파일
 
 - 출처: `[fork #99]`
