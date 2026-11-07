@@ -1,0 +1,4 @@
+#!/bin/sh
+# `freeter` CLI: runs build/cli.js (in app.asar) on the Freeter executable as plain Node.
+DIR="$(cd "$(dirname "$0")" && pwd)"
+ELECTRON_RUN_AS_NODE=1 exec "$DIR/../../freeter-swh" "$DIR/../app.asar/cli.js" "$@"

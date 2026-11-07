@@ -10,6 +10,11 @@ module.exports = {
     to: './',
     filter: ['package.json']
   }],
+  // `freeter` CLI wrappers, outside app.asar so a shell can run them.
+  extraResources: [{
+    from: 'resources/bin',
+    to: 'bin'
+  }],
   win: {
     target: [
       {

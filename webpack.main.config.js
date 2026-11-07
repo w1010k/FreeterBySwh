@@ -18,6 +18,8 @@ module.exports = {
   devtool: isProd ? undefined : 'source-map',
   entry: {
     main: path.join(__dirname, 'src', 'main', 'index.ts'),
+    // The `freeter` CLI (run with ELECTRON_RUN_AS_NODE=1 by resources/bin wrappers).
+    cli: path.join(__dirname, 'src', 'main', 'cli', 'index.ts'),
   },
   output: {
     path: path.join(__dirname, 'build'),
