@@ -695,7 +695,11 @@
 ### AI 제어 (외부 에이전트) [fork #99]
 
 - 흐름: `freeter` CLI 또는 `freeter mcp` → main 제어 서버 (`src/main/infra/aiControlServer/`) → `ai-action-request` 알림 → `init()`의 리스너 → `runAiRequestUseCase` → 쓰기면 `ai-confirm`으로 main 확인 상자 → `AiAction.run` → `ai-action-response`.
-- 작업 목록: `createUseCases()` 안에서 `createAppAiActions` (`app.describe`, `project.switch`, `workflow.create/rename/delete/switch`)와 `createWidgetAiActions` (`widget.add/rename/delete`)를 합친다. 작업 정의는 `src/renderer/application/useCases/ai/actions/`, 공통 입력 검사는 `inputs.ts`.
+- 작업 목록: `createUseCases()` 안에서 네 파일의 작업을 합친다. 작업 정의는 `src/renderer/application/useCases/ai/actions/`, 공통 입력 검사는 `inputs.ts`.
+  - `appActions.ts`: `app.describe`, `project.switch`, `workflow.create/rename/delete/switch`
+  - `projectActions.ts`: `project.create/rename/delete`. 삭제는 Project Manager 저장과 같은 결과 (`deleteProjectsSubCase`, 현재 프로젝트 재설정, Memory Saver 비활성화). 마지막 프로젝트는 지우지 않는다
+  - `widgetActions.ts`: `widget.add/rename/delete/get/updateSettings/move`. 설정 검증은 위젯 타입의 `createSettingsState`에 맡긴다
+  - `settingsActions.ts`: `app.getSettings/updateSettings`. 키마다 검사 함수가 있고, `telemetry`, `mainHotkey`, `memSaver`는 뺐다
 - `AiAction` (`src/renderer/base/ai/aiAction.ts`): `parse`는 외부 입력의 타입 가드, `describe`는 확인 상자 문구 (영어), `run`은 상태를 다시 읽고 `AiRpcResult`를 돌려준다. 없는 대상은 `not_found`.
 - `runAiRequestUseCase`: `actions.list`는 로딩 중에도 답한다. `actions.run`은 로딩 중 `not_ready`, 없는 id는 `unknown_action`, 검증 실패는 `invalid_input` (확인 없이), 거절은 `denied`, 예외는 `failed`.
 - 새 작업 추가: 작업 파일에 `AiAction`을 더하고 테스트를 `tests/renderer/application/useCases/ai/actions/`에 둔다. 호출하는 use case가 자체 대화상자를 띄우지 않는지 확인한다 (pitfalls.md).

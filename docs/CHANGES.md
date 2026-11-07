@@ -3709,7 +3709,12 @@ System Monitor 위젯이 CPU·RAM 외에 새 의존성 없이 얻을 수 있는 
 | `freeter guide` | 에이전트용 사용법 (작업 목록 포함) |
 | `freeter mcp` | stdio MCP 서버 (도구 이름은 `.`을 `_`로 바꾼 작업 id) |
 
-- 작업 9개: `app.describe` (읽기), `project.switch`, `workflow.create/rename/delete/switch`, `widget.add/rename/delete`.
+- 작업 목록:
+  - 읽기: `app.describe`, `widget.get`, `app.getSettings`
+  - 프로젝트: `project.create/rename/delete/switch` (마지막 프로젝트는 지울 수 없다)
+  - 워크플로: `workflow.create/rename/delete/switch`
+  - 위젯: `widget.add/rename/delete/move/updateSettings` (설정 값은 위젯 타입의 `createSettingsState`가 검증한다)
+  - 앱 설정: `app.updateSettings` (테마, 배경, 워크플로 바 위치와 폭, 다운로드 폴더). 사용 통계 동의 (`telemetry`), 전역 단축키, Memory Saver는 AI가 바꾸지 못한다.
 - 쓰기 작업마다 `An AI agent (via <출처>) wants to: <내용>` 확인 상자가 뜬다. 버튼은 Allow, Deny이고 기본값은 Deny다. 120초 안에 답이 없으면 상자를 닫고 거절한다. 창이 숨겨져 있으면 먼저 보인다.
 - 종료 코드: 0 성공, 1 작업 실패 (거절 포함), 2 사용법 오류, 3 Freeter 미실행.
 - 설치본은 `<설치 폴더>\resources\bin\freeter.cmd` (Linux는 `resources/bin/freeter`)로 실행한다. 시스템 PATH에는 넣지 않는다. 저장소 실행은 `node build/cli.js`와 환경 변수 `FREETER_AI_ENDPOINT`를 쓴다.
