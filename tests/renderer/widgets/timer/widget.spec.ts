@@ -20,6 +20,20 @@ function setupTimerWidgetSut(settings: Settings, optional?: SetupWidgetSutOption
 jest.useFakeTimers()
 
 describe('Timer Widget', () => {
+  it('exposes control(command) for AI actions, doing what the buttons do', async () => {
+    const exposeApi = jest.fn();
+    const setDynamicTitle = jest.fn();
+    setupTimerWidgetSut(fixtureSettings({ mins: 1 }), {
+      mockWidgetApi: { exposeApi, setDynamicTitle, dataStorage: { getJson: jest.fn().mockResolvedValue(undefined), setJson: jest.fn() } }
+    });
+    const control = () => (exposeApi.mock.calls.at(-1)?.[0] as { control(c: string): boolean }).control;
+    let ok = false;
+    act(() => { ok = control()('start'); });
+    expect(ok).toBe(true);
+    expect(setDynamicTitle).toHaveBeenLastCalledWith('01:00');
+    act(() => { control()('reset'); });
+    expect(setDynamicTitle).toHaveBeenLastCalledWith(null);
+  });
   it('stops a timer started before a failed restore hides its controls', async () => {
     let rejectRead!: (error: Error) => void;
     const getJson = jest.fn(() => new Promise((_resolve, reject) => { rejectRead = reject; }));

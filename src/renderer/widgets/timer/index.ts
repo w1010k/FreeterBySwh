@@ -7,6 +7,7 @@ import { WidgetType } from '@/widgets/appModules';
 import { settingsEditorComp, Settings, createSettingsState } from './settings';
 import { widgetComp } from './widget';
 import { widgetSvg } from './icons';
+import { timerAiActions } from './aiActions';
 
 const widgetType: WidgetType<Settings> = {
   id: 'timer',
@@ -20,7 +21,8 @@ const widgetType: WidgetType<Settings> = {
   createSettingsState,
   settingsEditorComp,
   widgetComp,
-  requiresApi: ['dataStorage']
+  requiresApi: ['dataStorage'],
+  aiActions: timerAiActions
 }
 
 export default widgetType;

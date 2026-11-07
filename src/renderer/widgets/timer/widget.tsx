@@ -10,6 +10,8 @@ import styles from './widget.module.scss';
 import { useAudioFile } from '@/widgets/timer/useAudioFile';
 import { timerEndSoundFilesById } from '@/widgets/timer/audio/timer-end';
 import { msecsToMMSS } from '@/widgets/timer/mmss';
+import { useExposedAiFunction } from '@/widgets/aiTrigger';
+import { TimerCommand } from '@/widgets/timer/aiActions';
 
 // dataStorage key holding the running/paused state, so an active timer
 // survives widget remounts and app restarts (endMsecs is an absolute
@@ -17,7 +19,7 @@ import { msecsToMMSS } from '@/widgets/timer/mmss';
 const stateKey = 'state';
 
 function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) {
-  const { setDynamicTitle, dataStorage } = widgetApi;
+  const { setDynamicTitle, dataStorage, exposeApi } = widgetApi;
   const [endMsecs, setEndMsecs] = useState(0);
   // Remaining ms captured on pause (null when not paused). Lets Resume continue
   // exactly where it left off.
@@ -134,6 +136,16 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     setEndMsecs(0);
     setPausedLeft(null);
   }, [])
+
+  // AI action (aiActions.ts): the same buttons, refused when the button is not shown.
+  const control = useCallback((command: TimerCommand) => {
+    const allowed = {start: !isActive, pause: isRunning, resume: isPaused, reset: isActive}[command];
+    if (allowed) {
+      ({start, pause, resume, reset})[command]();
+    }
+    return allowed;
+  }, [isActive, isRunning, isPaused, start, pause, resume, reset]);
+  useExposedAiFunction(exposeApi, 'control', control);
 
   if (loadFailed) {
     return <div role="alert">Unable to load timer. Restart the app to retry.</div>;
