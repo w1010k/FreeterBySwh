@@ -10,13 +10,14 @@ const [query] = webQueryAiActions;
 
 describe('webQueryAiActions', () => {
   it('query runs the widget query with the entry index (default 0)', async () => {
-    const run = jest.fn(() => true);
+    const run = jest.fn(() => 'ok');
     await expect(Promise.resolve(query.run({ api: { query: run }, settings: {} }, { text: 'cats' }))).resolves.toEqual({ ok: true, value: null });
     expect(run).toHaveBeenCalledWith('cats', 0);
   });
 
   it('answers not_found for an entry the widget does not have, and not_ready without the api', async () => {
-    await expect(Promise.resolve(query.run({ api: { query: () => false }, settings: {} }, { text: 'x', entry: 3 }))).resolves.toMatchObject({ code: 'not_found' });
+    await expect(Promise.resolve(query.run({ api: { query: () => 'not_configured' }, settings: {} }, { text: 'x', entry: 3 }))).resolves.toMatchObject({ code: 'not_found' });
+    await expect(Promise.resolve(query.run({ api: { query: () => 'not_current' }, settings: {} }, { text: 'x' }))).resolves.toMatchObject({ code: 'not_ready' });
     await expect(Promise.resolve(query.run({ api: {}, settings: {} }, { text: 'x' }))).resolves.toMatchObject({ code: 'not_ready' });
   });
 

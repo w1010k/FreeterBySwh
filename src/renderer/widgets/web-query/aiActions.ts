@@ -7,6 +7,8 @@ import { WidgetAiAction } from '@/widgets/appModules';
 import { Settings } from '@/widgets/web-query/settings';
 import { computeEntry } from '@/widgets/web-query/widget';
 
+export type WebQueryAiResult = 'ok' | 'not_configured' | 'not_current';
+
 const query: WidgetAiAction<{ text: string; entry?: number }> = {
   name: 'query',
   description: 'Run a query like typing it into the widget: opens the search in the browser or in the workflow\'s webpage widgets. '
@@ -28,9 +30,11 @@ const query: WidgetAiAction<{ text: string; entry?: number }> = {
     if (typeof api.query !== 'function') {
       return { ok: false, code: 'not_ready', message: 'The widget is not ready' };
     }
-    return api.query(text, entry ?? 0)
-      ? { ok: true, value: null }
-      : { ok: false, code: 'not_found', message: `No configured query box ${entry ?? 0}` };
+    const res = api.query(text, entry ?? 0) as WebQueryAiResult;
+    if (res === 'not_current') {
+      return { ok: false, code: 'not_ready', message: 'In Webpages mode the widget works on the workflow on screen; show its workflow with workflow.switch first' };
+    }
+    return res === 'ok' ? { ok: true, value: null } : { ok: false, code: 'not_found', message: `No configured query box ${entry ?? 0}` };
   }
 };
 

@@ -107,10 +107,22 @@ describe('Web Query Widget', () => {
       const exposeApi = jest.fn();
       const openExternalUrl = jest.fn();
       setupSut(fixtureSettings1(SettingsMode.Browser, { engine: 'goog', query: 'query QUERY' }), { mockWidgetApi: { exposeApi, shell: { openExternalUrl } } });
-      const api = exposeApi.mock.calls.at(-1)?.[0] as { query(text: string, entryIndex: number): boolean };
-      expect(api.query('some query', 0)).toBe(true);
+      const api = exposeApi.mock.calls.at(-1)?.[0] as { query(text: string, entryIndex: number): string };
+      expect(api.query('some query', 0)).toBe('ok');
       expect(openExternalUrl).toHaveBeenCalledWith('https://www.google.com/search?q=query%20some%20query');
-      expect(api.query('x', 5)).toBe(false);
+      expect(api.query('x', 5)).toBe('not_configured');
+    })
+
+    it('AI query in Webpages mode runs only when the widget is in the workflow on screen', () => {
+      const exposeApi = jest.fn();
+      const openUrl = jest.fn();
+      const getWidgetsInCurrentWorkflow = jest.fn((type: string) => (type === 'webpage'
+        ? [{ id: 'WP', name: '', api: { getUrl: () => 'https://s.test/?q=QUERY', openUrl } }]
+        : []));
+      setupSut(fixtureSettings1(SettingsMode.Webpages, { query: '' }), { mockWidgetApi: { exposeApi, widgets: { getWidgetsInCurrentWorkflow } } });
+      const api = exposeApi.mock.calls.at(-1)?.[0] as { query(text: string, entryIndex: number): string };
+      expect(api.query('cats', 0)).toBe('not_current');
+      expect(openUrl).not.toHaveBeenCalled();
     })
 
     it('should call openExternalUrl with right args on ENTER keypress in the text input', async () => {

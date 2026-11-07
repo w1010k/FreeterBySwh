@@ -12,6 +12,7 @@ import { sanitizeUrl } from '@common/helpers/sanitizeUrl';
 import { WebpageExposedApi } from '@/widgets/interfaces';
 import { createContextMenuFactory } from '@/widgets/web-query/contextMenu';
 import { useExposedAiFunction } from '@/widgets/aiTrigger';
+import { WebQueryAiResult } from '@/widgets/web-query/aiActions';
 
 const queryPlaceholder = 'QUERY';
 const historyKey = 'history';
@@ -118,7 +119,7 @@ function QueryRow({ entry, mode, widgetApi, historyListId, onSubmitted }: QueryR
   );
 }
 
-function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) {
+function WidgetComp({id, settings, widgetApi}: WidgetReactComponentProps<Settings>) {
   const { dataStorage, setContextMenuFactory } = widgetApi;
   const [history, setHistory] = useState<string[]>([]);
   // Source of truth so addToHistory can compute the next list without doing
@@ -156,16 +157,21 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   }, [dataStorage]);
 
   // AI action (aiActions.ts): the same query as typing into entry `entryIndex`.
-  const queryForAi = useCallback((text: string, entryIndex: number) => {
+  const queryForAi = useCallback((text: string, entryIndex: number): WebQueryAiResult => {
     const entry = settings.entries[entryIndex];
     const computed = entry && computeEntry(entry, settings.mode);
     if (!computed || computed.notConfigNotes.length > 0) {
-      return false;
+      return 'not_configured';
+    }
+    // Webpages mode drives the webpages of the workflow on screen; a query typed by the user
+    // always comes from there, an agent's can come from a workflow in the background.
+    if (settings.mode === SettingsMode.Webpages && !widgetApi.widgets.getWidgetsInCurrentWorkflow('web-query').some(w => w.id === id)) {
+      return 'not_current';
     }
     addToHistory(text);
     runQuery(text, computed.urlTpl, computed.queryTpl, settings.mode, widgetApi);
-    return true;
-  }, [settings, addToHistory, widgetApi]);
+    return 'ok';
+  }, [id, settings, addToHistory, widgetApi]);
   useExposedAiFunction(widgetApi.exposeApi, 'query', queryForAi);
 
   const clearHistory = useCallback(() => {
