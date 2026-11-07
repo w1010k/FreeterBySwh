@@ -19,7 +19,7 @@ export const MAX_COLS = 256;
 const DEFAULT_COLS = 26;
 /** Rows a new sheet starts with. The Add button and typing grow it from there. */
 const DEFAULT_ROWS = 100;
-const MAX_ROWS = 100000;
+export const MAX_ROWS = 100000;
 /** `decimals` sentinel: show a number exactly as it comes out of the engine. */
 export const DECIMALS_AUTO = -1;
 const MAX_DECIMALS = 6;

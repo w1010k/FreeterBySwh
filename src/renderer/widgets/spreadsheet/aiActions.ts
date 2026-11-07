@@ -6,6 +6,7 @@
 import { AiRpcResult, WidgetAiAction, WidgetAiActionContext } from '@/widgets/appModules';
 import { colName, parseRef } from '@/widgets/spreadsheet/formula';
 import { Row, trimSheet } from '@/widgets/spreadsheet/grid';
+import { MAX_ROWS } from '@/widgets/spreadsheet/settings';
 
 /** What the mounted Spreadsheet widget exposes for AI actions (widget.tsx). */
 export interface SpreadsheetAiApi {
@@ -13,6 +14,8 @@ export interface SpreadsheetAiApi {
   get(): Row[] | undefined;
   /** Writes like a paste (one undo step, saved). false while the user is editing a cell. */
   set(row: number, col: number, values: string[][]): boolean;
+  /** Columns the sheet shows now. */
+  cols(): number;
 }
 
 // ponytail: a fixed cap per call; raise it if agents need bigger writes.
@@ -61,13 +64,20 @@ const setCells: WidgetAiAction<{ row: number; col: number; values: string[][] }>
   required: ['cell', 'values'],
   parse: (input) => {
     const at = parseCell(input.cell);
-    return at && isValues(input.values) ? { ...at, values: input.values } : undefined;
+    // parseRef bounds only the column: a far row would make the sheet build every row up to it.
+    return at && isValues(input.values) && at.row + input.values.length <= MAX_ROWS ? { ...at, values: input.values } : undefined;
   },
   describe: ({ row, col, values }, widgetName) =>
     `Write ${values.length} rows x ${Math.max(...values.map(l => l.length))} columns at ${colName(col)}${row + 1} in spreadsheet "${widgetName}"`,
-  run: (ctx, { row, col, values }) => withSheet(ctx, api => (api.set(row, col, values)
+  run: (ctx, { row, col, values }) => withSheet(ctx, api => {
+    // A paste wider than the sheet keeps the extra values hidden; an agent would not know.
+    if (col + Math.max(...values.map(l => l.length)) > api.cols()) {
+      return { ok: false, code: 'invalid_input', message: `The sheet has ${api.cols()} columns; widen it in the widget settings first` };
+    }
+    return api.set(row, col, values)
     ? { ok: true, value: null }
-    : { ok: false, code: 'failed', message: 'The user is editing a cell; try again later' })),
+      : { ok: false, code: 'failed', message: 'The user is editing a cell; try again later' };
+  }),
 };
 
 export const spreadsheetAiActions: WidgetAiAction[] = [getCells, setCells] as WidgetAiAction[];

@@ -21,7 +21,7 @@ function setup(rows: string[][] | undefined, busy = false) {
     }));
     return true;
   });
-  const api = { sheet: { get: () => sheet, set } };
+  const api = { sheet: { get: () => sheet, set, cols: () => 3 } };
   const get = (name: string) => spreadsheetAiActions.find(a => a.name === name) as WidgetAiAction;
   const exec = (name: string, input: Record<string, unknown>) => {
     const parsed = get(name).parse(input);
@@ -63,6 +63,20 @@ describe('spreadsheetAiActions', () => {
     expect(parse({ cell: 'A1', values: [] })).toBeUndefined();
     expect(parse({ cell: 'A1', values: Array.from({ length: 101 }, () => Array(100).fill('v')) })).toBeUndefined();
     expect(parse({ cell: 'c3', values: [['x']] })).toEqual({ row: 2, col: 2, values: [['x']] });
+  });
+
+  it('parse refuses a block that ends past the last possible row (it would build millions of rows)', () => {
+    const { get } = setup([]);
+    expect(get('setCells').parse({ cell: 'A99999999', values: [['x']] })).toBeUndefined();
+    expect(get('setCells').parse({ cell: 'A100000', values: [['x'], ['y']] })).toBeUndefined();
+    expect(get('setCells').parse({ cell: 'A100000', values: [['x']] })).toEqual({ row: 99999, col: 0, values: [['x']] });
+  });
+
+  it('refuses a block wider than the sheet instead of dropping the extra values', async () => {
+    const { exec, set } = setup([['', '', '']]);
+    await expect(exec('setCells', { cell: 'C1', values: [['x', 'y']] })).resolves.toMatchObject({ ok: false, code: 'invalid_input' });
+    await expect(exec('setCells', { cell: 'D1', values: [['x']] })).resolves.toMatchObject({ ok: false, code: 'invalid_input' });
+    expect(set).not.toHaveBeenCalled();
   });
 
   it('describes the write for the confirm dialog', () => {

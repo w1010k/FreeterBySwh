@@ -606,6 +606,10 @@ function SpreadsheetWidget({widgetApi, settings}: WidgetReactComponentProps<Sett
   // a cell editor is open, so the user's draft is not overwritten. The exposed object
   // closes over refs only and is cleared on unmount (pitfalls: exposed API leaks).
   const aiSetRef = useRef<SpreadsheetAiApi['set']>(() => false);
+  const colsRef = useRef(cols);
+  useEffect(() => {
+    colsRef.current = cols;
+  }, [cols]);
   useEffect(() => {
     aiSetRef.current = (row, col, values) => {
       if (draftRef.current !== null) {
@@ -619,7 +623,11 @@ function SpreadsheetWidget({widgetApi, settings}: WidgetReactComponentProps<Sett
     if (!isLoaded) {
       return undefined;
     }
-    const sheet: SpreadsheetAiApi = {get: () => rowsRef.current, set: (row, col, values) => aiSetRef.current(row, col, values)};
+    const sheet: SpreadsheetAiApi = {
+      get: () => rowsRef.current,
+      set: (row, col, values) => aiSetRef.current(row, col, values),
+      cols: () => colsRef.current,
+    };
     exposeApi({sheet});
     return () => exposeApi({});
   }, [exposeApi, isLoaded]);
