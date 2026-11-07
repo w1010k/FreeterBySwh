@@ -213,10 +213,11 @@ Markdown Editor, Pomodoro, Stopwatch는 제거되었습니다. 기존 배치는 
 PC에 설치한 Claude Code나 Codex 같은 AI 에이전트가 실행 중인 Freeter의 프로젝트, 워크플로우, 위젯을 다룰 수 있습니다. Freeter를 켜 둔 상태에서 씁니다.
 
 - **명령 위치**: `<설치 폴더>\resources\bin\freeter.cmd` (Linux는 `resources/bin/freeter`). 자주 쓰면 이 폴더를 PATH에 추가하세요.
-- **주요 명령**: `freeter actions`는 할 수 있는 작업 목록, `freeter run app.describe`는 현재 구조, `freeter run workflow.create --input "{\"projectId\":\"...\",\"name\":\"회의\"}"`는 워크플로우 생성입니다. 에이전트에게는 `freeter guide`의 출력을 읽게 하면 됩니다.
+- **주요 명령**: `freeter actions`는 할 수 있는 작업 목록, `freeter run app.describe`는 현재 구조입니다. 입력이 필요한 작업은 JSON을 UTF-8 파일에 저장한 뒤 `freeter run workflow.create --input-file input.json`처럼 실행합니다. PowerShell과 cmd는 명령줄 인자의 따옴표를 지우므로 `--input '<JSON>'`은 bash 같은 셸에서만 씁니다. 에이전트에게는 `freeter guide`의 출력을 읽게 하면 됩니다.
 - **MCP 연결**: Claude Code는 MCP 설정에 `"command": "<경로>\\freeter.cmd", "args": ["mcp"]`를 넣습니다. Codex는 `-c mcp_servers.freeter.command=...`와 함께 `-c mcp_servers.freeter.default_tools_approval_mode="approve"`가 필요합니다 (Codex는 기본으로 MCP 도구 호출을 막습니다).
 - **확인 상자**: 무언가를 바꾸는 작업은 Freeter가 "An AI agent ... wants to: ..." 상자를 띄웁니다. **Allow**를 눌러야 실행되고, 2분 안에 답하지 않으면 거절됩니다.
-- **보내는 데이터**: 에이전트가 읽은 프로젝트·워크플로우·위젯 이름은 그 에이전트의 회사 (Anthropic, OpenAI 등)로 전송됩니다.
+- **보내는 데이터**: 에이전트가 읽은 내용 (프로젝트·워크플로우·위젯 이름, 그리고 에이전트가 읽은 Note 본문, To-Do 항목, 스프레드시트 셀)은 그 에이전트의 회사 (Anthropic, OpenAI 등)로 전송됩니다.
+- **확인이 거절되는 경우**: 설정 창이 열려 있을 때, 확인 상자에 다 보일 수 없을 만큼 긴 변경일 때, 확인을 기다리는 사이 실행될 내용이 바뀌었을 때는 쓰기가 실행되지 않습니다.
 
 ---
 

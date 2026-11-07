@@ -483,6 +483,14 @@
 - 규칙: 외부 문자열은 `escapeHtml`을 거친다. 결과 회수는 `console-message` 마커 방식이다.
 - 근거: CHANGES #71, `src/main/infra/httpAuth/httpAuth.ts` `escapeHtml`, `createLoginHandler`
 
+#### AI 확인 문구의 규칙
+
+- 출처: `[fork #99]`
+- 규칙: `describe`는 실행될 내용을 모두 보인다. 입력 대신 저장될 값을 보이고 (위젯 설정은 `createSettingsState`를 거친 뒤 바뀌는 키), 목록은 자르지 않는다. 길이 제한은 `runAiRequest`의 `AI_MAX_CONFIRM_TEXT` (4000자)가 거절로 처리한다. 자르면 그 뒤에 값을 숨길 수 있다 (JSON은 정수 모양 키를 먼저 쓴다).
+- 규칙: `describe`는 같은 입력과 같은 상태에서 같은 문자열을 돌려야 한다. Allow 뒤에 다시 만들어 비교하므로, 시각이나 난수를 넣으면 모든 쓰기가 실패한다.
+- 규칙: 위젯을 복제하는 코드는 `exposedApi`를 복사하지 않는다 (살아 있는 함수라 AI 작업이 원본에서 실행된다).
+- 근거: CHANGES #99, `src/renderer/application/useCases/ai/runAiRequest.ts`, `src/renderer/application/useCases/widget/subs/cloneWidget.ts`
+
 #### AI 작업과 기존 use case의 확인 상자
 
 - 출처: `[fork #99]`

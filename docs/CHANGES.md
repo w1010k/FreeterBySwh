@@ -3718,6 +3718,7 @@ System Monitor 위젯이 CPU·RAM 외에 새 의존성 없이 얻을 수 있는 
   - 위젯 내용과 동작 (`<위젯 타입>.<작업>`): To-Do List 항목 조회·추가·완료·수정·삭제, Note 읽기·바꾸기·덧붙이기, Spreadsheet 셀 읽기·쓰기, Webpage 이동, Link Opener·File Opener 열기, Commander 명령 실행, Web Query 검색, Timer 시작·일시정지·재개·초기화.
 - 위젯 작업은 위젯이 화면에 올라와 있을 때만 실행된다. 확인 상자에는 실행될 내용 (링크, 명령줄과 폴더)이 그대로 나온다. 사용자가 그 Note나 셀을 편집 중이면 AI 쓰기는 거절된다.
 - 쓰기 작업마다 `An AI agent (via <출처>) wants to: <내용>` 확인 상자가 뜬다. 버튼은 Allow, Deny이고 기본값은 Deny다. 120초 안에 답이 없으면 상자를 닫고 거절한다. 창이 숨겨져 있으면 먼저 보인다.
+- 확인 상자는 실행될 내용을 모두 보인다: 저장될 설정 값 (위젯 타입의 검증을 거친 뒤 바뀌는 값), 열 링크와 파일 전부, 실행할 명령줄. 4000자를 넘으면 자르지 않고 거절한다. Allow 뒤 문구를 다시 만들어, 기다리는 사이 내용이 바뀌었으면 실행하지 않는다. 요청한 쪽의 연결이 끊기면 (Ctrl+C, 에이전트 취소) 그 요청의 상자를 닫는다. 설정 창이 열려 있으면 쓰기를 거절한다 (그 창의 Save가 되돌리기 때문).
 - 종료 코드: 0 성공, 1 작업 실패 (거절 포함), 2 사용법 오류, 3 Freeter 미실행.
 - 설치본은 `<설치 폴더>\resources\bin\freeter.cmd` (Linux는 `resources/bin/freeter`)로 실행한다. 시스템 PATH에는 넣지 않는다. 저장소 실행은 `node build/cli.js`와 환경 변수 `FREETER_AI_ENDPOINT`를 쓴다.
 
@@ -3744,6 +3745,7 @@ System Monitor 위젯이 CPU·RAM 외에 새 의존성 없이 얻을 수 있는 
 - **대기열의 확인과 시간 초과**: 확인 시간 제한을 상자가 뜬 때부터 세면, 앞 상자 뒤에서 기다린 요청은 bridge가 150초 시간 초과를 알린 뒤에도 Allow될 수 있다. 그러면 클라이언트는 실패로 알았는데 작업이 실행된다. 그래서 시간 제한은 요청이 도착한 때부터 센다 (최종 리뷰에서 발견).
 - **끊긴 소켓과 MCP**: Node에서 destroy된 소켓에 쓰면 `'error'` 이벤트가 없어 호출이 끝나지 않는다. CLI는 끊긴 연결의 호출을 즉시 실패로 돌려주고, 오래 실행되는 `freeter mcp`는 다음 호출에서 `endpoint.json`을 다시 읽어 재연결한다. `tools/list`는 실패를 빈 목록 대신 오류로 돌려준다.
 - **Linux 첫 실행**: 소켓 파일의 `ai/` 폴더를 listen 전에 만든다. 처음에는 endpoint 파일을 쓸 때만 폴더를 만들어서 첫 실행부터 계속 시작에 실패했다 (최종 리뷰에서 발견, CI의 Linux에서만 테스트가 돈다).
+- **전체 코드 리뷰 (`/code-review max`)에서 고친 것**: 복제한 위젯이 원본의 exposedApi를 물려받아 AI 작업이 원본에서 실행됨, 정수 키로 확인 문구 앞을 채워 `injectedJS`를 숨길 수 있음, 확인 대기 중 바뀐 명령이 실행됨, 끊긴 요청의 확인 상자가 남음, Project Manager Save가 AI 변경을 되돌림, Spreadsheet 먼 행 쓰기로 앱 멈춤, Note의 없는 공유 키로 저장 중단, PowerShell에서 `--input` JSON 따옴표 손실, Web Query가 화면의 다른 워크플로 페이지를 이동, 창 포커스가 없는데도 Note 쓰기 거절, `freeter mcp` 연결 수명, 시작·새로고침 중 150초 대기, 실행기 stdin 오류와 exit 순서, 터미널 PATH 키 중복.
 - **Codex 승인 정책**: `codex exec`는 MCP 도구 호출을 기본으로 막는다. `-c mcp_servers.<이름>.default_tools_approval_mode="approve"`가 필요하다. 확인은 Freeter가 받으므로 자동 승인으로 둬도 된다.
 
 **수정 파일**
