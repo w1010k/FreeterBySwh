@@ -24,6 +24,24 @@ function setupToDoListWidgetSut(settings: Settings, optional?: SetupWidgetSutOpt
 
 
 describe('To-Do List Widget', () => {
+  it('exposes an AI api that edits through the widget\'s own save path, and clears it on unmount', async () => {
+    const exposeApi = jest.fn();
+    const setJson = jest.fn();
+    const testState: ToDoListState = { items: [{ id: 1, isDone: false, text: 'Task 1' }], nextItemId: 2 };
+    const { comp } = setupToDoListWidgetSut(fixtureSettings({}), {
+      mockWidgetApi: { exposeApi, dataStorage: { getJson: jest.fn().mockResolvedValue(testState), setJson } }
+    });
+    await screen.findByText('Task 1');
+    const api = exposeApi.mock.calls.at(-1)?.[0] as { todo: { get(): ToDoListState; set(s: ToDoListState): void } };
+    expect(api.todo.get()).toEqual(testState);
+    act(() => api.todo.set({ items: [...testState.items, { id: 2, isDone: false, text: 'From AI' }], nextItemId: 3 }));
+    expect(await screen.findByText('From AI')).toBeInTheDocument();
+    act(() => jest.advanceTimersByTime(1000));
+    expect(setJson).toHaveBeenLastCalledWith('todo', expect.objectContaining({ nextItemId: 3 }));
+    comp.unmount();
+    expect(exposeApi).toHaveBeenLastCalledWith({});
+  });
+
   it('keeps unread data protected after a storage read failure', async () => {
     const setJson = jest.fn();
     setupToDoListWidgetSut(fixtureSettings({}), { mockWidgetApi: { dataStorage: {

@@ -6,6 +6,8 @@
 export type { OpenDialogResult } from '@common/base/dialog';
 export type { WidgetApi, WidgetSettingsApi, WidgetApiWidget } from '@/base/widgetApi';
 export type { WidgetType, CreateSettingsState } from '@/base/widgetType';
+export type { WidgetAiAction, WidgetAiActionContext } from '@/base/ai/widgetAiAction';
+export type { AiRpcResult } from '@common/ai/protocol';
 export type { WidgetMenuItem, WidgetMenuItemRole, WidgetMenuItems, WidgetContextMenuFactory, WidgetEnv, WidgetSettings } from '@/base/widget';
 export type { ActionBarItem, ActionBarItems } from '@/base/actionBar';
 export type { EntityId } from '@/base/entity';

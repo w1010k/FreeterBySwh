@@ -7,6 +7,7 @@ import { WidgetType } from '@/widgets/appModules';
 import { settingsEditorComp, Settings, createSettingsState } from './settings';
 import { widgetComp } from './widget';
 import { widgetSvg } from './icons';
+import { toDoListAiActions } from './aiActions';
 
 const widgetType: WidgetType<Settings> = {
   id: 'to-do-list',
@@ -20,7 +21,8 @@ const widgetType: WidgetType<Settings> = {
   createSettingsState,
   settingsEditorComp,
   widgetComp,
-  requiresApi: ['dataStorage']
+  requiresApi: ['dataStorage'],
+  aiActions: toDoListAiActions
 }
 
 export default widgetType;

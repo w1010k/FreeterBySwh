@@ -14,6 +14,7 @@ import { addItem, deleteItem, editItem, markComplete, markIncomplete } from '@/w
 import { ActiveItemEditorState, ToDoListState, maxTextLength, sanitizeLoadedToDoListState } from '@/widgets/to-do-list/state';
 import { focusItemInput, scrollToItemInput, selectAllInItemInput } from '@/widgets/to-do-list/dom';
 import { getOrCreateTodoListSaver, getTodoListState, setTodoListState, useTodoListState } from '@/widgets/to-do-list/todoStore';
+import { ToDoListAiApi } from '@/widgets/to-do-list/aiActions';
 
 const dataKey = 'todo';
 
@@ -26,7 +27,7 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
   const addItemTopInputRef = useRef<HTMLInputElement>(null);
   const addItemBottomInputRef = useRef<HTMLInputElement>(null);
   const editItemInputRef = useRef<HTMLInputElement>(null);
-  const {updateActionBar, setContextMenuFactory, dataStorage} = widgetApi;
+  const {updateActionBar, setContextMenuFactory, dataStorage, exposeApi} = widgetApi;
   // Shared in-memory store — sibling widgets in the same scope subscribe to
   // the same map entry, so any setState() reaches them synchronously without
   // an IPC roundtrip. Disk persistence still happens via debounced setJson.
@@ -81,6 +82,19 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
     setStoreToDoList(next);
     saveData(next, (data) => dataStorage.setJson(dataKey, data));
   }, [dataStorage, saveData, setStoreToDoList])
+
+  // AI actions (aiActions.ts) edit through this widget's own store and save path.
+  // The exposed object closes over only the scope and a ref, and is cleared on
+  // unmount, so the app store never holds this component (pitfalls: exposed API leaks).
+  const setForAiRef = useRef(setToDoListAndSave);
+  useEffect(() => {
+    setForAiRef.current = setToDoListAndSave;
+  }, [setToDoListAndSave]);
+  useEffect(() => {
+    const todo: ToDoListAiApi = { get: () => getTodoListState(scope), set: (s) => setForAiRef.current(s) };
+    exposeApi({ todo });
+    return () => exposeApi({});
+  }, [exposeApi, scope]);
 
   // Persist a pending change when the app quits (beforeunload) or the widget
   // unmounts — otherwise an edit made within the (short) debounce window would
