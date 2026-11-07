@@ -7,6 +7,7 @@ import { WidgetType } from '@/widgets/appModules';
 import { settingsEditorComp, Settings, createSettingsState } from './settings';
 import { widgetComp } from './widget';
 import { widgetSvg } from './icons';
+import { webQueryAiActions } from './aiActions';
 
 const widgetType: WidgetType<Settings> = {
   id: 'web-query',
@@ -20,7 +21,8 @@ const widgetType: WidgetType<Settings> = {
   createSettingsState,
   settingsEditorComp,
   widgetComp,
-  requiresApi: ['shell', 'widgets', 'dataStorage']
+  requiresApi: ['shell', 'widgets', 'dataStorage'],
+  aiActions: webQueryAiActions
 }
 
 export default widgetType;

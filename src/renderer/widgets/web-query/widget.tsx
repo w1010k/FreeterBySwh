@@ -11,6 +11,7 @@ import { querySvg } from '@/widgets/web-query/icons';
 import { sanitizeUrl } from '@common/helpers/sanitizeUrl';
 import { WebpageExposedApi } from '@/widgets/interfaces';
 import { createContextMenuFactory } from '@/widgets/web-query/contextMenu';
+import { useExposedAiFunction } from '@/widgets/aiTrigger';
 
 const queryPlaceholder = 'QUERY';
 const historyKey = 'history';
@@ -20,7 +21,7 @@ const replaceQueryPlaceholder = (strWithQuery: string, queryVal: string) => strW
 
 type WidgetApi = WidgetReactComponentProps<Settings>['widgetApi'];
 
-function computeEntry(entry: QueryEntry, mode: SettingsMode) {
+export function computeEntry(entry: QueryEntry, mode: SettingsMode) {
   let descr = '';
   let urlTpl = '';
   const notConfigNotes: string[] = [];
@@ -51,6 +52,34 @@ function computeEntry(entry: QueryEntry, mode: SettingsMode) {
   return { descr, urlTpl, queryTpl, notConfigNotes };
 }
 
+/** Runs one query: the form's submit and the AI action both use it. */
+function runQuery(typedQuery: string, urlTpl: string, queryTpl: string, mode: SettingsMode, widgetApi: WidgetApi) {
+  const finalQuery = queryTpl === '' ? typedQuery : replaceQueryPlaceholder(queryTpl, typedQuery);
+  const queryForUrl = encodeURIComponent(finalQuery);
+  if (typedQuery.trim() !== '') {
+    widgetApi.logActivity('web_search', { text: typedQuery.trim() });
+  }
+  switch (mode) {
+    case SettingsMode.Browser: {
+      widgetApi.shell.openExternalUrl(replaceQueryPlaceholder(urlTpl, queryForUrl));
+      break;
+    }
+    case SettingsMode.Webpages: {
+      const webpageWidgets = widgetApi.widgets.getWidgetsInCurrentWorkflow<WebpageExposedApi>('webpage');
+      for (const { api } of webpageWidgets) {
+        if (api.getUrl && api.openUrl) {
+          const tplUrl = api.getUrl();
+          const finalUrl = replaceQueryPlaceholder(tplUrl, queryForUrl);
+          if (tplUrl !== finalUrl) {
+            api.openUrl(finalUrl);
+          }
+        }
+      }
+      break;
+    }
+  }
+}
+
 interface QueryRowProps {
   entry: QueryEntry;
   mode: SettingsMode;
@@ -69,32 +98,9 @@ function QueryRow({ entry, mode, widgetApi, historyListId, onSubmitted }: QueryR
 
   const onQuerySubmit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const finalQuery = queryTpl === '' ? typedQuery : replaceQueryPlaceholder(queryTpl, typedQuery);
-    const queryForUrl = encodeURIComponent(finalQuery);
     onSubmitted(typedQuery);
-    if (typedQuery.trim() !== '') {
-      widgetApi.logActivity('web_search', { text: typedQuery.trim() });
-    }
     setTypedQuery('');
-    switch (mode) {
-      case SettingsMode.Browser: {
-        widgetApi.shell.openExternalUrl(replaceQueryPlaceholder(urlTpl, queryForUrl));
-        break;
-      }
-      case SettingsMode.Webpages: {
-        const webpageWidgets = widgetApi.widgets.getWidgetsInCurrentWorkflow<WebpageExposedApi>('webpage');
-        for (const { api } of webpageWidgets) {
-          if (api.getUrl && api.openUrl) {
-            const tplUrl = api.getUrl();
-            const finalUrl = replaceQueryPlaceholder(tplUrl, queryForUrl);
-            if (tplUrl !== finalUrl) {
-              api.openUrl(finalUrl);
-            }
-          }
-        }
-        break;
-      }
-    }
+    runQuery(typedQuery, urlTpl, queryTpl, mode, widgetApi);
   };
 
   return (
@@ -148,6 +154,19 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     setHistory(next);
     dataStorage.setJson(historyKey, next);
   }, [dataStorage]);
+
+  // AI action (aiActions.ts): the same query as typing into entry `entryIndex`.
+  const queryForAi = useCallback((text: string, entryIndex: number) => {
+    const entry = settings.entries[entryIndex];
+    const computed = entry && computeEntry(entry, settings.mode);
+    if (!computed || computed.notConfigNotes.length > 0) {
+      return false;
+    }
+    addToHistory(text);
+    runQuery(text, computed.urlTpl, computed.queryTpl, settings.mode, widgetApi);
+    return true;
+  }, [settings, addToHistory, widgetApi]);
+  useExposedAiFunction(widgetApi.exposeApi, 'query', queryForAi);
 
   const clearHistory = useCallback(() => {
     if (!historyLoaded.current) {

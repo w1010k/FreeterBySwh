@@ -103,6 +103,16 @@ describe('Web Query Widget', () => {
       expect(screen.getByRole('combobox')).toHaveProperty('placeholder', 'Search Google');
     })
 
+    it('exposes query(text, entryIndex) for AI actions, running the same query as the form', () => {
+      const exposeApi = jest.fn();
+      const openExternalUrl = jest.fn();
+      setupSut(fixtureSettings1(SettingsMode.Browser, { engine: 'goog', query: 'query QUERY' }), { mockWidgetApi: { exposeApi, shell: { openExternalUrl } } });
+      const api = exposeApi.mock.calls.at(-1)?.[0] as { query(text: string, entryIndex: number): boolean };
+      expect(api.query('some query', 0)).toBe(true);
+      expect(openExternalUrl).toHaveBeenCalledWith('https://www.google.com/search?q=query%20some%20query');
+      expect(api.query('x', 5)).toBe(false);
+    })
+
     it('should call openExternalUrl with right args on ENTER keypress in the text input', async () => {
       const someQuery = 'some query';
       const openExternalUrl = jest.fn();

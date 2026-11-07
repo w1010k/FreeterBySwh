@@ -39,13 +39,13 @@ export function createTriggerAiAction(o: {
  * The exposed function closes over a ref only and is cleared on unmount, so the
  * app store never keeps the component alive (pitfalls: exposed API leaks).
  */
-export function useExposedAiFunction(exposeApi: WidgetApi['exposeApi'], key: string, fn: () => void): void {
+export function useExposedAiFunction<A extends unknown[], R>(exposeApi: WidgetApi['exposeApi'], key: string, fn: (...args: A) => R): void {
   const ref = useRef(fn);
   useEffect(() => {
     ref.current = fn;
   }, [fn]);
   useEffect(() => {
-    exposeApi({ [key]: () => ref.current() });
+    exposeApi({ [key]: (...args: A) => ref.current(...args) });
     return () => exposeApi({});
   }, [exposeApi, key]);
 }
