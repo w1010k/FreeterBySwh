@@ -197,8 +197,8 @@ describe('widget.updateSettings with shared data keys', () => {
     const state = fixtureAppState({ entities: { widgets: { [note.id]: note }, widgetTypes: { [noteType.id]: noteType } } });
     const [appStore] = await fixtureAppStore({
       ...state,
-      entities: { ...state.entities, sharedDataKeys: { K1: { id: 'K1', name: 'Shared' } } }
-    } as typeof state);
+      entities: { ...state.entities, sharedDataKeys: { K1: { id: 'K1', name: 'Shared', widgetType: noteType.id } } }
+    });
     const actions = createWidgetAiActions({
       appStore,
       createWidgetSubCase: createCreateWidgetSubCase({ idGenerator: () => newId }),
