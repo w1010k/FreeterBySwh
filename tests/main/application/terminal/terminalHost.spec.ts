@@ -131,7 +131,7 @@ describe('createTerminalHost', () => {
 
 describe('prependPath', () => {
   it('keeps one PATH entry whatever its case (Windows names it Path), with the folder first', () => {
-    expect(prependPath({ Path: 'C:\w', Other: '1' }, 'C:\bin', ';')).toEqual({ PATH: 'C:\bin;C:\w', Other: '1' });
+    expect(prependPath({ Path: 'C:\\w', Other: '1' }, 'C:\\bin', ';')).toEqual({ PATH: 'C:\\bin;C:\\w', Other: '1' });
     expect(prependPath({ PATH: '/usr/bin' }, '/opt/bin', ':')).toEqual({ PATH: '/opt/bin:/usr/bin' });
     expect(prependPath({}, '/opt/bin', ':')).toEqual({ PATH: '/opt/bin' });
   });
