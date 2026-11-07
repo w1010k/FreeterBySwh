@@ -56,6 +56,23 @@ describe('computeCounts()', () => {
 })
 
 describe('Note Widget AI api', () => {
+  it('lets an agent write while the Freeter window is not focused, even if the note kept the focus', async () => {
+    const exposeApi = jest.fn();
+    setupNoteWidgetSut({ mockWidgetApi: { exposeApi, dataStorage: { getText: jest.fn().mockResolvedValue('saved'), setText: jest.fn() } } });
+    const textarea = await screen.findByDisplayValue('saved');
+    act(() => textarea.focus());
+    const hasFocus = jest.spyOn(document, 'hasFocus').mockReturnValue(false);
+    const api = exposeApi.mock.calls.at(-1)?.[0] as { note: { set(t: string): boolean } };
+    let ok = false;
+    act(() => {
+      ok = api.note.set('from AI');
+    });
+    expect(ok).toBe(true);
+    expect(textarea).toHaveValue('from AI');
+    hasFocus.mockRestore();
+  });
+
+
   it('exposes get/set that show and save like a user edit, refuses while focused, and clears on unmount', async () => {
     const exposeApi = jest.fn();
     const setText = jest.fn();

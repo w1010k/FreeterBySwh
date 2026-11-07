@@ -165,7 +165,9 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
   const aiSetRef = useRef<(text: string) => boolean>(() => false);
   useEffect(() => {
     aiSetRef.current = (text) => {
-      if (isEditing()) {
+      // The note keeps the focus after the user switches to another app (e.g. the agent's
+      // terminal); only a focused window means the user may be typing here.
+      if (isEditing() && document.hasFocus()) {
         return false;
       }
       if (editorRef.current) {
