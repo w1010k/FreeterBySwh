@@ -639,7 +639,7 @@
 
 - 상태: 유효
 - 출처: `[fork #99]`
-- 결정: 쓰기 작업 전 main이 `dialog.showMessageBox`에 `signal`을 넘겨 확인을 받는다. 120초가 지나면 abort로 상자를 닫고 거절한다. 확인은 차례로 하나씩 띄운다. 문구는 앱 UI와 같은 영어다.
+- 결정: 쓰기 작업 전 main이 `dialog.showMessageBox`에 `signal`을 넘겨 확인을 받는다. 확인 요청이 도착한 때부터 120초가 지나면 abort로 상자를 닫고 거절한다. 확인은 차례로 하나씩 띄우고, 앞 상자를 기다리는 동안 시간이 다 된 요청은 상자를 띄우지 않고 거절한다. 문구는 앱 UI와 같은 영어다.
 - 이유: 시간 제한 뒤 상자가 실제로 닫혀야 늦은 Allow가 실행되지 않는다. renderer에서 시간 제한을 걸면 상자가 화면에 남는다. 확인 위치가 Freeter 하나라 CLI, MCP, Claude, Codex가 모두 같은 확인을 거친다.
 - 버린 대안: renderer 자체 모달 (첫 버전에 UI 작업이 필요), "이번 대화에서 모두 허용" (요청 범위 밖).
 - 근거: `src/main/application/useCases/ai/confirmAiAction.ts`, `src/main/index.ts`

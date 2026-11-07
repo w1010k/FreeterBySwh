@@ -4,10 +4,11 @@
  */
 
 import { PassThrough } from 'node:stream';
+import { createServer } from 'node:net';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AiClient, CliIo, connectAiClient, defaultEndpointPath, runCli } from '@/cli/cli';
+import { AiClient, CliIo, connectAiClient, createReconnectingAiClient, defaultEndpointPath, runCli } from '@/cli/cli';
 import { AiOrigin, AiRpcResult } from '@common/ai/protocol';
 
 function makeIo(env: Record<string, string | undefined> = {}) {
@@ -26,6 +27,7 @@ function fakeConnect(results: Partial<Record<'actions.list' | 'actions.run', AiR
   const client: AiClient = {
     call: jest.fn(async (method: 'actions.list' | 'actions.run'): Promise<AiRpcResult> => results[method] ?? { ok: true, value: null }),
     close: jest.fn(),
+    isClosed: () => false,
   };
   const connect = jest.fn(async (_path: string, _origin: AiOrigin) => client);
   return { client, connect };
@@ -105,6 +107,35 @@ describe('runCli', () => {
   });
 });
 
+describe('createReconnectingAiClient', () => {
+  const makeClient = (closed: boolean, value: unknown): AiClient => ({
+    call: jest.fn(async () => ({ ok: true, value }) as AiRpcResult),
+    close: jest.fn(),
+    isClosed: () => closed,
+  });
+
+  it('reconnects when the current connection is closed (Freeter restarted)', async () => {
+    const reopen = jest.fn(async () => makeClient(false, 'new'));
+    const client = createReconnectingAiClient(makeClient(true, 'old'), reopen);
+    await expect(client.call('actions.list', {})).resolves.toEqual({ ok: true, value: 'new' });
+    expect(reopen).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the open connection', async () => {
+    const reopen = jest.fn();
+    const client = createReconnectingAiClient(makeClient(false, 'same'), reopen);
+    await expect(client.call('actions.list', {})).resolves.toEqual({ ok: true, value: 'same' });
+    expect(reopen).not.toHaveBeenCalled();
+  });
+
+  it('returns a failure when Freeter is still not running', async () => {
+    const client = createReconnectingAiClient(makeClient(true, 'old'), async () => {
+      throw new Error('Freeter is not running');
+    });
+    await expect(client.call('actions.list', {})).resolves.toEqual({ ok: false, code: 'failed', message: 'Freeter is not running' });
+  });
+});
+
 describe('defaultEndpointPath', () => {
   it('uses FREETER_AI_ENDPOINT first', () => {
     expect(defaultEndpointPath({ FREETER_AI_ENDPOINT: 'x' }, 'win32', 'H')).toBe('x');
@@ -117,6 +148,20 @@ describe('defaultEndpointPath', () => {
 });
 
 describe('connectAiClient', () => {
+  it('fails a call at once after Freeter closed the connection, instead of hanging', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'freeter-cli-'));
+    const pipe = process.platform === 'win32' ? `\\\\.\\pipe\\freeter-close-test-${Date.now()}` : join(dir, 'c.sock');
+    const server = createServer(s => s.destroy());
+    await new Promise<void>(r => server.listen(pipe, () => r()));
+    const file = join(dir, 'endpoint.json');
+    await writeFile(file, JSON.stringify({ pipe, token: 't', pid: 1 }));
+    const client = await connectAiClient(file, 'cli');
+    await new Promise(r => setTimeout(r, 100));
+    await expect(client.call('actions.list', {})).resolves.toMatchObject({ ok: false, code: 'failed' });
+    expect(client.isClosed()).toBe(true);
+    await new Promise<void>(r => server.close(() => r()));
+  });
+
   it('rejects with "Freeter is not running" when endpoint.json is missing', async () => {
     await expect(connectAiClient(join(tmpdir(), 'no-such-freeter', 'endpoint.json'), 'cli')).rejects.toThrow('Freeter is not running');
   });

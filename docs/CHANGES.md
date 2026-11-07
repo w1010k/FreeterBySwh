@@ -3728,6 +3728,9 @@ System Monitor 위젯이 CPU·RAM 외에 새 의존성 없이 얻을 수 있는 
 - **typecheck 사각지대**: `yarn test:typecheck`는 `tests/<surface>/tsconfig.json`만 검사한다. 테스트가 import하지 않는 `src/renderer/init.ts`는 검사되지 않고, production webpack 빌드도 타입 검사를 하지 않는다. `init()`에서 `createUseCases()` 안의 지역 변수를 참조한 실수가 런타임 `ReferenceError`로만 드러났다.
 - **PowerShell과 GUI 실행 파일**: PowerShell에서 `Freeter-SWH.exe`를 직접 실행하면 출력과 종료 코드를 받지 못했다. `.cmd` 래퍼를 거치면 cmd와 PowerShell 모두 정상이다 (실측).
 - **비정상 종료 뒤 남은 endpoint.json**: 죽은 pipe에 연결이 거절되므로 CLI는 "Freeter is not running"과 종료 코드 3으로 끝난다.
+- **대기열의 확인과 시간 초과**: 확인 시간 제한을 상자가 뜬 때부터 세면, 앞 상자 뒤에서 기다린 요청은 bridge가 150초 시간 초과를 알린 뒤에도 Allow될 수 있다. 그러면 클라이언트는 실패로 알았는데 작업이 실행된다. 그래서 시간 제한은 요청이 도착한 때부터 센다 (최종 리뷰에서 발견).
+- **끊긴 소켓과 MCP**: Node에서 destroy된 소켓에 쓰면 `'error'` 이벤트가 없어 호출이 끝나지 않는다. CLI는 끊긴 연결의 호출을 즉시 실패로 돌려주고, 오래 실행되는 `freeter mcp`는 다음 호출에서 `endpoint.json`을 다시 읽어 재연결한다. `tools/list`는 실패를 빈 목록 대신 오류로 돌려준다.
+- **Linux 첫 실행**: 소켓 파일의 `ai/` 폴더를 listen 전에 만든다. 처음에는 endpoint 파일을 쓸 때만 폴더를 만들어서 첫 실행부터 계속 시작에 실패했다 (최종 리뷰에서 발견, CI의 Linux에서만 테스트가 돈다).
 - **Codex 승인 정책**: `codex exec`는 MCP 도구 호출을 기본으로 막는다. `-c mcp_servers.<이름>.default_tools_approval_mode="approve"`가 필요하다. 확인은 Freeter가 받으므로 자동 승인으로 둬도 된다.
 
 **수정 파일**

@@ -13,13 +13,14 @@ const list: AiRpcResult = {
   value: [{ id: 'workflow.create', description: 'Create', kind: 'write', inputSchema: { type: 'object' } }]
 };
 
-async function exchange(lines: object[], runResult: AiRpcResult = { ok: true, value: { workflowId: 'w' } }) {
+async function exchange(lines: object[], runResult: AiRpcResult = { ok: true, value: { workflowId: 'w' } }, listResult: AiRpcResult = list) {
   const stdin = new PassThrough();
   const out: string[] = [];
   const io: CliIo = { stdin, stdout: { write: s => out.push(s) }, stderr: { write: () => undefined }, env: {} };
   const client: AiClient = {
-    call: jest.fn(async (method: 'actions.list' | 'actions.run') => (method === 'actions.list' ? list : runResult)),
+    call: jest.fn(async (method: 'actions.list' | 'actions.run') => (method === 'actions.list' ? listResult : runResult)),
     close: jest.fn(),
+    isClosed: () => false,
   };
   const done = runMcpServer(io, client, '1.2.3');
   stdin.end(lines.map(l => JSON.stringify(l) + '\n').join(''));
@@ -39,6 +40,11 @@ describe('runMcpServer', () => {
   it('tools/list maps "workflow.create" to "workflow_create"', async () => {
     const { responses } = await exchange([{ jsonrpc: '2.0', id: 2, method: 'tools/list' }]);
     expect(responses[0].result.tools).toEqual([{ name: 'workflow_create', description: 'Create', inputSchema: { type: 'object' } }]);
+  });
+
+  it('tools/list answers an error when Freeter cannot be reached, instead of an empty list', async () => {
+    const { responses } = await exchange([{ jsonrpc: '2.0', id: 2, method: 'tools/list' }], undefined, { ok: false, code: 'failed', message: 'Freeter is not running' });
+    expect(responses[0]).toMatchObject({ id: 2, error: { message: 'Freeter is not running' } });
   });
 
   it('tools/call runs the action and returns its value as text', async () => {

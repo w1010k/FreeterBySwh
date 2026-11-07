@@ -19,9 +19,12 @@ export function runMcpServer(io: CliIo, client: AiClient, version: string): Prom
   const reply = (id: unknown, body: { result: unknown } | { error: { code: number; message: string } }) =>
     io.stdout.write(encodeLine({ jsonrpc: '2.0', id, ...body }));
 
-  const loadTools = async () => {
+  const loadTools = async (): Promise<AiActionInfo[] | string> => {
     const res = await client.call('actions.list', {});
-    const actions = res.ok ? res.value as AiActionInfo[] : [];
+    if (!res.ok) {
+      return res.message;
+    }
+    const actions = res.value as AiActionInfo[];
     toolIds = new Map(actions.map(a => [toToolName(a.id), a.id]));
     return actions;
   };
@@ -46,6 +49,11 @@ export function runMcpServer(io: CliIo, client: AiClient, version: string): Prom
         return;
       case 'tools/list': {
         const actions = await loadTools();
+        if (typeof actions === 'string') {
+          // An empty list would hide why there are no tools (e.g. Freeter is not running).
+          reply(id, { error: { code: -32000, message: actions } });
+          return;
+        }
         reply(id, { result: { tools: actions.map(a => ({ name: toToolName(a.id), description: a.description, inputSchema: a.inputSchema })) } });
         return;
       }

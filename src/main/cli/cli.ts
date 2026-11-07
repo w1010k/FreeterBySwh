@@ -25,6 +25,8 @@ export interface CliIo {
 export interface AiClient {
   call(method: AiRpcMethod, params: { actionId?: string; input?: unknown }): Promise<AiRpcResult>;
   close(): void;
+  /** True once Freeter closed the connection (it quit or restarted). */
+  isClosed(): boolean;
 }
 
 export type ConnectAiClient = (endpointPath: string, origin: AiOrigin) => Promise<AiClient>;
@@ -87,13 +89,40 @@ export async function connectAiClient(endpointPath: string, origin: AiOrigin): P
 
   return {
     call(method, params) {
+      if (socket.destroyed) {
+        // A write to a destroyed socket raises no 'error' event, so the call would never settle.
+        return Promise.resolve({ ok: false, code: 'failed', message: 'Freeter closed the connection' });
+      }
       const id = nextId++;
       return new Promise<AiRpcResult>(resolve => {
         pending.set(id, resolve);
         socket.write(encodeLine({ jsonrpc: '2.0', id, method, params: { ...params, token, origin } }));
       });
     },
-    close: () => socket.end()
+    close: () => socket.end(),
+    isClosed: () => socket.destroyed
+  };
+}
+
+/**
+ * For the long-lived `freeter mcp`: when Freeter restarts (new pipe, new token),
+ * the next call reads endpoint.json again and reconnects.
+ */
+export function createReconnectingAiClient(first: AiClient, reopen: () => Promise<AiClient>): AiClient {
+  let current = first;
+  return {
+    async call(method, params) {
+      if (current.isClosed()) {
+        try {
+          current = await reopen();
+        } catch (err) {
+          return { ok: false, code: 'failed', message: err instanceof Error ? err.message : String(err) };
+        }
+      }
+      return current.call(method, params);
+    },
+    close: () => current.close(),
+    isClosed: () => current.isClosed()
   };
 }
 
@@ -164,16 +193,17 @@ export async function runCli(argv: string[], io: CliIo, connect: ConnectAiClient
 
   const envOrigin = aiOrigins.find(o => o === io.env.FREETER_AI_ORIGIN);
   const origin: AiOrigin = command === 'mcp' ? 'mcp' : envOrigin ?? 'cli';
+  const endpointPath = defaultEndpointPath(io.env, process.platform, io.env.USERPROFILE ?? io.env.HOME ?? '');
   let client: AiClient;
   try {
-    client = await connect(defaultEndpointPath(io.env, process.platform, io.env.USERPROFILE ?? io.env.HOME ?? ''), origin);
+    client = await connect(endpointPath, origin);
   } catch (err) {
     return fail(3, err instanceof Error ? err.message : String(err));
   }
 
   try {
     if (!request) {
-      await runMcpServer(io, client, version);
+      await runMcpServer(io, createReconnectingAiClient(client, () => connect(endpointPath, origin)), version);
       return 0;
     }
     const res = await client.call(request.method, request.params);
