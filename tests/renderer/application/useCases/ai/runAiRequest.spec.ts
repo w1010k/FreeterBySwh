@@ -69,8 +69,8 @@ describe('runAiRequestUseCase()', () => {
   it('confirms a write action with origin and describe, then runs it', async () => {
     const action = makeAction();
     const { aiControl, runAiRequestUseCase } = await setup([action]);
-    await expect(runAiRequestUseCase(run('thing.do', { n: 2 }))).resolves.toEqual({ ok: true, value: 'done' });
-    expect(aiControl.confirm).toHaveBeenCalledWith('mcp', 'Do thing 2');
+    await expect(runAiRequestUseCase(run('thing.do', { n: 2 }), 7)).resolves.toEqual({ ok: true, value: 'done' });
+    expect(aiControl.confirm).toHaveBeenCalledWith(7, 'mcp', 'Do thing 2');
     expect(action.run).toHaveBeenCalledWith({ n: 2 });
   });
 
@@ -89,5 +89,37 @@ describe('runAiRequestUseCase()', () => {
     });
     const { runAiRequestUseCase } = await setup([action]);
     await expect(runAiRequestUseCase(run('thing.do', { n: 1 }))).resolves.toEqual({ ok: false, code: 'failed', message: 'boom' });
+  });
+
+  it('refuses a write whose confirm text is too long to show in full, without asking', async () => {
+    const action = makeAction({ describe: () => 'x'.repeat(4001) });
+    const { aiControl, runAiRequestUseCase } = await setup([action]);
+    await expect(runAiRequestUseCase(run('thing.do', { n: 1 }))).resolves.toMatchObject({ ok: false, code: 'invalid_input' });
+    expect(aiControl.confirm).not.toHaveBeenCalled();
+    expect(action.run).not.toHaveBeenCalled();
+  });
+
+  it('does not run when what the action would do changed while the box was open', async () => {
+    let text = 'Run echo hi';
+    const action = makeAction({ describe: () => text });
+    const { aiControl, runAiRequestUseCase } = await setup([action]);
+    aiControl.confirm.mockImplementationOnce(async () => {
+      text = 'Run curl evil';
+      return true;
+    });
+    await expect(runAiRequestUseCase(run('thing.do', { n: 1 }))).resolves.toMatchObject({ ok: false, code: 'failed' });
+    expect(action.run).not.toHaveBeenCalled();
+  });
+
+  it('refuses writes while a Freeter settings window is open (its Save would undo them), reads still run', async () => {
+    const state = fixtureAppState({});
+    const withModal = { ...state, ui: { ...state.ui, modalScreens: { ...state.ui.modalScreens, order: ['projectManager'] } } };
+    const store = { get: () => withModal } as unknown as AppStore;
+    const write = makeAction();
+    const read = makeAction({ id: 'thing.read', kind: 'read' });
+    const { runAiRequestUseCase } = await setup([write, read], true, store);
+    await expect(runAiRequestUseCase(run('thing.do', { n: 1 }))).resolves.toMatchObject({ ok: false, code: 'not_ready' });
+    expect(write.run).not.toHaveBeenCalled();
+    await expect(runAiRequestUseCase(run('thing.read', { n: 1 }))).resolves.toEqual({ ok: true, value: 'done' });
   });
 });

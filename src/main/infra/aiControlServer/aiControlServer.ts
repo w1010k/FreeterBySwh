@@ -13,7 +13,8 @@ type Deps = {
   path: string;
   /** Changes on every app run; every request must carry it. */
   token: string;
-  handle: (req: AiRpcRequest) => Promise<AiRpcResult>;
+  /** `signal` is aborted when the caller's connection closes. */
+  handle: (req: AiRpcRequest, signal: AbortSignal) => Promise<AiRpcResult>;
 }
 
 export interface AiControlServer {
@@ -66,7 +67,13 @@ export function createAiControlServer({ path, token, handle }: Deps): AiControlS
 
   const onConnection = (socket: Socket) => {
     sockets.add(socket);
-    socket.on('close', () => sockets.delete(socket));
+    // A caller that leaves (Ctrl+C, agent cancelled) takes its pending requests with it:
+    // their confirm boxes close and nothing runs.
+    const gone = new AbortController();
+    socket.on('close', () => {
+      sockets.delete(socket);
+      gone.abort();
+    });
     socket.on('error', () => socket.destroy());
     const reply = (msg: object) => {
       if (!socket.destroyed) {
@@ -80,7 +87,7 @@ export function createAiControlServer({ path, token, handle }: Deps): AiControlS
         return;
       }
       const { req } = parsed;
-      handle(req).then(
+      handle(req, gone.signal).then(
         res => reply(toRpcResponse(req.id, res)),
         (err: unknown) => reply(toRpcResponse(req.id, { ok: false, code: 'failed', message: err instanceof Error ? err.message : String(err) }))
       );

@@ -178,11 +178,11 @@ describe('createWidgetAiActions() settings and move', () => {
   it('describes settings and move for the confirm dialog', async () => {
     const { get, widget, to } = await setup2();
     const d = (id: string, input: unknown) => get(id).describe(get(id).parse(input));
-    expect(d('widget.updateSettings', { widgetId: widget.id, settings: { size: 1, a: 'x' } })).toBe('Change settings of widget "Ideas": {"size":1,"a":"x"}');
-    // The values are what the user approves (e.g. a script injected into web pages), so long ones are cut, not hidden.
-    const long = d('widget.updateSettings', { widgetId: widget.id, settings: { injectedJS: 'y'.repeat(1000) } });
-    expect(long.startsWith('Change settings of widget "Ideas": {"injectedJS":"yyy')).toBe(true);
-    expect(long.endsWith('... (1017 characters)')).toBe(true);
+    // Every value that will change is shown in full, after the widget type's own checks (here 'a' is dropped, size is kept).
+    expect(d('widget.updateSettings', { widgetId: widget.id, settings: { size: 1, a: 'x' } })).toBe('Change settings of widget "Ideas": size = 1');
+    expect(d('widget.updateSettings', { widgetId: widget.id, settings: { size: 12 } })).toBe('Change settings of widget "Ideas": (no change)');
+    const padded = { '0': 'x'.repeat(320), size: 99 };
+    expect(d('widget.updateSettings', { widgetId: widget.id, settings: padded })).toBe('Change settings of widget "Ideas": size = 99');
     expect(d('widget.move', { widgetId: widget.id, toWorkflowId: to.id })).toBe('Move widget "Ideas" to workflow "Do"');
   });
 });

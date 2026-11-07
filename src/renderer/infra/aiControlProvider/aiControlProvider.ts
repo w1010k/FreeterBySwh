@@ -16,7 +16,7 @@ import {
 
 export function createAiControlProvider(): AiControlProvider {
   return {
-    confirm: (origin, describe) => electronIpcRenderer.invoke<IpcAiConfirmArgs, IpcAiConfirmRes>(ipcAiConfirmChannel, origin, describe),
+    confirm: (reqId, origin, describe) => electronIpcRenderer.invoke<IpcAiConfirmArgs, IpcAiConfirmRes>(ipcAiConfirmChannel, reqId, origin, describe),
     respond: (reqId, res) => electronIpcRenderer.invoke<IpcAiActionResponseArgs, IpcAiActionResponseRes>(ipcAiActionResponseChannel, reqId, res),
   }
 }

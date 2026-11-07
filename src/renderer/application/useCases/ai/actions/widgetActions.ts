@@ -25,11 +25,18 @@ const widgetName = (state: AppState, id: EntityId) => {
   return widget ? getWidgetDisplayName(widget, state.entities.widgetTypes[widget.type]) : id;
 }
 
-/** JSON for a confirm line; long values are cut with the full length noted. */
-const shortJson = (v: unknown, max = 300) => {
-  const json = JSON.stringify(v);
-  return json.length > max ? `${json.slice(0, max)}... (${json.length} characters)` : json;
-};
+/** The settings a widget would have after the change: the widget type's factory is the validator. */
+function settingsAfter(state: AppState, widgetId: EntityId, change: Record<string, unknown>) {
+  const widget = state.entities.widgets[widgetId];
+  const widgetType = widget && state.entities.widgetTypes[widget.type];
+  return widget && widgetType ? { before: widget.settings, after: widgetType.createSettingsState({ ...widget.settings, ...change }) } : undefined;
+}
+
+/** Every changed value in full (runAiRequest refuses a confirm text too long to show). */
+function describeChanges(before: Record<string, unknown>, after: Record<string, unknown>): string {
+  const changes = Object.keys(after).filter(k => JSON.stringify(before[k]) !== JSON.stringify(after[k])).map(k => `${k} = ${JSON.stringify(after[k])}`);
+  return changes.length > 0 ? changes.join('; ') : '(no change)';
+}
 
 const findWorkflowOfWidget = (state: AppState, widgetId: EntityId) =>
   Object.values(state.entities.workflows).find(w => w?.layout.some(item => item.widgetId === widgetId));
@@ -185,8 +192,12 @@ export function createWidgetAiActions({
       const settings = o && asRecord(o.settings);
       return o && isNonEmptyString(o.widgetId) && settings ? { widgetId: o.widgetId, settings } : undefined;
     },
-    // The values are shown: a setting can be a script injected into web pages (Webpage injectedJS).
-    describe: ({ widgetId, settings }) => `Change settings of widget "${widgetName(appStore.get(), widgetId)}": ${shortJson(settings)}`,
+    // Shows what will be stored, not the input: a setting can be a script injected into web pages (Webpage injectedJS).
+    describe: ({ widgetId, settings }) => {
+      const state = appStore.get();
+      const s = settingsAfter(state, widgetId, settings);
+      return `Change settings of widget "${widgetName(state, widgetId)}": ${s ? describeChanges(s.before, s.after) : '(unknown widget)'}`;
+    },
     run: ({ widgetId, settings }) => {
       const state = appStore.get();
       const widget = state.entities.widgets[widgetId];
@@ -194,7 +205,6 @@ export function createWidgetAiActions({
       if (!widget || !widgetType) {
         return notFound('widget', widgetId);
       }
-      // The widget type's own factory is the validator: it replaces wrong-typed values with defaults.
       const newSettings = widgetType.createSettingsState({ ...widget.settings, ...settings });
       appStore.set({
         ...state,

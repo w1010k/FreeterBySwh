@@ -29,13 +29,22 @@ export function createConfirmAiActionUseCase({ showWindow, showConfirmBox, timeo
     }
   };
 
-  return function confirmAiActionUseCase(origin: AiOrigin, describe: string): Promise<boolean> {
+  /** `dropped`: the request ended (its caller left or it timed out); its box must close. */
+  return function confirmAiActionUseCase(origin: AiOrigin, describe: string, dropped?: AbortSignal): Promise<boolean> {
     // The limit counts from the request, not from when its box shows: a queued confirm must
     // settle before the bridge's own timeout, or a late Allow would run an action the
     // client was already told had timed out.
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const res = queue.then(() => ask(origin, describe, controller)).finally(() => clearTimeout(timer));
+    const onDropped = () => controller.abort();
+    if (dropped?.aborted) {
+      controller.abort();
+    }
+    dropped?.addEventListener('abort', onDropped);
+    const res = queue.then(() => ask(origin, describe, controller)).finally(() => {
+      clearTimeout(timer);
+      dropped?.removeEventListener('abort', onDropped);
+    });
     queue = res;
     return res;
   };

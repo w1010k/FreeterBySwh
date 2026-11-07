@@ -82,6 +82,21 @@ describe('confirmAiActionUseCase', () => {
     expect(showConfirmBox).toHaveBeenCalledTimes(1);
   });
 
+  it('closes the box and denies when the request is dropped', async () => {
+    let boxSignal: AbortSignal | undefined;
+    const showConfirmBox = jest.fn((_m: string, s: AbortSignal) => {
+      boxSignal = s;
+      return new Promise<boolean>(resolve => s.addEventListener('abort', () => resolve(false)));
+    });
+    const confirm = createConfirmAiActionUseCase({ showWindow: jest.fn(), showConfirmBox, timeoutMs: 100000 });
+    const dropped = new AbortController();
+    const p = confirm('cli', 'X', dropped.signal);
+    await flush();
+    dropped.abort();
+    await expect(p).resolves.toBe(false);
+    expect(boxSignal?.aborted).toBe(true);
+  });
+
   it('treats a box that throws as a denial and keeps the queue going', async () => {
     const showConfirmBox = jest.fn()
       .mockImplementationOnce(async () => {

@@ -14,7 +14,8 @@ import { createAiControllers } from '@/controllers/ai';
 import { fixtureIpcMainEvent } from '@tests/infra/mocks/ipcMain';
 
 function setup() {
-  const aiActionBridge = { request: jest.fn(), resolve: jest.fn() };
+  const confirmSignal = new AbortController().signal;
+  const aiActionBridge = { request: jest.fn(), resolve: jest.fn(), signalFor: jest.fn(() => confirmSignal) };
   const confirmAiActionUseCase = jest.fn(async () => true);
   const aiAgentRunner = {
     detect: jest.fn(() => ({ claude: true, codex: false })),
@@ -24,7 +25,10 @@ function setup() {
   };
   const [responseController, confirmController, detectController, sendController, cancelController] =
     createAiControllers({ aiActionBridge, confirmAiActionUseCase, aiAgentRunner });
-  return { aiActionBridge, confirmAiActionUseCase, aiAgentRunner, responseController, confirmController, detectController, sendController, cancelController };
+  return {
+    confirmSignal, aiActionBridge, confirmAiActionUseCase, aiAgentRunner,
+    responseController, confirmController, detectController, sendController, cancelController
+  };
 }
 
 describe('AiControllers', () => {
@@ -36,10 +40,11 @@ describe('AiControllers', () => {
   });
 
   it('passes ai-confirm to the confirm use case and returns its answer', async () => {
-    const { confirmAiActionUseCase, confirmController } = setup();
+    const { confirmAiActionUseCase, confirmController, confirmSignal, aiActionBridge } = setup();
     expect(confirmController.channel).toBe(ipcAiConfirmChannel);
-    await expect(confirmController.handle(fixtureIpcMainEvent(), 'mcp', 'Do X')).resolves.toBe(true);
-    expect(confirmAiActionUseCase).toHaveBeenCalledWith('mcp', 'Do X');
+    await expect(confirmController.handle(fixtureIpcMainEvent(), 4, 'mcp', 'Do X')).resolves.toBe(true);
+    expect(aiActionBridge.signalFor).toHaveBeenCalledWith(4);
+    expect(confirmAiActionUseCase).toHaveBeenCalledWith('mcp', 'Do X', confirmSignal);
   });
 
   it('passes agent detect, send and cancel to the runner', async () => {

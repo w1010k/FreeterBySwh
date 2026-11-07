@@ -254,7 +254,7 @@ export type IpcAiActionResponseArgs = [reqId: number, res: AiRpcResult];
 export type IpcAiActionResponseRes = void;
 
 export const ipcAiConfirmChannel = makeIpcChannelName('ai-confirm');
-export type IpcAiConfirmArgs = [origin: AiOrigin, describe: string];
+export type IpcAiConfirmArgs = [reqId: number, origin: AiOrigin, describe: string];
 export type IpcAiConfirmRes = boolean;
 
 /** Agent runner: Freeter runs Claude Code / Codex itself (for its own AI screens). */

@@ -77,7 +77,7 @@ export function createSettingsAiActions({ appStore }: Deps): AiAction[] {
       const valid = entries.length > 0 && entries.every(([k, v]) => Object.hasOwn(editable, k) && editable[k as EditableKey](v));
       return valid ? o as EditableSettings : undefined;
     },
-    describe: (settings) => `Change app settings: ${Object.keys(settings).join(', ')}`,
+    describe: (settings) => `Change app settings: ${Object.entries(settings).map(([k, v]) => `${k} = ${JSON.stringify(v)}`).join('; ')}`,
     run: (settings) => {
       const state = appStore.get();
       appStore.set({ ...state, ui: { ...state.ui, appConfig: { ...state.ui.appConfig, ...settings } } });

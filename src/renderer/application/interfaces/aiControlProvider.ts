@@ -6,6 +6,6 @@
 import { AiOrigin, AiRpcResult } from '@common/ai/protocol';
 
 export interface AiControlProvider {
-  confirm(origin: AiOrigin, describe: string): Promise<boolean>;
+  confirm(reqId: number, origin: AiOrigin, describe: string): Promise<boolean>;
   respond(reqId: number, res: AiRpcResult): Promise<void>;
 }

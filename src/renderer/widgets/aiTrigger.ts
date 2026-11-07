@@ -50,10 +50,9 @@ export function useExposedAiFunction<A extends unknown[], R>(exposeApi: WidgetAp
   }, [exposeApi, key]);
 }
 
-/** Up to three items for a confirm line, then "and N more". */
+/** Every item: the user approves each one that opens (runAiRequest refuses a confirm text too long to show). */
 export function listForConfirm(items: string[]): string {
-  const shown = items.slice(0, 3).join(', ');
-  return items.length > 3 ? `${shown} and ${items.length - 3} more` : shown;
+  return items.join(', ');
 }
 
 export const nonEmptyStrings = (v: unknown): string[] =>

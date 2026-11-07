@@ -913,7 +913,7 @@ export async function init() {
   const { runAiRequestUseCase, aiControlProvider } = useCases;
   electronIpcRenderer.on(ipcAiActionRequestChannel, (reqId, req) => {
     if (typeof reqId === 'number' && typeof req === 'object' && req !== null) {
-      runAiRequestUseCase(req as AiRpcRequest).then(res => aiControlProvider.respond(reqId, res));
+      runAiRequestUseCase(req as AiRpcRequest, reqId).then(res => aiControlProvider.respond(reqId, res)).catch(err => console.error('AI request failed', err));
     }
   });
 

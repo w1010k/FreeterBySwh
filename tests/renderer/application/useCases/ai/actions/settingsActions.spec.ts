@@ -55,6 +55,6 @@ describe('createSettingsAiActions()', () => {
   it('describes the change for the confirm dialog', async () => {
     const { get } = await setup();
     const action = get('app.updateSettings');
-    expect(action.describe(action.parse({ bgColor: '#000', bgOpacity: 10 }))).toBe('Change app settings: bgColor, bgOpacity');
+    expect(action.describe(action.parse({ bgColor: '#000', bgOpacity: 10 }))).toBe('Change app settings: bgColor = "#000"; bgOpacity = 10');
   });
 });

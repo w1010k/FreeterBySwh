@@ -46,4 +46,26 @@ describe('createAiActionBridge', () => {
     expect(() => bridge.resolve(999, { ok: true, value: 1 })).not.toThrow();
     await expect(p).resolves.toMatchObject({ code: 'timeout' });
   });
+
+  it('ends a request whose caller went away, and aborts its confirm box', async () => {
+    const send = jest.fn();
+    const bridge = createAiActionBridge({ send, timeoutMs: 1000 });
+    const caller = new AbortController();
+    const p = bridge.request(req, caller.signal);
+    const reqId = send.mock.calls[0][0];
+    const confirmSignal = bridge.signalFor(reqId);
+    expect(confirmSignal?.aborted).toBe(false);
+    caller.abort();
+    await expect(p).resolves.toMatchObject({ ok: false, code: 'failed' });
+    expect(confirmSignal?.aborted).toBe(true);
+  });
+
+  it('aborts the confirm box when the request times out', async () => {
+    const send = jest.fn();
+    const bridge = createAiActionBridge({ send, timeoutMs: 1000 });
+    bridge.request(req);
+    const confirmSignal = bridge.signalFor(send.mock.calls[0][0]);
+    jest.advanceTimersByTime(1000);
+    expect(confirmSignal?.aborted).toBe(true);
+  });
 });

@@ -12,9 +12,10 @@ export const fileOpenerAiActions: WidgetAiAction[] = [createTriggerAiAction({
   description: 'Open the widget\'s files or folders (same as clicking it).',
   apiKey: 'openFiles',
   describe: (widgetName, settings) => {
-    const s = settings as { type?: unknown; files?: unknown; folders?: unknown } | undefined;
+    const s = settings as { type?: unknown; files?: unknown; folders?: unknown; openIn?: unknown } | undefined;
     const isFolder = s?.type === SettingsType.Folder;
     const paths = nonEmptyStrings(isFolder ? s?.folders : s?.files);
-    return `Open ${paths.length} ${isFolder ? 'folder' : 'file'}(s) from "${widgetName}": ${listForConfirm(paths)}`;
+    const app = typeof s?.openIn === 'string' && s.openIn !== '' ? ` with the app set in the widget (${s.openIn})` : '';
+    return `Open ${paths.length} ${isFolder ? 'folder' : 'file'}(s) from "${widgetName}"${app}: ${listForConfirm(paths)}`;
   }
 })] as WidgetAiAction[];

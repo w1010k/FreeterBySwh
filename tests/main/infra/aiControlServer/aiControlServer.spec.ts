@@ -17,7 +17,7 @@ function testPath() {
   return process.platform === 'win32' ? `\\\\.\\pipe\\freeter-test-${id}` : join(tmpdir(), `freeter-test-${id}.sock`);
 }
 
-async function setup(handle: (req: AiRpcRequest) => Promise<AiRpcResult> = async () => ({ ok: true, value: 42 })) {
+async function setup(handle: (req: AiRpcRequest, signal: AbortSignal) => Promise<AiRpcResult> = async () => ({ ok: true, value: 42 })) {
   const path = testPath();
   const server = createAiControlServer({ path, token, handle });
   await server.start();
@@ -81,7 +81,7 @@ describe('createAiControlServer', () => {
     socket.write(encodeLine(req(7, { actionId: 'a.b', input: { x: 1 } }, 'actions.run')));
     const [r] = await next(1);
     expect(r).toEqual({ jsonrpc: '2.0', id: 7, result: 42 });
-    expect(handle).toHaveBeenCalledWith(expect.objectContaining({ method: 'actions.run', params: expect.objectContaining({ actionId: 'a.b', input: { x: 1 } }) }));
+    expect(handle).toHaveBeenCalledWith(expect.objectContaining({ method: 'actions.run', params: expect.objectContaining({ actionId: 'a.b', input: { x: 1 } }) }), expect.any(AbortSignal));
     socket.destroy();
     await server.stop();
   });
@@ -111,6 +111,21 @@ describe('createAiControlServer', () => {
     const path = join(tmpdir(), `freeter-test-${randomBytes(6).toString('hex')}`, 'ai', 'control.sock');
     const server = createAiControlServer({ path, token, handle: async () => ({ ok: true, value: 1 }) });
     await expect(server.start()).resolves.toBeUndefined();
+    await server.stop();
+  });
+
+  it('aborts the requests of a connection that closes (CLI stopped, agent cancelled)', async () => {
+    let signal: AbortSignal | undefined;
+    const { server, socket } = await setup((_req, s) => {
+      signal = s;
+      return new Promise(() => undefined);
+    });
+    socket.write(encodeLine(req(1)));
+    await new Promise(r => setTimeout(r, 50));
+    expect(signal?.aborted).toBe(false);
+    socket.destroy();
+    await new Promise(r => setTimeout(r, 50));
+    expect(signal?.aborted).toBe(true);
     await server.stop();
   });
 

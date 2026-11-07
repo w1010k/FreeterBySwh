@@ -47,7 +47,7 @@ export function createAiControllers({
     handle: async (_event, reqId, res) => aiActionBridge.resolve(reqId, res)
   }, {
     channel: ipcAiConfirmChannel,
-    handle: async (_event, origin, describe) => confirmAiActionUseCase(origin, describe)
+    handle: async (_event, reqId, origin, describe) => confirmAiActionUseCase(origin, describe, aiActionBridge.signalFor(reqId))
   }, {
     channel: ipcAiAgentDetectChannel,
     handle: async () => aiAgentRunner.detect()

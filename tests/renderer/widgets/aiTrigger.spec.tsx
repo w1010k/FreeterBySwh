@@ -54,6 +54,9 @@ describe('trigger widgets', () => {
     const [open] = linkOpenerAiActions;
     expect(open.name).toBe('openLinks');
     expect(open.describe({}, 'Docs', { urls: ['https://a.test', '', 'https://b.test'] })).toBe('Open 2 links from "Docs": https://a.test, https://b.test');
+    // All of them: the user approves each link that opens.
+    const five = ['1', '2', '3', '4', '5'].map(n => `https://${n}.test`);
+    expect(open.describe({}, 'Docs', { urls: five })).toBe(`Open 5 links from "Docs": ${five.join(', ')}`);
   });
 
   it('File Opener names the files or folders it will open', () => {
@@ -61,6 +64,8 @@ describe('trigger widgets', () => {
     expect(open.name).toBe('openFiles');
     expect(open.describe({}, 'Proj', { type: 1, files: ['C:\\a.txt'], folders: ['C:\\x'] })).toBe('Open 1 file(s) from "Proj": C:\\a.txt');
     expect(open.describe({}, 'Proj', { type: 2, files: [], folders: ['C:\\x'] })).toBe('Open 1 folder(s) from "Proj": C:\\x');
+    expect(open.describe({}, 'Proj', { type: 1, files: ['C:\\a.txt'], folders: [], openIn: 'APP-1' }))
+      .toBe('Open 1 file(s) from "Proj" with the app set in the widget (APP-1): C:\\a.txt');
   });
 
   it('Commander shows the command lines and folder it will run', () => {
