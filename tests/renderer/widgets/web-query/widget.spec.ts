@@ -9,7 +9,7 @@ import { act, screen, waitFor } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { fixtureEntry, fixtureSettings1 } from './fixtures';
 import { WebpageExposedApi } from '@/widgets/interfaces';
-import { WidgetApiWidget, WidgetContextMenuFactory } from '@/widgets/appModules';
+import { WidgetApi, WidgetApiWidget, WidgetContextMenuFactory } from '@/widgets/appModules';
 import { labelClearHistory } from '@/widgets/web-query/contextMenu';
 
 function setupSut(settings: Settings, optional?: SetupWidgetSutOptional) {
@@ -119,7 +119,9 @@ describe('Web Query Widget', () => {
       const getWidgetsInCurrentWorkflow = jest.fn((type: string) => (type === 'webpage'
         ? [{ id: 'WP', name: '', api: { getUrl: () => 'https://s.test/?q=QUERY', openUrl } }]
         : []));
-      setupSut(fixtureSettings1(SettingsMode.Webpages, { query: '' }), { mockWidgetApi: { exposeApi, widgets: { getWidgetsInCurrentWorkflow } } });
+      setupSut(fixtureSettings1(SettingsMode.Webpages, { query: '' }), {
+        mockWidgetApi: { exposeApi, widgets: { getWidgetsInCurrentWorkflow: getWidgetsInCurrentWorkflow as unknown as WidgetApi['widgets']['getWidgetsInCurrentWorkflow'] } }
+      });
       const api = exposeApi.mock.calls.at(-1)?.[0] as { query(text: string, entryIndex: number): string };
       expect(api.query('cats', 0)).toBe('not_current');
       expect(openUrl).not.toHaveBeenCalled();
