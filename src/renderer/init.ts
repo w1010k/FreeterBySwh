@@ -587,7 +587,16 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
   const setExposedApiUseCase = createSetExposedApiUseCase(deps);
   const setWidgetDynamicTitleUseCase = createSetWidgetDynamicTitleUseCase(deps);
 
+  const aiControlProvider = createAiControlProvider();
+  const aiActions: AiAction[] = [
+    ...createAppAiActions({ appStore: store.appStore, createWorkflowSubCase, deactivateWorkflowUseCase, renameWorkflowUseCase }),
+    ...createWidgetAiActions({ appStore: store.appStore, createWidgetSubCase, addItemToWidgetLayoutSubCase }),
+  ];
+  const runAiRequestUseCase = createRunAiRequestUseCase({ actions: aiActions, aiControl: aiControlProvider, appStore: store.appStore });
+
   return {
+    aiControlProvider,
+    runAiRequestUseCase,
     dragWidgetFromWorktableLayoutUseCase,
     dragOverWorktableLayoutUseCase,
     dropOnWorktableLayoutUseCase,
@@ -895,12 +904,7 @@ export async function init() {
 
   // AI control requests (from the `freeter` CLI / MCP via the main process).
   // The main process validated the token; the runner validates the input.
-  const aiControlProvider = createAiControlProvider();
-  const aiActions: AiAction[] = [
-    ...createAppAiActions({ appStore: store.appStore, createWorkflowSubCase, deactivateWorkflowUseCase, renameWorkflowUseCase }),
-    ...createWidgetAiActions({ appStore: store.appStore, createWidgetSubCase, addItemToWidgetLayoutSubCase }),
-  ];
-  const runAiRequestUseCase = createRunAiRequestUseCase({ actions: aiActions, aiControl: aiControlProvider, appStore: store.appStore });
+  const { runAiRequestUseCase, aiControlProvider } = useCases;
   electronIpcRenderer.on(ipcAiActionRequestChannel, (reqId, req) => {
     if (typeof reqId === 'number' && typeof req === 'object' && req !== null) {
       runAiRequestUseCase(req as AiRpcRequest).then(res => aiControlProvider.respond(reqId, res));
