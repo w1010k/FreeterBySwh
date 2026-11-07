@@ -74,6 +74,15 @@ scratchpad에 Node 스크립트 하나로 stdio MCP 서버를 만들고 가짜 �
 - 확인은 에이전트별 장치 대신 Freeter 처리부에서 받는다. `--permission-prompt-tool`은 쓰지 않는다 (부분 B).
 - 에이전트 실행기는 세션 기록을 남겨야 한다. 대화 내용은 `~/.claude/projects` 등 각 CLI의 저장 위치에 남는다 (부분 E).
 
+### 단계 0 결과 (2026-11-07)
+
+| 항목 | 결과 |
+|------|------|
+| RunAsNode (패키지된 `Freeter-SWH.exe`, `electron-builder --dir`) | `ELECTRON_RUN_AS_NODE=1`로 Node 스크립트 실행 성공. Node `spawnSync`와 bash pipe에서 stdin, stdout, 종료 코드 (7) 모두 정상 |
+| RunAsNode에서 asar 읽기 | `require('<resources>/app.asar/package.json')` 성공 |
+| PowerShell에서 직접 실행 | `& Freeter-SWH.exe ...`는 출력과 종료 코드를 받지 못했다. PowerShell이 GUI 실행 파일을 기다리지 않기 때문으로 보인다 (추정). 래퍼 `.cmd`를 거치는 경우는 단계 1 Task 7에서 확인한다 |
+| named pipe 기본 ACL | 측정 실패. `[System.IO.Directory]::GetAccessControl`이 pipe에 대해 오류 87을 냈다. 토큰 검사가 접근 통제를 맡으므로 설계는 그대로 둔다 |
+
 ## 구조
 
 ### 전체 흐름
