@@ -7,6 +7,7 @@ import { WidgetType } from '@/widgets/appModules';
 import { settingsEditorComp, Settings, createSettingsState } from './settings';
 import { widgetComp } from './widget';
 import { widgetSvg } from './icons';
+import { webpageAiActions } from './aiActions';
 
 const widgetType: WidgetType<Settings> = {
   id: 'webpage',
@@ -21,7 +22,8 @@ const widgetType: WidgetType<Settings> = {
   createSettingsState,
   settingsEditorComp,
   widgetComp,
-  requiresApi: ['clipboard', 'shell', 'process', 'dataStorage']
+  requiresApi: ['clipboard', 'shell', 'process', 'dataStorage'],
+  aiActions: webpageAiActions
 }
 
 export default widgetType;
