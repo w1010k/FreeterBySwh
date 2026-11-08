@@ -27,6 +27,8 @@ export type TerminalCreateResult = { ok: true; terminalId: string } | { ok: fals
 type Deps = {
   spawnPty: (shell: string, o: { cwd?: string; cols: number; rows: number; env: Record<string, string> }) => PtyProcess;
   defaultShell: string;
+  /** A shell with no folder set starts here (Freeter's own folder can be system32 when the installer started it). */
+  defaultCwd: string;
   /** Includes FREETER_AI_ENDPOINT / FREETER_AI_ORIGIN so `freeter` works in the shell. */
   env: Record<string, string>;
   emitData: (terminalId: string, data: string) => void;
@@ -48,7 +50,7 @@ interface Session {
 const isSize = (n: unknown) => Number.isInteger(n) && (n as number) > 0 && (n as number) <= 1000;
 
 /** Shells running in pseudo-terminals for the app's terminal views (spec F). */
-export function createTerminalHost({ spawnPty, defaultShell, env, emitData, emitExit, newId, batchMs, maxBuffer }: Deps) {
+export function createTerminalHost({ spawnPty, defaultShell, defaultCwd, env, emitData, emitExit, newId, batchMs, maxBuffer }: Deps) {
   const sessions = new Map<string, Session>();
 
   const flush = (id: string, s: Session) => {
@@ -67,7 +69,7 @@ export function createTerminalHost({ spawnPty, defaultShell, env, emitData, emit
       }
       let pty: PtyProcess;
       try {
-        pty = spawnPty(o.shell || defaultShell, { cwd: o.cwd || undefined, cols: o.cols, rows: o.rows, env });
+        pty = spawnPty(o.shell || defaultShell, { cwd: o.cwd || defaultCwd, cols: o.cols, rows: o.rows, env });
       } catch (err) {
         return { ok: false, message: err instanceof Error ? err.message : String(err) };
       }

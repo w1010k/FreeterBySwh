@@ -8,7 +8,7 @@ import { CreateSettingsState, ReactComponent, SettingsEditorReactComponentProps,
 export interface Settings {
   /** Shell program; empty = the platform default (PowerShell on Windows, $SHELL elsewhere). */
   shell: string;
-  /** Start folder; empty = the app's working folder. */
+  /** Start folder; empty = the user's home folder. */
   cwd: string;
   /** Typed into the shell when it starts, e.g. "claude". */
   startCommand: string;
@@ -27,7 +27,7 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
   return (
     <>
       <SettingBlock titleForId='terminal-shell' title='Shell' moreInfo='Program to run, e.g. pwsh.exe, cmd.exe, bash. Empty: PowerShell on Windows, your $SHELL elsewhere.'>
-        <input type="text" id="terminal-shell" value={settings.shell} placeholder="(default)" onChange={e => updateSettings({ ...settings, shell: e.target.value })}/>
+        <input type="text" id="terminal-shell" value={settings.shell} placeholder="(your home folder)" onChange={e => updateSettings({ ...settings, shell: e.target.value })}/>
       </SettingBlock>
       <SettingBlock titleForId='terminal-cwd' title='Start Folder'>
         <input type="text" id="terminal-cwd" value={settings.cwd} placeholder="(default)" onChange={e => updateSettings({ ...settings, cwd: e.target.value })}/>

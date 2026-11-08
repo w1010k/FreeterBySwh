@@ -138,11 +138,14 @@ import type * as NodePty from 'node-pty';
 import {createTerminalHost, prependPath} from '@/application/terminal/terminalHost';
 import {createPtyControllers} from '@/controllers/pty';
 import {randomBytes, randomUUID} from 'node:crypto';
-import {ChildProcess, spawn as spawnChild} from 'node:child_process';
+import {ChildProcess, execFileSync, spawn as spawnChild} from 'node:child_process';
+import {homedir} from 'node:os';
 import {mkdir, writeFile} from 'node:fs/promises';
 import {createAiAgentRunner} from '@/application/ai/aiAgentRunner';
 import {createAgentEventCoalescer} from '@/application/ai/agentEventCoalescer';
-import {buildAgentArgs, endGroupWithLeader, findOnPath, killTree, spawnSpec} from '@/infra/aiAgent/agentCommand';
+import {
+  buildAgentArgs, endGroupWithLeader, expandEnvVars, findOnPath, killTree, mergePath, parseRegPath, spawnSpec,
+} from '@/infra/aiAgent/agentCommand';
 import {createAiActionBridge} from '@/application/ai/aiActionBridge';
 import {createConfirmAiActionUseCase} from '@/application/useCases/ai/confirmAiAction';
 import {createAiControllers} from '@/controllers/ai';
@@ -428,6 +431,30 @@ if (!app.requestSingleInstanceLock()) {
     mkdir(aiWorkDir, {recursive: true})
       .then(() => writeFile(aiMcpConfigPath, JSON.stringify({mcpServers: {freeter: aiMcp}})))
       .catch(err => console.error('AI agent folder setup failed', err));
+    /**
+     * Windows: the PATH of the registry (system, then user) joins the app's own. Started by the installer (msiexec),
+     * the app has no user PATH, so neither its CLIs nor its terminals find programs such as claude (2026-11-09).
+     * Also read again when a CLI is not found: it may have been installed after Freeter started.
+     * ponytail: reg output is in the OEM code page; a folder name with non-ASCII letters may not match (it is skipped).
+     */
+    const refreshWindowsPath = () => {
+      if (process.platform !== 'win32') {
+        return;
+      }
+      const read = (key: string) => {
+        try {
+          return parseRegPath(execFileSync('reg', ['query', key, '/v', 'Path'], {encoding: 'utf8', windowsHide: true, timeout: 5000}));
+        } catch {
+          return undefined;
+        }
+      };
+      const fromRegistry = [read('HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment'), read('HKCU\\Environment')]
+        .filter((v): v is string => v !== undefined)
+        .map(v => expandEnvVars(v, process.env))
+        .join(';');
+      process.env.PATH = mergePath(process.env.PATH ?? '', fromRegistry);
+    };
+    refreshWindowsPath();
     const killQuietly = (pid: number, signal: NodeJS.Signals) => {
       try {
         process.kill(pid, signal);
@@ -436,7 +463,15 @@ if (!app.requestSingleInstanceLock()) {
       }
     };
     const aiAgentRunner = createAiAgentRunner({
-      findProgram: tool => findOnPath(process.platform === 'win32' ? [`${tool}.exe`, `${tool}.cmd`] : [tool], process.env.PATH ?? ''),
+      findProgram: tool => {
+        const find = () => findOnPath(process.platform === 'win32' ? [`${tool}.exe`, `${tool}.cmd`] : [tool], process.env.PATH ?? '');
+        const found = find();
+        if (found !== undefined) {
+          return found;
+        }
+        refreshWindowsPath();
+        return find();
+      },
       spawn: (program, args) => {
         const spec = spawnSpec(program, args, process.platform);
         // detached on POSIX: the CLI leads a process group, so killTree ends its children too.
@@ -491,6 +526,7 @@ if (!app.requestSingleInstanceLock()) {
         return nodePty.spawn(shell, [], {name: 'xterm-256color', ...o});
       },
       defaultShell: process.platform === 'win32' ? 'powershell.exe' : (process.env.SHELL || '/bin/bash'),
+      defaultCwd: homedir(),
       env: ptyEnv,
       emitData: (id, data) => sendToAppWindow(ipcPtyDataChannel, id, data),
       emitExit: (id, code) => sendToAppWindow(ipcPtyExitChannel, id, code),

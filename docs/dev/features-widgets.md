@@ -533,7 +533,7 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
 #### Terminal (`terminal`)
 
 - **역할**: 위젯 안의 셸 [fork #100]. xterm.js로 그리고 main의 node-pty 셸과 `pty` 모듈로 주고받는다.
-- **설정**: `shell` (빈 값은 플랫폼 기본), `cwd`, `startCommand` (셸 시작 뒤 입력). 바뀐 설정은 Restart Shell 뒤 적용된다.
+- **설정**: `shell` (빈 값은 플랫폼 기본), `cwd` (빈 값은 사용자 홈, main `terminalHost`의 `defaultCwd`), `startCommand` (셸 시작 뒤 입력). 바뀐 설정은 Restart Shell 뒤 적용된다.
 - **수명**: 모듈 수준 `sessionByWidget` (위젯 id → 터미널 id) 때문에 셸은 언마운트 뒤에도 돈다. 다시 마운트하면 `pty.buffer`로 최근 출력을 그린다. 위젯을 지우면 `onDeleted` (`forgetTerminalSession`)가 셸을 끝낸다.
 - **액션 바**: `START-CLAUDE`, `START-CODEX` (셸에 명령 입력; 마지막 출력 줄이 셸 프롬프트처럼 끝날 때만, `atShellPrompt`), `RESTART`.
 - **끝난 셸**: `exitedWidgets`에 남아, 화면이 다시 붙어도 새 셸을 띄우지 않는다 (Restart Shell만).

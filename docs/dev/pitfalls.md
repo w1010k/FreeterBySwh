@@ -408,11 +408,10 @@
 
 #### preload의 removeListener
 
-- 출처: `[upstream]`
-- 증상: (잠재) IPC 리스너를 해제해도 해제되지 않는다.
-- 원인: `on`은 `wrappedListener`를 WeakMap에 기록하지만 실제 등록은 별도의 새 화살표 함수로 한다. `removeListener`는 등록되지 않은 `wrappedListener`를 지운다.
-  현재 renderer에 `removeListener` 호출처는 없다.
-- 규칙: IPC 리스너 해제가 필요해지면 preload의 `on`이 `wrappedListener`를 등록하도록 먼저 고친다.
+- 출처: `[upstream]`, 2026-11-09 수정 (`[fork #100]`)
+- 증상: (해결) IPC 리스너를 해제해도 해제되지 않았다.
+- 원인: `on`은 `wrappedListener`를 WeakMap에 기록했지만 실제 등록은 별도의 새 화살표 함수로 했다. `removeListener`는 등록되지 않은 `wrappedListener`를 지웠다.
+- 규칙: `on`은 WeakMap에 기록한 래퍼를 그대로 등록한다 (`tests/renderer/preload/index.spec.ts`). preload를 바꾸면 `yarn dev`를 다시 시작한다 (preload는 시작할 때 한 번 빌드된다).
 - 근거: `src/renderer/preload/index.ts` `wrapperByListener`
 
 #### IPC 발신자 검증
@@ -933,6 +932,14 @@
 - 규칙: `osActivityMonitor`는 `start()`를 다시 부르지 않는다. 그래서 `foregroundWindow`의 reader가 PowerShell이 스스로 끝나면 30초 뒤 다시 띄운다. 연속 5번
   죽으면 멈추고, 샘플이 오면 횟수를 초기화한다.
 - 근거: CHANGES #64, `src/main/infra/osActivity/foregroundWindow.ts`, `src/main/infra/childProcessProvider/childProcessProvider.ts`, `src/main/index.ts`
+
+#### 설치 프로그램이 띄운 앱의 환경
+
+- 출처: `[fork #100]`, swh.24 설치 직후 (2026-11-09)
+- 증상: AI Chat이 "Claude Code is not installed"를 보이고, Terminal 안에서도 `claude`를 찾지 못한다. Terminal의 셸이 `C:\WINDOWS\system32`에서 시작한다.
+- 원인: MSI 설치 마지막의 실행으로 `msiexec.exe`가 띄운 앱은 사용자 PATH가 없는 환경과 `system32` 현재 폴더를 받는다 (실측: 부모 프로세스가 `msiexec.exe`, 셸에서 `claude` 없음). 시작 메뉴로 띄우면 정상이다. Freeter가 켜진 뒤 설치한 CLI도 PATH에 없다.
+- 규칙: Windows main은 시작할 때와 CLI를 찾지 못했을 때 레지스트리의 PATH (시스템 `HKLM\...\Session Manager\Environment`, 사용자 `HKCU\Environment`, `%VAR%` 펼침)를 `process.env.PATH`에 합친다 (없는 폴더만 뒤에). Terminal은 시작 폴더 설정이 비면 사용자 홈에서 셸을 띄운다 (`terminalHost`의 `defaultCwd`). `reg` 출력은 OEM 코드 페이지라 ASCII가 아닌 폴더 이름은 맞지 않을 수 있다.
+- 근거: `src/main/index.ts` `refreshWindowsPath`, `src/main/infra/aiAgent/agentCommand.ts` (`parseRegPath`, `expandEnvVars`, `mergePath`)
 
 #### PowerShell 출력 인코딩
 

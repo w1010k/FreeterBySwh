@@ -50,6 +50,7 @@ function setup(maxBuffer = 100) {
   const host = createTerminalHost({
     spawnPty,
     defaultShell: 'powershell.exe',
+    defaultCwd: 'C:/Users/me',
     env: { PATH: 'P', FREETER_AI_ORIGIN: 'terminal' },
     emitData: (id, d) => data.push([id, d]),
     emitExit: (id, c) => exits.push([id, c]),
@@ -68,6 +69,12 @@ describe('createTerminalHost', () => {
     expect(host.create({ cols: 100, rows: 30, cwd: 'C:/w', command: 'claude' })).toEqual({ ok: true, terminalId: 't1' });
     expect(spawnPty).toHaveBeenCalledWith('powershell.exe', { cwd: 'C:/w', cols: 100, rows: 30, env: { PATH: 'P', FREETER_AI_ORIGIN: 'terminal' } });
     expect(ptys[0].written).toEqual(['claude\r']);
+  });
+
+  it('starts a shell with no folder set in the home folder, not in the folder Freeter was started in', () => {
+    const { host, spawnPty } = setup();
+    host.create({ cols: 80, rows: 24 });
+    expect(spawnPty).toHaveBeenCalledWith('powershell.exe', expect.objectContaining({ cwd: 'C:/Users/me' }));
   });
 
   it('batches output into one message per interval', () => {

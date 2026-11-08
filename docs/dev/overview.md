@@ -260,8 +260,7 @@ main은 `did-attach-webview`에서 guest마다 아래를 건다.
   `getMainApiOnce`는 첫 호출에만 `MainApi`를 돌려준다. `src/renderer/infra/mainApi/mainApi.ts`가 모듈 로드 때 한 번 받아
   `electronIpcRenderer`로 export하고, 못 받으면 throw한다 [upstream]
 - preload의 리스너는 Electron event 객체를 빼고 인자만 넘긴다 [upstream]
-- preload `removeListener`는 실제로 해제하지 못한다. `on`이 등록하는 함수와 WeakMap에 저장하는 래퍼가 서로 다른 함수다. 현재 renderer에 `removeListener` 호출처는
-  없다 [upstream]
+- preload `removeListener`는 `on`으로 등록한 리스너를 해제한다 (`on`이 WeakMap에 기록한 래퍼를 그대로 등록; 2026-11-09 upstream 결함 수정, `tests/renderer/preload/index.spec.ts`). 앱 수명 동안 리스너 하나를 두는 provider (`aiAgentProvider`, `ptyProvider`)는 `src/renderer/infra/subscribers/subscribers.ts` (`createSubscribers`: id별 구독자 목록, `add`·`has`·`emit`)로 메시지를 대화·터미널 id별 구독자에게 나눠 준다. [upstream, fork #100]
 
 #### 등록되지 않은 채널
 
