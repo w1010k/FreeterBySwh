@@ -43,6 +43,10 @@ function WidgetComp({settings, widgetApi, sharedState}: WidgetReactComponentProp
   }, [paths, setDynamicTitle]);
 
   const openFiles = useCallback(() => {
+    // The button only shows with paths; an AI call must not launch the app alone either.
+    if (paths.length === 0) {
+      return;
+    }
     if (openInApp) {
       const { execPath, cmdArgs} = openInApp.settings;
       shell.openApp( execPath, [...cmdArgs ? [cmdArgs] : [], ...paths])

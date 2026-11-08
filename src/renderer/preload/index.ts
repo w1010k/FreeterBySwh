@@ -19,7 +19,8 @@ const mainApi: MainApi = {
     on: ((channel: string, listener: IpcRendererListener) => {
       const wrappedListener: ElectronIpcRendererListener = (_, ...args) => listener(...args);
       wrapperByListener.set(listener, wrappedListener);
-      return electronIpcRenderer.on(channel, (_, ...args) => listener(...args))
+      // The kept wrapper itself: removeListener finds it by the listener.
+      return electronIpcRenderer.on(channel, wrappedListener)
     }) as MainApi['electronIpcRenderer']['on'],
 
     // Dropping Event in listener for security reason, to make ipcRenderer unaccessible

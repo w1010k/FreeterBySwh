@@ -149,6 +149,25 @@ export function setupWidgetSut<T>(reactComp: ReactComponent<WidgetReactComponent
     systemStats: {
       getStats: jest.fn(),
       ...mockWidgetApi.systemStats
+    },
+    pty: {
+      create: jest.fn(async () => ({ ok: true as const, terminalId: 'TERM-ID' })),
+      write: jest.fn(),
+      resize: jest.fn(),
+      kill: jest.fn(),
+      buffer: jest.fn(async () => undefined),
+      onData: jest.fn(() => () => undefined),
+      onExit: jest.fn(() => () => undefined),
+      ...mockWidgetApi.pty
+    },
+    aiAgent: {
+      detect: jest.fn(async () => ({ claude: true, codex: true })),
+      send: jest.fn(async () => ({ ok: true as const, conversationId: 'CONV-ID' })),
+      cancel: jest.fn(),
+      warm: jest.fn(async () => ({ ok: true as const, conversationId: 'CONV-ID' })),
+      end: jest.fn(),
+      onEvent: jest.fn(() => () => undefined),
+      ...mockWidgetApi.aiAgent
     }
   };
   return {

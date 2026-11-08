@@ -162,12 +162,13 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
   // AI actions (aiActions.ts): show and save the text like a user edit. Refused while
   // the user is typing here, so neither side's edit is lost. The exposed object closes
   // over refs only and is cleared on unmount (pitfalls: exposed API leaks).
-  const aiSetRef = useRef<(text: string) => boolean>(() => false);
+  const aiSetRef = useRef<(text: string, allowedByUser?: boolean) => boolean>(() => false);
   useEffect(() => {
-    aiSetRef.current = (text) => {
+    aiSetRef.current = (text, allowedByUser) => {
       // The note keeps the focus after the user switches to another app (e.g. the agent's
-      // terminal); only a focused window means the user may be typing here.
-      if (isEditing() && document.hasFocus()) {
+      // terminal); only a focused window means the user may be typing here. A write the user
+      // allowed in the confirm box (which focuses the window) is taken: the user allowed replacing or adding to this note.
+      if (isEditing() && document.hasFocus() && !allowedByUser) {
         return false;
       }
       if (editorRef.current) {
@@ -184,7 +185,7 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
     if (!isLoaded) {
       return undefined;
     }
-    const note: NoteAiApi = { get: () => loadedNote.current, set: (text) => aiSetRef.current(text) };
+    const note: NoteAiApi = { get: () => loadedNote.current, set: (text, allowedByUser) => aiSetRef.current(text, allowedByUser) };
     exposeApi({ note });
     return () => exposeApi({});
   }, [exposeApi, isLoaded]);

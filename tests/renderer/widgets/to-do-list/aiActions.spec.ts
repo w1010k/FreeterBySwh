@@ -9,7 +9,10 @@ import { WidgetAiAction } from '@/base/ai/widgetAiAction';
 
 function setup(initial: ToDoListState | undefined, doneToBottom = false) {
   let state = initial;
-  const api = { todo: { get: () => state, set: (s: ToDoListState) => { state = s; } } };
+  const setDone = jest.fn((id: number, done: boolean) => {
+    state = state && { ...state, items: state.items.map(i => (i.id === id ? { ...i, isDone: done } : i)) };
+  });
+  const api = { todo: { get: () => state, set: (s: ToDoListState) => { state = s; }, setDone } };
   const get = (name: string) => toDoListAiActions.find(a => a.name === name) as WidgetAiAction;
   const exec = (name: string, input: Record<string, unknown>) => {
     const parsed = get(name).parse(input);
@@ -18,7 +21,7 @@ function setup(initial: ToDoListState | undefined, doneToBottom = false) {
     }
     return Promise.resolve(get(name).run({ api, settings: { doneToBottom } }, parsed));
   };
-  return { get, exec, state: () => state };
+  return { get, exec, state: () => state, setDone };
 }
 
 const twoItems: ToDoListState = { items: [{ id: 1, text: 'a', isDone: false }, { id: 2, text: 'b', isDone: false }], nextItemId: 3 };
@@ -41,12 +44,11 @@ describe('toDoListAiActions', () => {
     expect(state()?.items.map(i => i.text)).toEqual(['d', 'a', 'b', 'c']);
   });
 
-  it('setDone completes and reopens an item, moving it to the bottom when the setting says so', async () => {
-    const { exec, state } = setup(twoItems, true);
+  it('setDone goes through the widget checkbox handler', async () => {
+    const { exec, setDone } = setup(twoItems);
     await exec('setDone', { itemId: 1, done: true });
-    expect(state()?.items).toEqual([{ id: 2, text: 'b', isDone: false }, { id: 1, text: 'a', isDone: true }]);
     await exec('setDone', { itemId: 1, done: false });
-    expect(state()?.items.find(i => i.id === 1)?.isDone).toBe(false);
+    expect(setDone.mock.calls).toEqual([[1, true], [1, false]]);
   });
 
   it('editItem and deleteItem change the item, and return not_found for an unknown item', async () => {

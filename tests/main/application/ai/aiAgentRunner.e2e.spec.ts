@@ -48,32 +48,40 @@ const enabled = process.env.FREETER_AGENT_E2E === '1';
         }
       },
       argsFor: (tool, o) => buildAgentArgs(tool, { mcpConfigPath, mcp, ...o }),
-      newId: () => 'c1',
+      newId: (() => { let n = 0; return () => `c${++n}`; })(),
       timeoutMs: 200000,
+      idleMs: 60000,
     });
-    const turn = (conversationId: string | null, tool: AgentTool, prompt: string, model?: string) => new Promise<AgentEvent[]>(res => {
+    const turn = (conversationId: string | null, tool: AgentTool, prompt: string, model?: string, resume?: string) => new Promise<AgentEvent[]>(res => {
       events.length = 0;
       onDone = () => setTimeout(() => res([...events]), 200);
-      const r = runner.send(conversationId, { tool, prompt, model });
+      const r = runner.send(conversationId, { tool, prompt, model, resume });
       if (!r.ok) {
         res([{ type: 'error', message: r.message }]);
       }
     });
-    return { turn };
+    return { turn, runner };
   }
 
   it.each([['claude', 'haiku'], ['codex', undefined]] as const)('%s reads Freeter through the MCP server and resumes the conversation', async (tool, model) => {
-    const { turn } = await makeRunner();
+    const { turn, runner } = await makeRunner();
     const first = await turn(null, tool, 'Call the Freeter app_describe tool and answer with only the name of the first workflow.', model);
     expect(first.filter(e => e.type === 'error')).toEqual([]);
     expect(first.some(e => e.type === 'tool' && e.name.includes('app_describe'))).toBe(true);
     const done = first.find(e => e.type === 'done');
     expect(done && 'sessionId' in done && done.sessionId).toBeTruthy();
-    const text = first.filter(e => e.type === 'text').map(e => (e as { text: string }).text).join(' ');
+    const text = first.filter(e => e.type === 'text' || e.type === 'textDelta').map(e => (e as { text: string }).text).join('');
     const second = await turn('c1', tool, 'Repeat your previous answer exactly, without calling any tool.', model);
     expect(second.filter(e => e.type === 'error')).toEqual([]);
-    const text2 = second.filter(e => e.type === 'text').map(e => (e as { text: string }).text).join(' ');
+    const text2 = second.filter(e => e.type === 'text' || e.type === 'textDelta').map(e => (e as { text: string }).text).join('');
     expect(text2.trim().length).toBeGreaterThan(0);
-    console.log(tool, JSON.stringify({ text, text2 }));
+    // After an app restart: a new conversation in a new process continues the CLI conversation.
+    runner.stopAll();
+    const sessionId = (done as { sessionId: string }).sessionId;
+    const third = await turn(null, tool, 'What was the first word of your previous answer? Reply with that word only.', model, sessionId);
+    expect(third.filter(e => e.type === 'error')).toEqual([]);
+    const text3 = third.filter(e => e.type === 'text' || e.type === 'textDelta').map(e => (e as { text: string }).text).join('');
+    runner.stopAll();
+    console.log(tool, JSON.stringify({ text, text2, text3 }));
   });
 });

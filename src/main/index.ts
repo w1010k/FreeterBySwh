@@ -141,7 +141,8 @@ import {randomBytes, randomUUID} from 'node:crypto';
 import {ChildProcess, spawn as spawnChild} from 'node:child_process';
 import {mkdir, writeFile} from 'node:fs/promises';
 import {createAiAgentRunner} from '@/application/ai/aiAgentRunner';
-import {buildAgentArgs, findOnPath, spawnSpec} from '@/infra/aiAgent/agentCommand';
+import {createAgentEventCoalescer} from '@/application/ai/agentEventCoalescer';
+import {buildAgentArgs, endGroupWithLeader, findOnPath, killTree, spawnSpec} from '@/infra/aiAgent/agentCommand';
 import {createAiActionBridge} from '@/application/ai/aiActionBridge';
 import {createConfirmAiActionUseCase} from '@/application/useCases/ai/confirmAiAction';
 import {createAiControllers} from '@/controllers/ai';
@@ -384,6 +385,8 @@ if (!app.requestSingleInstanceLock()) {
         if (appWindow?.isMinimized()) {
           appWindow.restore();
         }
+        // A visible window behind the agent's terminal would open the box out of sight.
+        appWindow?.focus();
       },
       showConfirmBox: async (message, signal) => {
         const win = ElectronBrowserWindow.getAllWindows().find(w => w === appWindow);
@@ -425,24 +428,44 @@ if (!app.requestSingleInstanceLock()) {
     mkdir(aiWorkDir, {recursive: true})
       .then(() => writeFile(aiMcpConfigPath, JSON.stringify({mcpServers: {freeter: aiMcp}})))
       .catch(err => console.error('AI agent folder setup failed', err));
+    const killQuietly = (pid: number, signal: NodeJS.Signals) => {
+      try {
+        process.kill(pid, signal);
+      } catch {
+        // ended already
+      }
+    };
     const aiAgentRunner = createAiAgentRunner({
       findProgram: tool => findOnPath(process.platform === 'win32' ? [`${tool}.exe`, `${tool}.cmd`] : [tool], process.env.PATH ?? ''),
       spawn: (program, args) => {
         const spec = spawnSpec(program, args, process.platform);
-        return spawnChild(spec.command, spec.args, {cwd: aiWorkDir, windowsVerbatimArguments: spec.verbatim, windowsHide: true});
+        // detached on POSIX: the CLI leads a process group, so killTree ends its children too.
+        const child = spawnChild(spec.command, spec.args, {
+          cwd: aiWorkDir, windowsVerbatimArguments: spec.verbatim, windowsHide: true, detached: process.platform !== 'win32',
+        });
+        endGroupWithLeader(child, process.platform, killQuietly);
+        return child;
       },
       kill: proc => {
-        // A CLI runs its own children (MCP server, model processes): end the whole tree.
-        if (process.platform === 'win32' && proc.pid !== undefined) {
-          spawnChild('taskkill', ['/PID', String(proc.pid), '/T', '/F'], {windowsHide: true});
-        } else {
+        if (proc.pid === undefined) {
           (proc as ChildProcess).kill();
+          return;
         }
+        killTree(proc.pid, process.platform, {
+          // An 'error' without a listener (taskkill could not start) would be an uncaught exception in main.
+          run: (command, args) => spawnChild(command, args, {windowsHide: true}).on('error', err => console.error('Could not end the AI CLI', err)),
+          kill: killQuietly,
+        });
       },
-      emit: (conversationId, event) => sendToAppWindow(ipcAiAgentEventChannel, conversationId, event),
+      // An event can come before the page knows a new conversation id (a spawn failure in send()): the page's
+      // aiAgentProvider keeps events of a conversation nobody listens to yet and hands them over on subscribe.
+      // Streamed text goes at most once per 60 ms per conversation (one IPC message and one render each).
+      emit: createAgentEventCoalescer((conversationId, event) => sendToAppWindow(ipcAiAgentEventChannel, conversationId, event), 60),
       argsFor: (tool, o) => buildAgentArgs(tool, {mcpConfigPath: aiMcpConfigPath, mcp: aiMcp, ...o}),
       newId: () => randomUUID(),
       timeoutMs: 300000,
+      // ponytail: one idle CLI process (Claude Code or Codex) per conversation for this long (memory); the next turn resumes it.
+      idleMs: 5 * 60 * 1000,
     });
     stopAiAgents = () => aiAgentRunner.stopAll();
 
@@ -600,7 +623,12 @@ if (!app.requestSingleInstanceLock()) {
       )
       // A (re)load drops the page's listener; it says ai-ready again once it listens.
       ElectronBrowserWindow.getAllWindows().find(w => w === appWindow)?.webContents
-        .on('did-start-loading', () => aiActionBridge.setReady(false));
+        .on('did-start-loading', () => aiActionBridge.setReady(false))
+        // A new page (reload) has no view for the old shells and turns, and starts its own.
+        .on('did-navigate', () => {
+          stopAiAgents?.();
+          stopTerminals?.();
+        });
 
       app.on('browser-window-created', (_e, win) => {
         // Disable menu in child windows

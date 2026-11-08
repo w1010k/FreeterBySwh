@@ -23,6 +23,7 @@ export function createWidgetTypeAiActions({ appStore, widgetTypes }: Deps): AiAc
     id: `${widgetType.id}.${action.name}`,
     description: `${widgetType.name} widget: ${action.description}`,
     kind: action.kind,
+    ...(widgetType.runsPrograms || action.alwaysConfirm ? { alwaysConfirm: () => true } : {}),
     inputSchema: {
       type: 'object',
       properties: { widgetId: idSchema, ...action.properties },
@@ -42,7 +43,7 @@ export function createWidgetTypeAiActions({ appStore, widgetTypes }: Deps): AiAc
       const widget = widgets[widgetId];
       return action.describe(input, widget ? getWidgetDisplayName(widget, widgetType) : widgetId, widget?.settings);
     },
-    run: ({ widgetId, input }) => {
+    run: ({ widgetId, input }, how) => {
       const widget = appStore.get().entities.widgets[widgetId];
       if (!widget || widget.type !== widgetType.id) {
         return notFound(`${widgetType.name} widget`, widgetId);
@@ -55,7 +56,7 @@ export function createWidgetTypeAiActions({ appStore, widgetTypes }: Deps): AiAc
           message: 'The widget is not loaded (its workflow was unloaded to save memory). Show it with workflow.switch, then retry.'
         };
       }
-      return action.run({ api, settings: widget.settings }, input);
+      return action.run({ api, settings: widget.settings, confirmed: how?.confirmed === true }, input);
     }
   })));
 }

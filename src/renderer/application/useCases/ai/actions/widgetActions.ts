@@ -32,9 +32,12 @@ function settingsAfter(state: AppState, widgetId: EntityId, change: Record<strin
   return widget && widgetType ? { before: widget.settings, after: widgetType.createSettingsState({ ...widget.settings, ...change }) } : undefined;
 }
 
+const changedKeys = (before: Record<string, unknown>, after: Record<string, unknown>) =>
+  Object.keys(after).filter(k => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
+
 /** Every changed value in full (runAiRequest refuses a confirm text too long to show). */
 function describeChanges(before: Record<string, unknown>, after: Record<string, unknown>): string {
-  const changes = Object.keys(after).filter(k => JSON.stringify(before[k]) !== JSON.stringify(after[k])).map(k => `${k} = ${JSON.stringify(after[k])}`);
+  const changes = changedKeys(before, after).map(k => `${k} = ${JSON.stringify(after[k])}`);
   return changes.length > 0 ? changes.join('; ') : '(no change)';
 }
 
@@ -50,6 +53,8 @@ export function createWidgetAiActions({
     id: 'widget.add',
     description: 'Add a widget of a type (see app.describe widgetTypes) to a workflow. Without a name, the widget shows its type name.',
     kind: 'write',
+    // A Terminal starts a shell as soon as it shows.
+    alwaysConfirm: ({ widgetTypeId }) => !!appStore.get().entities.widgetTypes[widgetTypeId]?.runsPrograms,
     inputSchema: {
       type: 'object',
       properties: { workflowId: idSchema, widgetTypeId: idSchema, name: { type: 'string' } },
@@ -201,6 +206,20 @@ export function createWidgetAiActions({
         return undefined;
       }
       return { widgetId: o.widgetId, settings };
+    },
+    // Commands and files to open are settings: a change there runs on the PC when the user clicks later.
+    alwaysConfirm: ({ widgetId, settings }) => {
+      const state = appStore.get();
+      const widget = state.entities.widgets[widgetId];
+      const type = widget && state.entities.widgetTypes[widget.type];
+      if (!type) {
+        return false;
+      }
+      // The stored values decide, not the keys sent: a widget type can derive a setting from another key.
+      const s = settingsAfter(state, widgetId, settings);
+      // Both sides through the widget type, so a value it only fills in (absent → default) is no change.
+      const changed = s ? changedKeys(type.createSettingsState(s.before) as Record<string, unknown>, s.after as Record<string, unknown>) : [];
+      return !!type.runsPrograms || (type.confirmSettings ?? []).some(k => changed.includes(k));
     },
     // Shows what will be stored, not the input: a setting can be a script injected into web pages (Webpage injectedJS).
     describe: ({ widgetId, settings }) => {

@@ -147,6 +147,48 @@ describe('createWidgetAiActions() settings and move', () => {
     expect(appStore.get().entities.widgets[widget.id]?.settings).toEqual({ size: 10 });
   });
 
+  it('widget.updateSettings always asks for a widget type that runs programs (its settings hold commands or files)', async () => {
+    const { get, appStore, widget } = await setup2();
+    const input = { widgetId: widget.id, settings: { size: 20 } };
+    expect(get('widget.updateSettings').alwaysConfirm?.(input) ?? false).toBe(false);
+    const state = appStore.get();
+    const type = state.entities.widgetTypes[widget.type]!;
+    appStore.set({ ...state, entities: { ...state.entities, widgetTypes: { [type.id]: { ...type, runsPrograms: true } } } });
+    expect(get('widget.updateSettings').alwaysConfirm?.(input)).toBe(true);
+  });
+
+  it('widget.updateSettings always asks for settings that run code in pages (Webpage injectedJS)', async () => {
+    const { get, appStore, widget } = await setup2();
+    const state = appStore.get();
+    const type = state.entities.widgetTypes[widget.type]!;
+    // A type that keeps the setting, as Webpage does.
+    const keeps = (s: Record<string, unknown>) => ({ size: typeof s.size === 'number' ? s.size : 10, injectedJS: typeof s.injectedJS === 'string' ? s.injectedJS : '' });
+    appStore.set({ ...state, entities: { ...state.entities, widgetTypes: { [type.id]: { ...type, confirmSettings: ['injectedJS'], createSettingsState: keeps } } } });
+    expect(get('widget.updateSettings').alwaysConfirm?.({ widgetId: widget.id, settings: { size: 1 } }) ?? false).toBe(false);
+    expect(get('widget.updateSettings').alwaysConfirm?.({ widgetId: widget.id, settings: { injectedJS: 'x' } })).toBe(true);
+  });
+
+  it('widget.add always asks for a widget type that runs programs (a Terminal starts a shell when it shows)', async () => {
+    const { get, appStore } = await setup2();
+    const state = appStore.get();
+    const type = Object.values(state.entities.widgetTypes)[0]!;
+    const input = { workflowId: 'W', widgetTypeId: type.id };
+    expect(get('widget.add').alwaysConfirm?.(input) ?? false).toBe(false);
+    appStore.set({ ...state, entities: { ...state.entities, widgetTypes: { [type.id]: { ...type, runsPrograms: true } } } });
+    expect(get('widget.add').alwaysConfirm?.(input)).toBe(true);
+  });
+
+  it('widget.updateSettings asks when a confirm setting changes through another key (the widget type rewrites it)', async () => {
+    const { get, appStore, widget } = await setup2();
+    const state = appStore.get();
+    const type = state.entities.widgetTypes[widget.type]!;
+    // This widget type derives 'size' from 'zoom' (like Webpage's url from a legacy urlName).
+    const derived = { ...type, confirmSettings: ['size'], createSettingsState: (s: Record<string, unknown>) => ({ size: typeof s.zoom === 'number' ? s.zoom : 12 }) };
+    appStore.set({ ...state, entities: { ...state.entities, widgetTypes: { [type.id]: derived } } });
+    expect(get('widget.updateSettings').alwaysConfirm?.({ widgetId: widget.id, settings: { zoom: 99 } })).toBe(true);
+    expect(get('widget.updateSettings').alwaysConfirm?.({ widgetId: widget.id, settings: { zoom: 12 } }) ?? false).toBe(false);
+  });
+
   it('widget.updateSettings parse requires a settings object', async () => {
     const { get } = await setup2();
     expect(get('widget.updateSettings').parse({ widgetId: 'x', settings: [1] })).toBeUndefined();

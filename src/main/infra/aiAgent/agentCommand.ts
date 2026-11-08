@@ -20,7 +20,7 @@ export interface AgentArgsOptions {
   mcp: AgentMcpServer;
   model?: string;
   effort?: AgentEffort;
-  /** Continues that conversation (Claude session id / Codex thread id). */
+  /** Continues that Claude Code session (Codex resumes its thread in the protocol, see agentSession.ts). */
   sessionId?: string;
 }
 
@@ -28,8 +28,8 @@ export interface AgentArgsOptions {
 const toml = (s: string) => JSON.stringify(s);
 
 /**
- * The command line for one turn; the prompt goes in on stdin. Verified 2026-11-07 with
- * Claude Code 2.1.319 and Codex CLI 0.164.0 (spec "검증 결과").
+ * The command line of a conversation's CLI process; prompts go in on stdin (see agentSession.ts).
+ * Verified 2026-11-08 with Claude Code 2.1.319 and Codex CLI 0.164.0.
  */
 export function buildAgentArgs(tool: AgentTool, o: AgentArgsOptions): string[] {
   if (tool === 'claude') {
@@ -37,6 +37,8 @@ export function buildAgentArgs(tool: AgentTool, o: AgentArgsOptions): string[] {
       // No built-in tools (files, shell, web): only the Freeter MCP server.
       '-p', '--tools', '', '--setting-sources', '', '--strict-mcp-config', '--mcp-config', o.mcpConfigPath,
       '--allowedTools', 'mcp__freeter', '--output-format', 'stream-json', '--verbose',
+      // One process per conversation: prompts come as stream-json lines; the answer streams as it is written.
+      '--input-format', 'stream-json', '--include-partial-messages',
       ...(o.model ? ['--model', o.model] : []),
       ...(o.effort ? ['--effort', o.effort] : []),
       ...(o.sessionId ? ['--resume', o.sessionId] : []),
@@ -44,17 +46,17 @@ export function buildAgentArgs(tool: AgentTool, o: AgentArgsOptions): string[] {
   }
   const env = Object.entries(o.mcp.env).map(([k, v]) => `${toml(k)}=${toml(v)}`).join(',');
   return [
-    // Codex cannot turn its shell off; read-only keeps it from changing files.
-    'exec', '--json', '--skip-git-repo-check', '--sandbox', 'read-only',
+    // One process per conversation (JSON-RPC on stdin/stdout, see agentSession.ts); its thread runs read-only.
+    // Also set per thread (agentSession.ts); this keeps read-only if the user's config.toml says otherwise.
+    // No shell (like Claude's --tools ""): a command Codex ran would pass no Freeter confirm box (verified with 0.164.0).
+    'app-server', '-c', 'sandbox_mode="read-only"', '-c', 'features.shell_tool=false', '-c', 'features.unified_exec=false',
     '-c', `mcp_servers.freeter.command=${toml(o.mcp.command)}`,
     '-c', `mcp_servers.freeter.args=[${o.mcp.args.map(toml).join(',')}]`,
     '-c', `mcp_servers.freeter.env={${env}}`,
-    // Codex blocks MCP calls in exec mode otherwise; Freeter asks the user itself.
+    // Codex asks before MCP calls otherwise; Freeter asks the user itself.
     '-c', 'mcp_servers.freeter.default_tools_approval_mode="approve"',
-    ...(o.model ? ['-m', o.model] : []),
+    ...(o.model ? ['-c', `model=${toml(o.model)}`] : []),
     ...(o.effort ? ['-c', `model_reasoning_effort=${toml(o.effort)}`] : []),
-    ...(o.sessionId ? ['resume', o.sessionId] : []),
-    '-',
   ];
 }
 
@@ -86,6 +88,37 @@ export interface SpawnSpec {
   args: string[];
   /** Pass args to the process as they are (Node's windowsVerbatimArguments). */
   verbatim: boolean;
+}
+
+/**
+ * Ends a CLI with its children (`freeter mcp`, whose open call holds a confirm box; model processes).
+ * On POSIX the CLI is started detached, so it leads its own process group.
+ */
+export function killTree(
+  pid: number,
+  platform: NodeJS.Platform,
+  deps: { run: (command: string, args: string[]) => void; kill: (pid: number, signal: NodeJS.Signals) => void }
+): void {
+  if (platform === 'win32') {
+    deps.run('taskkill', ['/PID', String(pid), '/T', '/F']);
+  } else {
+    deps.kill(-pid, 'SIGTERM');
+  }
+}
+
+/**
+ * A CLI that exits by itself (crash) leaves its children; on POSIX they end with it here. Windows has no
+ * process groups (taskkill /T needs the parent alive); there `freeter mcp` ends when its open call does.
+ */
+export function endGroupWithLeader(
+  child: { pid?: number; once(event: 'exit', fn: () => void): unknown },
+  platform: NodeJS.Platform,
+  kill: (pid: number, signal: NodeJS.Signals) => void
+): void {
+  const pid = child.pid;
+  if (platform !== 'win32' && pid !== undefined) {
+    child.once('exit', () => kill(-pid, 'SIGTERM'));
+  }
 }
 
 /**

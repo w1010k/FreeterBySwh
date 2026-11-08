@@ -87,6 +87,11 @@ export function createAppAiActions({
     }
   };
 
+  const ownerOf = (workflowId: string) => {
+    const state = appStore.get();
+    return state.entities.workflows[workflowId] ? findOwnerProjectId(state, workflowId) : undefined;
+  };
+
   const switchProject: AiAction<{ projectId: string }> = {
     id: 'project.switch',
     description: 'Make a project the current one.',
@@ -172,9 +177,10 @@ export function createAppAiActions({
     },
     describe: ({ workflowId }) => `Delete workflow "${workflowName(appStore.get(), workflowId)}"`,
     run: ({ workflowId }) => {
-      // Not deleteWorkflowUseCase: it shows its own dialog, and this action was confirmed already.
+      // Not deleteWorkflowUseCase: it shows its own dialog; runAiRequest already confirmed this action, or the user
+      // turned on "always allow".
       const state = appStore.get();
-      const ownerProjectId = state.entities.workflows[workflowId] ? findOwnerProjectId(state, workflowId) : undefined;
+      const ownerProjectId = ownerOf(workflowId);
       if (!ownerProjectId) {
         return notFound('workflow', workflowId);
       }
@@ -195,12 +201,14 @@ export function createAppAiActions({
     describe: ({ workflowId }) => `Switch to workflow "${workflowName(appStore.get(), workflowId)}"`,
     run: ({ workflowId }) => {
       let state = appStore.get();
-      const ownerProjectId = state.entities.workflows[workflowId] ? findOwnerProjectId(state, workflowId) : undefined;
+      const ownerProjectId = ownerOf(workflowId);
       if (!ownerProjectId) {
         return notFound('workflow', workflowId);
       }
-      state = setCurrentProjectSubCase(ownerProjectId, deactivateWorkflowUseCase, state);
-      appStore.set(setCurrentWorkflowSubCase(state, deactivateWorkflowUseCase, ownerProjectId, workflowId, true));
+      // Same order as revealWidget: the workflow becomes current first, so the project switch
+      // activates it instead of loading the workflow the project had open (Memory Saver).
+      state = setCurrentWorkflowSubCase(state, deactivateWorkflowUseCase, ownerProjectId, workflowId, true);
+      appStore.set(setCurrentProjectSubCase(ownerProjectId, deactivateWorkflowUseCase, state));
       return okNull;
     }
   };

@@ -18,7 +18,9 @@ const addItem: WidgetAiAction<{ text: string }> = {
   required: ['text'],
   parse: (input) => (typeof input.text === 'string' ? { text: input.text } : undefined),
   describe: ({ text }, widgetName, settings) => `Add "${text}" to "${widgetName}" ${JSON.stringify(settings)}`,
-  run: ({ api, settings }, { text }) => ({ ok: true, value: { added: (api.add as (t: string) => string)(text), settings } }),
+  run: ({ api, settings, confirmed }, { text }) => ({
+    ok: true, value: { added: (api.add as (t: string) => string)(text), settings, ...(confirmed ? { confirmed } : {}) },
+  }),
 };
 
 async function setup(exposedApi?: object) {
@@ -43,11 +45,34 @@ describe('createWidgetTypeAiActions()', () => {
     });
   });
 
+  it('marks every action of a widget type that runs programs as always asking', async () => {
+    const [appStore] = await fixtureAppStore(fixtureAppState({}));
+    const plain = fixtureWidgetTypeA({ id: 'todo', aiActions: [addItem] });
+    const runner = fixtureWidgetTypeB({ id: 'cmd', runsPrograms: true, aiActions: [addItem] });
+    const [plainAction, runnerAction] = createWidgetTypeAiActions({ appStore, widgetTypes: [plain, runner] });
+    const input = { widgetId: 'W', input: { text: 'x' } };
+    expect(plainAction.alwaysConfirm?.(input) ?? false).toBe(false);
+    expect(runnerAction.alwaysConfirm?.(input)).toBe(true);
+  });
+
+  it('an action that declares alwaysConfirm keeps asking', async () => {
+    const [appStore] = await fixtureAppStore(fixtureAppState({}));
+    const type = fixtureWidgetTypeA({ id: 'web', aiActions: [{ ...addItem, alwaysConfirm: true }] });
+    const [action] = createWidgetTypeAiActions({ appStore, widgetTypes: [type] });
+    expect(action.alwaysConfirm?.({ widgetId: 'W', input: { text: 'x' } })).toBe(true);
+  });
+
   it('parse needs a widgetId and the action input', async () => {
     const { actions } = await setup();
     expect(actions[0].parse({ text: 'x' })).toBeUndefined();
     expect(actions[0].parse({ widgetId: 'w', text: 3 })).toBeUndefined();
     expect(actions[0].parse({ widgetId: 'w', text: 'x' })).toEqual({ widgetId: 'w', input: { text: 'x' } });
+  });
+
+  it('passes on whether the user allowed the write in the box', async () => {
+    const { actions, widget } = await setup({ add: (t: string) => t });
+    const input = actions[0].parse({ widgetId: widget.id, text: 'milk' });
+    await expect(Promise.resolve(actions[0].run(input, { confirmed: true }))).resolves.toEqual({ ok: true, value: { added: 'milk', settings: { s: 1 }, confirmed: true } });
   });
 
   it('runs through the mounted widget\'s exposed api with its settings', async () => {

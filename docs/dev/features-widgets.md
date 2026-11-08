@@ -1,6 +1,6 @@
 ## 위젯 기능 지도
 
-위젯 15종과 위젯 시스템 기반 코드의 위치, 데이터 흐름, 저장 방식, 주의점을 담은 문서다.
+위젯 16종과 위젯 시스템 기반 코드의 위치, 데이터 흐름, 저장 방식, 주의점을 담은 문서다.
 
 - 기준 시점: 2026-10-05. upstream 기준: `v2.8.0-beta`.
 - 출처 표기: `[upstream]`(upstream v2.8.0-beta에 있던 것), `[fork #N]`(포크 추가, N은 `docs/CHANGES.md` 섹션 번호),
@@ -56,6 +56,7 @@
 | `requiresApi`                      | 받을 `WidgetApi` 모듈 이름 목록     | 선언하지 않은 모듈은 `widgetApi`에 속성 자체가 없다 (`createWidgetApiFactory`가 `availableModules`만 조립)                                              |
 | `requiresState`                    | 받을 공유 상태 슬라이스             | `apps`(File Opener), `sharedDataKeys`(Note)                                                                                                             |
 | `aiActions`                        | AI 에이전트가 쓸 위젯 작업          | `WidgetAiAction[]` (`src/renderer/base/ai/widgetAiAction.ts`). 아래 "AI 작업" 참조 [fork #99]                                                          |
+| `onDeleted`                        | 위젯이 지워진 뒤 호출               | `(widgetId) => void`. 화면 밖에서 도는 것 (셸, AI 대화)을 끝낸다. 위젯은 여러 경로로 지워지므로 `initWidgetDeleteHooks`가 store의 `entities.widgets`를 지켜보다 빠진 id마다 호출한다 [fork #100] |
 
 #### 위젯 인스턴스와 설정
 
@@ -126,6 +127,8 @@
 | `icon`        | `getFileIcon(path, bypassCache?)`, `getFavicon(url, bypassCache?)`       | main `iconProvider`. 세션 동안 성공·실패 결과를 Map에 캐시, 동시 요청 공유  | [fork #21]                  |
 | `fs`          | `readDir(dirPath, opts?)`, `getHomeDir()` | main `fsProvider`. `includeHidden`, `includeSizes` 옵션. 전용 텍스트 읽기·쓰기·mtime API는 #96에서 제거 | [fork #31 #32 #91]          |
 | `systemStats` | `getStats()`                                                             | main `systemStatsProvider` (`node:os`, `fs.statfsSync`, `app.getAppMetrics`). CPU%는 직전 호출과의 누적 시간 차이 | [fork #60 #98]              |
+| `pty` | `create`, `write`, `resize`, `kill`, `buffer`, `onData`, `onExit` | main `terminalHost` (node-pty). 앱 단위 provider 하나를 모든 위젯이 나눠 쓴다 | [fork #99 #100] |
+| `aiAgent` | `detect`, `warm`, `send(conversationId \| null, req)`, `cancel`, `end`, `onEvent` | main `aiAgentRunner` (`claude -p` stream-json, `codex app-server`). 앱 단위 provider 하나 | [fork #99 #100] |
 
 모듈별 배선 위치 (IPC 채널은 모두 `src/common/ipc/channels.ts`):
 
@@ -141,6 +144,8 @@
 | `fs`                   | `src/renderer/infra/fsProvider/`                      | `src/main/controllers/fs.ts`                | `src/main/infra/fsProvider/`                                           |
 | `systemStats`          | `src/renderer/infra/systemStatsProvider/`             | `src/main/controllers/systemStats.ts`       | `src/main/infra/systemStatsProvider/`                                  |
 | `widgets`              | 없음 (renderer store만 읽음)                          | 없음                                        | 없음                                                                   |
+| `pty`                  | `src/renderer/infra/ptyProvider/`                     | `src/main/controllers/pty.ts`               | `src/main/application/terminal/terminalHost.ts`                        |
+| `aiAgent`              | `src/renderer/infra/aiAgentProvider/`                 | `src/main/controllers/ai.ts`                | `src/main/application/ai/aiAgentRunner.ts`, `src/main/infra/aiAgent/` |
 
 #### 설정 편집기와 설정 API
 
@@ -289,6 +294,7 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
 
 | id               | 이름           | minSize | requiresApi                            | requiresState  | 저장 키 (dataStorage)                                                  | 출처                                         |
 |------------------|----------------|---------|----------------------------------------|----------------|------------------------------------------------------------------------|----------------------------------------------|
+| `ai-chat`        | AI Chat        | 3×3     | aiAgent, shell, dataStorage            |                | `chat` (대화 기록과 CLI 대화 id)                                       | [fork #100]                                  |
 | `calculator`     | Calculator     | 3×5     | clipboard                              |                | 없음                                                                   | [fork #57 #77]                               |
 | `clock`          | Clock          | 3×2     | 없음                                   |                | 없음                                                                   | [fork #56]                                   |
 | `commander`      | Commander      | 1×1     | terminal                               |                | 없음                                                                   | [upstream, fork #75 변경]                    |
@@ -299,6 +305,7 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
 | `note`           | Note           | 2×2     | clipboard, dataStorage                 | sharedDataKeys | `note`                                                                 | [upstream, fork #8 #10 #39 #40 #50 #72 변경] |
 | `spreadsheet`    | Spreadsheet    | 4×3     | dataStorage                            |                | `sheet`, `colWidths`, `rowHeights`, `colDelta`, `headerRow`, `filters` | [fork #79 #81~#86]                           |
 | `system-monitor` | System Monitor | 3×3     | systemStats                            |                | 없음                                                                   | [fork #60 #98]                               |
+| `terminal`       | Terminal       | 4×3     | pty                                    |                | 없음                                                                   | [fork #100]                                  |
 | `timer`          | Timer          | 1×1     | dataStorage                            |                | `state`                                                                | [upstream, fork #54 #72 #73 변경]            |
 | `to-do-list`     | To-Do List     | 4×2     | dataStorage                            |                | `todo` (프로젝트 공유)                                                 | [upstream, fork #9 #18 #26 #40 #50 #63 변경] |
 | `web-query`      | Web Query      | 4×2     | shell, widgets, dataStorage            |                | `history`                                                              | [upstream, fork #46 #47 #59 #66 변경]        |
@@ -522,6 +529,28 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
 - **동작**: `terminal.execCmdLines(cmds, cwd)`. main의 `execCmdLinesInTerminal`이 OS (linux, win32, darwin)별 인자 생성기로 기본 터미널을
   분리 프로세스로 띄운다.
 - **포크 변경**: 설정 행 순서 변경 [fork #75].
+
+#### Terminal (`terminal`)
+
+- **역할**: 위젯 안의 셸 [fork #100]. xterm.js로 그리고 main의 node-pty 셸과 `pty` 모듈로 주고받는다.
+- **설정**: `shell` (빈 값은 플랫폼 기본), `cwd`, `startCommand` (셸 시작 뒤 입력). 바뀐 설정은 Restart Shell 뒤 적용된다.
+- **수명**: 모듈 수준 `sessionByWidget` (위젯 id → 터미널 id) 때문에 셸은 언마운트 뒤에도 돈다. 다시 마운트하면 `pty.buffer`로 최근 출력을 그린다. 위젯을 지우면 `onDeleted` (`forgetTerminalSession`)가 셸을 끝낸다.
+- **액션 바**: `START-CLAUDE`, `START-CODEX` (셸에 명령 입력; 마지막 출력 줄이 셸 프롬프트처럼 끝날 때만, `atShellPrompt`), `RESTART`.
+- **끝난 셸**: `exitedWidgets`에 남아, 화면이 다시 붙어도 새 셸을 띄우지 않는다 (Restart Shell만).
+- **미리보기**: `env.isPreview`면 안내 문구만 그린다 (설정 화면이 같은 위젯 id로 그리므로 셸에 붙으면 셸 크기가 바뀐다). AI Chat도 같다.
+- **테스트**: xterm은 jsdom에서 그릴 수 없어 `FakeTerminal`로 바꾼다 (`tests/renderer/widgets/terminal/widget.spec.ts`).
+
+#### AI Chat (`ai-chat`)
+
+- **역할**: Claude Code·Codex와의 대화 [fork #100]. AI는 `freeter mcp` 도구로 Freeter를 다루고, 쓰기는 확인 상자를 거친다 (앱 설정 "항상 허용"이 켜지면 프로그램 실행 등 일부만 묻는다).
+- **파일**: `session.ts` (`createChatSession`: 메시지 목록, 실행 상태, 대화 id, 도구, 저장과 이어 가기), `widget.tsx` (화면, `useSyncExternalStore`, 저장 데이터 검증 `readSavedChat`), `markdown.ts` (`renderMarkdown`), `settings.tsx` (`tool`, `model`, `effort`).
+- **requiresApi**: `aiAgent`, `shell` (링크를 브라우저로), `dataStorage` (기록 저장).
+- **저장 데이터**: 키 `chat` = `{ owner, tool, sessionId?, items }` (최근 200개). `owner`가 이 위젯이 아니면 (복사된 위젯) 기록만 받고 대화 id는 버린다. 보낼 때, 대화 id를 알 때, 턴이 끝날 때 저장하고, 읽을 때 형식이 맞는 항목만 받는다. 같은 도구의 새 대화는 `resume: sessionId`로 이전 CLI 대화를 잇는다. New Conversation은 저장을 지운다. 위젯 삭제는 저장을 남긴다 (나중에 붙여 넣은 복사본이 기록을 받는다).
+- **마크다운**: `renderMarkdown`이 원본 HTML을 글자로, 링크를 http(s)·mailto로 제한하고 `data-external`을 붙인다. 목록의 클릭 처리기가 링크를 `shell.openExternalUrl`로 연다.
+- **수명**: 모듈 수준 `sessionByWidget`에 위젯별 세션을 둔다. 언마운트 중에 온 이벤트도 세션에 쌓인다. 위젯을 지우면 `onDeleted` (`forgetChatSession`)가 대화와 CLI를 끝내고, 그 뒤 한 번 더 렌더링되는 뷰는 저장소 없는 빈 세션을 쓴다. 앱을 다시 시작해도 저장된 대화 id로 CLI 대화를 잇는다.
+- **입력**: Enter 보내기, Shift+Enter 줄바꿈, `isComposing` 중의 Enter는 무시 (한글 조합). 실행 중에는 Stop (`aiAgent.cancel`). 입력창에 첫 글자가 들어올 때 `session.warm`이 CLI를 미리 띄운다 (포커스만으로는 띄우지 않음; 설치되지 않은 CLI는 포커스 때 다시 찾음). 보내기는 진행 중인 warm을 기다려 같은 대화를 쓴다.
+- **스트리밍**: `text` (빈 문단 시작)와 `textDelta` (이어 붙이기)로 답이 자란다. 바뀐 마지막 항목만 다시 그리도록 `Item`은 `memo`다. 턴이 도는 동안 마지막 답은 일반 글자로 그리고, 끝나면 마크다운으로 그린다 (토큰마다 전체 파싱을 피함).
+- **액션 바**: `NEW-CONVERSATION` (`session.reset`: `aiAgent.end`로 CLI 종료, 구독 해제, 메시지와 저장 비움). 위젯 삭제는 `session.close` (CLI만 끝내고 저장은 남김: 복사해 둔 위젯을 나중에 붙여 넣으면 읽는다).
 
 #### Timer (`timer`)
 

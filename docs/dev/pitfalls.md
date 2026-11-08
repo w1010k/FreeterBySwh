@@ -503,7 +503,7 @@
 
 - 출처: `[fork #99]`
 - 증상: `codex exec`가 Freeter MCP 도구를 찾지만 "MCP tool call requires approval, but approval policy is never"로 호출하지 않는다. 그 뒤 셸 명령으로 대신하려 한다.
-- 규칙: Codex에는 `-c mcp_servers.<이름>.default_tools_approval_mode="approve"`를 넘긴다. 쓰기 확인은 Freeter가 받으므로 자동 승인이 안전하다. Codex는 셸 명령을 끌 수 없어 PC의 파일을 읽을 수 있다.
+- 규칙: Codex에는 `-c mcp_servers.<이름>.default_tools_approval_mode="approve"`를 넘긴다. 쓰기 확인은 Freeter가 받으므로 자동 승인이 안전하다. `codex app-server`에서도 같은 설정이 필요하다 (thread의 `approvalPolicy: 'never'`). 셸은 `-c features.shell_tool=false -c features.unified_exec=false`로 끈다 (명령이 Freeter 확인 상자를 거치지 않으므로). thread의 `developerInstructions`로 Freeter 도구를 쓰라고 알린다. 없으면 빈 작업 폴더를 뒤지느라 Freeter 도구 턴이 18초 걸렸다 (2026-11-08 실측).
 - 근거: 2026-11-07 실측 (codex-cli 0.164.0), spec `docs/superpowers/specs/2026-11-07-ai-infra-design.md`
 
 ### webview와 Webpage 위젯
@@ -812,6 +812,13 @@
 - 증상: (회피) Node는 `.cmd`를 셸 없이 실행하지 못한다 (EINVAL). `shell: true`로 실행하면 인자가 escape되지 않아 따옴표, `&`, `%`가 깨진다. npm이 설치한 codex가 `codex.cmd`다.
 - 규칙: `spawnSpec` (`src/main/infra/aiAgent/agentCommand.ts`)을 쓴다. cmd.exe `/d /s /c`와 `windowsVerbatimArguments`로 실행하고, 인자는 cross-spawn 방식으로 따옴표를 씌운 뒤 메타 문자를 두 번 escape한다 (shim의 `%*`가 한 번 더 펼친다). 실제 shim 왕복 테스트가 `tests/main/infra/aiAgent/agentCommand.spec.ts`에 있다.
 
+#### main 알림이 invoke 응답보다 먼저 도착
+
+- 출처: `[fork #100]`
+- 증상: AI Chat의 첫 턴에서 CLI 실행 실패 (`spawn` 오류)가 화면에 나오지 않고 Stop 상태에 머문다.
+- 원인: 자식 프로세스의 `'error'`는 `process.nextTick`으로 오고, `ipcMain.handle`의 응답은 그 뒤 promise 단계에서 나간다. 알림이 응답보다 먼저 가서, renderer는 아직 모르는 대화 id의 이벤트를 버린다.
+- 규칙: invoke 응답으로 받은 id에 붙는 main 알림은 renderer가 순서를 가정하지 않고 받는다. `aiAgentProvider`가 아직 아무도 구독하지 않은 대화의 이벤트를 보관하다가 구독할 때 넘긴다 (`early`, id 20개, 이벤트 50개). main의 `emit`은 지연 없이 보낸다 (예전의 `setImmediate` 지연은 루프 24회차에 지웠다). 단 답의 조각 (`textDelta`)은 `createAgentEventCoalescer`가 대화별로 60ms에 한 번 묶어 보내고, 다른 이벤트가 오면 묶어 둔 글을 먼저 보낸다 (순서 유지).
+
 #### node-pty 재빌드와 Linux 빌드
 
 - 출처: `[fork #99]`
@@ -920,6 +927,8 @@
   PowerShell을 띄우지 않는다.
 - 규칙: `spawn`한 프로세스에는 항상 `'error'` 리스너를 단다. 실행 파일이나 작업 폴더가 없으면 `spawn`은 ENOENT를 비동기로 낸다. 리스너가 없으면 main의 처리되지 않은
   예외가 되어 Electron 오류 창이 뜬다 (2026-10-05 이전 `spawnDetached`). 작업 폴더가 없을 때도 메시지는 `spawn cmd.exe ENOENT`라 원인이 드러나지 않는다.
+- 규칙: 자식을 가진 CLI (Claude Code, Codex)는 트리째 끝낸다. Windows는 `taskkill /T`, POSIX는 `detached`로 띄워 그룹에
+  SIGTERM (`killTree`). CLI가 스스로 끝나도 POSIX에서는 남은 그룹을 끝낸다 (`endGroupWithLeader`). CLI만 끝내면 `freeter mcp`가 남아 열린 확인 상자에서 Allow로 쓰기가 실행될 수 있다.
 - 규칙: 아무도 읽지 않는 stdout/stderr는 `'ignore'`로 둔다. 파이프 버퍼가 차면 자식이 멈춘다.
 - 규칙: `osActivityMonitor`는 `start()`를 다시 부르지 않는다. 그래서 `foregroundWindow`의 reader가 PowerShell이 스스로 끝나면 30초 뒤 다시 띄운다. 연속 5번
   죽으면 멈추고, 샘플이 오면 횟수를 초기화한다.
@@ -982,6 +991,20 @@
 - 원인: 전역 `entities.widgets.*.exposedApi.openUrl`이 Webview 컴포넌트의 공유 lexical context를 잡고, 그 안의 widget API가 이전 exposedApi를 가진 widget 객체를 다시 잡았다. 이 연결이 누적되며 React의 형제 위젯 DOM도 유지됐다. heap snapshot에서 weak/ephemeron 경로를 제외한 강한 참조를 확인했다.
 - 규칙: 컴포넌트 수명보다 오래 보관하는 함수는 외부 factory에서 최소 입력(ref, URL)만 닫아 두고 언마운트 때 공개 API를 비운다. DOM 제거와 GC 한 번으로 수명 정리가 증명되지는 않는다. 같은 전환을 반복해 노드·리스너·heap의 증가를 비교한다.
 - 근거: `src/renderer/widgets/webpage/widget.tsx` `createExposedApi`, `tests/renderer/widgets/webpage/widget.spec.ts`, CHANGES #97.
+
+#### "항상 허용"과 화면을 바꾸는 AI 작업
+
+- 출처: `[fork #100]`
+- 증상: (회피) "항상 허용"이 켜져 있으면, 보이는 프로젝트나 워크플로를 바꾸는 AI 작업이 Terminal을 확인 없이 보이게 해 셸과 시작 명령이 실행된다.
+- 규칙: 작업마다 막지 않는다 (새 작업에서 빠뜨리기 쉬움). `runAiRequest`가 확인 없이 쓰기를 실행할 때 쓰기 전후로 화면의 위젯 (셸프, 활성 워크플로)을 비교해 새로 보이게 된 위젯을 `markRevealedByAi`로 표시한다. 표시된 Terminal은 처음에 셸을 시작하지 않고 안내만 쓴다 (Restart Shell로 시작). 쓰기가 실행되는 동안 화면이 바로 붙기도 하므로 (store 갱신이 즉시 그린다; 실제 앱에서 확인) 쓰기 전 목록을 `beginUnconfirmedAiWrite`로 먼저 알리고, 그 사이 붙은 위젯은 쓰기 뒤에 다시 표시하지 않는다. 기다리는 상태는 화면이 다시 붙어도 유지된다 (`waitingForUser`). 시간 창을 쓰던 이전 방식은 늦게 붙는 화면과 무관한 화면을 구분하지 못했다. 보이자마자 무언가를 실행하는 위젯을 새로 만들면 같은 검사 (`takeRevealedByAi`)를 넣는다.
+- 근거: `src/renderer/base/ai/aiActivity.ts`, `src/renderer/application/useCases/ai/runAiRequest.ts`, `src/renderer/widgets/terminal/widget.tsx`, decisions.md D77
+
+#### 한글 입력 중 Enter로 보내기
+
+- 출처: `[fork #100]`
+- 증상: (회피) Enter로 보내는 입력창에서 한글 조합의 마지막 글자를 확정하는 Enter가 보내기로도 처리되면, 마지막 글자가 빠지거나 두 번 보내진다.
+- 규칙: keydown에서 `e.nativeEvent.isComposing`이면 보내지 않는다. 테스트는 `fireEvent.keyDown(el, { key: 'Enter', isComposing: true })`로 확인한다.
+- 근거: `src/renderer/widgets/ai-chat/widget.tsx`, `tests/renderer/widgets/ai-chat/widget.spec.tsx`
 
 #### 실패 재시도와 런타임 갱신
 

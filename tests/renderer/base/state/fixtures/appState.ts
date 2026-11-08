@@ -31,6 +31,7 @@ const appState: AppState = {
       bgOpacity: 100,
       workflowBarPos: 'top',
       workflowBarWidth: 200,
+      aiAlwaysAllow: false,
       telemetry: {
         enabled: false,
         idleTimeoutMs: 300000

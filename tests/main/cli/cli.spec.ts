@@ -99,6 +99,15 @@ describe('runCli', () => {
     expect(JSON.parse(out().trim())).toMatchObject({ id: 1, error: { message: 'Freeter is not running' } });
   });
 
+  it('run retries once with a fresh endpoint when the token is refused', async () => {
+    const { io, out } = makeIo();
+    const stale: AiClient = { call: jest.fn(async () => ({ ok: false, code: 'unauthorized', message: 'Invalid token' }) as AiRpcResult), close: jest.fn(), isClosed: () => false };
+    const fresh: AiClient = { call: jest.fn(async () => ({ ok: true, value: 7 }) as AiRpcResult), close: jest.fn(), isClosed: () => false };
+    const connect = jest.fn().mockResolvedValueOnce(stale).mockResolvedValueOnce(fresh);
+    await expect(runCli(['run', 'app.describe'], io, connect)).resolves.toBe(0);
+    expect(JSON.parse(out())).toBe(7);
+  });
+
   it('returns 3 with "Freeter is not running" when connect throws', async () => {
     const { io, err } = makeIo();
     const connect = jest.fn(async () => {
@@ -151,6 +160,11 @@ describe('runCli', () => {
   });
 });
 
+test('the agent guide says write actions may run without a dialog when the user allowed that', async () => {
+  const { guideText } = await import('@/cli/cli');
+  expect(guideText([])).toMatch(/always allow/i);
+});
+
 describe('createReconnectingAiClient', () => {
   const makeClient = (closed: boolean, value: unknown): AiClient => ({
     call: jest.fn(async () => ({ ok: true, value }) as AiRpcResult),
@@ -178,6 +192,124 @@ describe('createReconnectingAiClient', () => {
     await client.call('actions.list', {});
     client.close();
     expect(fresh.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads the endpoint again once when the token is refused (Freeter restarted, old endpoint.json)', async () => {
+    const stale: AiClient = { call: jest.fn(async () => ({ ok: false, code: 'unauthorized', message: 'Invalid token' }) as AiRpcResult), close: jest.fn(), isClosed: () => false };
+    const reopen = jest.fn(async () => makeClient(false, 'fresh'));
+    const client = createReconnectingAiClient(stale, reopen);
+    await expect(client.call('actions.list', {})).resolves.toEqual({ ok: true, value: 'fresh' });
+    expect(stale.close).toHaveBeenCalled();
+    expect(reopen).toHaveBeenCalledTimes(1);
+  });
+
+  it('a refused call that comes back after another call already reconnected retries on the new connection without closing it', async () => {
+    let answerLate: (r: AiRpcResult) => void = () => undefined;
+    const refused = { ok: false, code: 'unauthorized', message: 'Invalid token' } as AiRpcResult;
+    const stale: AiClient = {
+      call: jest.fn()
+        .mockImplementationOnce(async () => refused)
+        .mockImplementationOnce(() => new Promise<AiRpcResult>(r => { answerLate = r; })),
+      close: jest.fn(),
+      isClosed: () => false
+    };
+    const fresh = makeClient(false, 'fresh');
+    const reopen = jest.fn(async () => fresh);
+    const client = createReconnectingAiClient(stale, reopen);
+    const a = client.call('actions.list', {});
+    const b = client.call('actions.list', {});
+    await expect(a).resolves.toEqual({ ok: true, value: 'fresh' });
+    answerLate(refused);
+    await expect(b).resolves.toEqual({ ok: true, value: 'fresh' });
+    expect(fresh.close).not.toHaveBeenCalled();
+    expect(reopen).toHaveBeenCalledTimes(1);
+  });
+
+  it('a call that comes in while a refused call reconnects waits for the new connection', async () => {
+    const refused = { ok: false, code: 'unauthorized', message: 'Invalid token' } as AiRpcResult;
+    let closed = false;
+    const stale: AiClient = {
+      call: jest.fn(async () => (closed ? { ok: false, code: 'failed', message: 'Freeter closed the connection' } as AiRpcResult : refused)),
+      close: jest.fn(() => { closed = true; }),
+      isClosed: () => false
+    };
+    let open: (c: AiClient) => void = () => undefined;
+    const reopen = jest.fn(() => new Promise<AiClient>(r => { open = r; }));
+    const client = createReconnectingAiClient(stale, reopen);
+    const a = client.call('actions.list', {});
+    await new Promise(r => setImmediate(r));
+    const b = client.call('actions.list', {});
+    open(makeClient(false, 'fresh'));
+    await expect(a).resolves.toEqual({ ok: true, value: 'fresh' });
+    await expect(b).resolves.toEqual({ ok: true, value: 'fresh' });
+    expect(reopen).toHaveBeenCalledTimes(1);
+  });
+
+  it('two calls refused at the same time both retry on the one new connection', async () => {
+    const refused = { ok: false, code: 'unauthorized', message: 'Invalid token' } as AiRpcResult;
+    const answers: ((r: AiRpcResult) => void)[] = [];
+    const stale: AiClient = { call: jest.fn(() => new Promise<AiRpcResult>(r => answers.push(r))), close: jest.fn(), isClosed: () => false };
+    let open: (c: AiClient) => void = () => undefined;
+    const reopen = jest.fn(() => new Promise<AiClient>(r => { open = r; }));
+    const client = createReconnectingAiClient(stale, reopen);
+    const a = client.call('actions.list', {});
+    const b = client.call('actions.list', {});
+    answers[0](refused);
+    await new Promise(r => setImmediate(r));
+    answers[1](refused);
+    await new Promise(r => setImmediate(r));
+    open(makeClient(false, 'fresh'));
+    await expect(a).resolves.toEqual({ ok: true, value: 'fresh' });
+    await expect(b).resolves.toEqual({ ok: true, value: 'fresh' });
+  });
+
+  it('a call that failed because another refused call closed the shared connection retries on the new one', async () => {
+    const refused = { ok: false, code: 'unauthorized', message: 'Invalid token' } as AiRpcResult;
+    const closedRes = { ok: false, code: 'failed', message: 'Freeter closed the connection' } as AiRpcResult;
+    const answers: ((r: AiRpcResult) => void)[] = [];
+    const stale: AiClient = {
+      call: jest.fn(() => new Promise<AiRpcResult>(r => answers.push(r))), close: jest.fn(() => answers[1]?.(closedRes)), isClosed: () => false
+    };
+    const reopen = jest.fn(async () => makeClient(false, 'fresh'));
+    const client = createReconnectingAiClient(stale, reopen);
+    const a = client.call('actions.list', {});
+    const b = client.call('actions.list', {});
+    answers[0](refused);
+    await expect(a).resolves.toEqual({ ok: true, value: 'fresh' });
+    await expect(b).resolves.toEqual({ ok: true, value: 'fresh' });
+  });
+
+  it('a call whose connection closed while another call reconnected (no refusal) is not sent again (it may have run)', async () => {
+    const closedRes = { ok: false, code: 'failed', message: 'Freeter closed the connection' } as AiRpcResult;
+    let closed = false;
+    let answerA: (r: AiRpcResult) => void = () => undefined;
+    const first: AiClient = {
+      call: jest.fn(() => new Promise<AiRpcResult>(r => { answerA = r; })),
+      close: jest.fn(),
+      isClosed: () => closed
+    };
+    const fresh = makeClient(false, 'fresh');
+    const client = createReconnectingAiClient(first, async () => fresh);
+    const a = client.call('actions.run', {});
+    closed = true;
+    await client.call('actions.list', {});
+    answerA(closedRes);
+    await expect(a).resolves.toEqual(closedRes);
+    expect(fresh.call).toHaveBeenCalledTimes(1);
+  });
+
+  it('close during a reconnect also closes the connection that reconnect opens', async () => {
+    const refused = { ok: false, code: 'unauthorized', message: 'Invalid token' } as AiRpcResult;
+    const stale: AiClient = { call: jest.fn(async () => refused), close: jest.fn(), isClosed: () => false };
+    let open: (c: AiClient) => void = () => undefined;
+    const client = createReconnectingAiClient(stale, () => new Promise<AiClient>(r => { open = r; }));
+    const pending = client.call('actions.list', {});
+    await new Promise(r => setImmediate(r));
+    client.close();
+    const fresh = makeClient(false, 'fresh');
+    open(fresh);
+    await pending;
+    expect(fresh.close).toHaveBeenCalled();
   });
 
   it('keeps the open connection', async () => {

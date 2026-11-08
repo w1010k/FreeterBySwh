@@ -36,4 +36,9 @@ export interface AppConfig {
   workflowBarWidth: number;
   /** Local usage-analytics collection settings. */
   telemetry: TelemetryConfig;
+  /**
+   * AI write actions run without the confirm box, except those with alwaysConfirm (programs, data sent off the PC,
+   * the download folder, paths to other computers; see decisions.md D77). Agents cannot change it.
+   */
+  aiAlwaysAllow: boolean;
 }

@@ -9,8 +9,8 @@ import { AiRpcResult, WidgetAiAction, WidgetAiActionContext } from '@/widgets/ap
 export interface NoteAiApi {
   /** undefined while the note is loading. */
   get(): string | undefined;
-  /** Shows and saves the text like a user edit. false while the user is typing in the note. */
-  set(text: string): boolean;
+  /** Shows and saves the text like a user edit. false while the user is typing in the note, unless the user allowed it. */
+  set(text: string, allowedByUser?: boolean): boolean;
 }
 
 function withNote(ctx: WidgetAiActionContext, fn: (api: NoteAiApi, text: string) => AiRpcResult): AiRpcResult {
@@ -22,7 +22,7 @@ function withNote(ctx: WidgetAiActionContext, fn: (api: NoteAiApi, text: string)
   return fn(api, text);
 }
 
-const save = (api: NoteAiApi, text: string): AiRpcResult => (api.set(text)
+const save = (ctx: WidgetAiActionContext, api: NoteAiApi, text: string): AiRpcResult => (api.set(text, ctx.confirmed === true)
   ? { ok: true, value: null }
   : { ok: false, code: 'failed', message: 'The user is typing in this note; try again later' });
 
@@ -44,7 +44,7 @@ const setText: WidgetAiAction<{ text: string }> = {
   required: ['text'],
   parse: (input) => (typeof input.text === 'string' ? { text: input.text } : undefined),
   describe: ({ text }, widgetName) => `Replace the text of note "${widgetName}" (${text.length} characters)`,
-  run: (ctx, { text }) => withNote(ctx, api => save(api, text)),
+  run: (ctx, { text }) => withNote(ctx, api => save(ctx, api, text)),
 };
 
 const appendText: WidgetAiAction<{ text: string }> = {
@@ -55,7 +55,7 @@ const appendText: WidgetAiAction<{ text: string }> = {
   required: ['text'],
   parse: (input) => (typeof input.text === 'string' && input.text !== '' ? { text: input.text } : undefined),
   describe: ({ text }, widgetName) => `Append ${text.length} characters to note "${widgetName}"`,
-  run: (ctx, { text }) => withNote(ctx, (api, current) => save(api, current === '' ? text : `${current}\n${text}`)),
+  run: (ctx, { text }) => withNote(ctx, (api, current) => save(ctx, api, current === '' ? text : `${current}\n${text}`)),
 };
 
 export const noteAiActions: WidgetAiAction[] = [getText, setText, appendText] as WidgetAiAction[];

@@ -22,6 +22,7 @@ const widgetType: WidgetType<Settings> = {
   settingsEditorComp,
   widgetComp,
   requiresApi: ['terminal'],
+  runsPrograms: true,
   aiActions: commanderAiActions
 }
 

@@ -47,9 +47,20 @@ describe('createSettingsAiActions()', () => {
     expect(parse({ bgOpacity: 101 })).toBeUndefined();
     expect(parse({ bgOpacity: 1.5 })).toBeUndefined();
     expect(parse({ workflowBarWidth: 0 })).toBeUndefined();
+    // Same bounds as the settings window and the bar's drag handle.
+    expect(parse({ workflowBarWidth: 119 })).toBeUndefined();
+    expect(parse({ workflowBarWidth: 601 })).toBeUndefined();
+    expect(parse({ workflowBarWidth: 300 })).toEqual({ workflowBarWidth: 300 });
     expect(parse({ bgColor: 3 })).toBeUndefined();
     expect(parse({})).toBeUndefined();
     expect(parse({ bgImageMode: 'tile', downloadDir: 'D:\\dl' })).toEqual({ bgImageMode: 'tile', downloadDir: 'D:\\dl' });
+  });
+
+  it('app.updateSettings always asks when it changes the download folder (downloads save there without asking)', async () => {
+    const { get } = await setup();
+    const update = get('app.updateSettings');
+    expect(update.alwaysConfirm?.({ uiTheme: 'dark' }) ?? false).toBe(false);
+    expect(update.alwaysConfirm?.({ downloadDir: 'C:/x' })).toBe(true);
   });
 
   it('describes the change for the confirm dialog', async () => {

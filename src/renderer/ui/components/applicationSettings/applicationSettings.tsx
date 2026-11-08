@@ -294,6 +294,26 @@ export function createApplicationSettingsComponent({
                 <option value={convertBoolToStr(true)}>On</option>
               </select>
             </SettingBlock>
+
+            <SettingBlock
+              titleForId='ai-always-allow'
+              title='AI actions: always allow'
+              moreInfo='When on, changes an AI agent makes in Freeter (widgets, notes, to-dos, workflows, projects,
+                      app settings) run without the confirm box. Actions that can run programs or commands on this
+                      computer (Commander, File Opener, File Explorer, Terminal, Link Opener, Web Query: running them, changing
+                      their settings or adding them), changing the download folder, Webpage navigation, address, user agent, session and
+                      injected script/CSS, the AI Chat tool, model and effort, and paths to other computers still ask.
+                      Text the agent reads (a note, a page) can steer it, so turn this on only if you accept that. Off by default.'
+            >
+              <select id="ai-always-allow" value={convertBoolToStr(appConfig.aiAlwaysAllow)}
+                      onChange={e => updateSettings({
+                        ...appConfig,
+                        aiAlwaysAllow: convertStrToBool(e.target.value)
+                      })}>
+                <option value={convertBoolToStr(false)}>Off</option>
+                <option value={convertBoolToStr(true)}>On</option>
+              </select>
+            </SettingBlock>
           </div>
         </SettingsScreen>)
     } else {

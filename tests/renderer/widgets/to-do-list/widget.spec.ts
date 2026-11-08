@@ -42,6 +42,47 @@ describe('To-Do List Widget', () => {
     expect(exposeApi).toHaveBeenLastCalledWith({});
   });
 
+  it('AI setDone does what the checkbox does, usage log included', async () => {
+    const exposeApi = jest.fn();
+    const logActivity = jest.fn();
+    const testState: ToDoListState = { items: [{ id: 1, isDone: false, text: 'Task 1' }], nextItemId: 2 };
+    setupToDoListWidgetSut(fixtureSettings({}), {
+      mockWidgetApi: { exposeApi, logActivity, dataStorage: { getJson: jest.fn().mockResolvedValue(testState), setJson: jest.fn() } }
+    });
+    await screen.findByText('Task 1');
+    const api = exposeApi.mock.calls.at(-1)?.[0] as { todo: { setDone(id: number, done: boolean): void } };
+    act(() => api.todo.setDone(1, true));
+    expect(screen.getByRole('checkbox')).toBeChecked();
+    expect(logActivity).toHaveBeenCalledWith('todo_done', { text: 'Task 1' });
+  });
+
+  it('AI setDone moves the item to the bottom when doneToBottom is on', async () => {
+    const exposeApi = jest.fn();
+    const testState: ToDoListState = { items: [{ id: 1, isDone: false, text: 'Task 1' }, { id: 2, isDone: false, text: 'Task 2' }], nextItemId: 3 };
+    setupToDoListWidgetSut(fixtureSettings({ doneToBottom: true }), {
+      mockWidgetApi: { exposeApi, dataStorage: { getJson: jest.fn().mockResolvedValue(testState), setJson: jest.fn() } }
+    });
+    await screen.findByText('Task 1');
+    const api = exposeApi.mock.calls.at(-1)?.[0] as { todo: { setDone(id: number, done: boolean): void } };
+    act(() => api.todo.setDone(1, true));
+    expect(screen.getAllByRole('listitem').map(li => li.textContent)).toEqual([expect.stringContaining('Task 2'), expect.stringContaining('Task 1')]);
+  });
+
+  it('AI setDone on an item already in that state changes nothing and logs nothing', async () => {
+    const exposeApi = jest.fn();
+    const logActivity = jest.fn();
+    const setJson = jest.fn();
+    const testState: ToDoListState = { items: [{ id: 1, isDone: true, text: 'Task 1' }], nextItemId: 2 };
+    setupToDoListWidgetSut(fixtureSettings({}), {
+      mockWidgetApi: { exposeApi, logActivity, dataStorage: { getJson: jest.fn().mockResolvedValue(testState), setJson } }
+    });
+    await screen.findByText('Task 1');
+    const api = exposeApi.mock.calls.at(-1)?.[0] as { todo: { setDone(id: number, done: boolean): void } };
+    act(() => api.todo.setDone(1, true));
+    expect(logActivity).not.toHaveBeenCalled();
+    expect(setJson).not.toHaveBeenCalled();
+  });
+
   it('keeps unread data protected after a storage read failure', async () => {
     const setJson = jest.fn();
     setupToDoListWidgetSut(fixtureSettings({}), { mockWidgetApi: { dataStorage: {

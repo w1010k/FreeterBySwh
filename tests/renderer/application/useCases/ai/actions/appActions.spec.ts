@@ -17,6 +17,7 @@ import { fixtureWorkflowA, fixtureWorkflowB, fixtureWorkflowC, fixtureWorkflowSe
 import { fixtureWidgetA, fixtureWidgetCoreSettingsA } from '@tests/base/fixtures/widget';
 import { fixtureWidgetLayoutItemA } from '@tests/base/fixtures/widgetLayout';
 import { fixtureWidgetTypeA } from '@tests/base/fixtures/widgetType';
+import { fixtureMemSaver } from '@tests/base/state/fixtures/memSaver';
 
 const newItemId = 'NEW-ITEM-ID';
 
@@ -172,5 +173,34 @@ describe('createAppAiActions()', () => {
     expect(d('workflow.delete', { workflowId: fixtureWorkflowA().id })).toBe('Delete workflow "Plan"');
     expect(d('workflow.switch', { workflowId: fixtureWorkflowA().id })).toBe('Switch to workflow "Plan"');
     expect(d('workflow.delete', { workflowId: 'NO-SUCH' })).toBe('Delete workflow "NO-SUCH"');
+  });
+});
+
+describe('workflow.switch and Memory Saver', () => {
+  it('makes the workflow current before switching project, so the project\'s previous workflow is not loaded', async () => {
+    const wfA = fixtureWorkflowA({ layout: [] });
+    const wfB = fixtureWorkflowB({ layout: [] });
+    const wfC = fixtureWorkflowC({ layout: [] });
+    const projectA = fixtureProjectA({ workflowIds: [wfA.id], currentWorkflowId: wfA.id });
+    const projectB = fixtureProjectB({ workflowIds: [wfB.id, wfC.id], currentWorkflowId: wfB.id });
+    const base = fixtureAppState({
+      entities: {
+        projects: { [projectA.id]: projectA, [projectB.id]: projectB },
+        workflows: { [wfA.id]: wfA, [wfB.id]: wfB, [wfC.id]: wfC },
+      },
+      ui: {
+        projectSwitcher: fixtureProjectSwitcher({ projectIds: [projectA.id, projectB.id], currentProjectId: projectA.id }),
+        memSaver: fixtureMemSaver({ activeWorkflows: [{ prjId: projectA.id, wflId: wfA.id }] })
+      }
+    });
+    const state = {
+      ...base,
+      ui: { ...base.ui, appConfig: { ...base.ui.appConfig, memSaver: { activateWorkflowsOnProjectSwitch: false, workflowInactiveAfter: -1 } } }
+    };
+    const { exec, appStore } = await setup(state);
+    await exec('workflow.switch', { workflowId: wfC.id });
+    const active = appStore.get().ui.memSaver.activeWorkflows.map(w => w.wflId);
+    expect(active).toContain(wfC.id);
+    expect(active).not.toContain(wfB.id);
   });
 });

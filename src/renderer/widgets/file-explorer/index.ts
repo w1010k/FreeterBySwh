@@ -20,7 +20,9 @@ const widgetType: WidgetType<Settings> = {
   createSettingsState,
   settingsEditorComp,
   widgetComp,
-  requiresApi: ['fs', 'shell', 'clipboard']
+  requiresApi: ['fs', 'shell', 'clipboard'],
+  // A double-click opens an entry with the OS (a program runs): the folders it shows are confirmed.
+  runsPrograms: true,
 }
 
 export default widgetType;

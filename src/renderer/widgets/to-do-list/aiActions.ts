@@ -4,7 +4,7 @@
  */
 
 import { AiRpcResult, WidgetAiAction, WidgetAiActionContext } from '@/widgets/appModules';
-import { addItem, deleteItem, editItem, markComplete, markIncomplete } from '@/widgets/to-do-list/actions';
+import { addItem, deleteItem, editItem } from '@/widgets/to-do-list/actions';
 import { maxTextLength, ToDoListState } from '@/widgets/to-do-list/state';
 
 /** What the mounted To-Do List widget exposes for AI actions (widget.tsx). */
@@ -12,6 +12,8 @@ export interface ToDoListAiApi {
   get(): ToDoListState | undefined;
   /** Same path as a user edit: shared store + debounced save. */
   set(state: ToDoListState): void;
+  /** The checkbox's handler (marks the item and logs the activity like a click). */
+  setDone(itemId: number, done: boolean): void;
 }
 
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '' && v.length <= maxTextLength;
@@ -70,14 +72,7 @@ const setDone: WidgetAiAction<{ itemId: number; done: boolean }> = {
   required: ['itemId', 'done'],
   parse: (input) => (isItemId(input.itemId) && typeof input.done === 'boolean' ? { itemId: input.itemId, done: input.done } : undefined),
   describe: ({ itemId, done }, widgetName) => `Mark item ${itemId} ${done ? 'done' : 'not done'} in to-do list "${widgetName}"`,
-  run: (ctx, { itemId, done }) => withItem(ctx, itemId, (api, list) => {
-    const doneToBottom = (ctx.settings as { doneToBottom?: unknown } | undefined)?.doneToBottom === true;
-    if (done) {
-      markComplete(itemId, doneToBottom, () => list, api.set);
-    } else {
-      markIncomplete(itemId, () => list, api.set);
-    }
-  }),
+  run: (ctx, { itemId, done }) => withItem(ctx, itemId, api => api.setDone(itemId, done)),
 };
 
 const editItemAction: WidgetAiAction<{ itemId: number; text: string }> = {

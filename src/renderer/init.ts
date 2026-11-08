@@ -57,6 +57,9 @@ import { createFsProvider } from '@/infra/fsProvider/fsProvider';
 import { createIconProvider } from '@/infra/iconProvider/iconProvider';
 import { createProcessProvider } from '@/infra/processProvider/processProvider';
 import { createSystemStatsProvider } from '@/infra/systemStatsProvider/systemStatsProvider';
+import { createPtyProvider } from '@/infra/ptyProvider/ptyProvider';
+import { createAiAgentProvider } from '@/infra/aiAgentProvider/aiAgentProvider';
+import { createInitWidgetDeleteHooksUseCase } from '@/application/useCases/widget/initWidgetDeleteHooks';
 import { createGetWidgetApiUseCase } from '@/application/useCases/widget/getWidgetApi';
 import { DataStorage } from '@common/application/interfaces/dataStorage';
 import { setTextOnlyIfChanged } from '@common/infra/dataStorage/setTextOnlyIfChanged';
@@ -360,6 +363,8 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
   });
   const terminalProvider = createTerminalProvider();
   const systemStatsProvider = createSystemStatsProvider();
+  const ptyProvider = createPtyProvider();
+  const aiAgentProvider = createAiAgentProvider();
 
   // Local usage telemetry collector — created here in the composition root so it
   // is shared by both the app-level listeners (startTelemetry) and the per-widget
@@ -388,6 +393,8 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     deletingSharedDataKeys,
     terminalProvider,
     systemStatsProvider,
+    ptyProvider,
+    aiAgentProvider,
     getWidgetsInCurrentWorkflowUseCase,
     switchProjectUseCase,
     switchWorkflowUseCase,
@@ -857,12 +864,14 @@ export async function init() {
     initAppMenuUseCase, initMainShortcutUseCase, initDownloadDirUseCase,
     initTrayMenuUseCase, initMemSaverUseCase, switchWorkflowByOffsetUseCase
   } = useCases;
+  const initWidgetDeleteHooksUseCase = createInitWidgetDeleteHooksUseCase({ appStore: store.appStore });
   store.appStoreReady.then(_ => {
     initMainShortcutUseCase();
     initDownloadDirUseCase();
     initAppMenuUseCase();
     initTrayMenuUseCase();
     initMemSaverUseCase();
+    initWidgetDeleteHooksUseCase();
     // Local usage telemetry (gated on user consent inside the collector).
     startTelemetry({ appStore: store.appStore, collector: useCases.telemetryCollector });
   })

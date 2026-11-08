@@ -83,15 +83,39 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
     saveData(next, (data) => dataStorage.setJson(dataKey, data));
   }, [dataStorage, saveData, setStoreToDoList])
 
+  // The checkbox's handler. AI setDone calls it too, so both log the same activity.
+  const setItemDone = useCallback((itemId: number, done: boolean) => {
+    const item = getTodoListState(scope)?.items.find(i => i.id === itemId);
+    // Already so (an agent repeating a call): no second usage log, no move to the bottom.
+    if (!item || item.isDone === done) {
+      return;
+    }
+    const getList = () => getTodoListState(scope) as ToDoListState;
+    if (done) {
+      markComplete(itemId, settings.doneToBottom, getList, setToDoListAndSave);
+      if (item.text.trim() !== '') {
+        widgetApi.logActivity('todo_done', { text: item.text.trim() });
+      }
+    } else {
+      markIncomplete(itemId, getList, setToDoListAndSave);
+    }
+  }, [scope, settings.doneToBottom, setToDoListAndSave, widgetApi]);
+
   // AI actions (aiActions.ts) edit through this widget's own store and save path.
   // The exposed object closes over only the scope and a ref, and is cleared on
   // unmount, so the app store never holds this component (pitfalls: exposed API leaks).
   const setForAiRef = useRef(setToDoListAndSave);
+  const setDoneForAiRef = useRef(setItemDone);
   useEffect(() => {
     setForAiRef.current = setToDoListAndSave;
-  }, [setToDoListAndSave]);
+    setDoneForAiRef.current = setItemDone;
+  }, [setToDoListAndSave, setItemDone]);
   useEffect(() => {
-    const todo: ToDoListAiApi = { get: () => getTodoListState(scope), set: (s) => setForAiRef.current(s) };
+    const todo: ToDoListAiApi = {
+      get: () => getTodoListState(scope),
+      set: (s) => setForAiRef.current(s),
+      setDone: (itemId, done) => setDoneForAiRef.current(itemId, done),
+    };
     exposeApi({ todo });
     return () => exposeApi({});
   }, [exposeApi, scope]);
@@ -275,18 +299,7 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
                   <input
                     type='checkbox'
                     checked={item.isDone}
-                    onChange={
-                      _ => {
-                        if (item.isDone) {
-                          markIncomplete(item.id, getToDoList, setToDoListAndSave);
-                        } else {
-                          markComplete(item.id, settings.doneToBottom, getToDoList, setToDoListAndSave);
-                          if (item.text.trim() !== '') {
-                            widgetApi.logActivity('todo_done', { text: item.text.trim() });
-                          }
-                        }
-                      }
-                    }/>
+                    onChange={_ => setItemDone(item.id, !item.isDone)}/>
                 </span>
                 {activeItemEditorState?.id === item.id
                   ? <input

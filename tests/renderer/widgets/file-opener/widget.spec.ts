@@ -20,6 +20,19 @@ function setupSut(settings: Settings, optional?: SetupWidgetSutOptional) {
 }
 
 describe('File Opener Widget', () => {
+  it('AI openFiles does nothing when no file is set (the button is not shown then)', () => {
+    const exposeApi = jest.fn();
+    const openApp = jest.fn();
+    const openPath = jest.fn();
+    setupSut(fixtureSettings({ type: SettingsType.File, files: [''], folders: [], openIn: 'APP' }), {
+      mockWidgetApi: { exposeApi, shell: { openApp, openPath } },
+      sharedState: { apps: { apps: { APP: { id: 'APP', settings: { name: 'Ed', execPath: 'C:/ed.exe', cmdArgs: '', icon: '' } } } } } as never
+    });
+    (exposeApi.mock.calls.at(-1)?.[0] as { openFiles: () => void }).openFiles();
+    expect(openApp).not.toHaveBeenCalled();
+    expect(openPath).not.toHaveBeenCalled();
+  });
+
   it('exposes openFiles for AI actions, doing what a click does', () => {
     const exposeApi = jest.fn();
     const openPath = jest.fn();

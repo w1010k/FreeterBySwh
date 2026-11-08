@@ -4,6 +4,7 @@
  */
 
 import {WidgetSettings, WidgetType} from '@/widgets/appModules'
+import aiChat from './ai-chat';
 import calculator from './calculator';
 import clock from './clock';
 import commander from './commander';
@@ -14,12 +15,14 @@ import linkOpener from './link-opener';
 import note from './note';
 import spreadsheet from './spreadsheet';
 import systemMonitor from './system-monitor';
+import terminal from './terminal';
 import timer from './timer';
 import toDoList from './to-do-list';
 import webQuery from './web-query';
 import webpage from './webpage';
 
 const widgetTypes = [
+  aiChat,
   calculator,
   clock,
   commander,
@@ -30,6 +33,7 @@ const widgetTypes = [
   note,
   spreadsheet,
   systemMonitor,
+  terminal,
   timer,
   toDoList,
   webpage,

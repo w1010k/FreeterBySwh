@@ -14,24 +14,33 @@ import {
   IpcAiAgentCancelRes,
   IpcAiAgentDetectArgs,
   IpcAiAgentDetectRes,
+  IpcAiAgentEndArgs,
+  IpcAiAgentEndRes,
   IpcAiAgentSendArgs,
   IpcAiAgentSendRes,
+  IpcAiAgentWarmArgs,
+  IpcAiAgentWarmRes,
   IpcAiConfirmArgs,
   IpcAiConfirmRes,
   IpcAiReadyArgs,
+  IpcAiAliveArgs,
+  IpcAiAliveRes,
   IpcAiReadyRes,
   ipcAiActionResponseChannel,
   ipcAiAgentCancelChannel,
   ipcAiAgentDetectChannel,
+  ipcAiAgentEndChannel,
   ipcAiAgentSendChannel,
+  ipcAiAgentWarmChannel,
   ipcAiConfirmChannel,
-  ipcAiReadyChannel
+  ipcAiReadyChannel,
+  ipcAiAliveChannel
 } from '@common/ipc/channels';
 
 type Deps = {
   aiActionBridge: AiActionBridge;
   confirmAiActionUseCase: ConfirmAiActionUseCase;
-  aiAgentRunner: Pick<AiAgentRunner, 'detect' | 'send' | 'cancel'>;
+  aiAgentRunner: Pick<AiAgentRunner, 'detect' | 'send' | 'cancel' | 'warm' | 'end'>;
 }
 
 export function createAiControllers({
@@ -45,6 +54,9 @@ export function createAiControllers({
     Controller<IpcAiAgentSendArgs, IpcAiAgentSendRes>,
     Controller<IpcAiAgentCancelArgs, IpcAiAgentCancelRes>,
     Controller<IpcAiReadyArgs, IpcAiReadyRes>,
+    Controller<IpcAiAgentWarmArgs, IpcAiAgentWarmRes>,
+    Controller<IpcAiAgentEndArgs, IpcAiAgentEndRes>,
+    Controller<IpcAiAliveArgs, IpcAiAliveRes>,
   ] {
   return [{
     channel: ipcAiActionResponseChannel,
@@ -64,5 +76,17 @@ export function createAiControllers({
   }, {
     channel: ipcAiReadyChannel,
     handle: async () => aiActionBridge.setReady(true)
+  }, {
+    channel: ipcAiAgentWarmChannel,
+    handle: async (_event, conversationId, o) => aiAgentRunner.warm(conversationId, o)
+  }, {
+    channel: ipcAiAgentEndChannel,
+    handle: async (_event, conversationId) => aiAgentRunner.end(conversationId)
+  }, {
+    channel: ipcAiAliveChannel,
+    handle: async (_event, reqId) => {
+      const signal = aiActionBridge.signalFor(reqId);
+      return !!signal && !signal.aborted;
+    }
   }]
 }

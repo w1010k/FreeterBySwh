@@ -73,6 +73,22 @@ describe('Note Widget AI api', () => {
   });
 
 
+  it('takes a write the user allowed in the confirm box while the note has the focus', async () => {
+    const exposeApi = jest.fn();
+    setupNoteWidgetSut({ mockWidgetApi: { exposeApi, dataStorage: { getText: jest.fn().mockResolvedValue('saved'), setText: jest.fn() } } });
+    const textarea = await screen.findByDisplayValue('saved');
+    act(() => textarea.focus());
+    const hasFocus = jest.spyOn(document, 'hasFocus').mockReturnValue(true);
+    const api = exposeApi.mock.calls.at(-1)?.[0] as { note: { set(t: string, allowedByUser?: boolean): boolean } };
+    let ok = false;
+    act(() => {
+      ok = api.note.set('allowed', true);
+    });
+    expect(ok).toBe(true);
+    expect(textarea).toHaveValue('allowed');
+    hasFocus.mockRestore();
+  });
+
   it('exposes get/set that show and save like a user edit, refuses while focused, and clears on unmount', async () => {
     const exposeApi = jest.fn();
     const setText = jest.fn();

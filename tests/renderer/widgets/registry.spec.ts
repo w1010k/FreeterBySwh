@@ -5,6 +5,21 @@
 
 import widgetTypes from '@/widgets';
 import { createUiState } from '@/base/state/ui';
+import linkOpener from '@/widgets/link-opener';
+import webQuery from '@/widgets/web-query';
+import webpage from '@/widgets/webpage';
+import fileExplorer from '@/widgets/file-explorer';
+
+test('widgets that open URLs in the OS (any scheme can start a program) always ask the AI user', () => {
+  expect(linkOpener.runsPrograms).toBe(true);
+  expect(webQuery.runsPrograms).toBe(true);
+  expect(fileExplorer.runsPrograms).toBe(true); // a double-click opens the entry with the OS
+});
+
+test('the Webpage widget names its settings that run code in pages', () => {
+  expect(webpage.confirmSettings).toEqual(expect.arrayContaining(['injectedJS', 'injectedCSS', 'customActions', 'url', 'tabs', 'userAgent', 'sessionScope', 'sessionPersist']));
+  expect(webpage.aiActions?.find(a => a.name === 'navigate')?.alwaysConfirm).toBe(true);
+});
 
 describe('widget registry', () => {
   it('has unique widget type ids', () => {

@@ -9,6 +9,10 @@ import { ActionBarItems } from './actionBar';
 import { ProcessInfo } from '@common/base/process';
 import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
 import { SystemStats } from '@common/base/systemStats';
+import { AgentEvent } from '@common/ai/agent';
+import {
+  IpcAiAgentDetectRes, IpcAiAgentSendArgs, IpcAiAgentSendRes, IpcAiAgentWarmArgs, IpcAiAgentWarmRes, IpcPtyCreateArgs, IpcPtyCreateRes
+} from '@common/ipc/channels';
 import { OpenDialogResult, OpenDirDialogConfig, OpenFileDialogConfig } from '@common/base/dialog';
 import { TelemetryActivityPayload, TelemetryActivityType } from '@common/base/telemetry';
 
@@ -62,6 +66,34 @@ export interface WidgetApiWidget<T extends object = object> {
   name: string;
   api: Partial<T>; // api exposed by widget
 }
+/** Shells in pseudo-terminals run by the main process (in-app terminals). */
+export interface WidgetApiPty {
+  create(o: IpcPtyCreateArgs[0]): Promise<IpcPtyCreateRes>;
+  write(terminalId: string, data: string): void;
+  resize(terminalId: string, cols: number, rows: number): void;
+  kill(terminalId: string): void;
+  /** Recent output kept by main (to redraw a view that attaches again); undefined once the shell ended. */
+  buffer(terminalId: string): Promise<string | undefined>;
+  /** Returns the unsubscribe function. */
+  onData(terminalId: string, fn: (data: string) => void): () => void;
+  onExit(terminalId: string, fn: (exitCode: number) => void): () => void;
+}
+
+/** Claude Code / Codex turns run by the main process (Freeter's own AI screens). */
+export interface WidgetApiAiAgent {
+  /** Which agent CLIs are on PATH. */
+  detect(): Promise<IpcAiAgentDetectRes>;
+  /** Starts a turn; conversationId null starts a new conversation. */
+  send(conversationId: IpcAiAgentSendArgs[0], req: IpcAiAgentSendArgs[1]): Promise<IpcAiAgentSendRes>;
+  cancel(conversationId: string): void;
+  /** Starts the conversation's CLI before the first prompt; conversationId null starts a new conversation. */
+  warm(conversationId: IpcAiAgentWarmArgs[0], o: IpcAiAgentWarmArgs[1]): Promise<IpcAiAgentWarmRes>;
+  /** Forgets the conversation and ends its CLI. */
+  end(conversationId: string): void;
+  /** Returns the unsubscribe function. */
+  onEvent(conversationId: string, fn: (event: AgentEvent) => void): () => void;
+}
+
 interface WidgetApiModules {
   readonly clipboard: {
     writeBookmark: (title: string, url: string) => Promise<void>;
@@ -122,6 +154,10 @@ interface WidgetApiModules {
     /** Current system CPU usage (%) and RAM used/total (bytes). */
     getStats: () => Promise<SystemStats>;
   }
+  /** In-app terminals: shells in pseudo-terminals run by the main process. */
+  readonly pty: WidgetApiPty;
+  /** Claude Code / Codex conversations run by Freeter (the agent can use Freeter through its tools). */
+  readonly aiAgent: WidgetApiAiAgent;
 }
 
 export type WidgetApiModuleName = keyof WidgetApiModules;

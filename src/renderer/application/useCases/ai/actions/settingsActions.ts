@@ -8,6 +8,7 @@ import { asRecord, okNull } from '@/application/useCases/ai/actions/inputs';
 import { AiAction } from '@/base/ai/aiAction';
 import { AppConfig } from '@/base/appConfig';
 import { uiThemes } from '@/base/uiTheme';
+import { workflowBarMaxWidth, workflowBarMinWidth } from '@/application/useCases/applicationSettings/setWorkflowBarWidth';
 
 type Deps = {
   appStore: AppStore;
@@ -27,7 +28,7 @@ const editable = {
   bgImageMode: oneOf(['cover', 'contain', 'center', 'tile']),
   bgOpacity: (v: unknown) => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 100,
   workflowBarPos: oneOf(['top', 'bottom', 'left', 'right']),
-  workflowBarWidth: (v: unknown) => Number.isInteger(v) && (v as number) > 0,
+  workflowBarWidth: (v: unknown) => Number.isInteger(v) && (v as number) >= workflowBarMinWidth && (v as number) <= workflowBarMaxWidth,
   downloadDir: isString,
 } satisfies Partial<Record<keyof AppConfig, (v: unknown) => boolean>>;
 
@@ -52,8 +53,10 @@ export function createSettingsAiActions({ appStore }: Deps): AiAction[] {
   const updateSettings: AiAction<EditableSettings> = {
     id: 'app.updateSettings',
     description: 'Change app settings. Keys: uiTheme (dark|light), bgColor, bgImage (file path), bgImageMode (cover|contain|center|tile), '
-      + 'bgOpacity (0-100), workflowBarPos (top|bottom|left|right), workflowBarWidth (px), downloadDir (folder path).',
+      + `bgOpacity (0-100), workflowBarPos (top|bottom|left|right), workflowBarWidth (${workflowBarMinWidth}-${workflowBarMaxWidth} px), downloadDir (folder path).`,
     kind: 'write',
+    // Downloads save there without asking: a startup folder would run what a page serves.
+    alwaysConfirm: (input) => input.downloadDir !== undefined,
     inputSchema: {
       type: 'object',
       properties: {
@@ -63,7 +66,7 @@ export function createSettingsAiActions({ appStore }: Deps): AiAction[] {
         bgImageMode: { enum: ['cover', 'contain', 'center', 'tile'] },
         bgOpacity: { type: 'integer', minimum: 0, maximum: 100 },
         workflowBarPos: { enum: ['top', 'bottom', 'left', 'right'] },
-        workflowBarWidth: { type: 'integer', minimum: 1 },
+        workflowBarWidth: { type: 'integer', minimum: workflowBarMinWidth, maximum: workflowBarMaxWidth },
         downloadDir: { type: 'string' },
       },
       additionalProperties: false

@@ -33,4 +33,14 @@ export interface WidgetType<TSettings = WidgetSettings> extends Entity {
   readonly requiresState?: SharedStateSliceName[];
   /** What AI agents may do with a widget of this type (see base/ai/widgetAiAction.ts). */
   readonly aiActions?: readonly WidgetAiAction[];
+  /**
+   * The widget runs programs or shell commands on the PC, or hands paths or URLs of any scheme to the OS (Commander,
+   * File Opener, File Explorer, Terminal, Link Opener, Web Query): AI actions on it
+   * and AI changes to its settings always ask, even with "always allow" on.
+   */
+  readonly runsPrograms?: boolean;
+  /** Settings whose change by an AI always asks, even with "always allow" on: they run code (e.g. Webpage injectedJS). */
+  readonly confirmSettings?: readonly string[];
+  /** Called once the widget left the app state (deleted): ends what it runs outside its view. */
+  readonly onDeleted?: (widgetId: string) => void;
 }

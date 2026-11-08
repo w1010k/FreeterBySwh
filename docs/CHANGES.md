@@ -3726,7 +3726,7 @@ System Monitor 위젯이 CPU·RAM 외에 새 의존성 없이 얻을 수 있는 
 
 - **에이전트 실행기**: Freeter가 설치된 `claude`나 `codex`를 직접 실행한다. 빈 폴더에서, `freeter mcp`만 도구로 붙여 실행하고, 대화를 이어 간다. 두 CLI의 출력을 공통 이벤트 (텍스트, 도구 호출, 완료, 오류)로 바꿔 renderer에 보낸다 (IPC `ai-agent-*`). 실제 Claude와 Codex로 "워크플로 이름 읽기 → 대화 이어 가기"를 확인했다.
 - **앱 안 터미널**: node-pty로 셸을 실행한다 (IPC `pty-*`). 셸에는 AI 제어 연결 정보와 (설치본에서) `freeter` 명령 폴더가 들어가, 그 안에서 실행한 에이전트도 Freeter를 다룰 수 있다.
-- 두 기능을 쓰는 화면 (채팅, 한 줄 질문, 터미널 위젯)은 다음 작업이다.
+- 두 기능을 쓰는 화면은 #100 (Terminal 위젯, AI Chat 위젯)이다. 한 줄 질문 화면은 아직 없다.
 
 ### 아키텍처
 
@@ -3755,6 +3755,244 @@ System Monitor 위젯이 CPU·RAM 외에 새 의존성 없이 얻을 수 있는 
 - **수정**: `src/common/ipc/channels.ts`, `src/main/index.ts`, `src/renderer/init.ts`, `src/renderer/base/widgetType.ts`, 위 9개 위젯의 `index.ts`·`widget.tsx`, `webpack.main.config.js`, `electron-builder.config.js`, `package.json` (`node-pty`)
 - **테스트**: `tests/common/ai/protocol.spec.ts`, `tests/main/infra/aiControlServer/*`, `tests/main/application/ai/aiActionBridge.spec.ts`, `tests/main/application/useCases/ai/confirmAiAction.spec.ts`, `tests/main/controllers/ai.spec.ts`, `tests/main/cli/{cli,mcp}.spec.ts`, `tests/renderer/application/useCases/ai/**`
 - **문서**: `README.md`, `docs/GUIDE.md`, `docs/dev/{overview,decisions,pitfalls,features-core}.md`
+
+## 100. Terminal 위젯과 AI Chat 위젯 *(2026-11-09)*
+
+#99의 에이전트 실행기와 앱 안 터미널을 쓰는 위젯 두 개를 추가했다. AI 인프라 설계의 "채팅"과 "앱 안 터미널" 화면이다.
+
+### 사용자 관점
+
+- **Terminal 위젯** (`terminal`): 위젯 안에서 셸 (Windows는 PowerShell, 그 밖은 `$SHELL`)을 실행한다.
+  - 설정: 셸 프로그램, 시작 폴더, 시작 명령 (셸이 뜬 뒤 입력할 명령, 예 `claude`).
+  - 액션 바: Start Claude Code, Start Codex (셸에 `claude`·`codex`를 입력), Restart Shell.
+  - 셸은 위젯 화면보다 오래 산다. Memory Saver가 워크플로를 내려도 셸은 계속 돌고, 돌아오면 최근 출력을 다시 그린다.
+  - 셸 안에는 AI 제어 연결 정보와 (설치본에서) `freeter` 명령이 들어 있어, 그 안의 Claude Code·Codex도 Freeter를 다룰 수 있다.
+- **AI Chat 위젯** (`ai-chat`): 설치된 Claude Code나 Codex와 대화한다. AI는 Freeter 도구로 앱을 읽고, 바꾸는 작업은 확인 상자에서 허용받은 뒤 실행한다.
+  - 설정: AI 도구 (Claude Code / Codex), 모델 (빈 값은 CLI 기본), 추론 강도 (빈 값은 CLI 기본).
+  - Enter는 보내기, Shift+Enter는 줄바꿈이다. 한글 입력 조합 중의 Enter는 조합만 끝낸다.
+  - 실행 중에는 Send 대신 Stop이 나온다. 액션 바의 New Conversation은 실행 중인 턴을 멈추고 대화를 비운다.
+  - 도구 호출은 작은 칩 (`app_describe ✓`)으로, 오류와 취소는 빨간 줄로 보인다. 선택한 CLI가 PATH에 없으면 위젯이 알려 준다.
+  - 대화 기록과 CLI 대화 id는 위젯 데이터 (키 `chat`, 최근 200개 항목)에 저장된다. 앱을 다시 시작해도 기록이 보이고, 같은 도구면 그 대화를 이어 간다. New Conversation은 저장도 지운다.
+  - 답은 마크다운 (굵게, 목록, 코드, 표, 링크)으로 보인다. 링크는 기본 브라우저로 연다.
+  - 응답 속도: Claude Code는 입력창에 첫 글자를 넣을 때 미리 시작하고, 대화 동안 계속 떠 있다. 답은 쓰는 대로 보인다. 실제 앱에서 haiku로 첫 턴 약 1.2초, 다음 턴 약 1.3초 (첫 글자 약 0.8초)였다. 이전 방식 (턴마다 CLI 실행)은 한 턴에 약 5초였다. Codex도 대화마다 `codex app-server` 하나를 띄워 둔다: 실제 앱에서 첫 턴 5.0초, 다음 턴 4.0초, Freeter 도구를 쓰는 턴 6.0초였다 (이전 `codex exec`는 단순 턴도 6.6~7.0초).
+
+### 아키텍처
+
+- 위젯 API 모듈 두 개를 추가했다: `pty` (`PtyProvider`), `aiAgent` (`AiAgentProvider`: `detect`, `send`, `cancel`, `onEvent`). 두 provider 모두 앱 수명 동안 IPC 리스너를 하나만 두고 터미널·대화 id별 구독자에게 나눠 준다 (preload가 리스너 제거를 지원하지 않는다).
+- Terminal은 xterm.js (`@xterm/xterm` 6, `@xterm/addon-fit`)로 그린다. 모듈 수준 `sessionByWidget` (위젯 id → 터미널 id)이 셸을 화면과 분리한다.
+- AI Chat의 대화는 `createChatSession` (`widgets/ai-chat/session.ts`)이 가진다. 모듈 수준 `sessionByWidget`에 위젯별로 두고, 화면은 `useSyncExternalStore`로 읽는다. 세션은 앱 단위 provider만 잡고 위젯 컴포넌트를 잡지 않는다.
+
+### 까다로웠던 포인트
+
+- **도구를 바꾼 뒤의 대화**: 실행기는 대화를 시작한 CLI로만 이어 간다. 설정에서 도구를 바꾸면 세션이 새 대화를 시작하고 "New conversation with ..." 줄을 남긴다.
+- **새 대화와 첫 전송의 경합**: 첫 턴의 `send` 응답이 오기 전에는 대화 id가 없어 취소할 수 없다. New Conversation이 그 사이에 오면 세션이 `epoch`를 올리고, 늦게 온 응답의 대화를 취소한 뒤 버린다.
+- **설정 화면의 미리보기**: 위젯 설정 화면은 같은 위젯 id로 위젯 본문을 미리 그린다. Terminal 미리보기가 실제 셸에 붙으면 셸 크기가 미리보기 크기로 바뀌고, 닫은 뒤 원래 위젯은 크기를 되돌리지 않는다. 그래서 두 위젯은 미리보기에서 안내 문구만 그린다 (실제 앱 검증 중 발견).
+- **끝 보고가 없는 도구 호출**: Claude는 도구 끝을 이름 없이 보고하므로 가장 오래 열린 호출을 닫는다. 턴이 끝날 때 열린 호출은 실패로 표시한다.
+- **CLI 실행 비용**: 턴마다 `claude -p`를 실행하면 모델 처리 약 1.5초에 CLI 실행 약 3.5초가 붙었다. 실행기는 Claude Code를 대화마다 하나 띄워 두고 (`--input-format stream-json`), 질문을 한 줄씩 보낸다. 10분 동안 쓰지 않거나, 취소하거나, 모델·추론 강도를 바꾸면 프로세스를 끝내고 다음 턴은 `--resume`으로 잇는다. 대기 중 프로세스는 약 255MB를 쓴다 (1회 실측). New Conversation은 `ai-agent-end`로 프로세스를 끝낸다.
+- **Codex app-server**: `codex exec`에는 프로세스를 유지하는 입력 방식이 없다. `codex app-server` (JSON-RPC, Codex가 "experimental"로 표시)로 대화마다 thread 하나를 연다 (read-only sandbox, 승인 요청 없음). Stop은 `turn/interrupt`로 턴만 멈추고 프로세스는 남긴다. thread가 열리기 전에 온 질문은 실행기가 잡아 두었다가 보낸다. 처음에는 Codex가 빈 작업 폴더를 먼저 뒤지느라 Freeter 도구 턴이 18초 걸렸다 (셸은 루프 18회차부터 끈다). thread의 개발자 지시로 Freeter 도구를 쓰라고 알려 6초로 줄었다. CLI 쪽 요청 (승인, 질문)은 거절해서 턴이 멈추지 않게 한다.
+- **AI 작업 항상 허용**: 앱 설정 "AI actions: always allow" (기본 꺼짐)를 켜면 AI 쓰기 작업이 확인 상자 없이 실행된다. 프로그램이나 명령을 실행하는 위젯 (`WidgetType.runsPrograms`: Commander, File Opener, Terminal)의 작업과 그 설정 변경은 계속 묻는다. AI가 읽은 글 (노트, 페이지)이 AI를 조종할 수 있어서, PC에서 명령이 실행되는 길만 남겨 둔다. AI는 이 설정을 바꿀 수 없다 (`app.updateSettings` 허용 목록 밖).
+- **마크다운 표시의 안전**: 답은 신뢰할 수 없는 글이다. `marked`의 renderer에서 원본 HTML은 글자로, 링크는 http(s)·mailto만, 이미지는 alt 글자로 바꾼다. 링크 클릭은 앱 페이지를 옮기지 않고 `shell.openExternalUrl`로 연다.
+- **스트리밍 텍스트의 중복**: `--include-partial-messages`를 켜면 같은 답이 delta와 완성된 assistant 메시지로 두 번 온다. 파서는 assistant 메시지에서 도구 호출만 읽고, 글은 delta로만 만든다.
+- **새 코드 리뷰에서 고친 것**:
+  - Codex `turn.failed` 뒤에도 실행기가 턴을 끝내지 않아, 바로 보낸 다음 질문이 "still running"으로 거절되고 CLI 종료 때 오류가 한 번 더 왔다. 실행기는 출력의 실패 이벤트에서도 턴을 끝낸다.
+  - 셸이 시작되는 사이 Restart하거나 위젯이 내려가면, 늦게 시작된 셸이 화면 없이 남았다. 이제 그 셸을 끝낸다.
+  - CLI 실행 실패는 다음 tick에 보고되어, renderer가 새 대화 id를 알기 전에 도착해 버려졌다 (화면이 Stop에 머묾). main은 에이전트 이벤트를 `setImmediate`로 `send` 응답 뒤에 보낸다.
+  - 앱 페이지를 새로 로드하면 이전 셸과 턴이 화면 없이 남았다. main은 `did-navigate`에서 둘을 모두 끝낸다.
+  - 응답만 기다리지 않는 IPC 호출 (write, resize, kill, cancel)의 실패를 무시한다. 메시지 목록은 `role="log"`로 스크린 리더가 새 답을 읽는다.
+- **두 번째 리뷰 (`/code-review high`)에서 고친 것**:
+  - `freeter mcp`: Freeter 재시작 직후 두 도구 호출이 함께 토큰 거절을 받으면, 늦게 온 쪽이 새 연결을 닫아 다른 호출까지 실패했다. 이미 다시 연결했으면 재시도만 한다.
+  - 위젯 삭제: AI Chat의 대화와 Claude 프로세스, Terminal의 셸이 지운 위젯 뒤에 남았다. `WidgetType.onDeleted`를 추가하고, store를 지켜보는 `initWidgetDeleteHooks`가 지워진 위젯마다 호출한다 (위젯은 위젯·워크플로·프로젝트 삭제, Project Manager, AI 작업 등 여러 경로로 지워진다).
+  - 실행기: 프로세스가 `exit`한 뒤에는 새 턴을 보내지 않고, 실행 중인 턴은 `close`를 2초 기다린 뒤 끝낸다 (자식이 출력 pipe를 쥐면 `close`가 오지 않는다). 오류 문구는 그 턴의 stderr만 쓰고, Codex의 마지막 `error` 줄을 원인으로 보여 준다. 출력 한 줄은 한 번만 읽는다. 페이지 새로 로드 때 대화 목록도 비운다.
+  - To-Do: AI가 이미 완료된 항목을 다시 완료로 바꾸면 사용 기록이 한 번 더 남고 항목이 다시 아래로 갔다. 상태가 같으면 아무것도 하지 않는다.
+- **세 번째 리뷰 (`/code-review high`)에서 고친 것**:
+  - 저장된 Claude 대화가 있는 위젯에서 도구를 Codex로 바꾸고 입력창을 누르면, 안내 없이 Codex가 Claude 기록 아래에서 맥락 없이 답했다. 미리 띄우기는 다른 도구의 대화를 시작하지 않고, 보내기가 "New conversation" 안내와 함께 전환한다.
+  - CLI에서 사라진 대화를 이어 가려 하면 매번 실패했다. Claude (`num_turns: 0` 오류)와 Codex (`thread/resume` 실패)에서 이를 알아보고 대화 id를 버린다 (`sessionLost`). 다음 질문은 새 대화로 시작한다.
+  - Codex가 스스로 턴을 `interrupted`로 끝내면 Freeter가 300초 동안 기다렸다. 이제 상태와 관계없이 턴을 끝낸다.
+  - 답을 글자 조각으로만 받았다. 조각 없이 완성된 답만 오면 (CLI 버전·설정에 따라) 완성본을 보여 준다.
+  - 글자 조각마다 답 전체를 마크다운으로 다시 변환했다. 받는 동안에는 일반 글자로 보이고, 턴이 끝나면 마크다운으로 바꾼다.
+  - 위젯을 복사하면 저장된 CLI 대화 id도 복사되어 두 위젯이 같은 대화를 이어 갔다. 저장에 소유 위젯 id (`owner`)를 넣고, 다른 위젯의 저장이면 기록만 받는다.
+  - 미리 띄우기가 살아 있는 프로세스의 유휴 시간을 연장하지 않았다. Codex Stop 직후의 질문은 이전 턴이 Codex 안에서 끝날 때까지 잡아 둔다. `freeter mcp` 재연결 중에 들어온 호출은 같은 재연결을 기다린다.
+- **네 번째 리뷰 (`/loop` + `/code-review high`)에서 고친 것**:
+  - "항상 허용"의 빈틈: Link Opener와 Web Query는 URL을 scheme 검사 없이 OS에 넘기므로 `file:` URL로 프로그램을 실행할 수 있었다. 두 위젯도 `runsPrograms`로 계속 묻는다. 다운로드 폴더 변경도 계속 묻는다 (다운로드는 묻지 않고 그 폴더에 저장되므로 시작 프로그램 폴더로 바꾸면 위험).
+  - Codex에서 Freeter 도구 호출 중에 Stop하면, 턴만 멈추고 그 호출의 확인 상자는 남았다. 도구 호출 중이면 프로세스를 끝내 확인 상자도 닫는다.
+  - Codex Stop 뒤 잡아 둔 질문을 다시 Stop해도 나중에 Codex로 보내졌다. Stop은 잡아 둔 질문을 버린다.
+  - 이어 간 Claude 프로세스의 나중 턴이 바로 실패해도 "대화를 잇지 못함"으로 보고하고 대화 id를 버렸다. 그 프로세스가 한 번이라도 답했으면 원래 오류를 보여 준다.
+  - 미리 띄우기 중에 알게 된 "대화를 잇지 못함"이 화면에 전달되지 않았다. 턴이 없어도 보낸다.
+  - 저장된 대화를 읽는 중에 New Conversation을 누르면, 늦게 읽힌 옛 대화가 되살아났다. 초기화 뒤에는 읽은 내용을 쓰지 않는다.
+  - 동시에 토큰 거절을 받은 두 `freeter mcp` 호출 중 하나가 "Freeter is not running"으로 실패했다. 두 호출 모두 같은 재연결을 기다린다.
+  - AI Chat 설정 화면의 "Each change asks you first" 문구가 "항상 허용"과 맞지 않았다. 중복된 JSON 줄 도우미 (`agentEvents.ts`, `agentSession.ts`)를 하나로 합쳤다.
+- **다섯 번째 리뷰 (루프 2회차)에서 고친 것**:
+  - "대화를 잇지 못함" 판정이 넓었다. 다시 띄운 Claude의 첫 턴이 일시 오류 (Overloaded 등)로 실패해도, Codex의 이어 가기가 인증·네트워크 오류로 실패해도 대화를 버렸다. 이제 CLI가 대화가 없다고 할 때만 버린다 (Claude 결과의 `errors`에 `No conversation found`, Codex `no rollout found`; 실측). Claude는 그때 프로세스도 새로 띄운다. Claude 오류 결과에 `result`가 없으면 `errors` 내용을 보여 준다.
+  - "항상 허용"의 빈틈: Webpage의 `injectedJS`, `injectedCSS`, `customActions` (로그인된 페이지에서 실행된다)와, 프로그램을 실행하는 위젯 (Terminal 등)의 추가는 계속 묻는다 (`WidgetType.confirmSettings`, `widget.add`).
+  - Claude가 오류 뒤에 같은 줄로 보내는 done (대화 id 포함)이 버려져, 첫 턴이 오류로 끝난 대화는 재시작 뒤 이어지지 않았다. 한 줄의 이벤트를 모두 보낸 뒤 턴을 끝낸다.
+  - Codex 턴이 도구 호출 도중 끝나면 이후의 Stop이 늘 프로세스를 끝냈다. 턴마다 도구 수를 다시 센다. 오래 사는 Codex 프로세스의 내부 기록 (`streamedItems`, `dropped`)을 턴이 끝날 때 비운다. To-Do의 주석을 원래 코드 위로 옮겼다.
+- **여섯 번째 리뷰 (루프 3회차)에서 고친 것**:
+  - "항상 허용"의 빈틈: 다른 컴퓨터를 가리키는 경로 (UNC `\\host\...`, `//host`, `file:`)를 넣는 설정 변경은 계속 묻는다. Windows는 그런 경로를 열 때 로그인 해시를 그 컴퓨터로 보낸다 (배경 이미지, Webpage URL 등).
+  - Codex 실행 인자에 `-c sandbox_mode="read-only"`를 다시 넣었다. thread 설정만으로는 사용자 config.toml이나 이후 버전에 기대게 된다.
+  - Terminal: 셸이 끝난 뒤 화면이 다시 붙으면 셸과 시작 명령이 저절로 다시 실행됐다. 이제 "Restart Shell"을 누를 때까지 끝난 상태로 둔다. Start Claude Code/Codex는 셸 프롬프트가 앞에 있을 때만 입력한다 (마지막 출력 줄이 `>`, `$`, `#`, `%`, `❯`로 끝날 때; node-pty는 Windows에서 앞의 프로그램 이름을 알려 주지 않는다, 실측). 아니면 터미널에 안내만 쓴다.
+  - AI Chat: 답을 받는 중 위로 스크롤하면 다음 글자 조각이 바닥으로 끌어내렸다. 바닥에 있을 때만 따라가고, 한 프레임에 한 번만 스크롤한다. 보낸 글이 받아들여지지 않으면 (New Conversation이 먼저 온 경우) 입력창에 되돌린다. 메모리의 대화도 최근 500개 항목만 둔다.
+  - 실행기의 유휴 타이머 설정을 `armIdle` 하나로 모았다. `base/widgetApi.ts`가 application 계층을 import하던 것을 바꿔, 모듈 모양 (`WidgetApiPty`, `WidgetApiAiAgent`)을 base에 두고 포트가 그것을 가리킨다.
+- **일곱 번째 리뷰 (루프 4회차)에서 고친 것**:
+  - Claude Stop이 이제 프로세스 안에서 턴만 멈춘다 (stream-json `control_request` `interrupt`; Claude Code 2.1.319에서 실측: 턴은 `error_during_execution` 결과로 끝나고 다음 턴은 같은 프로세스에서 답함). 다음 질문은 멈춘 턴이 끝날 때까지 잡아 둔다. Freeter 도구 호출 중이면 이전처럼 프로세스를 끝내 확인 상자를 닫는다.
+  - 미리 띄우기만 하고 턴이 없던 Codex 대화를 다시 열면 `no rollout found`로 첫 질문이 실패했다 (실측: Codex는 턴 전의 thread를 저장하지 않음). 새 thread의 id는 첫 턴이 끝날 때 기록한다.
+  - "항상 허용"의 빈틈: Webpage 이동 (`webpage.navigate`, `url`·`tabs` 설정)은 계속 묻는다 (URL로 읽은 내용을 밖으로 보낼 수 있음). 다른 컴퓨터 경로 판정에 `/\host`, `\/host` 형식을 더했다.
+  - `freeter mcp`: 다른 호출이 공유 연결을 닫아 실패한 호출도 새 연결에서 다시 시도한다 (연결 닫힘만; 실제 오류 응답은 반복하지 않음). 구독 해제가 같은 id의 나중 구독을 지우지 않는다. AI Chat 링크 판정은 앱의 `isAllowedExternalUrl`을 쓴다.
+  - 리뷰 지적 중 고치지 않은 것: CLI가 스스로 끝날 때 자식 트리를 kill하라는 지적. Windows의 `taskkill /T`는 이미 끝난 부모 아래의 트리를 찾지 못한다. `freeter mcp`는 stdin이 닫히면 열린 호출 뒤 (최대 요청 제한 시간) 스스로 끝난다. 코드에 이유를 주석으로 남겼다.
+- **여덟 번째 리뷰 (루프 5회차)에서 고친 것**:
+  - 이 문서가 통째로 한 번 더 붙어 있었다. 문서 편집 스크립트의 `String.replace`가 바꿀 글 안의 `$` + 백틱을 "앞부분 전체"로 읽었다. 중복을 지우고, 그때 빠진 글자를 되살렸다.
+  - Codex 새 대화의 첫 턴을 도구 호출 중에 멈추면 (프로세스를 끝냄) thread id가 사라져 다음 질문이 맥락 없이 시작했다. 턴이 시작되면 thread id를 기록한다 (실측: 첫 턴 도중 끝낸 thread도 이어 갈 수 있다).
+  - 멈춘 턴이 끝을 알리지 않으면 다음 질문이 영원히 기다렸다. 10초 뒤 프로세스를 끝내고 다시 보내라고 알린다.
+  - AI Chat: 항목이 500개를 넘으면 순서 번호 key가 모두 밀려 매번 전체 마크다운을 다시 변환했다. 대화 전체에서의 위치 (`first` + 순번)를 key로 쓴다. 다른 도구의 저장 대화 (이어 갈 id 없음)에도 도구 전환 안내를 보인다. 위젯 삭제는 저장을 지우지 않는다 (복사해 둔 위젯을 붙여 넣으면 기록이 남는다).
+  - Terminal: 지운 위젯이나 Restart로 바뀐 이전 셸의 종료가 위젯을 "끝남"으로 다시 표시하지 않는다.
+  - 고치지 않은 것: "항상 허용"에서 삭제도 묻지 않는 점 (사용자가 고른 설계, D77; 코드에 주석). `freeter mcp`의 닫힘 판정은 메시지를 만드는 같은 상수와 비교하므로 문구가 바뀌어도 함께 바뀐다 (주석).
+- **아홉 번째 리뷰 (루프 6회차)에서 고친 것**:
+  - Claude Stop: 그 턴의 출력이 오기 전 (질문이 아직 CLI 대기열에 있을 수 있음)에는 프로세스를 끝낸다. interrupt가 멈출 것을 찾지 못하면 턴이 그대로 돌아 쓰기 도구까지 실행될 수 있었다.
+  - 앞선 Stop의 10초 제한이 나중 Stop을 일찍 끝내지 않는다 (Stop마다 번호). 살아 있는 프로세스를 다시 쓸 때는 PATH를 다시 뒤지지 않는다 (main 스레드의 디스크 읽기).
+  - "항상 허용"의 다른 컴퓨터 경로 검사를 `runAiRequest` 한 곳으로 옮겨 모든 쓰기 작업에 적용한다. `freeter guide`와 사용법이 "항상 허용"을 설명한다 (삭제도 바로 실행되므로 지우기 전에 채팅에서 물으라고 안내).
+  - AI Chat: main이 거절할 형식의 저장 대화 id는 버린다. 빈 대화에서 미리 띄운 뒤 도구를 바꿔 보내면 첫 메시지 위에 전환 안내가 붙던 것을 없앴다. 오래된 주석을 고쳤다.
+- **열 번째 리뷰 (루프 7회차)에서 고친 것**:
+  - 이어 갈 대화가 CLI에 없으면, 그때 돌던 턴의 질문을 새 대화로 다시 보낸다 (오류 대신 안내 `notice`). 사용자가 다시 입력하지 않아도 된다.
+  - Stop이나 오류로 끝난 턴도 대화 id를 화면에 알려 저장한다. 첫 send가 main의 답을 기다리는 사이의 Stop은 id가 오면 그 턴을 멈춘다.
+  - "항상 허용"의 빈틈: 보이자마자 프로그램을 시작하는 위젯 (`WidgetType.startsOnShow`, Terminal)을 보이게 하는 `workflow.switch`, `project.switch`, `widget.move`도 계속 묻는다.
+  - 미리 띄우는 동안 CLI가 남긴 말 (stderr, Codex 오류 알림)을 첫 턴의 실패 원인으로 쓴다 (턴이 끝날 때 비움). Terminal이 다시 붙는 동안 셸이 끝나도 놓치지 않는다 (종료 감시를 버퍼 읽기 전에 시작). 추론 강도 목록과 대화 id 검사를 `@common/ai/agent`로 모았다.
+  - 고치지 않은 것: 위젯 삭제 감시의 전체 훑기 (위젯 묶음 객체가 바뀔 때만 실행, 수백 개도 마이크로초; 개수 비교는 한 번의 삭제+추가를 놓친다; 주석).
+- **열한 번째 리뷰 (루프 8회차)에서 고친 것**:
+  - "항상 허용"의 빈틈: Terminal을 보이게 하는 작업을 하나씩 막는 대신, 보이는 프로젝트나 워크플로를 바꾸는 모든 작업 (`project.switch`, `workflow.switch`, `workflow.create`, `workflow.delete`, 현재 프로젝트의 `project.delete`)이 그 결과 보일 프로젝트의 어느 워크플로에든 Terminal이 있으면 묻는다 (Memory Saver가 프로젝트의 다른 워크플로도 시작하므로). AI Chat의 도구·모델·추론 강도 변경도 묻는다.
+  - `freeter mcp`: 다른 호출이 그냥 다시 연결했을 때 (토큰 거절이 아님) 닫힌 연결의 호출을 다시 보내 쓰기가 두 번 실행될 수 있었다. 토큰 거절로 닫은 연결의 호출만 다시 보낸다 (그 호출은 실행되지 않았음).
+  - 실행기: 일부러 끝낸 프로세스의 출력과 턴 밖의 출력에서 대화 id를 받지 않는다 (잃어버린 id가 되살아나는 것 방지).
+  - 고치지 않은 것: 턴을 대화와 프로세스 양쪽에 두는 구조 (프로세스가 끝난 뒤 남은 출력이나 2초 유예로 자기 턴을 끝내야 함; 주석). Claude가 첫 턴 전에 대화 id를 내보낸다는 추정 (실측: init 줄은 첫 질문 뒤에 나옴; 턴 밖 id는 이제 받지도 않음).
+- **열두 번째 리뷰 (루프 9회차)에서 고친 것**:
+  - Terminal: 셸이 시작되는 사이 크기가 바뀌면 셸이 처음 크기에 남았다. 시작된 뒤 지금 크기를 보낸다. Start 버튼이 Python (`>>>`), Node (`>`), irb 프롬프트도 셸 프롬프트로 보던 것을 고쳤다.
+  - AI Chat: "새 대화가 시작된다" 안내가 오면 잃어버린 id를 그때 저장본에서 지운다 (턴이 끝나기 전에 앱을 닫아도 다음 시작 때 같은 실패를 되풀이하지 않음).
+  - `workflow.create`는 프로젝트를 바꾸지 않고 빈 워크플로를 보이므로 Terminal 확인을 하지 않는다 (틀린 주석과 과잉 확인 제거). 설치된 CLI 조회는 1분에 한 번만 한다 (위젯이 보일 때마다 main 스레드의 디스크 읽기). 소유 프로젝트 찾기, Terminal 정리, 대화 종료 절차를 각각 한 곳으로 모았다. README #99 줄에 "항상 허용"을 반영했다.
+  - 고치지 않은 것: Terminal 확인을 작업마다 넣는 구조 (실행 전에 알 수 없는 효과라 한 곳에서 판정할 수 없음; 새 작업에 대한 규칙을 `pitfalls.md`에 적음).
+- **열세 번째 리뷰 (루프 10회차)에서 고친 것**:
+  - "항상 허용"으로 확인 없이 실행할 때도, 그 요청이 이미 취소되었거나 시간이 지났는지 main에 묻는다 (`ai-alive`). 이전에는 Stop한 대화의 요청도 실행될 수 있었다.
+  - Terminal 보호를 작업마다 넣던 방식을 버리고, Terminal 쪽 안전장치 하나로 바꿨다: 확인 없이 실행된 쓰기 직후 5초 안에 처음 보이는 Terminal은 셸을 스스로 시작하지 않는다 (Restart Shell로 시작). 앞으로 추가되는 작업도 자동으로 덮는다.
+  - 대화 id는 `-`로 시작할 수 없다 (`--resume` 뒤에서 다른 옵션으로 읽힐 수 있음). 이미 끝난 프로세스에는 kill을 보내지 않는다 (Windows가 그 번호를 다른 프로세스에 줄 수 있음). `// TODO` 같은 글은 다른 컴퓨터 경로로 보지 않는다 (`//` 바로 뒤에 호스트가 있어야 함).
+  - 설치되지 않은 CLI를 입력창 포커스마다 찾지 않는다 (화면은 미리 띄우기를 건너뛰고, main은 CLI 위치를 1분 동안 기억). 재사용 판정을 함수 하나로 모으고, 설정·작업 문서의 주석을 실제 확인 범위에 맞췄다.
+- **열네 번째 리뷰 (루프 11회차)에서 고친 것**:
+  - Terminal 안전장치를 5초 시간 창에서 정확한 표시로 바꿨다: 확인 없이 실행된 쓰기 전후로 화면의 위젯 (셸프, 활성 워크플로)을 비교해, 새로 보이게 된 Terminal만 처음에 기다린다. 늦게 붙는 화면도 놓치지 않고, 사용자가 연 Terminal은 기다리지 않는다. 실제 앱 확인에서 두 결함을 더 찾아 고쳤다: 화면이 쓰기 도중에 바로 붙어 표시가 늦었고 (쓰기 전 목록을 먼저 알림), 쓰기 뒤의 표시가 한 번 더 붙어 Restart Shell도 기다렸다 (쓰기 중 받은 위젯은 다시 표시하지 않음). 기다리는 상태는 화면이 다시 붙어도 유지된다.
+  - "항상 허용"으로 실행하기 직전에도 설정 창이 열렸는지 다시 본다 (main에 묻는 사이 열린 창의 Save가 AI의 쓰기를 되돌림). 도구 전환은 즉시 반영해, 보내기가 실패해도 다음 시도에서 전환 안내가 반복되지 않고 저장본도 새 도구로 바뀐다.
+  - `freeter mcp`: 다시 연결하는 중에 닫히면 그 연결이 만든 소켓도 닫는다 (남은 소켓이 프로세스를 살려 둠). 실행기의 프로세스는 질문 내용을 들고 있지 않는다. "대화를 잇지 못함"은 이벤트가 아닌 읽기 결과의 표시로 바꿔, 쓰이지 않던 문구와 분기를 없앴다. 오래된 주석을 고쳤다.
+  - 고치지 않은 것: 턴이 막 끝난 Claude에 Stop이 interrupt를 보내는 경합 (실측: 턴이 없을 때의 interrupt에는 `control_response`만 오고, 다음 턴은 정상).
+- **열다섯 번째 리뷰 (루프 12회차)에서 고친 것**:
+  - 다른 컴퓨터 경로 판정에 NT 형식 (`\??\UNC\...`)과 뒤가 비어 있는 호스트 (`\\host`, `//host`)를 더했다. "항상 허용" 대기 중에 사용자가 그 설정을 끄면, 확인 상자를 보인다 (기다린 뒤 판정을 다시 함).
+  - Terminal 표시: 셸이 이미 도는 Terminal도 표시를 소비하고, Restart Shell과 삭제가 표시를 지운다 (다음 Restart가 기다리던 문제). 표시는 최근 200개만 둔다. 겹치는 쓰기를 따로 추적한다.
+  - 실행기: CLI 실행이 바로 실패하면 (spawn 예외) 대화를 남기지 않고 이유를 알리며, 잃어버린 대화 뒤 새 프로세스가 실패해도 main에 처리되지 않은 예외가 나지 않는다. AI Chat: 이름이 있는 도구 끝은 그 도구를 닫는다 (병렬 도구 호출).
+  - 고치지 않은 것: 스트리밍 토큰마다 목록을 복사하는 비용 (500개 참조 복사와 memo 비교, 답이 나오는 동안 나뉘어 일어남; 측정하지 않음). 턴이 막 끝난 Claude에 남는 interrupt (stdin 순서상 다음 질문 전에 읽히고, 턴 없는 interrupt에는 확인 응답만 옴; 실측).
+- **열여섯 번째 리뷰 (루프 13회차)에서 고친 것**:
+  - AI Chat: 보낸 질문을 그때 저장하고, CLI 대화 id는 알게 되는 즉시 (`session` 이벤트) 저장한다. 턴 도중 앱을 끄거나 다시 로드해도 질문과 이어 갈 대화가 남는다.
+  - "항상 허용"의 확인 대상 설정 (`confirmSettings`)은 보낸 키가 아니라 위젯 타입이 만든 결과로 판정한다 (예: Webpage는 `urlName`이 이상하면 `url`을 다시 만든다).
+  - 화면이 대화 id를 듣기 전에 온 이벤트는 provider가 잠시 들고 있다가 구독 때 넘긴다 (main의 전송 순서 가정에 기대지 않음). 기다리는 Terminal의 Start 버튼은 Restart Shell을 먼저 누르라고 안내한다. 답을 받는 동안 대화 목록에 `aria-busy`를 둔다 (스크린 리더가 조각을 읽지 않음). 마크다운 변환 결과를 최근 500개까지 다시 쓴다. 작은 정리 (타입 중복, 중복 주석, 가려진 이름).
+  - 고치지 않은 것: `closedClient`를 위로 옮긴 것 (lint `no-use-before-define`이 함수 안 참조도 잡음)과 `workflow.delete`의 `ownerOf` (9회차 리뷰의 중복 제거 요청).
+- **열일곱 번째 리뷰 (루프 14회차)에서 고친 것**:
+  - "항상 허용"에서도 Webpage의 `userAgent` 변경은 확인 상자를 띄운다. 페이지의 모든 요청에 실리므로 읽은 내용을 밖으로 보낼 수 있다.
+  - macOS와 Linux에서도 Stop이 CLI의 자식 프로세스 (`freeter mcp`와 그 확인 상자)까지 끝낸다. CLI를 자기 프로세스 그룹으로 띄우고 (`detached`) 그룹 전체에 SIGTERM을 보낸다 (`killTree`). Windows는 전처럼 `taskkill /T`. macOS와 Linux 실기기 확인은 아직 하지 않았다.
+  - Codex가 다시 시도하지 않는 오류 (`error` 알림의 `willRetry: false`)는 그 자리에서 턴을 끝낸다. 뒤따르는 그 턴의 `turn/completed`는 버린다.
+  - AI Chat이 "설치되지 않음"을 보인 뒤에는 입력창에 포커스가 올 때 CLI를 다시 찾는다 (main은 1분 캐시). 설치 후 다시 마운트하지 않아도 경고가 사라진다.
+  - 정리: 설정 창 확인 메시지 상수화, 도구 전환 대입과 저장 중복 제거, idle 주석이 Codex도 포함하도록 수정.
+  - 고치지 않은 것: 쓰기 도중 (밀리초) 사용자가 띄운 Terminal도 AI가 띄운 것으로 보는 점 (안전한 쪽으로 틀림, ponytail 주석), 마크다운 캐시 500개 (MAX_ITEMS와 같은 크기, ponytail 주석), init 직후 Stop으로 죽인 Claude 대화를 잃는다는 지적 (실제 CLI로 재현 안 됨: init 직후 강제 종료한 대화도 `--resume`이 성공).
+- **열여덟 번째 리뷰 (루프 15회차)에서 고친 것**:
+  - Codex의 최종 오류로 턴이 끝나면, 늦게 온 그 턴의 `turn/completed`가 새 턴의 도구 호출 수를 0으로 만들 수 있었다. 처음에는 다음 질문을 그 턴이 끝날 때까지 붙잡았으나, `turn/completed`가 오지 않으면 영영 풀리지 않아 16회차에서 바꿨다 (아래). 오류에 턴 id가 없으면 알림으로만 보이고, 턴은 `turn/completed`로 끝난다.
+  - POSIX에서 CLI가 스스로 죽으면 (`exit`) 남은 프로세스 그룹 (`freeter mcp`)도 끝낸다 (`endGroupWithLeader`). Windows에는 프로세스 그룹이 없다.
+  - 찾지 못한 CLI는 캐시하지 않고 다시 찾는다. 설치 직후 입력창을 누르면 바로 보인다 (찾은 CLI는 전처럼 1분 캐시). 없는 CLI를 1분에 한 번만 찾던 이전 테스트는 이 규칙의 테스트로 바꿨다. 위젯은 없는 CLI에 warm을 보내지 않으므로 PATH 검색은 포커스할 때 한 번이다.
+  - 정리: `widget.updateSettings`의 바뀐 키 판정을 `changedKeys` 하나로 합쳤고, AI Chat `reset`이 `this` 없이 동작한다.
+  - 고치지 않은 것: 입력창 포커스만으로 CLI를 미리 띄우는 것 (첫 턴 속도를 위한 설계, idle 5분 뒤 종료).
+- **열아홉 번째 리뷰 (루프 16회차)에서 고친 것**:
+  - Codex의 실패한 턴 뒤 다음 질문은 바로 보낸다. 늦게 온 그 턴의 `turn/completed`는 새 턴이 이미 돌면 새 턴의 상태 (도구 호출 수, 스트리밍한 항목)를 건드리지 않는다.
+  - 사용자가 확인 상자에서 허용한 쓰기는 편집 중인 Note도 받는다 (`runConfirmedAiWrite`, `userConfirmedAiWrite`). 확인 경로가 창에 포커스를 주므로, 전에는 허용한 쓰기를 Note가 거절했다. 상자에 쓸 글이 보이므로 사용자가 본 내용이다.
+  - 셸이 시작되는 도중 삭제된 Terminal은 늦게 시작된 셸을 바로 끝낸다. 삭제 뒤 한 번 더 렌더링된 AI Chat 뷰는 세션을 맵에 남기지 않는다 (둘 다 삭제된 위젯 id 집합).
+  - File Explorer는 `runsPrograms`다. 더블클릭이 항목을 OS로 열기 때문에, "항상 허용"에서도 설정 변경과 추가를 묻는다.
+  - Claude 결과가 오류인데 `result`가 빈 문자열이면 `errors`를 메시지로 쓴다.
+  - 15회차 테스트의 lint 오류 (`prefer-const`) 1건을 고쳤다. 15회차 보고 때 lint 출력의 "1 problem" 줄을 놓쳐 통과로 잘못 보고했다.
+  - 고치지 않은 것: 찾지 못한 CLI를 감지할 때마다 PATH를 다시 찾는 비용 (디렉터리 수 × 이름 2개의 `existsSync`, 마운트와 포커스 때만). AI가 띄운 Terminal을 막는 구조 전체를 바꾸자는 제안 (사용자와 정한 설계, D77).
+- **스무 번째 리뷰 (루프 17회차)에서 고친 것**:
+  - 16회차 회귀: Restart Shell이 삭제용 정리 (`forgetTerminalSession`)를 같이 써서 위젯을 삭제된 것으로 표시했고, 재시작한 셸을 시작하자마자 끝냈다. 정리는 `endShell`로 나누고 삭제 표시는 삭제 때만 한다. 기존 Restart 테스트가 `pty.create` 호출 수만 봐서 놓쳤으므로, 셸이 화면에 붙는지와 종료되지 않는지를 확인하도록 고쳤다.
+  - 16회차 수정의 문제: 삭제된 AI Chat 뷰가 렌더링될 때마다 새 세션이 저장본을 읽고, 그 결과가 다시 렌더링을 일으켜 반복했다 (테스트에서 재현: 끝나지 않음). 삭제된 위젯의 뷰는 저장소 없는 빈 세션 하나를 함께 쓴다.
+  - AI Chat: main이 보내기를 거부한 오류도 저장한다 (저장본이 답 없는 질문으로 끝나지 않음). 대화를 구독하기 전에 대화 id와 도구를 정해, provider가 구독 때 넘기는 이벤트도 저장된다.
+  - 고치지 않은 것: Codex 실패 직후 바로 보낸 질문이 아직 끝나지 않은 실패 턴과 겹칠 수 있다는 지적 (16회차에서 일부러 고른 쪽: 붙잡으면 영영 안 풀릴 수 있음. 겹치면 그 질문이 오류로 끝나고 다시 보내면 된다. Codex의 실제 동작은 확인하지 않았다).
+- **스물한 번째 리뷰 (루프 18회차)에서 고친 것**:
+  - AI Chat의 Codex는 셸을 쓰지 못한다 (`features.shell_tool=false`, `features.unified_exec=false`). 전에는 Codex가 Freeter 확인 상자 없이 셸 명령을 실행할 수 있었다 (실제 Codex 0.164.0으로 확인: 켜면 `echo`가 실행되고, 끄면 명령 실행 항목이 생기지 않는다). Claude는 원래 `--tools ""`로 셸이 없다.
+  - Terminal은 크기가 바뀔 때만 셸에 크기를 보낸다. 가장자리를 끄는 동안 같은 크기의 resize IPC와 셸 다시 그리기가 반복되지 않는다.
+  - HTML 이스케이프 함수를 `src/common/helpers/escapeHtml.ts` 하나로 합쳤다 (main의 HTTP 인증 창, AI Chat 마크다운).
+  - To-do List: AI의 완료 표시가 "완료 항목을 아래로" 설정을 따르는지 테스트를 더했다 (코드 변경 없음).
+  - 고치지 않은 것: 확인 없이 새로 보인 모든 위젯을 표시하는 것 (Terminal만 읽지만, 위젯 타입에 묶지 않는 쪽이 단순하고 상한 200이 있다), 스트리밍 조각마다 항목 배열을 복사하고 다시 그리는 비용 (메모된 항목의 얕은 비교라 작다고 추정, 측정하지 않음), 같은 Codex 실패 턴 겹침 지적, #100의 날짜 (커밋할 때 정한다).
+- **스물두 번째 리뷰 (루프 19회차)에서 고친 것**:
+  - 확인 상자를 거친 쓰기가 실행되는 동안 확인 없는 쓰기가 함께 돌면 (병렬 도구 호출), 어느 쓰기도 "사용자가 허용한 쓰기"로 보지 않는다. 전에는 전역 카운터 때문에 확인 없는 Note 쓰기가 편집 중 보호를 지나갈 수 있었다. 겹치면 Note가 거절하는 쪽으로 틀린다.
+  - Terminal 뷰가 출력을 읽는 사이 셸이 끝나면 종료 안내를 한 번만 쓴다.
+  - "항상 허용" 설명 (앱 설정, GUIDE, `runsPrograms` 주석)에 File Explorer, Webpage 주소와 user agent, AI Chat 도구와 모델을 넣었다.
+  - 고치지 않은 것:
+    - AI가 띄운 Terminal의 대기 표시가 재로드나 재시작 뒤 사라지는 점: 시작 명령은 사용자가 정한 것이다 (그 설정 변경은 항상 묻는다). 재시작 때 보이는 Terminal이 시작되는 것은 사용자가 꾸민 평소 동작이다. 표시가 막는 것은 AI가 고른 시점에 실행되는 것이다.
+    - 스트리밍 조각마다의 IPC와 렌더 비용: Claude의 조각은 토큰 여러 개를 담아 초당 수십 번으로 추정한다 (측정하지 않음).
+    - 이미 판단한 지적: 포커스 때 CLI를 미리 띄우는 것, Codex 실패 턴 겹침, Terminal 차단 구조.
+- **스물세 번째 리뷰 (루프 20회차)에서 고친 것**:
+  - 다른 컴퓨터를 가리키는 경로 판정이 구분자 셋 이상으로 시작하는 경로 (`\\\host\s`, `///host/s`)도 잡는다.
+  - Windows에서 CLI를 끄는 `taskkill`이 시작되지 못해도 main에 잡히지 않은 예외가 나지 않는다 (`error` 리스너).
+  - 찾지 못한 CLI도 5초 동안은 다시 찾지 않는다 (`MISS_MS`). 느린 PATH 드라이브에서 main 스레드가 멈추지 않게 하면서, 설치 직후에는 곧 보인다 (15회차의 "다시 찾음"과 이번 지적 사이의 절충).
+  - AI Chat: 보내기가 실패해 대화가 없었으면, 도구를 바꿔도 "New conversation with ..." 안내를 넣지 않는다 (`talked`). 다른 도구의 저장된 대화는 전처럼 안내한다.
+  - NDJSON 한 줄 만들기를 `encodeLine` 하나로 합쳤다.
+  - 고치지 않은 것: CLI가 대화 유실을 stderr로만 알리는 경우 (지금 버전은 JSON으로 알림, 실제 CLI 테스트로 확인), Codex 실패 턴 겹침, 마크다운 캐시 (이미 판단한 지적).
+  - 검증 메모: 실제 CLI 테스트에서 "Codex 대화 유실 뒤 새 대화" 테스트가 4번 중 1번 실패했다. 실패 원인은 출력을 남기지 않아 모른다. 이어서 3번은 통과했다.
+- **스물네 번째 리뷰 (루프 21회차)에서 고친 것**:
+  - "사용자가 확인 상자에서 허용한 쓰기"를 전역 카운터 (16·19회차의 `runConfirmedAiWrite`, `userConfirmedAiWrite`)로 추정하지 않고 요청과 함께 넘긴다: `AiAction.run(input, { confirmed })` → 위젯 작업 ctx의 `confirmed` → Note의 `set(text, allowedByUser)`. 병렬 쓰기가 서로의 판정에 영향을 주지 않는다. 전역 카운터는 지웠다.
+  - 문서를 코드에 맞췄다: features-widgets의 AI Chat (위젯 삭제는 저장을 남김, 재시작 뒤에도 대화를 이음, "항상 허용"), pitfalls와 #100의 "Codex는 셸을 끌 수 없다" (18회차부터 끈다).
+  - 정리: 실행기의 타이머 담는 객체를 변수 하나로, Claude 이벤트 해석의 캐스트를 `obj()` 검사로 바꿨다.
+  - 고치지 않은 것 (21회차): 확인 상자가 창에 포커스를 준 뒤 확인 없는 Note 쓰기가 "편집 중"으로 거절될 수 있는 점 (사용자가 Note에 포커스를 둔 채 Freeter 창에 있으면 입력 중일 수 있으므로 거절이 안전한 쪽이다. 확인 상자로 허용한 쓰기는 이제 받는다).
+- **스물다섯 번째 리뷰 (루프 22회차)에서 고친 것**:
+  - 실제 Codex 0.164.0으로 확인: 턴이 도는 중에 온 `turn/start`를 거절하지 않고 같은 턴 id를 돌려주며 그 턴에 합친다. 그래서 16회차의 "실패한 턴 뒤 다음 질문을 바로 보냄"은 결함이었다. 실패한 턴이 Codex 안에서 아직 돌면 새 질문이 그 턴에 합쳐지고, 그 턴의 출력은 버리므로 답이 사라지고 턴이 5분 제한까지 멈춘다.
+  - 이제 다시 시도하지 않는 오류 뒤의 질문은 Stop처럼 그 턴의 `turn/completed`를 기다린다. 실행기는 붙잡힌 질문이 10초 (`STOP_GRACE_MS`) 안에 풀리지 않으면 프로세스를 끝내고 "다시 보내라"고 알린다. 16회차가 걱정한 "영영 안 풀림"은 이것으로 막는다. 버린 턴의 완료가 새 턴의 상태를 지우는 경우도 없어진다 (새 턴은 그 뒤에만 시작).
+  - 정리: `runAiRequest`의 설정 창 확인을 `settingsWindowOpen()` 하나로, 쓰지 않는 `AgentProcess.stdin.end`를 인터페이스에서 지웠다. Note 주석은 확인 상자가 보여 주는 것 (바꿀 노트와 글자 수)에 맞췄다.
+  - 고치지 않은 것: `runAiRequest`의 `reqId` 기본값 0 (유일한 호출자인 IPC 브리지는 항상 id를 넘긴다; 기본값은 테스트용).
+- **스물여섯 번째 리뷰 (루프 23회차)에서 고친 것**:
+  - 붙잡힌 질문의 포기 타이머는 자기 턴 (`live.turn === turn`)만 끝낸다. 전에는 질문 글로 비교해서, 취소한 같은 글의 이전 질문 타이머가 새 질문을 일찍 끝낼 수 있었다.
+  - 페이지에서 온 `model`과 `resume`이 문자열이 아니면 거절한다 (`isSafeAgentId`가 타입도 검사).
+  - `file:` 판정은 파일 URL (`file:/`, `file:\`)만 잡는다. "File: budget.xlsx" 같은 보통 글은 "항상 허용"에서 상자를 띄우지 않는다.
+  - 정리: provider의 이른 이벤트 보관이 이벤트마다 배열을 복사하지 않는다. CLI의 테스트 전용 별칭 `guideTextForTest`를 지우고 `guideText`를 그대로 내보낸다.
+  - 고치지 않은 것: 재로드 뒤 AI가 띄운 Terminal의 대기 표시가 사라지는 점 (19회차와 같은 판단), Stop과 붙잡힌 질문의 포기 타이머를 하나로 합치자는 제안 (Stop은 턴을 먼저 끝내므로 식별 방법이 다르다), AI Chat과 Terminal의 위젯별 세션 맵을 공용 헬퍼로 합치자는 제안 (아직 안정되지 않은 코드라 리팩터링은 나중에 제안한다).
+- **스물일곱 번째 리뷰 (루프 24회차)에서 고친 것**:
+  - 실행기의 유예 타이머 (Stop, 붙잡힌 질문, 종료 뒤 대기)를 프로세스마다 하나 (`live.grace`)로 두고, 프로세스를 정리할 때 (`retire`, `close`) 해제한다. Stop마다 늘던 `stops` 카운터는 지웠다 (나중 Stop이 타이머를 바꾼다). 실행기의 타이머는 모두 `unref`한다 (`later`): 테스트 실행에서 Jest가 "worker process has failed to exit gracefully"를 내던 원인이었다 (러너 테스트가 다른 파일과 worker에서 함께 돌 때, 실제 시간 타이머가 남음).
+  - CLI 출력에서 받은 대화 id는 `isSafeAgentId`를 통과할 때만 저장한다 (나중에 `--resume` 인자로 명령줄에 들어간다).
+  - `runAiRequest`의 `reqId`를 필수로 했다 (확인 없는 경로가 main에 그 요청이 살아 있는지 묻는다).
+  - main의 에이전트 이벤트를 `setImmediate` 없이 바로 보낸다. 구독 전 이벤트는 renderer provider가 보관하므로 순서 장치가 하나만 남는다.
+  - 정리: 도구 표시 이름은 `toolName()`을 쓴다. CLI의 주인 없는 "For tests." 주석을 지웠다.
+  - 고치지 않은 것: 모든 문자열 입력에 대한 "다른 컴퓨터" 판정 (경로가 열리는 곳을 다 나열하지 않는 방어선이고, 틀리면 상자가 한 번 더 뜬다), #100의 날짜 (커밋할 때 정한다).
+  - 검증 메모: 실제 CLI 테스트는 실행기를 직접 쓰므로 `index.ts`의 `emit` 변경은 거치지 않는다. 그 경로는 provider 단위 테스트가 확인한다. 앱 화면으로 하는 확인은 이번에 하지 않았다.
+- **스물여덟 번째 리뷰 (루프 25회차)에서 고친 것**:
+  - Stop 뒤에 보낸 질문을 다시 Stop하면, CLI 안의 중단이 끝내 오지 않아도 정리할 타이머가 남지 않았다 (붙잡힌 질문의 타이머가 Stop 타이머를 지우고, 그 질문이 취소되면 아무 일도 하지 않음). 이제 두 타이머는 같은 규칙 하나 (`armStopGrace`: 유예 시간 뒤에도 중단 중이면 그때의 턴을 끝내고 프로세스를 끝냄)를 쓴다.
+  - "항상 허용" 설명에 AI Chat의 effort를 넣었다 (코드는 이미 묻는다).
+  - 고치지 않은 것:
+    - "항상 허용"에서 Terminal 위젯 삭제가 실행 중인 셸까지 확인 없이 끝내는 점: 삭제는 묻지 않는다는 사용자 결정 (D77)의 결과다. 사용자에게 다시 물을 사항으로 남긴다.
+    - POSIX에서 CLI를 `detached`로 띄우면 dev 터미널의 Ctrl+C 신호를 함께 받지 않는 점: 두 CLI는 stdin이 닫히면 끝난다. 앱 (GUI)에는 원래 그룹 신호가 없다.
+    - `Live.gone`이 `conv.live !== live`와 겹친다는 정리 제안 (종료 직후에도 쓰이는 표시라 그대로 둔다).
+- **스물아홉 번째 리뷰 (루프 26회차)에서 고친 것**:
+  - "항상 허용"에서도 Webpage의 세션 설정 (`sessionScope`, `sessionPersist`) 변경은 묻는다. 페이지가 어느 로그인 (쿠키)으로 열리는지를 정한다.
+  - Codex의 다시 시도하지 않는 오류가 그 턴의 `turn/completed` 뒤에 오면 알림으로만 보인다. 전에는 다음 질문을 붙잡아 10초 뒤 실패시켰다 (`turnDone`, 지금 도는 턴의 오류만 턴을 끝냄).
+  - 찾아 둔 CLI 경로로 실행하지 못하면 (지운 뒤, 옮긴 뒤) 경로 캐시를 지우고 다시 찾는다.
+  - 고치지 않은 것 (26회차): 경로를 여는 main 쪽에서 UNC를 막자는 제안 (사용자가 직접 네트워크 경로의 배경 그림을 고르는 경우가 막힌다), 그리고 이미 판단한 지적 (스트리밍 비용, 포커스 때 CLI 미리 띄우기), 실행기 상태와 두 세션의 공통 코드를 정리하자는 리팩터링 제안.
+- **서른 번째 리뷰 (루프 27회차)에서 고친 것**: decisions.md (D74)의 "취소하면 Claude 프로세스를 끝낸다"를 코드에 맞췄다 (두 CLI 모두 프로세스 안에서 턴만 멈추고, 그럴 수 없을 때만 프로세스를 끝낸다). 실행기의 `Live.key`는 `options`에서 구하므로 지웠다. 고치지 않은 것: 스트리밍 비용과 포커스 때 CLI 미리 띄우기 (이미 판단한 지적), 도구를 바꾼 뒤 포커스 때 새 도구를 미리 띄우지 않는 점 (기존 테스트가 정한 동작: 저장된 다른 도구의 대화가 있으면 보내기 전에는 바꾸지 않는다).
+- **서른한 번째 리뷰 (루프 28회차)에서 고친 것**:
+  - 확인 없이 새로 보인 위젯 가운데 프로그램을 실행하는 위젯 (`runsPrograms`, 곧 Terminal)만 표시한다. 다른 위젯 표시가 상한 200을 채워 Terminal 표시를 밀어내는 일이 없다 (18회차에는 상한이 있다고 판단했으나, 200개 넘게 보이는 전환에서는 실제로 밀려난다).
+  - 미리 띄우는 중 (턴 없음)에 이어 갈 대화가 사라진 것을 알면, 안내가 "다음 메시지가 새 대화를 시작한다"고 말한다.
+  - provider 주석의 이유를 바로잡았다: preload의 `removeListener`가 리스너를 지우지 못하는 것은 preload `on`이 보관한 것과 다른 함수를 등록하기 때문이다 (upstream 767ec51부터 있는 결함; 지금 renderer에 호출하는 곳이 없어 고치지 않았다).
+  - 정리: AI Chat 저장 데이터 검증에서 `asRecord`를 다시 쓴다.
+  - 고치지 않은 것: POSIX `detached` 고아 프로세스 (25회차와 같은 판단), CLI 재연결의 메시지 문자열 비교 (앞선 판단).
+- **서른두 번째 리뷰 (루프 29회차)에서 고친 것**:
+  - Terminal의 Start 버튼이 PowerShell의 이어 쓰기 프롬프트 (`>>`, 닫히지 않은 블록)를 셸 프롬프트로 보고 명령을 입력하던 것을 막았다.
+  - New Conversation 직후의 보내기가 그 전에 시작된 미리 띄우기 (`warm`)를 기다리지 않는다 (`reset`이 `warming`을 비움).
+  - 사용자 결정 (2026-11-09): "항상 허용"의 삭제는 지금처럼 묻지 않는다 (Terminal 삭제가 실행 중인 셸을 끝내는 것도 포함, D77에 기록). CLI는 입력창 포커스가 아니라 첫 글자를 넣을 때 미리 띄운다 (클릭만 하고 지나가면 프로세스가 생기지 않음).
+  - 사용자 결정 (2026-11-09): 답의 조각을 main에서 대화별로 60ms에 한 번 묶어 보낸다 (`createAgentEventCoalescer`). Paseo (getpaseo/paseo)의 `agent-stream-coalescer.ts`와 같은 방식이다: 조용하던 뒤 첫 조각은 바로 보내 첫 글자가 늦지 않고, 이어지는 조각은 모아 보내며, 다른 이벤트가 오면 모아 둔 글을 먼저 보낸다. 조각마다 생기던 IPC 전송, 목록 복사, 다시 그리기가 60ms에 한 번으로 준다. Paseo의 나머지 단계 (renderer의 프레임 단위 반영, 글자를 나눠 보이기, 목록 분리)는 넣지 않았다.
+  - 사용자 결정 (2026-11-09): "항상 허용"의 다른 컴퓨터 경로 판정은 지금처럼 모든 문자열에 적용한다 (D77). upstream preload의 결함을 고쳤다: `on`이 보관한 래퍼와 다른 함수를 등록해서 `removeListener`가 아무것도 지우지 못했다 (upstream 767ec51부터). 이제 보관한 래퍼를 등록한다 (테스트 `tests/renderer/preload/index.spec.ts`). preload가 바뀌었으므로 `yarn dev`는 다시 시작해야 한다.
+  - 고치지 않은 것: Codex 새 대화의 첫 턴을 턴 id가 오기 전 (약 1초 안)에 Stop하면 그 스레드를 잊는 점 (사용자가 멈춘 첫 질문을 에이전트가 기억하지 못하는 정도), `workflow.delete`의 저장소 이중 읽기 (9회차 요청으로 만든 `ownerOf`), 그리고 이미 판단한 지적 (스트리밍 비용, 포커스 때 CLI 미리 띄우기, 마크다운 캐시, 모든 문자열 입력의 경로 판정).
+- **실제 앱 검증**: DevTools 프로토콜 (`--remote-debugging-port`)로 입력해 Claude (haiku)와 "app.describe로 워크플로 이름 읽기 → 이전 질문 인용 (대화 이어 가기) → Stop"을 확인했다. 쓰기 확인 상자는 OS 상자라 자동화하지 못했다 (#99에서 CLI로 확인).
+
+**수정 파일**
+
+- **신규**: `src/renderer/widgets/terminal/{index.ts,settings.tsx,widget.tsx,widget.module.scss,icons/}`, `src/renderer/widgets/ai-chat/{index.ts,settings.tsx,widget.tsx,session.ts,widget.module.scss,icons/}`, `src/renderer/application/interfaces/{ptyProvider,aiAgentProvider}.ts`, `src/renderer/infra/{ptyProvider,aiAgentProvider}/`
+- **신규 (속도·편의 후속)**: `src/main/infra/aiAgent/agentSession.ts` (CLI별 프로토콜), `src/renderer/widgets/ai-chat/markdown.ts`, 의존성 `marked`
+- **신규 (리뷰 후속)**: `src/renderer/application/useCases/widget/initWidgetDeleteHooks.ts`, `src/renderer/infra/subscribers/subscribers.ts`, `src/common/helpers/escapeHtml.ts`, `src/main/application/ai/agentEventCoalescer.ts` (테스트 `tests/main/application/ai/agentEventCoalescer.spec.ts`)
+- **수정**: `src/renderer/base/widgetType.ts` (`onDeleted`), `src/main/cli/cli.ts`, `src/renderer/widgets/to-do-list/widget.tsx`, `src/renderer/base/widgetApi.ts`, `src/renderer/application/useCases/widget/getWidgetApi.ts`, `src/renderer/init.ts`, `src/renderer/widgets/index.ts`, `src/renderer/base/state/ui.ts` (팔레트), `src/renderer/styles.d.ts`, `package.json` (xterm)
+- **테스트**: `tests/renderer/widgets/{terminal,ai-chat}/`, `tests/renderer/infra/{ptyProvider,aiAgentProvider}/`, `tests/renderer/widgets/setupSut.tsx`, `tests/renderer/application/useCases/widget/getWidgetApi.spec.ts`
 
 ## 부록: 참고 문서
 

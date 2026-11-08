@@ -257,6 +257,11 @@ export const ipcAiConfirmChannel = makeIpcChannelName('ai-confirm');
 export type IpcAiConfirmArgs = [reqId: number, origin: AiOrigin, describe: string];
 export type IpcAiConfirmRes = boolean;
 
+/** renderer → main: the request is still wanted (not cancelled, not timed out); asked before a write runs without the box. */
+export const ipcAiAliveChannel = makeIpcChannelName('ai-alive');
+export type IpcAiAliveArgs = [reqId: number];
+export type IpcAiAliveRes = boolean;
+
 /** renderer → main: the app page now listens for ai-action-request. */
 export const ipcAiReadyChannel = makeIpcChannelName('ai-ready');
 export type IpcAiReadyArgs = [];
@@ -274,6 +279,16 @@ export type IpcAiAgentSendRes = { ok: true; conversationId: string } | { ok: fal
 export const ipcAiAgentCancelChannel = makeIpcChannelName('ai-agent-cancel');
 export type IpcAiAgentCancelArgs = [conversationId: string];
 export type IpcAiAgentCancelRes = void;
+
+/** Starts the conversation's CLI before the first prompt; conversationId null starts a new conversation. */
+export const ipcAiAgentWarmChannel = makeIpcChannelName('ai-agent-warm');
+export type IpcAiAgentWarmArgs = [conversationId: string | null, o: Omit<AgentSendRequest, 'prompt'>];
+export type IpcAiAgentWarmRes = IpcAiAgentSendRes;
+
+/** Forgets the conversation and ends its CLI. */
+export const ipcAiAgentEndChannel = makeIpcChannelName('ai-agent-end');
+export type IpcAiAgentEndArgs = [conversationId: string];
+export type IpcAiAgentEndRes = void;
 
 /** Shells in pseudo-terminals for in-app terminal views ('terminal-*' channels run the OS terminal app). */
 export const ipcPtyCreateChannel = makeIpcChannelName('pty-create');

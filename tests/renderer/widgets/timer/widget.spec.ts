@@ -20,6 +20,18 @@ function setupTimerWidgetSut(settings: Settings, optional?: SetupWidgetSutOption
 jest.useFakeTimers()
 
 describe('Timer Widget', () => {
+  it('refuses AI control after a failed restore (the controls are hidden)', async () => {
+    const exposeApi = jest.fn();
+    setupTimerWidgetSut(fixtureSettings({ mins: 1 }), {
+      mockWidgetApi: { exposeApi, dataStorage: { getJson: jest.fn().mockRejectedValue(new Error('EACCES')), setJson: jest.fn() } }
+    });
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    const { control } = exposeApi.mock.calls.at(-1)?.[0] as { control(c: string): boolean };
+    let ok = true;
+    act(() => { ok = control('start'); });
+    expect(ok).toBe(false);
+  });
+
   it('exposes control(command) for AI actions, doing what the buttons do', async () => {
     const exposeApi = jest.fn();
     const setDynamicTitle = jest.fn();

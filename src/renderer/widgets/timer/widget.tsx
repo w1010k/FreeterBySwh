@@ -139,12 +139,12 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
 
   // AI action (aiActions.ts): the same buttons, refused when the button is not shown.
   const control = useCallback((command: TimerCommand) => {
-    const allowed = {start: !isActive, pause: isRunning, resume: isPaused, reset: isActive}[command];
+    const allowed = !loadFailed && {start: !isActive, pause: isRunning, resume: isPaused, reset: isActive}[command];
     if (allowed) {
       ({start, pause, resume, reset})[command]();
     }
     return allowed;
-  }, [isActive, isRunning, isPaused, start, pause, resume, reset]);
+  }, [loadFailed, isActive, isRunning, isPaused, start, pause, resume, reset]);
   useExposedAiFunction(exposeApi, 'control', control);
 
   if (loadFailed) {

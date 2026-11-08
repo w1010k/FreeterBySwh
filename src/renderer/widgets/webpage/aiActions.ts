@@ -22,6 +22,8 @@ const navigate: WidgetAiAction<{ url: string }> = {
   name: 'navigate',
   description: 'Open an http(s) URL in the widget\'s embedded page.',
   kind: 'write',
+  // A URL can carry what the agent read (notes, to-dos) to any site.
+  alwaysConfirm: true,
   properties: { url: { type: 'string', format: 'uri' } },
   required: ['url'],
   parse: (input) => (isWebUrl(input.url) ? { url: input.url } : undefined),

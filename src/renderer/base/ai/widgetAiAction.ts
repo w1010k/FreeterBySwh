@@ -10,6 +10,8 @@ export interface WidgetAiActionContext {
   /** What the mounted widget passed to `widgetApi.exposeApi`. */
   api: Record<string, unknown>;
   settings: unknown;
+  /** The user allowed this write in the confirm box (a Note being edited takes it: the user allowed changing that note). */
+  confirmed?: boolean;
 }
 
 /**
@@ -23,6 +25,8 @@ export interface WidgetAiAction<I = unknown> {
   /** English, read by the agent. */
   description: string;
   kind: 'read' | 'write';
+  /** Asks even with "always allow" on (e.g. it sends data off the PC). */
+  alwaysConfirm?: true;
   /** JSON Schema properties besides `widgetId`. */
   properties: Record<string, object>;
   required?: string[];

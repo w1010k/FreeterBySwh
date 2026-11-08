@@ -3,31 +3,34 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { AgentEvent, AgentTool } from '@common/ai/agent';
+import { AgentEvent } from '@common/ai/agent';
 
-type Json = Record<string, unknown>;
+export type Json = Record<string, unknown>;
 
-function parse(line: string): Json | undefined {
+/** One output line as an object; undefined for a log line (not JSON). */
+export function parse(line: string): Json | undefined {
   try {
     const v: unknown = JSON.parse(line);
     return typeof v === 'object' && v !== null ? v as Json : undefined;
   } catch {
-    // Codex prints a few plain lines (e.g. "Reading prompt from stdin...").
+    // Not JSON (a log line).
     return undefined;
   }
 }
 
-const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
+export const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
+export const obj = (v: unknown) => (typeof v === 'object' && v !== null ? v as Json : undefined);
 const contentOf = (o: Json): Json[] => {
-  const content = (o.message as Json | undefined)?.content;
+  const content = obj(o.message)?.content;
   return Array.isArray(content) ? content.filter((c): c is Json => typeof c === 'object' && c !== null) : [];
 };
 
-/** Claude Code `--output-format stream-json --verbose`. */
+/** Claude Code `--output-format stream-json --verbose --include-partial-messages`. */
 function parseClaude(o: Json): AgentEvent[] {
   switch (o.type) {
     case 'assistant':
       return contentOf(o).flatMap((c): AgentEvent[] => {
+        // Usually streamed before as deltas; agentSession.ts drops it then.
         if (c.type === 'text' && str(c.text)) {
           return [{ type: 'text', text: str(c.text) as string }];
         }
@@ -36,53 +39,52 @@ function parseClaude(o: Json): AgentEvent[] {
         }
         return [];
       });
+    case 'stream_event': {
+      const ev = obj(o.event);
+      if (ev?.type === 'content_block_start' && obj(ev.content_block)?.type === 'text') {
+        return [{ type: 'text', text: '' }];
+      }
+      const delta = ev?.type === 'content_block_delta' ? obj(ev.delta) : undefined;
+      return delta?.type === 'text_delta' && str(delta.text) ? [{ type: 'textDelta', text: str(delta.text) as string }] : [];
+    }
     case 'user':
       return contentOf(o).filter(c => c.type === 'tool_result')
         .map((c): AgentEvent => ({ type: 'tool', name: '', phase: 'end', ok: c.is_error !== true }));
     case 'result': {
       const done: AgentEvent = { type: 'done', sessionId: str(o.session_id), costUsd: typeof o.total_cost_usd === 'number' ? o.total_cost_usd : undefined };
-      return o.is_error === true ? [{ type: 'error', message: str(o.result) ?? `Claude Code failed (${String(o.subtype)})` }, done] : [done];
+      const errors = Array.isArray(o.errors) ? o.errors.filter((e): e is string => typeof e === 'string') : [];
+      const message = str(o.result) || (errors.length > 0 ? errors.join('; ') : `Claude Code failed (${String(o.subtype)})`);
+      return o.is_error === true ? [{ type: 'error', message }, done] : [done];
     }
     default:
       return [];
   }
 }
 
-/** Codex `exec --json`. */
-function parseCodex(o: Json): AgentEvent[] {
-  const item = o.item as Json | undefined;
-  switch (o.type) {
-    case 'item.started':
-      return item?.type === 'mcp_tool_call' ? [{ type: 'tool', name: str(item.tool) ?? '', phase: 'start' }] : [];
-    case 'item.completed':
-      if (item?.type === 'agent_message' && str(item.text)) {
-        return [{ type: 'text', text: str(item.text) as string }];
-      }
-      return item?.type === 'mcp_tool_call' ? [{ type: 'tool', name: str(item.tool) ?? '', phase: 'end', ok: item.status !== 'failed' }] : [];
-    case 'turn.completed':
-      return [{ type: 'done' }];
-    case 'turn.failed':
-      return [{ type: 'error', message: str((o.error as Json | undefined)?.message) ?? 'Codex failed' }];
-    case 'error':
-      return [{ type: 'error', message: str(o.message) ?? 'Codex failed' }];
-    default:
-      return [];
-  }
+/** One line of Claude Code output (parsed once: it streams a line per token). */
+export interface ClaudeLine {
+  events: AgentEvent[];
+  sessionId?: string;
+  /** A complete assistant message (its text events repeat what was streamed, if anything was). */
+  message?: true;
+  /** `--resume` named a session Claude Code does not have (verified with Claude Code 2.1.319). */
+  sessionNotFound?: true;
+  /** Output of a running turn (a model message or stream event), so the turn has started. */
+  turnOutput?: true;
 }
 
-export function parseAgentLine(tool: AgentTool, line: string): AgentEvent[] {
+export function parseClaudeLine(line: string): ClaudeLine {
   const o = parse(line);
   if (!o) {
-    return [];
+    return { events: [] };
   }
-  return tool === 'claude' ? parseClaude(o) : parseCodex(o);
-}
-
-/** The id to resume the conversation with, when this line carries it. */
-export function agentSessionId(tool: AgentTool, line: string): string | undefined {
-  const o = parse(line);
-  if (!o) {
-    return undefined;
-  }
-  return tool === 'claude' ? str(o.session_id) : (o.type === 'thread.started' ? str(o.thread_id) : undefined);
+  const sessionId = str(o.session_id);
+  return {
+    events: parseClaude(o),
+    ...(sessionId ? { sessionId } : {}),
+    ...(o.type === 'assistant' ? { message: true as const } : {}),
+    ...(o.type === 'assistant' || o.type === 'stream_event' ? { turnOutput: true as const } : {}),
+    ...(o.type === 'result' && o.is_error === true && Array.isArray(o.errors)
+      && o.errors.some(e => typeof e === 'string' && e.startsWith('No conversation found')) ? { sessionNotFound: true as const } : {}),
+  };
 }

@@ -255,6 +255,7 @@ export function createUiState(): UiState {
       bgOpacity: 100,
       workflowBarPos: 'left',
       workflowBarWidth: 200,
+      aiAlwaysAllow: false,
       telemetry: {
         enabled: false,
         idleTimeoutMs: 300000
@@ -305,7 +306,7 @@ export function createUiState(): UiState {
       order: []
     },
     palette: {
-      widgetTypeIds: ['calculator', 'clock', 'commander', 'd-day', 'file-explorer', 'file-opener', 'link-opener', 'note', 'spreadsheet', 'system-monitor', 'timer', 'to-do-list', 'web-query', 'webpage']
+      widgetTypeIds: ['ai-chat', 'calculator', 'clock', 'commander', 'd-day', 'file-explorer', 'file-opener', 'link-opener', 'note', 'spreadsheet', 'system-monitor', 'terminal', 'timer', 'to-do-list', 'web-query', 'webpage']
     },
     projectSwitcher: {
       currentProjectId: '',

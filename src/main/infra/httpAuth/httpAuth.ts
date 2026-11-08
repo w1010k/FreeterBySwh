@@ -4,6 +4,7 @@
  */
 
 import { app as electronApp, AuthInfo, BrowserWindow, WebContents } from 'electron';
+import { escapeHtml } from '@common/helpers/escapeHtml';
 
 export interface HttpAuthCredentials {
   username: string;
@@ -14,15 +15,6 @@ export interface HttpAuthCredentials {
 // (same signalling trick the webpage widget uses for zoom/find): the window
 // has no preload bundle, so console-message is the cheapest host channel.
 const RESULT_MARKER = '__FREETER_HTTP_AUTH_RESULT__';
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 export function buildAuthPromptHtml(authInfo: Pick<AuthInfo, 'host' | 'port' | 'isProxy' | 'realm'>): string {
   const source = escapeHtml(`${authInfo.host}:${authInfo.port}`);

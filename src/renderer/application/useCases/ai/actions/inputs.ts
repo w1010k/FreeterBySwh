@@ -10,6 +10,23 @@ import { AiRpcResult } from '@common/ai/protocol';
 export const asRecord = (input: unknown): Record<string, unknown> | undefined =>
   typeof input === 'object' && input !== null && !Array.isArray(input) ? input as Record<string, unknown> : undefined;
 
+/**
+ * A value (at any depth) that names a path on another computer: a UNC path (two leading slashes of
+ * either kind; Windows reads '/\host' and '\/host' as UNC too) or a file: URL.
+ * Windows opens such a path with the user's login (it sends the NTLM hash to that computer).
+ */
+export function pointsToAnotherComputer(v: unknown): boolean {
+  if (typeof v === 'string') {
+    // Two or more slashes and a host right after them (a code comment '// x' has a space there), the NT form '\\??\\',
+    // or a file: URL (file:/... or file:\..., not text such as "File: budget.xlsx").
+    return /^([\\/]{2,}[^\s\\/]|\\\?\?\\|file:[\\/])/i.test(v.trim());
+  }
+  if (typeof v === 'object' && v !== null) {
+    return Object.values(v).some(pointsToAnotherComputer);
+  }
+  return false;
+}
+
 export const isNonEmptyString = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '';
 
 /** Optional string field: absent is fine, present must be a string. */

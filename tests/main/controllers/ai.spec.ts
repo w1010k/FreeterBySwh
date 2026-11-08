@@ -7,7 +7,10 @@ import {
   ipcAiActionResponseChannel,
   ipcAiAgentCancelChannel,
   ipcAiAgentDetectChannel,
+  ipcAiAgentEndChannel,
   ipcAiAgentSendChannel,
+  ipcAiAgentWarmChannel,
+  ipcAiAliveChannel,
   ipcAiConfirmChannel,
   ipcAiReadyChannel
 } from '@common/ipc/channels';
@@ -16,19 +19,25 @@ import { fixtureIpcMainEvent } from '@tests/infra/mocks/ipcMain';
 
 function setup() {
   const confirmSignal = new AbortController().signal;
-  const aiActionBridge = { request: jest.fn(), resolve: jest.fn(), signalFor: jest.fn(() => confirmSignal), setReady: jest.fn() };
+  const signalFor = jest.fn((_id: number): AbortSignal | undefined => confirmSignal);
+  const aiActionBridge = { request: jest.fn(), resolve: jest.fn(), signalFor, setReady: jest.fn() };
   const confirmAiActionUseCase = jest.fn(async () => true);
   const aiAgentRunner = {
     detect: jest.fn(() => ({ claude: true, codex: false })),
     send: jest.fn(() => ({ ok: true as const, conversationId: 'c1' })),
     cancel: jest.fn(),
+    warm: jest.fn(() => ({ ok: true as const, conversationId: 'c2' })),
+    end: jest.fn(),
     stopAll: jest.fn(),
   };
-  const [responseController, confirmController, detectController, sendController, cancelController, readyController] =
+  const [
+    responseController, confirmController, detectController, sendController, cancelController, readyController, warmController, endController, aliveController
+  ] =
     createAiControllers({ aiActionBridge, confirmAiActionUseCase, aiAgentRunner });
   return {
     confirmSignal, aiActionBridge, confirmAiActionUseCase, aiAgentRunner,
-    responseController, confirmController, detectController, sendController, cancelController, readyController
+    responseController, confirmController, detectController, sendController, cancelController, readyController, warmController, endController,
+    aliveController
   };
 }
 
@@ -64,5 +73,26 @@ describe('AiControllers', () => {
     expect(aiAgentRunner.send).toHaveBeenCalledWith(null, { tool: 'claude', prompt: 'hi' });
     await cancelController.handle(fixtureIpcMainEvent(), 'c1');
     expect(aiAgentRunner.cancel).toHaveBeenCalledWith('c1');
+  });
+
+  it('answers whether a request is still wanted (not cancelled, not timed out)', async () => {
+    const { aiActionBridge, aliveController } = setup();
+    const live = new AbortController();
+    const cancelled = new AbortController();
+    cancelled.abort();
+    aiActionBridge.signalFor.mockImplementation((id: number) => ({ 1: live.signal, 3: cancelled.signal } as Record<number, AbortSignal>)[id]);
+    expect(aliveController.channel).toBe(ipcAiAliveChannel);
+    await expect(aliveController.handle(fixtureIpcMainEvent(), 1)).resolves.toBe(true);
+    await expect(aliveController.handle(fixtureIpcMainEvent(), 2)).resolves.toBe(false);
+    await expect(aliveController.handle(fixtureIpcMainEvent(), 3)).resolves.toBe(false);
+  });
+
+  it('passes agent warm and end to the runner', async () => {
+    const { aiAgentRunner, warmController, endController } = setup();
+    expect([warmController.channel, endController.channel]).toEqual([ipcAiAgentWarmChannel, ipcAiAgentEndChannel]);
+    await expect(warmController.handle(fixtureIpcMainEvent(), null, { tool: 'claude' })).resolves.toEqual({ ok: true, conversationId: 'c2' });
+    expect(aiAgentRunner.warm).toHaveBeenCalledWith(null, { tool: 'claude' });
+    await endController.handle(fixtureIpcMainEvent(), 'c2');
+    expect(aiAgentRunner.end).toHaveBeenCalledWith('c2');
   });
 });

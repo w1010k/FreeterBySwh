@@ -32,6 +32,7 @@ export interface AiClient {
 export type ConnectAiClient = (endpointPath: string, origin: AiOrigin) => Promise<AiClient>;
 
 const notRunning = () => new Error('Freeter is not running');
+const CLOSED = 'Freeter closed the connection';
 
 async function readAll(stream: NodeJS.ReadableStream): Promise<string> {
   const chunks: Buffer[] = [];
@@ -93,13 +94,13 @@ export async function connectAiClient(endpointPath: string, origin: AiOrigin): P
     resolve?.(msg.error ? { ok: false, code: msg.error.data?.code ?? 'failed', message: msg.error.message } : { ok: true, value: msg.result ?? null });
   }, () => socket.destroy()));
   socket.on('error', () => failAll('Connection to Freeter failed'));
-  socket.on('close', () => failAll('Freeter closed the connection'));
+  socket.on('close', () => failAll(CLOSED));
 
   return {
     call(method, params) {
       if (socket.destroyed) {
         // A write to a destroyed socket raises no 'error' event, so the call would never settle.
-        return Promise.resolve({ ok: false, code: 'failed', message: 'Freeter closed the connection' });
+        return Promise.resolve({ ok: false, code: 'failed', message: CLOSED });
       }
       const id = nextId++;
       return new Promise<AiRpcResult>(resolve => {
@@ -112,33 +113,6 @@ export async function connectAiClient(endpointPath: string, origin: AiOrigin): P
   };
 }
 
-/**
- * For the long-lived `freeter mcp`: when Freeter restarts (new pipe, new token),
- * the next call reads endpoint.json again and reconnects.
- */
-export function createReconnectingAiClient(first: AiClient, reopen: () => Promise<AiClient>): AiClient {
-  let current = first;
-  // Calls that find the connection closed at the same time share one reconnect.
-  let reopening: Promise<AiClient> | undefined;
-  return {
-    async call(method, params) {
-      if (current.isClosed()) {
-        try {
-          reopening ??= reopen().finally(() => {
-            reopening = undefined;
-          });
-          current = await reopening;
-        } catch (err) {
-          return { ok: false, code: 'failed', message: err instanceof Error ? err.message : String(err) };
-        }
-      }
-      return current.call(method, params);
-    },
-    close: () => current.close(),
-    isClosed: () => current.isClosed()
-  };
-}
-
 /** Stands in until the first connection: every call reconnects. */
 const closedClient: AiClient = {
   call: async () => ({ ok: false, code: 'failed', message: 'Freeter is not running' }),
@@ -146,16 +120,90 @@ const closedClient: AiClient = {
   isClosed: () => true,
 };
 
+/**
+ * For the long-lived `freeter mcp`: when Freeter restarts (new pipe, new token),
+ * the next call reads endpoint.json again and reconnects.
+ */
+export function createReconnectingAiClient(first: AiClient, reopen: () => Promise<AiClient>): AiClient {
+  let current = first;
+  /**
+   * The connection Freeter refused for its old token. Calls on it never ran (Freeter checks the token first),
+   * so a call that saw it close may be sent again. A connection that closed for another reason gets no retry.
+   */
+  let refused: AiClient | undefined;
+  let closing = false;
+  // Calls that find the connection closed at the same time share one reconnect.
+  let reopening: Promise<AiClient> | undefined;
+  const reconnect = async (): Promise<string | undefined> => {
+    try {
+      reopening ??= reopen().finally(() => {
+        reopening = undefined;
+      });
+      current = await reopening;
+      if (closing) {
+        current.close(); // closed meanwhile: a socket left open would keep `freeter mcp` running
+      }
+      return undefined;
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
+  };
+  return {
+    async call(method, params) {
+      if (current.isClosed()) {
+        const failed = await reconnect();
+        if (failed) {
+          return { ok: false, code: 'failed', message: failed };
+        }
+      }
+      const used = current;
+      const res = await used.call(method, params);
+      // A call on a connection another refused call replaced also failed for the old token (Freeter refuses before
+      // it runs anything), even when it saw only the connection close: it retries too.
+      if (res.ok) {
+        return res;
+      }
+      // CLOSED is also what failAll writes, so rewording it changes both sides.
+      const replaced = used === refused && res.message === CLOSED;
+      if (res.code !== 'unauthorized' && !replaced) {
+        return res;
+      }
+      // A refused token means endpoint.json was older than the running Freeter (it was restarting):
+      // read it again once. Another call may have done it already; then only retry.
+      if (current === used) {
+        // Calls that come in meanwhile see a closed client and wait for the same reconnect.
+        current = closedClient;
+        refused = used;
+        used.close();
+      }
+      // Another call may be reconnecting already: reconnect() then waits for that one.
+      if (current.isClosed()) {
+        const failed = await reconnect();
+        if (failed) {
+          return { ok: false, code: 'failed', message: failed };
+        }
+      }
+      return current.call(method, params);
+    },
+    close: () => {
+      closing = true;
+      current.close();
+    },
+    isClosed: () => current.isClosed()
+  };
+}
+
 const usage = `Usage:
   freeter actions [--json]              List what an agent can do in Freeter
   freeter run <action> [--input <JSON> | --input - | --input-file <path>]
-                                        Run an action (write actions ask the user first);
+                                        Run an action (write actions ask the user first,
+                                        unless the user turned on "always allow");
                                         '-' reads the JSON from stdin
   freeter guide                         Print a usage guide for AI agents
   freeter mcp                           Run as a stdio MCP server
 `;
 
-function guideText(actions: AiActionInfo[]): string {
+export function guideText(actions: AiActionInfo[]): string {
   return `# Freeter CLI guide for AI agents
 
 Freeter is a desktop organizer: projects contain workflows, workflows contain widgets.
@@ -175,8 +223,11 @@ Start with \`freeter run app.describe\` to get the ids of projects, workflows, w
 
 ## Confirmation
 
-Every "write" action shows the user an Allow/Deny dialog in Freeter. A denial or no answer
+A "write" action shows the user an Allow/Deny dialog in Freeter. A denial or no answer
 within 2 minutes fails with "denied". Tell the user; do not retry without asking.
+If the user turned on "AI actions: always allow", most writes (deletes too) run at once with no
+dialog; only actions that can run programs or send data off the PC still ask. So make only the
+changes the user asked for, and ask in the chat before deleting anything.
 
 ## Exit codes
 
@@ -238,7 +289,7 @@ export async function runCli(argv: string[], io: CliIo, connect: ConnectAiClient
   }
   let client: AiClient;
   try {
-    client = await connect(endpointPath, origin);
+    client = createReconnectingAiClient(await connect(endpointPath, origin), () => connect(endpointPath, origin));
   } catch (err) {
     return fail(3, err instanceof Error ? err.message : String(err));
   }

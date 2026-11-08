@@ -22,6 +22,8 @@ const widgetType: WidgetType<Settings> = {
   settingsEditorComp,
   widgetComp,
   requiresApi: ['shell', 'widgets', 'dataStorage'],
+  // Its query URL goes to the OS as it is: a file: or app-scheme URL can start a program.
+  runsPrograms: true,
   aiActions: webQueryAiActions
 }
 

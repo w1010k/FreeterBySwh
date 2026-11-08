@@ -6,21 +6,28 @@
 import { noteAiActions } from '@/widgets/note/aiActions';
 import { WidgetAiAction } from '@/base/ai/widgetAiAction';
 
-function setup(initial: string | undefined, busy = false) {
+function setup(initial: string | undefined, busy = false, confirmed = false) {
   let text = initial;
-  const api = { note: { get: () => text, set: (t: string) => { if (busy) { return false; } text = t; return true; } } };
+  const set = jest.fn((t: string, allowedByUser?: boolean) => { if (busy && !allowedByUser) { return false; } text = t; return true; });
+  const api = { note: { get: () => text, set } };
   const get = (name: string) => noteAiActions.find(a => a.name === name) as WidgetAiAction;
   const exec = (name: string, input: Record<string, unknown>) => {
     const parsed = get(name).parse(input);
     if (parsed === undefined) {
       throw new Error('parse failed');
     }
-    return Promise.resolve(get(name).run({ api, settings: {} }, parsed));
+    return Promise.resolve(get(name).run({ api, settings: {}, confirmed }, parsed));
   };
-  return { get, exec, text: () => text };
+  return { get, exec, text: () => text, set };
 }
 
 describe('noteAiActions', () => {
+  it('setText tells the note that the user allowed the write in the box (the note takes it while being edited)', async () => {
+    const s = setup('a', true, true);
+    await expect(s.exec('setText', { text: 'c' })).resolves.toEqual({ ok: true, value: null });
+    expect(s.set).toHaveBeenCalledWith('c', true);
+  });
+
   it('getText returns the note', async () => {
     await expect(setup('hello').exec('getText', {})).resolves.toEqual({ ok: true, value: { text: 'hello' } });
   });

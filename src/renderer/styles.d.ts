@@ -12,6 +12,9 @@ declare module '*.css' {
 // MDXEditor's stylesheet, a package export that ships no type declaration
 // (the '*.css' pattern above does not cover package subpaths).
 
+// xterm's stylesheet (a package subpath, not covered by '*.css' above).
+declare module '@xterm/xterm/css/xterm.css';
+
 // For SCSS
 declare module '*.scss' {
   const classes: { [key: string]: string };

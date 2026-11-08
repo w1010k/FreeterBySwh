@@ -217,6 +217,17 @@ describe('<ApplicationSettings />', () => {
       })
     })
 
+    it('turns "AI actions: always allow" on (off by default)', async () => {
+      const appConfig = fixtureAppConfig({});
+      const {updateApplicationSettingsUseCase} = await setup(fixtureAppState({
+        ui: { modalScreens: fixtureModalScreens({ data: fixtureModalScreensData({ applicationSettings: fixtureApplicationSettings({ appConfig }) }) }) }
+      }));
+      const select = screen.getByRole('combobox', {name: /^AI actions: always allow$/i});
+      expect(select).toHaveValue('0');
+      await userEvent.selectOptions(select, 'On');
+      expect(updateApplicationSettingsUseCase).toHaveBeenCalledWith({...appConfig, aiAlwaysAllow: true});
+    })
+
     describe('workflow bar width', () => {
       const setupSide = async () => {
         const appConfig = fixtureAppConfig({workflowBarPos: 'left', workflowBarWidth: 200});

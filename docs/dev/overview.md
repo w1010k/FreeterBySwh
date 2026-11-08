@@ -249,7 +249,7 @@ main은 `did-attach-webview`에서 guest마다 아래를 건다.
 - main → renderer 요청-응답은 AI 제어에만 있다. main이 `ai-action-request` 알림을 `[reqId, req]`로 보내고, renderer (`init.ts`)가 실행 뒤
   `ai-action-response` invoke로 `[reqId, res]`를 돌려준다. main `createAiActionBridge`가 `reqId`별로 150초 기다리고, 늦은 응답은 버린다. 쓰기 확인은
   renderer가 `ai-confirm` invoke로 main에 요청한다 [fork #99]
-- 에이전트 실행기와 앱 안 터미널: renderer가 `ai-agent-detect/send/cancel`, `pty-create/write/resize/buffer/kill`을 invoke하고, main이 `ai-agent-event`, `pty-data`, `pty-exit` 알림을 보낸다. 아직 이 채널을 쓰는 화면은 없다 [fork #99]
+- 에이전트 실행기와 앱 안 터미널: renderer가 `ai-agent-detect/warm/send/cancel/end`, `pty-create/write/resize/buffer/kill`을 invoke하고, main이 `ai-agent-event`, `pty-data`, `pty-exit` 알림을 보낸다. 위젯은 `aiAgent`, `pty` 위젯 API 모듈로 쓴다 (AI Chat, Terminal 위젯) [fork #99 #100]
 
 #### 검증과 preload
 
@@ -414,7 +414,7 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 | systemStats          | CPU 사용률 (직전 호출 대비, 전체·코어별), 메모리, 시스템 드라이브 사용량, 가동 시간, Freeter 프로세스 합계 CPU·메모리 [fork #98]                                           | `infra/systemStatsProvider/systemStatsProvider.ts`                                                                                             | [fork #60]                      |
 | download             | 모든 session의 다운로드를 지정 폴더로 저장, 이름 충돌 시 ` (n)`                                                                                                             | `infra/downloads/downloadManager.ts` (`resolveUniqueSavePath`)                                                                                 | [fork #41]                      |
 | ai                   | AI 제어 서버 (named pipe/Unix 소켓, 줄 단위 JSON-RPC, 토큰), renderer로 요청 전달, 쓰기 확인 상자 (120초 abort, 한 번에 하나)                                                | `infra/aiControlServer/`, `application/ai/aiActionBridge.ts`, `useCases/ai/confirmAiAction.ts`, `controllers/ai.ts`, CLI는 `cli/`               | [fork #99]                      |
-| aiAgent              | 에이전트 실행기: `claude`/`codex`를 빈 폴더에서 실행하고 `freeter mcp`를 붙인다. stream-json/`--json` 출력을 공통 이벤트로 바꿔 `ai-agent-event`로 보낸다. 결과 이벤트에서 턴을 끝내고, 5초 뒤에도 남은 CLI는 종료. 턴당 300초 | `application/ai/aiAgentRunner.ts`, `infra/aiAgent/agentCommand.ts` (인자, PATH 탐색, .cmd escape), `infra/aiAgent/agentEvents.ts` | [fork #99]                      |
+| aiAgent              | 에이전트 실행기: `claude`/`codex`를 빈 폴더에서 실행하고 `freeter mcp`를 붙인다. 대화마다 프로세스 하나 (Claude stream-json 입력, Codex `app-server` JSON-RPC; 미리 띄우기 `ai-agent-warm`, 5분 유휴 종료, `ai-agent-end`로 종료). 출력을 공통 이벤트 (답은 `textDelta`로 스트리밍)로 바꿔 `ai-agent-event`로 보낸다. 결과나 실패 이벤트에서 턴을 끝낸다. 턴당 300초. 이벤트는 바로 보낸다 (답의 조각만 대화별 60ms 묶음, `application/ai/agentEventCoalescer.ts`). 구독 전에 온 이벤트는 renderer `aiAgentProvider`가 보관했다가 넘긴다. 앱 페이지가 새로 로드되면 (`did-navigate`) 실행 중인 턴과 앱 안 셸을 모두 끝낸다 | `application/ai/aiAgentRunner.ts`, `infra/aiAgent/agentCommand.ts` (인자, PATH 탐색, .cmd escape), `infra/aiAgent/agentSession.ts` (CLI별 프로토콜), `infra/aiAgent/agentEvents.ts` (Claude 출력) | [fork #99 #100]                      |
 | terminal (pty)       | 앱 안 터미널: node-pty로 셸 실행, 출력 16ms 묶음 전송, 터미널마다 최근 1MiB 보관 (다시 붙을 때 그리기용). 셸 env에 AI 제어 endpoint와 설치본의 `freeter` 래퍼 폴더 | `application/terminal/terminalHost.ts`, `controllers/pty.ts`. node-pty는 지연 로딩 (`index.ts`)                                          | [fork #99]                      |
 
 infra 전용 구성: `infra/protocolHandler/` (`freeter-file` 스킴 등록) [upstream], `infra/ipcMain/` [upstream],

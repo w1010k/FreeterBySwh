@@ -22,6 +22,7 @@ const widgetType: WidgetType<Settings> = {
   settingsEditorComp,
   widgetComp,
   requiresApi: ['shell', 'icon'],
+  runsPrograms: true,
   requiresState: ['apps'],
   aiActions: fileOpenerAiActions
 }

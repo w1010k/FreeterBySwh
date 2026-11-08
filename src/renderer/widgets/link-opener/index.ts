@@ -22,6 +22,8 @@ const widgetType: WidgetType<Settings> = {
   settingsEditorComp,
   widgetComp,
   requiresApi: ['shell', 'icon'],
+  // Its URLs go to the OS as they are: a file: or app-scheme URL can start a program.
+  runsPrograms: true,
   aiActions: linkOpenerAiActions
 }
 
