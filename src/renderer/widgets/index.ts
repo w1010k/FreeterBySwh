@@ -12,7 +12,6 @@ import fileExplorer from './file-explorer';
 import fileOpener from './file-opener';
 import linkOpener from './link-opener';
 import note from './note';
-import spreadsheet from './spreadsheet';
 import systemMonitor from './system-monitor';
 import terminal from './terminal';
 import timer from './timer';
@@ -29,7 +28,6 @@ const widgetTypes = [
   fileOpener,
   linkOpener,
   note,
-  spreadsheet,
   systemMonitor,
   terminal,
   timer,

@@ -147,6 +147,15 @@ describe('createWidgetAiActions() settings and move', () => {
     expect(appStore.get().entities.widgets[widget.id]?.settings).toEqual({ size: 10 });
   });
 
+  it('widget.updateSettings names the missing widget type when the widget exists but its type is gone', async () => {
+    const { exec, appStore, widget } = await setup2();
+    const state = appStore.get();
+    appStore.set({ ...state, entities: { ...state.entities, widgetTypes: {} } });
+    await expect(exec('widget.updateSettings', { widgetId: widget.id, settings: { size: 20 } })).resolves.toEqual({
+      ok: false, code: 'not_found', message: `No widget type with id "${widget.type}"`
+    });
+  });
+
   it('widget.updateSettings always asks for a widget type that runs programs (its settings hold commands or files)', async () => {
     const { get, appStore, widget } = await setup2();
     const input = { widgetId: widget.id, settings: { size: 20 } };

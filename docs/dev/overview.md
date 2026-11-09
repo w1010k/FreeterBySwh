@@ -107,7 +107,7 @@ Freeter는 Electron 데스크톱 앱이다. 프로젝트, 워크플로우 (탭),
 | `data/`                        | `appStore.ts`, `appStateStorage.ts`                                                                  |
 | `registry/registry.ts`         | 위젯 타입 목록 (`@/widgets`의 default export)을 제공                                                 |
 | `ui/`                          | 컴포넌트 팩토리, view-model 훅, 공용 훅 (`ui/hooks/`), 에셋                                          |
-| `widgets/`                     | 위젯 16종과 `_template` ([features-widgets.md](features-widgets.md))                                 |
+| `widgets/`                     | 위젯 14종과 `_template` ([features-widgets.md](features-widgets.md))                                 |
 | `helpers/`                     | 리스너 목록 클래스 `Event` (`helpers/event.ts`)                                                      |
 | `preload/`                     | preload 스크립트 (별도 번들, 별도 `tsconfig.json`)                                                   |
 | `analyticsPage/`               | 기본 브라우저에서 여는 Analytics 리포트 페이지 (별도 번들) [fork #87]                                |
@@ -476,7 +476,6 @@ infra 전용 구성: `infra/protocolHandler/` (`freeter-file` 스킴 등록) [up
 - renderer 전용 매핑: 이미지, 폰트, 오디오 → `tests/__mocks__/fileMock.js`, scss → `tests/__mocks__/identity-obj-proxy.js`,
   `@pierre/trees` → 수동 mock [fork #31], `@mdxeditor/editor` → 수동 mock [fork #91]
 - 위치: spec은 `tests/<surface>/` 아래에 두고 대부분 src 경로를 그대로 따른다. UI 컴포넌트 spec은 한 단계 위 폴더에 있다 (예: `tests/renderer/ui/components/palette.spec.tsx`).
-  src 안에 있는 spec은 `src/renderer/widgets/spreadsheet/formula.spec.ts` 1개다
 - fixture: 범용 팩토리 `makeFixture` (`tests/utils/makeFixture/makeFixture.ts`, 결과를 `deepFreeze`)와 도메인 fixture
   `tests/<surface>/**/fixtures/` (예: `tests/renderer/base/fixtures/widget.ts`)
 - mock: `tests/main/infra/mocks/` (ipcMain, provider들), `tests/renderer/infra/mocks/`, renderer IPC는

@@ -3795,6 +3795,18 @@ System Monitor 위젯이 CPU·RAM 외에 새 의존성 없이 얻을 수 있는 
 - **삭제 (AI Chat 제거)**: `src/renderer/widgets/ai-chat/`, `src/renderer/infra/aiAgentProvider/`, `src/main/application/ai/{aiAgentRunner,agentEventCoalescer}.ts`, `src/main/infra/aiAgent/`, `src/common/ai/agent.ts`와 그 테스트
 - **테스트**: `tests/renderer/widgets/terminal/`, `tests/renderer/infra/{ptyProvider,subscribers}/`, `tests/main/infra/{terminal,env}/`, `tests/main/application/terminal/terminalHost.spec.ts`, `tests/renderer/preload/index.spec.ts`
 
+## 101. Spreadsheet 위젯 제거 *(2026-11-10)*
+
+Spreadsheet 위젯을 제거했다. Add Widget 목록에서 사라지고, 이미 배치한 Spreadsheet는 `Unknown widget type`으로 표시된다. 편집 모드에서 삭제할 수 있다. 직접 구현한 표가 계속 기능이 모자랐고, 표 작업은 전용 앱이 낫다 (사용자 판단).
+
+위젯의 구현 (수식 엔진, 그리드, 필터 메뉴), 아이콘, 테스트, 등록과 팔레트 항목을 제거했다. AI 작업 `spreadsheet.getCells`, `spreadsheet.setCells`도 위젯 타입과 함께 사라졌다. 이 위젯만 쓰던 외부 의존성은 없었다. AI가 타입이 지워진 위젯의 설정을 바꾸려 하면 `widget.updateSettings`가 "위젯 없음" 대신 "위젯 타입 없음"을 돌려준다. #96과 같이 기존 배치와 설정, 위젯 저장 데이터 (`widgets/<id>`)는 지우지 않으므로 코드 변경을 되돌리면 다시 쓸 수 있다.
+
+**수정 파일**
+
+- **삭제**: `src/renderer/widgets/spreadsheet/`, `tests/renderer/widgets/spreadsheet/`
+- **수정**: `src/renderer/widgets/index.ts`, `src/renderer/base/state/ui.ts` (팔레트), `src/renderer/application/useCases/ai/actions/widgetActions.ts`, `jest.config.js` (src 안 spec이 없어져 renderer `roots`에서 `src/renderer/` 제거)
+- **테스트**: `tests/renderer/widgets/theme.spec.ts` (Spreadsheet 전용이던 테마 변수 검사를 모든 위젯 SCSS로 넓힘), `tests/renderer/application/useCases/ai/actions/widgetActions.spec.ts`
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

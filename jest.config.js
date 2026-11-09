@@ -62,7 +62,7 @@ module.exports = {
       '^@pierre/trees$': '<rootDir>/tests/__mocks__/pierreTrees.js',
       ...makeModuleNameMapper('renderer')
     },
-    roots: ['<rootDir>/tests/renderer/', '<rootDir>/src/renderer/']
+    roots: ['<rootDir>/tests/renderer/']
   }, {
     ...baseConfig,
     testEnvironment: 'node',

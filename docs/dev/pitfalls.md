@@ -130,16 +130,7 @@
 - 원인: 이벤트가 마지막 `setState` 커밋보다 먼저 도착하면 핸들러는 낡은 렌더 상태를 본다 (예: mouseup이 마지막 `setFillBox` 커밋보다 먼저 실행).
 - 규칙: 연속 이벤트 핸들러가 읽는 상태 (draft, 선택, 채우기 범위)는 ref로 미러링하고 핸들러에서만 ref를 쓴다. 렌더 중 ref 쓰기는 lint가 막는다. jsdom의 `fireEvent`는
   `act()`로 감싸 매 이벤트마다 상태를 flush하므로 이 종류의 버그를 잡지 못한다.
-- 근거: CHANGES #82, #83, `src/renderer/widgets/spreadsheet/widget.tsx`
-
-#### 큰 표의 행 메모이제이션
-
-- 출처: `[fork #86]`
-- 증상: 윈도잉 뒤에도 방향키 한 번에 약 1,500셀이 다시 렌더됐다.
-- 원인: 행 컴포넌트에 매 렌더 바뀌는 prop이 들어가면 `memo`가 무력해진다.
-- 규칙: 행 컴포넌트 prop은 원시값이거나, 그 행의 겉모습이 바뀔 때만 바뀌는 값으로 한정한다. 빈 값은 공유 상수 (`NO_HINTS`, `NO_DISPLAY`)를 쓴다. 이 파일 상단 주석의 "no
-  virtualisation" 문구는 현재 코드 (`OVERSCAN` 윈도잉)와 맞지 않는다.
-- 근거: CHANGES #86, `src/renderer/widgets/spreadsheet/widget.tsx` `OVERSCAN`, `SheetRowProps`
+- 근거: CHANGES #82, #83 (Spreadsheet는 2026-11-10에 제거)
 
 #### mousedown preventDefault와 dblclick
 
@@ -147,7 +138,7 @@
 - 증상: 열 경계 더블클릭 자동 맞춤이 실제 마우스에서 실행되지 않았다. 합성 `dblclick` 테스트는 통과했다.
 - 원인: Chrome은 `mousedown` 기본 동작이 취소되면 뒤따르는 `dblclick`을 만들지 않는다.
 - 규칙: 더블클릭을 받을 요소의 `mousedown`에서 `preventDefault()`를 부르지 않는다. 텍스트 선택 방지는 `user-select: none`으로 한다.
-- 근거: CHANGES #84
+- 근거: CHANGES #84 (Spreadsheet는 2026-11-10에 제거)
 
 ### 스타일과 테마
 
@@ -157,9 +148,8 @@
 - 증상: 선택 셀 외곽선이 보이지 않았다. 빌드 오류와 경고는 없었다.
 - 원인: 테마에 없는 `var(--freeter-x)`가 들어간 선언은 통째로 무효가 된다. 테마 키는 `themes/{light,dark}.ts` 객체이고 런타임에 `--freeter-<key>`로 주입된다.
 - 규칙: 새 `var(--freeter-*)`는 두 테마 객체에 키가 있는지 확인한다. 폴백 형태 `var(--a, var(--b))`는 안전하다 (Calculator의 `buttonBorder`가 이 형태).
-  `tests/renderer/widgets/spreadsheet/theme.spec.ts`는 spreadsheet 스타일시트 하나만 검사한다.
-- 근거: CHANGES #82, `src/renderer/ui/components/app/uiTheme/themes/light.ts`,
-  `tests/renderer/widgets/spreadsheet/theme.spec.ts`
+  `tests/renderer/widgets/theme.spec.ts`가 모든 위젯 SCSS에서 폴백 없는 `var(--freeter-*)`를 검사한다.
+- 근거: CHANGES #82, `src/renderer/ui/components/app/uiTheme/themes/light.ts`, `tests/renderer/widgets/theme.spec.ts`
 
 #### CSS 모듈의 특이성
 
@@ -167,7 +157,7 @@
 - 증상: 필터 드롭다운이 셀에 잘렸고, 텍스트 넘침 (`.spill`)도 동작하지 않았다.
 - 원인: `.sheet td { overflow: hidden }`(0,1,1)이 `.menu-open { overflow: visible }`(0,1,0)보다 특이성이 높아 상태 클래스가 무시됐다.
 - 규칙: 상태 클래스를 추가할 때 기존 기본 규칙의 특이성과 비교한다 (`td.menu-open`처럼 올린다). 화면에서 실제로 확인한다.
-- 근거: CHANGES #85, `src/renderer/widgets/spreadsheet/widget.module.scss`
+- 근거: CHANGES #85 (Spreadsheet는 2026-11-10에 제거)
 
 #### 상단 바 높이의 다중 정의
 
@@ -231,23 +221,22 @@
   됐다 (#86).
 - 원인: `initAppStateWidgets`가 매 로드마다 저장된 설정을 `createSettingsState`에 통과시키고, 결과는 다음 저장 때 디스크로 돌아간다. 설정은 인스턴스마다 저장되므로 기본값
   변경은 새 위젯에만 닿는다.
-- 규칙: `createSettingsState`와 데이터 정규화 함수는 멱등이어야 하고 데이터를 잘라내지 않는다 (늘리기만 한다). 옛 형태 판별은 명시적 버전 스탬프로 한다 (spreadsheet
-  `SETTINGS_VERSION`). 옛 형태 정규화 선례: web-query `entries`(#47), webpage 탭 파이프 문법 (#67).
-- 근거: `src/renderer/base/state/app.ts` `initAppStateWidgets`, `src/renderer/widgets/spreadsheet/settings.tsx`
-  `SETTINGS_VERSION`, `src/renderer/widgets/web-query/settings.tsx` `createSettingsState`
+- 규칙: `createSettingsState`와 데이터 정규화 함수는 멱등이어야 하고 데이터를 잘라내지 않는다 (늘리기만 한다). 옛 형태 판별은 명시적 버전 스탬프로 한다 (선례였던 Spreadsheet
+  `SETTINGS_VERSION`은 위젯과 함께 지웠다). 옛 형태 정규화 선례: web-query `entries`(#47), webpage 탭 파이프 문법 (#67).
+- 근거: `src/renderer/base/state/app.ts` `initAppStateWidgets`, `src/renderer/widgets/web-query/settings.tsx` `createSettingsState`
 
 #### 디바운스 저장과 종료·언마운트
 
 - 출처: `[fork #30 #40]`
 - 증상: 변경 직후 앱을 닫거나 워크플로우를 바꾸면 마지막 변경이 사라졌다.
-- 원인: 앱 상태는 5초, Note와 Spreadsheet는 800ms, To-Do는 500ms 디바운스로 저장한다. 위젯별 디바운스는 앱 상태 flush와 별개다. 확인된 손실 경로는 앱 종료다:
-  `beforeunload` 때 대기 중인 저장이 실행되지 않으면, renderer가 닫히면서 타이머도 사라진다 (추정). 언마운트만으로는 대기 중인 저장이 사라지지 않았다 (Spreadsheet로
+- 원인: 앱 상태는 5초, Note는 800ms, To-Do는 500ms 디바운스로 저장한다. 위젯별 디바운스는 앱 상태 flush와 별개다. 확인된 손실 경로는 앱 종료다:
+  `beforeunload` 때 대기 중인 저장이 실행되지 않으면, renderer가 닫히면서 타이머도 사라진다 (추정). 언마운트만으로는 대기 중인 저장이 사라지지 않았다 (지금은 없는 Spreadsheet로
   확인, 타이머가 언마운트 뒤에도 실행됨). 언마운트 flush 직후 위젯이 바로 다시 마운트되어도 새 내용을 읽는다. 파일 저장소가 같은 파일의 작업을 순서대로 실행하기
   때문이다 ("같은 파일의 읽기와 쓰기 순서").
 - 규칙: 디바운스 저장을 쓰는 위젯은 `beforeunload` 리스너와 언마운트 cleanup에서 `flush()`를 부른다. 앱 상태 flush (`will-quit`의 `windowStore.flush`,
   `beforeunload`의 `appStore.flush`)는 쓰기를 발사만 하고 완료를 기다리지 않는다 (best-effort).
 - 근거: CHANGES #30, #40 (Spreadsheet 후속 포함), `src/common/helpers/debounce.ts`, `src/renderer/widgets/note/widget.tsx`,
-  `src/renderer/widgets/spreadsheet/widget.tsx`, `src/main/index.ts`
+  `src/main/index.ts`
 
 #### memSaver와 위젯 마운트 수명
 

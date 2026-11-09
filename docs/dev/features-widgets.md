@@ -1,6 +1,6 @@
 ## 위젯 기능 지도
 
-위젯 16종과 위젯 시스템 기반 코드의 위치, 데이터 흐름, 저장 방식, 주의점을 담은 문서다.
+위젯 14종과 위젯 시스템 기반 코드의 위치, 데이터 흐름, 저장 방식, 주의점을 담은 문서다.
 
 - 기준 시점: 2026-10-05. upstream 기준: `v2.8.0-beta`.
 - 출처 표기: `[upstream]`(upstream v2.8.0-beta에 있던 것), `[fork #N]`(포크 추가, N은 `docs/CHANGES.md` 섹션 번호),
@@ -16,7 +16,7 @@
 |-----------------------|--------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|----------------------------------------------------------|
 | 위젯 타입 계약        | `src/renderer/base/widgetType.ts` `WidgetType`                                                                                             | 위젯 타입가 갖춰야 할 필드                                  | [upstream]                                               |
 | 위젯 인스턴스         | `src/renderer/base/widget.ts` `Widget`, `WidgetEnv`, `createWidget`, `getWidgetDisplayName`, `resolveWidgetSharedKeyId`                    | 엔티티, 배치 환경, 헬퍼                                     | [upstream, fork #8 변경]                                 |
-| 위젯 목록             | `src/renderer/widgets/index.ts` 기본 export 배열                                                                                           | 등록된 위젯 타입 16개                                       | [upstream, fork 신규 위젯 추가]                          |
+| 위젯 목록             | `src/renderer/widgets/index.ts` 기본 export 배열                                                                                           | 등록된 위젯 타입 14개                                       | [upstream, fork 신규 위젯 추가]                          |
 | 레지스트리            | `src/renderer/registry/registry.ts` `registry.getWidgetTypes`                                                                              | 위 배열을 그대로 반환                                       | [upstream]                                               |
 | 팔레트 목록           | `src/renderer/base/state/ui.ts` `palette.widgetTypeIds`                                                                                    | "Add Widget"에 보이는 위젯 타입 목록. 하드코딩 배열, 비영속 | [upstream, fork 위젯마다 추가]                           |
 | 위젯 API 정의         | `src/renderer/base/widgetApi.ts` `WidgetApi`, `WidgetSettingsApi`, `WidgetHeaderTabs`, `createWidgetApiFactory`                            | 위젯이 받는 API의 타입과 조립 함수                          | [upstream, fork #8 #11 #21 #31 #32 #60 #63 #67 #69 변경] |
@@ -75,7 +75,6 @@
 |-------------|--------------------------------------|--------------------------------------------------------------------------------|------------|
 | Web Query   | 단일 `{engine, descr, query, url}`   | `entries: QueryEntry[]`                                                        | [fork #47] |
 | Webpage     | `url` 안의 `URL \| 이름` 파이프 문법 | `urlName`, `tabs: {url, name}[]`. `urlName`이 저장된 뒤에는 재파싱하지 않는다  | [fork #67] |
-| Spreadsheet | 버전 없는 설정                       | 버전 스탬프 `v`. 스탬프가 다르면 `cols`, `rows`를 현재 기본값으로 한 번 덮는다 | [fork #86] |
 | D-Day       | 형식만 맞는 날짜                     | `parseLocalDate`로 실제 유효성까지 검사해 불량 항목 제거                       | [fork #51] |
 
 #### 위젯 셸
@@ -232,7 +231,6 @@
 |------|------|--------------|
 | To-Do List | `getItems`, `addItem`, `setDone`, `editItem`, `deleteItem` | `{ todo: { get, set } }` (scope store와 debounce 저장) |
 | Note | `getText`, `setText`, `appendText` | `{ note: { get, set } }`. 사용자가 입력 중이면 `set`이 false |
-| Spreadsheet | `getCells`, `setCells` (A1 기준 블록, 최대 10000셀) | `{ sheet: { get, set } }`. 붙여넣기와 같다 (undo 한 단계). 셀 편집 중이면 false |
 | Webpage | `navigate` (http/https만) | 기존 `{ openUrl, getUrl }` |
 | Link Opener, File Opener, Commander | `openLinks`, `openFiles`, `runCommands` | 버튼과 같은 함수 |
 | Web Query | `query { text, entry? }` | `{ query(text, entryIndex) }`. 폼 제출과 같은 `runQuery`, 기록에도 남는다 |
@@ -300,7 +298,6 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
 | `file-opener`    | File Opener    | 1×1     | shell, icon                            | apps           | 없음                                                                   | [upstream, fork #21 #22 #63 #75 변경]        |
 | `link-opener`    | Link Opener    | 1×1     | shell, icon                            |                | 없음                                                                   | [upstream, fork #21 #22 #72 #75 변경]        |
 | `note`           | Note           | 2×2     | clipboard, dataStorage                 | sharedDataKeys | `note`                                                                 | [upstream, fork #8 #10 #39 #40 #50 #72 변경] |
-| `spreadsheet`    | Spreadsheet    | 4×3     | dataStorage                            |                | `sheet`, `colWidths`, `rowHeights`, `colDelta`, `headerRow`, `filters` | [fork #79 #81~#86]                           |
 | `system-monitor` | System Monitor | 3×3     | systemStats                            |                | 없음                                                                   | [fork #60 #98]                               |
 | `terminal`       | Terminal       | 4×3     | pty                                    |                | 없음                                                                   | [fork #100]                                  |
 | `timer`          | Timer          | 1×1     | dataStorage                            |                | `state`                                                                | [upstream, fork #54 #72 #73 변경]            |
@@ -380,40 +377,6 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
   - `getWebContentsId()`는 attach 전에 호출하면 예외가 난다. ready 이후 한 번 읽어 보관한다 (CHANGES #24).
   - `actions.ts`의 라벨 상수는 액션바와 컨텍스트 메뉴가 공유한다. 단축키 표기는 액션바의 `title` 조립에서만 붙인다 (CHANGES #28).
   - main의 `before-input-event`는 webview에 포커스가 있을 때만 발화한다. 포커스 없는 webview에는 단축키가 닿지 않는다 (CHANGES #25).
-
-#### Spreadsheet (`spreadsheet`)
-
-- **역할**: 수식이 있는 작은 표. `<table>` 기반 자체 구현이다 [fork #82]. 처음에는 `react-datasheet-grid`를 썼다가 교체했다 [fork #79 #81].
-- **파일**: `widget.tsx`(시트 컴포넌트, 행 컴포넌트, 키보드·마우스·클립보드 처리), `grid.ts`(DOM 없는 순수 로직), `formula.ts`(토크나이저 + 재귀하강 파서 + 평가기),
-  `filterMenu.tsx`(필터 드롭다운), `settings.tsx`, `formula.spec.ts`(소스 폴더에 함께 있는 테스트).
-- **설정**: `v`(버전 스탬프, 현재 `SETTINGS_VERSION = 2`), `cols`(기본 26, 상한 `MAX_COLS = 256`), `rows`(기본 100, 상한 100,000),
-  `decimals`(`DECIMALS_AUTO = -1` 또는 0 ~6), `thousands`, `formulaBar`, `rowHeight`(18~60, 기본 24).
-- **저장 데이터** (모두 `dataStorage` 텍스트, 800ms 디바운스): `sheet`(행 배열 JSON, 저장 직전 `trimSheet`로 뒤쪽 빈 행·칸 제거), `colWidths`,
-  `rowHeights`, `colDelta`, `headerRow`, `filters`.
-- **열 개수**: 실제 열 수 = 설정 `cols` + `colDelta`. 위젯은 설정을 직접 바꾸지 못하므로 행/열 삽입·삭제는 `colDelta`만 움직인다 [fork #84].
-- **수식**: 사칙연산, `^`(우결합, 단항 마이너스가 더 강하게 묶임: `-2^2 = 4`), 비교, `&`, 셀 참조와 범위, `$` 절대 참조, 함수 `SUM`, `AVERAGE`(=`AVG`),
-  `MIN`, `MAX`, `COUNT`, `ABS`, `ROUND`, `IF`. 오류 코드 `#VALUE`, `#DIV/0`, `#NAME`, `#REF`, `#CIRC`, `#ERROR`, `#NUM`(표시).
-  `evaluateGrid`는 lazy 평가 + 캐시, `visiting` 집합으로 순환 참조 감지. 열 상한 16384 [fork #79 #83].
-  `IF`는 양쪽 분기의 문법을 검사하되 선택한 분기만 계산한다. 선택하지 않은 분기의 0 나눗셈·순환 참조는 결과에 영향을 주지 않고, 조건의 오류는 전파한다.
-- **참조 이동**: `translateRefs`(복사·채우기), `adjustRefs`(행/열 삽입·삭제, 삭제된 줄 참조는 `#REF`). 앱 내부 복사는 클립보드에 `text/x-freeter-sheet`
-  타입으로 출처 좌표를 싣는다 [fork #83 #84].
-- **편집 기능**: 수식 입력줄, 방향키 참조 선택 (점선 강조), 함수명 자동완성 (`FUNCTION_NAMES`), 채우기 핸들과 연속 데이터 인식, Ctrl+D/R, 실행 취소 100단계 (값·열 너비·행
-  높이·열 수·선택·필터 스냅샷), 엑셀식 탐색 (Ctrl+방향키, Home/End, PageUp/Down), 열 경계 더블클릭 자동 맞춤, 텍스트 넘침 [fork #81~#86].
-- **데이터 기능**: 정렬 (연속 데이터 블록, 머리글 자동 감지 `looksLikeHeader`), 필터 (`hiddenRows`, 행 번호 유지), 2칸 이상 선택 시 하단 집계 바 [fork #85]. 필터
-  상태는 실행 취소·정렬·붙여넣기·열 삽입/삭제와 맞물린다 [fork #86].
-- **컨텍스트 메뉴**: 앱 네이티브 메뉴 (`setContextMenuFactory`). Cut/Copy/Paste는 네이티브 role이라 키보드 단축키와 같은 클립보드 이벤트로 수렴한다 [fork #84].
-- **렌더 성능**: 보이는 행 ±8줄만 렌더하는 행 윈도잉 (누적 오프셋 + 이진 탐색), 행 단위 `memo`, 필터가 켜졌을 때만 전체 표시 문자열 계산 [fork #86].
-  숫자 표시는 `makeFormatter`마다 `Intl.NumberFormat` 하나를 재사용한다. 셀마다 로케일 포맷터를 만들지 않아 필터·열 너비 자동 맞춤의 반복 포맷 비용을 줄인다.
-- **주의점**:
-  - 이벤트 핸들러에서 렌더된 state를 읽지 않는다. draft, 선택, 채우기 범위, 수식 입력줄 대상은 ref 미러를 읽는다. 같은 원인의 버그가 다섯 번 반복됐다 (CHANGES #83).
-  - jsdom에서 통과해도 실제 브라우저에서 깨지는 레이아웃·마우스 버그가 많다. `fireEvent`가 `act()`로 상태를 매번 flush하기 때문이다 (CHANGES #81~#86).
-  - `table-layout: fixed`라도 테이블 `width`가 없으면 Chrome이 열 폭을 무시한다. 테이블 폭을 열 폭 합으로 명시한다 (CHANGES #84).
-  - mousedown에서 `preventDefault()`를 부르면 Chrome이 `dblclick`을 만들지 않는다 (CHANGES #84).
-  - `.sheet td { overflow: hidden }`의 특이성이 높아 같은 셀의 다른 클래스 규칙을 덮는다 (CHANGES #85).
-  - `tests/renderer/widgets/spreadsheet/theme.spec.ts`는 이 위젯의 SCSS만 검사한다.
-  - 저장은 800ms 디바운스다. Note, To-Do와 같이 `beforeunload`와 언마운트 때 저장 함수 4개를 flush한다 [fork #40 후속, 2026-10-05]. 새 디바운스 저장을 추가하면 이
-    flush effect에도 넣는다.
-  - CHANGES #86의 제목과 "수정 파일"은 "A~AZ · 1,000행", "열 52·행 1000"으로 적혀 있지만 현재 코드 기본값은 26열 × 100행이다 (본문은 26×100으로 줄였다고 적음).
 
 #### Note (`note`)
 
@@ -601,7 +564,7 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
 
 ### 저장 실패와 위젯 생애주기 보완 [fork #97]
 
-- Note·To-Do·Spreadsheet는 읽기 실패를 빈 내용으로 초기화하지 않는다. 로드 실패 안내를 표시하고, 읽기 성공 전 편집·자동 저장을 막는다. Timer도 복원 실패 뒤 초기 상태를 저장하지 않는다. Web Query는 검색 기능을 유지하되 읽지 못한 검색 기록을 새 기록으로 덮지 않는다.
+- Note·To-Do는 읽기 실패를 빈 내용으로 초기화하지 않는다. 로드 실패 안내를 표시하고, 읽기 성공 전 편집·자동 저장을 막는다. Timer도 복원 실패 뒤 초기 상태를 저장하지 않는다. Web Query는 검색 기능을 유지하되 읽지 못한 검색 기록을 새 기록으로 덮지 않는다.
 - Note의 Markdown 모드는 언마운트 때 `Editor.destroy()`를 호출한다. 편집기 DOM만 제거하면 document의 selectionchange 리스너가 편집기와 내용을 계속 참조한다.
 - 위젯·공유 저장소의 재시도·캐시 계약은 overview의 저장소 계층을 따른다. 영구적인 저장 오류에서 앱을 닫으면 메모리에만 남은 값을 잃을 수 있다.
 - Webpage가 전역 상태에 등록하는 API는 `createExposedApi(ref, url)`에서 만든다. 컴포넌트 안의 클로저는 공유 lexical context를 통해 이전 widget API와 React 트리까지 붙잡을 수 있다. 언마운트에는 빈 API를 등록하고 DOM ref도 React가 비운다. Memory Saver 반복 전환의 detached DOM 증가를 실제 heap에서 확인해 수정했다.

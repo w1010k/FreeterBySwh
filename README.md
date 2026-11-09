@@ -189,6 +189,8 @@ Freeter는 자유 소프트웨어이며, [라이선스][license] 조건에 따�
 
 100. Terminal 위젯 - 위젯 안에서 셸을 실행하고 (헤더의 +로 탭을 더 열고 x로 닫음), 그 안의 Claude Code·Codex가 `freeter` 명령으로 Freeter를 다룸 (셸은 Memory Saver에도 계속 돌고 마지막 화면을 복원; AI Chat 위젯은 넣었다가 뺐음). *(2026-11-09)*
 
+101. Spreadsheet 위젯 제거 - 기존 배치와 데이터는 보존하고 위젯의 추가·실행 기능을 제거함. *(2026-11-10)*
+
 부가적으로 OS 노출 라벨 (트레이 툴팁, 윈도우 타이틀, 앱 메뉴, About 모달 등)도 **Freeter-SWH**로 일괄 교체해서 원본과 혼동되지 않게 했습니다.
 
 [home]: https://freeter.io/

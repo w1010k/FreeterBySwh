@@ -48,7 +48,7 @@ CI (`.github/workflows/ci.yml`)와 같은 순서로 실행한다. 4단계 모두
 | 4    | 이 목록을 빠뜨리면 위젯이 등록되어도 Add Widget 팔레트에 나타나지 않는다. `tests/renderer/widgets/registry.spec.ts`가 누락을 잡는다.                                                                          | `tests/renderer/widgets/registry.spec.ts`                                                                                  |
 | 4    | `palette`는 영구 상태에서 제외되므로 (`createPersistentAppState`), 기존 사용자에게도 기본 목록이 그대로 적용된다. 마이그레이션은 필요 없다.                                                                   | `src/renderer/base/state/app.ts`                                                                                           |
 | 5    | 테마에 없는 변수가 들어간 선언은 오류 없이 통째로 무효가 된다. 테마 키는 `src/renderer/ui/components/app/uiTheme/themes/light.ts`와 `dark.ts`에 있다. 폴백 형태 `var(--a, var(--b))`는 안전하다.              | [pitfalls.md](pitfalls.md)의 "정의되지 않은 테마 변수", CHANGES #82                                                        |
-| 7    | `docs/GUIDE.md` (사용자 가이드)의 위젯 카탈로그는 갱신 규칙이 없다. 위젯을 추가하면 카탈로그 표와 머리말의 위젯 수를 함께 확인한다 (Spreadsheet는 2026-10-05에 뒤늦게 추가했다).                                                                                             | `docs/GUIDE.md`                                                                                                            |
+| 7    | `docs/GUIDE.md` (사용자 가이드)의 위젯 카탈로그는 갱신 규칙이 없다. 위젯을 추가하면 카탈로그 표와 머리말의 위젯 수를 함께 확인한다 (Spreadsheet는 2026-10-05에 뒤늦게 추가했다). 위젯을 지울 때도 같다.                                                                                             | `docs/GUIDE.md`                                                                                                            |
 
 ### 릴리스
 

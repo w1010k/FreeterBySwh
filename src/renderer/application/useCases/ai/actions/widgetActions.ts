@@ -230,9 +230,12 @@ export function createWidgetAiActions({
     run: ({ widgetId, settings }) => {
       const state = appStore.get();
       const widget = state.entities.widgets[widgetId];
-      const widgetType = widget && state.entities.widgetTypes[widget.type];
-      if (!widget || !widgetType) {
+      if (!widget) {
         return notFound('widget', widgetId);
+      }
+      const widgetType = state.entities.widgetTypes[widget.type];
+      if (!widgetType) {
+        return notFound('widget type', widget.type);
       }
       const newSettings = widgetType.createSettingsState({ ...widget.settings, ...settings });
       appStore.set({
