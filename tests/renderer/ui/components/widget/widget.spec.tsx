@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createWidgetViewModelHook } from '@/ui/components/widget/widgetViewModel';
 import { createWidgetComponent } from '@/ui/components/widget/widget';
 import { Widget, WidgetContextMenuFactory, WidgetEnv, WidgetEnvAreaShelf, WidgetEnvAreaWorkflow } from '@/base/widget';
@@ -233,6 +233,77 @@ describe('<Widget />', () => {
 
     fireEvent.click(tabs[0]);
     expect(onSelect).toHaveBeenCalledWith(0);
+  })
+
+  it('should show + to add a tab and x to close one when the widget handles them (no edit mode needed)', async () => {
+    const onSelect = jest.fn();
+    const onAdd = jest.fn();
+    const onClose = jest.fn();
+    await setup({
+      appState: fixtureAppState({
+        entities: {
+          widgetTypes: {
+            ...fixtureWidgetTypeAInColl({
+              id: widgetTypeId1,
+              widgetComp: {
+                type: 'react',
+                Comp: ({widgetApi}) => {
+                  useEffect(() => {
+                    widgetApi.setHeaderTabs({
+                      tabs: [{label: 'Shell 1'}, {label: 'Shell 2'}],
+                      active: 0,
+                      onSelect,
+                      onAdd,
+                      addTitle: 'New Tab',
+                      onClose
+                    });
+                  }, [widgetApi])
+                  return <></>;
+                }
+              } as WidgetReactComponent
+            }),
+          }
+        }
+      }),
+      widget: fixtureWidgetA({ type: widgetTypeId1 }),
+    });
+
+    const tablist = screen.getByRole('tablist');
+    expect(within(tablist).queryAllByRole('button')).toEqual([]); // a tab list holds tabs only
+    fireEvent.click(screen.getByRole('button', { name: 'New Tab' }));
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByTitle('Close Shell 2'));
+    expect(onClose).toHaveBeenCalledWith(1);
+    expect(onSelect).not.toHaveBeenCalled(); // closing a tab does not select it
+    fireEvent.keyDown(screen.getAllByRole('tab')[0], { key: 'Delete' });
+    expect(onClose).toHaveBeenLastCalledWith(0);
+  })
+
+  it('should show no + or x for tabs that only switch (a webpage)', async () => {
+    await setup({
+      appState: fixtureAppState({
+        entities: {
+          widgetTypes: {
+            ...fixtureWidgetTypeAInColl({
+              id: widgetTypeId1,
+              widgetComp: {
+                type: 'react',
+                Comp: ({widgetApi}) => {
+                  useEffect(() => {
+                    widgetApi.setHeaderTabs({ tabs: [{label: 'A'}, {label: 'B'}], active: 0, onSelect: jest.fn() });
+                  }, [widgetApi])
+                  return <></>;
+                }
+              } as WidgetReactComponent
+            }),
+          }
+        }
+      }),
+      widget: fixtureWidgetA({ type: widgetTypeId1 }),
+    });
+
+    expect(screen.queryByRole('button', { name: /^Close / })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
   })
 
   it('should scroll the tab bar horizontally on wheel and scroll the active tab into view', async () => {

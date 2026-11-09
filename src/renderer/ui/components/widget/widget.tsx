@@ -74,30 +74,63 @@ export function createWidgetComponent({
       <div className={styles['widget-header']}>
         {/* In edit mode the header is the drag handle, so tabs yield to the name. */}
         {(!editMode && headerTabs && headerTabs.tabs.length > 0)
-          ? <div
+          ? <div className={styles['widget-header-tabs-bar']}>
+            <div
               className={styles['widget-header-tabs']}
               role="tablist"
               ref={headerTabsRef}
               onWheel={e => { e.currentTarget.scrollLeft += e.deltaY + e.deltaX; }}
             >
-              {headerTabs.tabs.map((tab, i) => (
-                <button
-                  key={i}
-                  role="tab"
-                  aria-selected={i === headerTabs.active}
-                  title={tab.title}
-                  className={clsx(styles['widget-header-tab'], i === headerTabs.active && styles['widget-header-tab-active'])}
-                  onClick={() => headerTabs.onSelect(i)}
-                >
-                  {/* While loading, a spinner takes the favicon's slot (browser-tab convention). */}
-                  {tab.loading
-                    ? <span className={styles['widget-header-tab-spinner']} role="progressbar" aria-label="Loading"></span>
-                    : tab.icon && <img className={styles['widget-header-tab-icon']} src={tab.icon} alt="" />}
-                  <span className={styles['widget-header-tab-label']}>{tab.label}</span>
-                  {tab.audioIcon && <SvgIcon svg={tab.audioIcon} className={styles['widget-header-tab-audio']}></SvgIcon>}
-                </button>
-              ))}
+              {headerTabs.tabs.map((tab, i) => {
+                const onClose = headerTabs.onClose;
+                const tabButton = (
+                  <button
+                    key={i}
+                    role="tab"
+                    aria-selected={i === headerTabs.active}
+                    title={tab.title}
+                    className={clsx(styles['widget-header-tab'], !onClose && i === headerTabs.active && styles['widget-header-tab-active'])}
+                    onClick={() => headerTabs.onSelect(i)}
+                    onKeyDown={onClose ? e => {
+                      if (e.key === 'Delete') {
+                        onClose(i);
+                      }
+                    } : undefined}
+                    aria-keyshortcuts={onClose ? 'Delete' : undefined}
+                  >
+                    {/* While loading, a spinner takes the favicon's slot (browser-tab convention). */}
+                    {tab.loading
+                      ? <span className={styles['widget-header-tab-spinner']} role="progressbar" aria-label="Loading"></span>
+                      : tab.icon && <img className={styles['widget-header-tab-icon']} src={tab.icon} alt="" />}
+                    <span className={styles['widget-header-tab-label']}>{tab.label}</span>
+                    {tab.audioIcon && <SvgIcon svg={tab.audioIcon} className={styles['widget-header-tab-audio']}></SvgIcon>}
+                  </button>
+                );
+                // A tab list holds tabs only: the x is a mouse target hidden from assistive tech, and the
+                // tab itself closes with Delete (aria-keyshortcuts).
+                return onClose
+                  ? <span key={i} role="none" className={clsx(styles['widget-header-tab-wrap'], i === headerTabs.active && styles['widget-header-tab-active'])}>
+                      {tabButton}
+                      <span
+                        aria-hidden="true"
+                        className={styles['widget-header-tab-close']}
+                        title={`Close ${tab.label}`}
+                        onClick={() => onClose(i)}
+                      >×</span>
+                    </span>
+                  : tabButton;
+              })}
             </div>
+            {headerTabs.onAdd && (
+              <button
+                type="button"
+                className={styles['widget-header-tab-add']}
+                aria-label={headerTabs.addTitle ?? 'Add'}
+                title={headerTabs.addTitle ?? 'Add'}
+                onClick={headerTabs.onAdd}
+              >+</button>
+            )}
+          </div>
           : <div className={styles['widget-header-name']}>{widgetName}</div>}
         <ActionBar
           actionBarItems={actionBarItems}

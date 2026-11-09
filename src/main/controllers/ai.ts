@@ -5,21 +5,10 @@
 
 import { Controller } from '@/controllers/controller';
 import { AiActionBridge } from '@/application/ai/aiActionBridge';
-import { AiAgentRunner } from '@/application/ai/aiAgentRunner';
 import { ConfirmAiActionUseCase } from '@/application/useCases/ai/confirmAiAction';
 import {
   IpcAiActionResponseArgs,
   IpcAiActionResponseRes,
-  IpcAiAgentCancelArgs,
-  IpcAiAgentCancelRes,
-  IpcAiAgentDetectArgs,
-  IpcAiAgentDetectRes,
-  IpcAiAgentEndArgs,
-  IpcAiAgentEndRes,
-  IpcAiAgentSendArgs,
-  IpcAiAgentSendRes,
-  IpcAiAgentWarmArgs,
-  IpcAiAgentWarmRes,
   IpcAiConfirmArgs,
   IpcAiConfirmRes,
   IpcAiReadyArgs,
@@ -27,11 +16,6 @@ import {
   IpcAiAliveRes,
   IpcAiReadyRes,
   ipcAiActionResponseChannel,
-  ipcAiAgentCancelChannel,
-  ipcAiAgentDetectChannel,
-  ipcAiAgentEndChannel,
-  ipcAiAgentSendChannel,
-  ipcAiAgentWarmChannel,
   ipcAiConfirmChannel,
   ipcAiReadyChannel,
   ipcAiAliveChannel
@@ -40,22 +24,15 @@ import {
 type Deps = {
   aiActionBridge: AiActionBridge;
   confirmAiActionUseCase: ConfirmAiActionUseCase;
-  aiAgentRunner: Pick<AiAgentRunner, 'detect' | 'send' | 'cancel' | 'warm' | 'end'>;
 }
 
 export function createAiControllers({
   aiActionBridge,
   confirmAiActionUseCase,
-  aiAgentRunner,
 }: Deps): [
     Controller<IpcAiActionResponseArgs, IpcAiActionResponseRes>,
     Controller<IpcAiConfirmArgs, IpcAiConfirmRes>,
-    Controller<IpcAiAgentDetectArgs, IpcAiAgentDetectRes>,
-    Controller<IpcAiAgentSendArgs, IpcAiAgentSendRes>,
-    Controller<IpcAiAgentCancelArgs, IpcAiAgentCancelRes>,
     Controller<IpcAiReadyArgs, IpcAiReadyRes>,
-    Controller<IpcAiAgentWarmArgs, IpcAiAgentWarmRes>,
-    Controller<IpcAiAgentEndArgs, IpcAiAgentEndRes>,
     Controller<IpcAiAliveArgs, IpcAiAliveRes>,
   ] {
   return [{
@@ -65,23 +42,8 @@ export function createAiControllers({
     channel: ipcAiConfirmChannel,
     handle: async (_event, reqId, origin, describe) => confirmAiActionUseCase(origin, describe, aiActionBridge.signalFor(reqId))
   }, {
-    channel: ipcAiAgentDetectChannel,
-    handle: async () => aiAgentRunner.detect()
-  }, {
-    channel: ipcAiAgentSendChannel,
-    handle: async (_event, conversationId, req) => aiAgentRunner.send(conversationId, req)
-  }, {
-    channel: ipcAiAgentCancelChannel,
-    handle: async (_event, conversationId) => aiAgentRunner.cancel(conversationId)
-  }, {
     channel: ipcAiReadyChannel,
     handle: async () => aiActionBridge.setReady(true)
-  }, {
-    channel: ipcAiAgentWarmChannel,
-    handle: async (_event, conversationId, o) => aiAgentRunner.warm(conversationId, o)
-  }, {
-    channel: ipcAiAgentEndChannel,
-    handle: async (_event, conversationId) => aiAgentRunner.end(conversationId)
   }, {
     channel: ipcAiAliveChannel,
     handle: async (_event, reqId) => {

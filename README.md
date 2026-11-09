@@ -187,7 +187,7 @@ Freeter는 자유 소프트웨어이며, [라이선스][license] 조건에 따�
 
 99. AI 제어 통로 - Claude Code·Codex 같은 AI 에이전트가 `freeter` CLI나 `freeter mcp`로 프로젝트·워크플로·위젯을 다루고, 쓰기 작업은 Freeter 확인 상자에서 허용한 뒤에 실행 (선택형 "항상 허용"을 켜면 프로그램 실행·외부 전송만 묻는다). *(2026-11-07)*
 
-100. Terminal 위젯과 AI Chat 위젯 - 위젯 안에서 셸을 실행하고 (Claude Code·Codex 바로 시작), 설치된 Claude Code·Codex와 대화하며 Freeter 작업을 맡김 (빠른 응답, 마크다운, 재시작 뒤에도 남는 대화, 선택형 "항상 허용"). *(2026-11-09)*
+100. Terminal 위젯 - 위젯 안에서 셸을 실행하고 (헤더의 +로 탭을 더 열고 x로 닫음), 그 안의 Claude Code·Codex가 `freeter` 명령으로 Freeter를 다룸 (셸은 Memory Saver에도 계속 돌고 마지막 화면을 복원; AI Chat 위젯은 넣었다가 뺐음). *(2026-11-09)*
 
 부가적으로 OS 노출 라벨 (트레이 툴팁, 윈도우 타이틀, 앱 메뉴, About 모달 등)도 **Freeter-SWH**로 일괄 교체해서 원본과 혼동되지 않게 했습니다.
 

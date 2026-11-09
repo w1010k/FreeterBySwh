@@ -58,7 +58,6 @@ import { createIconProvider } from '@/infra/iconProvider/iconProvider';
 import { createProcessProvider } from '@/infra/processProvider/processProvider';
 import { createSystemStatsProvider } from '@/infra/systemStatsProvider/systemStatsProvider';
 import { createPtyProvider } from '@/infra/ptyProvider/ptyProvider';
-import { createAiAgentProvider } from '@/infra/aiAgentProvider/aiAgentProvider';
 import { createInitWidgetDeleteHooksUseCase } from '@/application/useCases/widget/initWidgetDeleteHooks';
 import { createGetWidgetApiUseCase } from '@/application/useCases/widget/getWidgetApi';
 import { DataStorage } from '@common/application/interfaces/dataStorage';
@@ -364,7 +363,6 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
   const terminalProvider = createTerminalProvider();
   const systemStatsProvider = createSystemStatsProvider();
   const ptyProvider = createPtyProvider();
-  const aiAgentProvider = createAiAgentProvider();
 
   // Local usage telemetry collector — created here in the composition root so it
   // is shared by both the app-level listeners (startTelemetry) and the per-widget
@@ -394,7 +392,6 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     terminalProvider,
     systemStatsProvider,
     ptyProvider,
-    aiAgentProvider,
     getWidgetsInCurrentWorkflowUseCase,
     switchProjectUseCase,
     switchWorkflowUseCase,

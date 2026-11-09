@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { createTerminalHost, prependPath, PtyProcess } from '@/application/terminal/terminalHost';
+import { createTerminalHost, prependPath, PtyProcess, TerminalMirror } from '@/application/terminal/terminalHost';
 
 class FakePty implements PtyProcess {
   written: string[] = [];
@@ -36,7 +36,32 @@ class FakePty implements PtyProcess {
   }
 }
 
-function setup(maxBuffer = 100) {
+class FakeMirror implements TerminalMirror {
+  written: string[] = [];
+  size: { cols: number; rows: number };
+  disposed = false;
+  constructor(cols: number, rows: number) {
+    this.size = { cols, rows };
+  }
+  write(d: string) {
+    this.written.push(d);
+  }
+  resize(cols: number, rows: number) {
+    this.size = { cols, rows };
+  }
+  async serialize() {
+    return `[screen:${this.written.join('')}]`;
+  }
+  dispose() {
+    this.disposed = true;
+  }
+  titleFn?: (t: string) => void;
+  onTitle(fn: (t: string) => void) {
+    this.titleFn = fn;
+  }
+}
+
+function setup() {
   jest.useFakeTimers();
   const ptys: FakePty[] = [];
   const spawnPty = jest.fn((_shell: string, _o: { cwd?: string; cols: number; rows: number; env: Record<string, string> }) => {
@@ -45,20 +70,31 @@ function setup(maxBuffer = 100) {
     return p;
   });
   const data: [string, string][] = [];
+  const seqs: number[] = [];
+  const titles: [string, string][] = [];
   const exits: [string, number][] = [];
   let n = 0;
+  const mirrors: FakeMirror[] = [];
   const host = createTerminalHost({
     spawnPty,
     defaultShell: 'powershell.exe',
     defaultCwd: 'C:/Users/me',
     env: { PATH: 'P', FREETER_AI_ORIGIN: 'terminal' },
-    emitData: (id, d) => data.push([id, d]),
+    emitData: (id, d, seq) => {
+      data.push([id, d]);
+      seqs.push(seq);
+    },
+    emitTitle: (id, t) => titles.push([id, t]),
     emitExit: (id, c) => exits.push([id, c]),
     newId: () => `t${++n}`,
     batchMs: 16,
-    maxBuffer,
+    createMirror: (cols, rows) => {
+      const m = new FakeMirror(cols, rows);
+      mirrors.push(m);
+      return m;
+    },
   });
-  return { host, ptys, spawnPty, data, exits };
+  return { host, ptys, spawnPty, data, exits, mirrors, seqs, titles };
 }
 
 describe('createTerminalHost', () => {
@@ -77,23 +113,39 @@ describe('createTerminalHost', () => {
     expect(spawnPty).toHaveBeenCalledWith('powershell.exe', expect.objectContaining({ cwd: 'C:/Users/me' }));
   });
 
-  it('batches output into one message per interval', () => {
+  it('sends the first output after a quiet interval at once (a keystroke echo waits for nothing), and a burst once per interval', () => {
     const { host, ptys, data } = setup();
     host.create({ cols: 80, rows: 24 });
     ptys[0].out('a');
+    expect(data).toEqual([['t1', 'a']]);
     ptys[0].out('b');
-    expect(data).toEqual([]);
+    ptys[0].out('c');
+    expect(data).toEqual([['t1', 'a']]);
     jest.advanceTimersByTime(16);
-    expect(data).toEqual([['t1', 'ab']]);
+    expect(data).toEqual([['t1', 'a'], ['t1', 'bc']]);
+    jest.advanceTimersByTime(20);
+    ptys[0].out('d');
+    expect(data[data.length - 1]).toEqual(['t1', 'd']);
   });
 
-  it('keeps the latest output up to maxBuffer for re-attaching', () => {
-    const { host, ptys } = setup(5);
+  it('keeps a copy of the screen for re-attaching (all output goes to it; no work that grows with the history)', async () => {
+    const { host, ptys, mirrors } = setup();
     host.create({ cols: 80, rows: 24 });
+    expect(mirrors[0].size).toEqual({ cols: 80, rows: 24 });
     ptys[0].out('123');
     ptys[0].out('4567');
-    expect(host.buffer('t1')).toBe('34567');
-    expect(host.buffer('nope')).toBeUndefined();
+    await expect(host.buffer('t1')).resolves.toEqual({ screen: '[screen:1234567]', seq: 2 });
+    host.resize('t1', 100, 30);
+    expect(mirrors[0].size).toEqual({ cols: 100, rows: 30 });
+    await expect(host.buffer('nope')).resolves.toBeUndefined();
+  });
+
+  it('writes keystrokes straight to the shell (the IPC order keeps them before a later resize)', () => {
+    const { host, ptys } = setup();
+    host.create({ cols: 80, rows: 24 });
+    host.write('t1', 'l');
+    host.write('t1', 's');
+    expect(ptys[0].written).toEqual(['l', 's']);
   });
 
   it('writes, resizes and kills', () => {
@@ -107,14 +159,59 @@ describe('createTerminalHost', () => {
     expect(ptys[0].killed).toBe(true);
   });
 
-  it('flushes pending output, reports the exit and forgets the terminal', () => {
-    const { host, ptys, data, exits } = setup();
+  it('numbers the output, and gives with the screen copy the number it covers (held output is sent first)', async () => {
+    const { host, ptys, data, seqs } = setup();
     host.create({ cols: 80, rows: 24 });
+    ptys[0].out('a'); // sent at once: chunk 1
+    ptys[0].out('b'); // held: chunk 2
+    const copy = host.buffer('t1');
+    ptys[0].out('c'); // after the copy was asked for: chunk 3
+    await expect(copy).resolves.toEqual({ screen: '[screen:ab]', seq: 2 }); // 'c' (chunk 3) is not in the copy: it is sent after
+    expect(data).toEqual([['t1', 'a'], ['t1', 'b']]); // the held 'b' went before the copy
+    expect(seqs).toEqual([1, 2]);
+    jest.advanceTimersByTime(16);
+    expect(seqs).toEqual([1, 2, 3]);
+  });
+
+  it('keeps sending output after the wall clock jumps back (an NTP fix must not hold output for an hour)', () => {
+    const { host, ptys, data } = setup();
+    host.create({ cols: 80, rows: 24 });
+    ptys[0].out('a');
+    jest.setSystemTime(Date.now() - 3600000);
+    ptys[0].out('b');
+    jest.advanceTimersByTime(16);
+    expect(data).toEqual([['t1', 'a'], ['t1', 'b']]);
+  });
+
+  it('starts no shell when its screen copy cannot be made (no shell is left that nothing can end)', () => {
+    const { host, spawnPty } = setup();
+    const broken = createTerminalHost({
+      spawnPty, defaultShell: 'sh', defaultCwd: '/', env: {}, emitData: jest.fn(), emitExit: jest.fn(), emitTitle: jest.fn(), newId: () => 'x', batchMs: 16,
+      createMirror: () => { throw new Error('no mirror'); },
+    });
+    expect(broken.create({ cols: 80, rows: 24 })).toEqual({ ok: false, message: 'no mirror' });
+    expect(spawnPty).not.toHaveBeenCalled();
+    expect(host).toBeDefined();
+  });
+
+  it('passes on the title the shell sets (a tab that is not shown is named too)', () => {
+    const { host, mirrors, titles } = setup();
+    host.create({ cols: 80, rows: 24 });
+    mirrors[0].titleFn?.('Claude Code');
+    expect(titles).toEqual([['t1', 'Claude Code']]);
+  });
+
+  it('flushes pending output, reports the exit and forgets the terminal (its screen copy too)', async () => {
+    const { host, ptys, data, exits, mirrors } = setup();
+    host.create({ cols: 80, rows: 24 });
+    ptys[0].out('hi');
     ptys[0].out('bye');
     ptys[0].exit(3);
-    expect(data).toEqual([['t1', 'bye']]);
+    expect(data).toEqual([['t1', 'hi'], ['t1', 'bye']]);
     expect(exits).toEqual([['t1', 3]]);
-    expect(host.buffer('t1')).toBeUndefined();
+    await expect(host.buffer('t1')).resolves.toBeUndefined();
+    expect(mirrors[0].disposed).toBe(true);
+    expect(jest.getTimerCount()).toBe(0);
   });
 
   it('rejects bad sizes and a shell that fails to start', () => {

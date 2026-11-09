@@ -805,19 +805,6 @@
 
 ### 빌드, 의존성, 테스트
 
-#### npm `.cmd` CLI 실행과 인자 escape
-
-- 출처: `[fork #99]`
-- 증상: (회피) Node는 `.cmd`를 셸 없이 실행하지 못한다 (EINVAL). `shell: true`로 실행하면 인자가 escape되지 않아 따옴표, `&`, `%`가 깨진다. npm이 설치한 codex가 `codex.cmd`다.
-- 규칙: `spawnSpec` (`src/main/infra/aiAgent/agentCommand.ts`)을 쓴다. cmd.exe `/d /s /c`와 `windowsVerbatimArguments`로 실행하고, 인자는 cross-spawn 방식으로 따옴표를 씌운 뒤 메타 문자를 두 번 escape한다 (shim의 `%*`가 한 번 더 펼친다). 실제 shim 왕복 테스트가 `tests/main/infra/aiAgent/agentCommand.spec.ts`에 있다.
-
-#### main 알림이 invoke 응답보다 먼저 도착
-
-- 출처: `[fork #100]`
-- 증상: AI Chat의 첫 턴에서 CLI 실행 실패 (`spawn` 오류)가 화면에 나오지 않고 Stop 상태에 머문다.
-- 원인: 자식 프로세스의 `'error'`는 `process.nextTick`으로 오고, `ipcMain.handle`의 응답은 그 뒤 promise 단계에서 나간다. 알림이 응답보다 먼저 가서, renderer는 아직 모르는 대화 id의 이벤트를 버린다.
-- 규칙: invoke 응답으로 받은 id에 붙는 main 알림은 renderer가 순서를 가정하지 않고 받는다. `aiAgentProvider`가 아직 아무도 구독하지 않은 대화의 이벤트를 보관하다가 구독할 때 넘긴다 (`early`, id 20개, 이벤트 50개). main의 `emit`은 지연 없이 보낸다 (예전의 `setImmediate` 지연은 루프 24회차에 지웠다). 단 답의 조각 (`textDelta`)은 `createAgentEventCoalescer`가 대화별로 60ms에 한 번 묶어 보내고, 다른 이벤트가 오면 묶어 둔 글을 먼저 보낸다 (순서 유지).
-
 #### node-pty 재빌드와 Linux 빌드
 
 - 출처: `[fork #99]`
@@ -933,13 +920,28 @@
   죽으면 멈추고, 샘플이 오면 횟수를 초기화한다.
 - 근거: CHANGES #64, `src/main/infra/osActivity/foregroundWindow.ts`, `src/main/infra/childProcessProvider/childProcessProvider.ts`, `src/main/index.ts`
 
+#### Terminal의 붙여넣기 (Ctrl+V)
+
+- 출처: `[fork #100]`, 사용자 보고 (2026-11-09)
+- 증상: 다른 곳에서는 붙여넣기가 되는데 Freeter의 Terminal에서만 Ctrl+V가 아무것도 넣지 않는다.
+- 원인: xterm.js는 Ctrl+V를 터미널 키로 처리해 셸에 `^V`를 보내고, 브라우저의 붙여넣기 (앱 메뉴의 `role: 'paste'` 포함)는 일어나지 않는다. PowerShell (PSReadLine)이 `^V`로 클립보드를 직접 읽으려 하지만 pseudo-terminal 안에서는 넣지 못했다 (추정).
+- 규칙: `attachCustomKeyEventHandler`로 Ctrl+V는 xterm이 처리하지 않게 넘긴다 (Windows Terminal처럼). 그러면 브라우저의 paste 이벤트가 xterm의 붙여넣기 처리 (bracketed paste)를 거쳐 셸에 들어간다. 선택한 글이 있을 때의 Ctrl+C도 같은 방식으로 복사로 넘긴다 (선택이 없으면 `^C`).
+- 근거: `src/renderer/widgets/terminal/widget.tsx`
+
+#### 다시 붙는 Terminal의 출력 유실과 중복
+
+- 출처: `[fork #100]`, 코드 리뷰 (2026-11-09)
+- 증상: (회피) 화면 사본을 기다리는 동안 나온 출력이 사라지거나, 사본과 그 뒤 출력에 같은 내용이 두 번 그려진다. 탭 전환마다 일어난다.
+- 규칙: main은 출력 조각에 번호를 붙여 보내고 (`pty-data`의 `seq`), 사본에는 그 사본이 담은 마지막 번호를 함께 준다 (보내지 않은 출력을 먼저 보낸 뒤 번호를 정한다). 화면은 사본을 묻기 전에 구독해 들어온 조각을 모아 두고, 사본을 그린 뒤 번호가 더 큰 조각만 그린다. headless xterm은 쓰기 콜백을 그 쓰기까지 해석한 직후에 부르므로, 그 안에서 직렬화하면 정확히 그 번호까지의 화면이다.
+- 근거: `src/main/application/terminal/terminalHost.ts` (`buffer`), `src/renderer/widgets/terminal/widget.tsx`
+
 #### 설치 프로그램이 띄운 앱의 환경
 
 - 출처: `[fork #100]`, swh.24 설치 직후 (2026-11-09)
-- 증상: AI Chat이 "Claude Code is not installed"를 보이고, Terminal 안에서도 `claude`를 찾지 못한다. Terminal의 셸이 `C:\WINDOWS\system32`에서 시작한다.
+- 증상: Terminal 안에서 `claude`를 찾지 못한다. Terminal의 셸이 `C:\WINDOWS\system32`에서 시작한다.
 - 원인: MSI 설치 마지막의 실행으로 `msiexec.exe`가 띄운 앱은 사용자 PATH가 없는 환경과 `system32` 현재 폴더를 받는다 (실측: 부모 프로세스가 `msiexec.exe`, 셸에서 `claude` 없음). 시작 메뉴로 띄우면 정상이다. Freeter가 켜진 뒤 설치한 CLI도 PATH에 없다.
-- 규칙: Windows main은 시작할 때와 CLI를 찾지 못했을 때 레지스트리의 PATH (시스템 `HKLM\...\Session Manager\Environment`, 사용자 `HKCU\Environment`, `%VAR%` 펼침)를 `process.env.PATH`에 합친다 (없는 폴더만 뒤에). Terminal은 시작 폴더 설정이 비면 사용자 홈에서 셸을 띄운다 (`terminalHost`의 `defaultCwd`). `reg` 출력은 OEM 코드 페이지라 ASCII가 아닌 폴더 이름은 맞지 않을 수 있다.
-- 근거: `src/main/index.ts` `refreshWindowsPath`, `src/main/infra/aiAgent/agentCommand.ts` (`parseRegPath`, `expandEnvVars`, `mergePath`)
+- 규칙: Windows main은 시작할 때 레지스트리의 PATH (시스템 `HKLM\...\Session Manager\Environment`, 사용자 `HKCU\Environment`, `%VAR%` 펼침)를 `process.env.PATH`에 합친다 (없는 폴더만 뒤에). Terminal은 시작 폴더 설정이 비면 사용자 홈에서 셸을 띄운다 (`terminalHost`의 `defaultCwd`). `reg` 출력은 OEM 코드 페이지라 ASCII가 아닌 폴더 이름은 맞지 않을 수 있다.
+- 근거: `src/main/index.ts` (시작할 때의 Windows PATH 블록), `src/main/infra/env/windowsPath.ts` (`parseRegPath`, `expandEnvVars`, `mergePath`)
 
 #### PowerShell 출력 인코딩
 
@@ -1005,13 +1007,6 @@
 - 증상: (회피) "항상 허용"이 켜져 있으면, 보이는 프로젝트나 워크플로를 바꾸는 AI 작업이 Terminal을 확인 없이 보이게 해 셸과 시작 명령이 실행된다.
 - 규칙: 작업마다 막지 않는다 (새 작업에서 빠뜨리기 쉬움). `runAiRequest`가 확인 없이 쓰기를 실행할 때 쓰기 전후로 화면의 위젯 (셸프, 활성 워크플로)을 비교해 새로 보이게 된 위젯을 `markRevealedByAi`로 표시한다. 표시된 Terminal은 처음에 셸을 시작하지 않고 안내만 쓴다 (Restart Shell로 시작). 쓰기가 실행되는 동안 화면이 바로 붙기도 하므로 (store 갱신이 즉시 그린다; 실제 앱에서 확인) 쓰기 전 목록을 `beginUnconfirmedAiWrite`로 먼저 알리고, 그 사이 붙은 위젯은 쓰기 뒤에 다시 표시하지 않는다. 기다리는 상태는 화면이 다시 붙어도 유지된다 (`waitingForUser`). 시간 창을 쓰던 이전 방식은 늦게 붙는 화면과 무관한 화면을 구분하지 못했다. 보이자마자 무언가를 실행하는 위젯을 새로 만들면 같은 검사 (`takeRevealedByAi`)를 넣는다.
 - 근거: `src/renderer/base/ai/aiActivity.ts`, `src/renderer/application/useCases/ai/runAiRequest.ts`, `src/renderer/widgets/terminal/widget.tsx`, decisions.md D77
-
-#### 한글 입력 중 Enter로 보내기
-
-- 출처: `[fork #100]`
-- 증상: (회피) Enter로 보내는 입력창에서 한글 조합의 마지막 글자를 확정하는 Enter가 보내기로도 처리되면, 마지막 글자가 빠지거나 두 번 보내진다.
-- 규칙: keydown에서 `e.nativeEvent.isComposing`이면 보내지 않는다. 테스트는 `fireEvent.keyDown(el, { key: 'Enter', isComposing: true })`로 확인한다.
-- 근거: `src/renderer/widgets/ai-chat/widget.tsx`, `tests/renderer/widgets/ai-chat/widget.spec.tsx`
 
 #### 실패 재시도와 런타임 갱신
 

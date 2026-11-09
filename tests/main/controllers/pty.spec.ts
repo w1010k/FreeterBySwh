@@ -4,7 +4,7 @@
  */
 
 import { ipcPtyBufferChannel, ipcPtyCreateChannel, ipcPtyKillChannel, ipcPtyResizeChannel, ipcPtyWriteChannel } from '@common/ipc/channels';
-import { createPtyControllers } from '@/controllers/pty';
+import { createPtyControllers, createPtyInputListener } from '@/controllers/pty';
 import { fixtureIpcMainEvent } from '@tests/infra/mocks/ipcMain';
 
 describe('PtyControllers', () => {
@@ -13,19 +13,23 @@ describe('PtyControllers', () => {
       create: jest.fn(() => ({ ok: true as const, terminalId: 't1' })),
       write: jest.fn(),
       resize: jest.fn(),
-      buffer: jest.fn(() => 'out'),
+      buffer: jest.fn(async () => ({ screen: 'out', seq: 3 })),
       kill: jest.fn(),
       killAll: jest.fn(),
     };
-    const [create, write, resize, buffer, kill] = createPtyControllers({ terminalHost });
-    expect([create.channel, write.channel, resize.channel, buffer.channel, kill.channel])
-      .toEqual([ipcPtyCreateChannel, ipcPtyWriteChannel, ipcPtyResizeChannel, ipcPtyBufferChannel, ipcPtyKillChannel]);
+    const [create, resize, buffer, kill] = createPtyControllers({ terminalHost });
+    expect([create.channel, resize.channel, buffer.channel, kill.channel])
+      .toEqual([ipcPtyCreateChannel, ipcPtyResizeChannel, ipcPtyBufferChannel, ipcPtyKillChannel]);
     const e = fixtureIpcMainEvent();
     await expect(create.handle(e, { cols: 80, rows: 24 })).resolves.toEqual({ ok: true, terminalId: 't1' });
-    await write.handle(e, 't1', 'ls\r');
+    const input = createPtyInputListener({ terminalHost });
+    expect(input.channel).toBe(ipcPtyWriteChannel);
+    input.listener(e, 't1', 'ls\r');
+    input.listener(e, 't1', 5); // not text: ignored
     await resize.handle(e, 't1', 100, 30);
-    await expect(buffer.handle(e, 't1')).resolves.toBe('out');
+    await expect(buffer.handle(e, 't1')).resolves.toEqual({ screen: 'out', seq: 3 });
     await kill.handle(e, 't1');
+    expect(terminalHost.write).toHaveBeenCalledTimes(1);
     expect(terminalHost.write).toHaveBeenCalledWith('t1', 'ls\r');
     expect(terminalHost.resize).toHaveBeenCalledWith('t1', 100, 30);
     expect(terminalHost.kill).toHaveBeenCalledWith('t1');

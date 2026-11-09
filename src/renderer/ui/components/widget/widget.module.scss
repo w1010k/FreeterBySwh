@@ -46,11 +46,17 @@
   user-select: text;
   cursor: text;
 }
-.widget-header-tabs {
+// The tab list and (when the widget adds tabs) the + after it.
+.widget-header-tabs-bar {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
+  height: 26px;
+  display: flex;
+}
+.widget-header-tabs {
+  min-width: 0;
   height: 26px;
   display: flex;
   overflow-x: auto;
@@ -109,6 +115,44 @@
   opacity: 1;
   font-weight: 600;
   background: var(--freeter-widgetBackground);
+}
+// A closable tab: the tab and its x share one border and background.
+.widget-header-tab-wrap {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 200px;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid var(--freeter-widgetHeaderBorder);
+  > .widget-header-tab {
+    border-right: none;
+    padding-right: 4px;
+  }
+  &.widget-header-tab-active > .widget-header-tab {
+    opacity: 1;
+  }
+}
+.widget-header-tab-close,
+.widget-header-tab-add {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--freeter-widgetHeaderColor);
+  cursor: pointer;
+  opacity: 0.6;
+  line-height: 26px;
+  &:hover {
+    opacity: 1;
+  }
+}
+.widget-header-tab-close {
+  font-size: 14px;
+  padding: 0 8px 0 2px;
+  user-select: none;
+}
+.widget-header-tab-add {
+  font-size: 16px;
+  padding: 0 10px;
 }
 .widget-header-action-bar {
   visibility: hidden;

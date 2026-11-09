@@ -24,6 +24,23 @@ export interface TerminalCreateOptions {
 
 export type TerminalCreateResult = { ok: true; terminalId: string } | { ok: false; message: string };
 
+/** A copy of a terminal's screen and scrollback (infra: a headless xterm), to redraw a re-attached view. */
+export interface TerminalMirror {
+  write(data: string): void;
+  resize(cols: number, rows: number): void;
+  /** The screen and scrollback as terminal output (escape sequences included), once the output before is parsed. */
+  serialize(): Promise<string>;
+  dispose(): void;
+  /** The title the output sets (OSC 0/2), e.g. Claude Code's. */
+  onTitle(fn: (title: string) => void): void;
+}
+
+/** A terminal's screen copy and the number of the last output chunk it covers (output numbered from 1). */
+export interface TerminalSnapshot {
+  screen: string;
+  seq: number;
+}
+
 type Deps = {
   spawnPty: (shell: string, o: { cwd?: string; cols: number; rows: number; env: Record<string, string> }) => PtyProcess;
   defaultShell: string;
@@ -31,33 +48,42 @@ type Deps = {
   defaultCwd: string;
   /** Includes FREETER_AI_ENDPOINT / FREETER_AI_ORIGIN so `freeter` works in the shell. */
   env: Record<string, string>;
-  emitData: (terminalId: string, data: string) => void;
+  /** `seq`: the number of the last output chunk in `data` (a re-attached view skips what its screen copy covers). */
+  emitData: (terminalId: string, data: string, seq: number) => void;
   emitExit: (terminalId: string, exitCode: number) => void;
+  emitTitle: (terminalId: string, title: string) => void;
   newId: () => string;
-  /** Output is sent at most once per interval: a busy shell would flood IPC otherwise. */
+  /**
+   * Output is sent at most once per interval (a busy shell would flood IPC otherwise); the first output after a quiet
+   * interval goes at once, so a keystroke's echo waits for nothing (like Paseo's terminal output coalescer). 16 ms: the
+   * view draws once per frame anyway, so smaller pieces would add messages, not speed.
+   */
   batchMs: number;
-  /** Characters of recent output kept per terminal, to redraw a re-attached view. */
-  maxBuffer: number;
+  createMirror: (cols: number, rows: number) => TerminalMirror;
 }
 
 interface Session {
   pty: PtyProcess;
+  mirror: TerminalMirror;
   pending: string;
   timer?: ReturnType<typeof setTimeout>;
-  buffer: string;
+  lastSentAt: number;
+  /** Output chunks so far. */
+  seq: number;
 }
 
 const isSize = (n: unknown) => Number.isInteger(n) && (n as number) > 0 && (n as number) <= 1000;
 
 /** Shells running in pseudo-terminals for the app's terminal views (spec F). */
-export function createTerminalHost({ spawnPty, defaultShell, defaultCwd, env, emitData, emitExit, newId, batchMs, maxBuffer }: Deps) {
+export function createTerminalHost({ spawnPty, defaultShell, defaultCwd, env, emitData, emitExit, emitTitle, newId, batchMs, createMirror }: Deps) {
   const sessions = new Map<string, Session>();
 
   const flush = (id: string, s: Session) => {
     clearTimeout(s.timer);
     s.timer = undefined;
     if (s.pending !== '') {
-      emitData(id, s.pending);
+      s.lastSentAt = performance.now();
+      emitData(id, s.pending, s.seq);
       s.pending = '';
     }
   };
@@ -67,22 +93,42 @@ export function createTerminalHost({ spawnPty, defaultShell, defaultCwd, env, em
       if (!isSize(o.cols) || !isSize(o.rows)) {
         return { ok: false, message: 'Invalid terminal size' };
       }
+      // The copy first: a shell started without one could not be ended by anything here.
+      let mirror: TerminalMirror;
       let pty: PtyProcess;
       try {
-        pty = spawnPty(o.shell || defaultShell, { cwd: o.cwd || defaultCwd, cols: o.cols, rows: o.rows, env });
+        mirror = createMirror(o.cols, o.rows);
       } catch (err) {
         return { ok: false, message: err instanceof Error ? err.message : String(err) };
       }
+      try {
+        pty = spawnPty(o.shell || defaultShell, { cwd: o.cwd || defaultCwd, cols: o.cols, rows: o.rows, env });
+      } catch (err) {
+        mirror.dispose();
+        return { ok: false, message: err instanceof Error ? err.message : String(err) };
+      }
       const id = newId();
-      const s: Session = { pty, pending: '', buffer: '' };
+      const s: Session = { pty, mirror, pending: '', lastSentAt: -Infinity, seq: 0 };
       sessions.set(id, s);
+      mirror.onTitle(title => emitTitle(id, title));
       pty.onData(data => {
-        s.buffer = (s.buffer + data).slice(-maxBuffer);
+        s.mirror.write(data);
+        s.seq++;
         s.pending += data;
-        s.timer ??= setTimeout(() => flush(id, s), batchMs);
+        if (s.timer !== undefined) {
+          return;
+        }
+        // A monotonic clock: a wall clock set back would hold the output until it catches up.
+        const since = performance.now() - s.lastSentAt;
+        if (since >= batchMs) {
+          flush(id, s);
+        } else {
+          s.timer = setTimeout(() => flush(id, s), batchMs - since);
+        }
       });
       pty.onExit(({ exitCode }) => {
         flush(id, s);
+        s.mirror.dispose();
         sessions.delete(id);
         emitExit(id, exitCode);
       });
@@ -95,12 +141,25 @@ export function createTerminalHost({ spawnPty, defaultShell, defaultCwd, env, em
       sessions.get(id)?.pty.write(data);
     },
     resize(id: string, cols: number, rows: number): void {
-      if (isSize(cols) && isSize(rows)) {
-        sessions.get(id)?.pty.resize(cols, rows);
+      const s = sessions.get(id);
+      if (s && isSize(cols) && isSize(rows)) {
+        s.pty.resize(cols, rows);
+        s.mirror.resize(cols, rows);
       }
     },
-    buffer(id: string): string | undefined {
-      return sessions.get(id)?.buffer;
+    /**
+     * The screen copy for a view that attaches again. Held output goes out first, so every chunk numbered up to
+     * `seq` is either in the copy or sent before it; the view skips sent chunks the copy already covers.
+     */
+    async buffer(id: string): Promise<TerminalSnapshot | undefined> {
+      const s = sessions.get(id);
+      if (!s) {
+        return undefined;
+      }
+      flush(id, s);
+      const seq = s.seq;
+      // Asked now, answered once the chunks written so far (up to seq) are parsed: the copy covers exactly those.
+      return { screen: await s.mirror.serialize(), seq };
     },
     kill(id: string): void {
       sessions.get(id)?.pty.kill();

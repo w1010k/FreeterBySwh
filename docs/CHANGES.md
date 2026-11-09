@@ -3724,7 +3724,7 @@ System Monitor 위젯이 CPU·RAM 외에 새 의존성 없이 얻을 수 있는 
 
 ### 화면 없이 먼저 만든 인프라
 
-- **에이전트 실행기**: Freeter가 설치된 `claude`나 `codex`를 직접 실행한다. 빈 폴더에서, `freeter mcp`만 도구로 붙여 실행하고, 대화를 이어 간다. 두 CLI의 출력을 공통 이벤트 (텍스트, 도구 호출, 완료, 오류)로 바꿔 renderer에 보낸다 (IPC `ai-agent-*`). 실제 Claude와 Codex로 "워크플로 이름 읽기 → 대화 이어 가기"를 확인했다.
+- **에이전트 실행기** (2026-11-09 제거, #100 참고): Freeter가 설치된 `claude`나 `codex`를 직접 실행해 AI Chat 위젯에 연결하던 부분이다. AI Chat과 함께 지웠다.
 - **앱 안 터미널**: node-pty로 셸을 실행한다 (IPC `pty-*`). 셸에는 AI 제어 연결 정보와 (설치본에서) `freeter` 명령 폴더가 들어가, 그 안에서 실행한 에이전트도 Freeter를 다룰 수 있다.
 - 두 기능을 쓰는 화면은 #100 (Terminal 위젯, AI Chat 위젯)이다. 한 줄 질문 화면은 아직 없다.
 
@@ -3756,69 +3756,44 @@ System Monitor 위젯이 CPU·RAM 외에 새 의존성 없이 얻을 수 있는 
 - **테스트**: `tests/common/ai/protocol.spec.ts`, `tests/main/infra/aiControlServer/*`, `tests/main/application/ai/aiActionBridge.spec.ts`, `tests/main/application/useCases/ai/confirmAiAction.spec.ts`, `tests/main/controllers/ai.spec.ts`, `tests/main/cli/{cli,mcp}.spec.ts`, `tests/renderer/application/useCases/ai/**`
 - **문서**: `README.md`, `docs/GUIDE.md`, `docs/dev/{overview,decisions,pitfalls,features-core}.md`
 
-## 100. Terminal 위젯과 AI Chat 위젯 *(2026-11-09)*
+## 100. Terminal 위젯 *(2026-11-09)*
 
-#99의 에이전트 실행기와 앱 안 터미널을 쓰는 위젯 두 개를 추가했다. AI 인프라 설계의 "채팅"과 "앱 안 터미널" 화면이다.
+앱 안에서 셸을 실행하는 위젯을 추가했다. 그 안에서 Claude Code·Codex를 실행하면 `freeter` 명령 (#99)으로 Freeter를 다룬다.
 
 ### 사용자 관점
 
 - **Terminal 위젯** (`terminal`): 위젯 안에서 셸 (Windows는 PowerShell, 그 밖은 `$SHELL`)을 실행한다.
   - 설정: 셸 프로그램, 시작 폴더 (비우면 사용자 홈), 시작 명령 (셸이 뜬 뒤 입력할 명령, 예 `claude`).
-  - 액션 바: Start Claude Code, Start Codex (셸에 `claude`·`codex`를 입력), Restart Shell.
-  - 셸은 위젯 화면보다 오래 산다. Memory Saver가 워크플로를 내려도 셸은 계속 돌고, 돌아오면 최근 출력을 다시 그린다.
+  - 탭: 헤더의 +로 셸을 더 열고, 탭의 x로 닫는다 (편집 모드가 아니어도 된다; 마지막 탭은 닫지 않는다). 탭 이름은 셸이 정한 제목 (예: Claude Code), 없으면 `Shell 1`, `Shell 2`. 선택하지 않은 탭의 셸도 계속 돌고, 고르면 마지막 화면이 다시 보인다. 탭 목록은 앱을 다시 시작하면 하나로 돌아간다.
+  - 액션 바: Restart Shell (선택한 탭에 적용).
+  - 셸은 위젯 화면보다 오래 산다. Memory Saver가 워크플로를 내려도 셸은 계속 돌고, 돌아오면 마지막 화면을 다시 그린다.
   - 셸 안에는 AI 제어 연결 정보와 (설치본에서) `freeter` 명령이 들어 있어, 그 안의 Claude Code·Codex도 Freeter를 다룰 수 있다.
-- **AI Chat 위젯** (`ai-chat`): 설치된 Claude Code나 Codex와 대화한다. AI는 Freeter 도구로 앱을 읽고, 바꾸는 작업은 확인 상자에서 허용받은 뒤 실행한다.
-  - 설정: AI 도구 (Claude Code / Codex), 모델 (빈 값은 CLI 기본), 추론 강도 (빈 값은 CLI 기본).
-  - Enter는 보내기, Shift+Enter는 줄바꿈이다. 한글 입력 조합 중의 Enter는 조합만 끝낸다.
-  - 실행 중에는 Send 대신 Stop이 나온다. 액션 바의 New Conversation은 실행 중인 턴을 멈추고 대화를 비운다.
-  - 도구 호출은 작은 칩 (`app_describe ✓`)으로, 오류와 취소는 빨간 줄로 보인다. 선택한 CLI가 PATH에 없으면 위젯이 알려 준다.
-  - 대화 기록과 CLI 대화 id는 위젯 데이터 (키 `chat`, 최근 200개 항목)에 저장된다. 앱을 다시 시작해도 기록이 보이고, 같은 도구면 그 대화를 이어 간다. New Conversation은 저장도 지운다.
-  - 답은 마크다운 (굵게, 목록, 코드, 표, 링크)으로 보인다. 링크는 기본 브라우저로 연다.
-  - 응답 속도: Claude Code는 입력창에 첫 글자를 넣을 때 미리 시작하고, 대화 동안 계속 떠 있다. 답은 쓰는 대로 보인다. 실제 앱에서 haiku로 첫 턴 약 1.2초, 다음 턴 약 1.3초 (첫 글자 약 0.8초)였다. 이전 방식 (턴마다 CLI 실행)은 한 턴에 약 5초였다. Codex도 대화마다 `codex app-server` 하나를 띄워 둔다: 실제 앱에서 첫 턴 5.0초, 다음 턴 4.0초, Freeter 도구를 쓰는 턴 6.0초였다 (이전 `codex exec`는 단순 턴도 6.6~7.0초).
+- **AI Chat 위젯은 넣었다가 뺐다** (2026-11-09): 설치된 Claude Code·Codex와 대화하는 위젯이었다 (swh.24에 포함). 실제로 써 보니 같은 CLI를 Terminal에서 쓰는 쪽이 훨씬 나아서 제거했다. 함께 지운 것: 에이전트 실행기 (#99의 `aiAgentRunner`, CLI별 프로토콜, `ai-agent-*` IPC), 위젯 API `aiAgent`, 의존성 `marked`. 이미 추가한 AI Chat 위젯은 "Unknown widget type"으로 보이고 지울 수 있다. 대화 기록 파일은 위젯 데이터 폴더에 남는다.
 
 ### 아키텍처
 
-- 위젯 API 모듈 두 개를 추가했다: `pty` (`PtyProvider`), `aiAgent` (`AiAgentProvider`: `detect`, `send`, `cancel`, `onEvent`). 두 provider 모두 앱 수명 동안 IPC 리스너를 하나만 두고 터미널·대화 id별 구독자에게 나눠 준다 (preload가 리스너 제거를 지원하지 않는다).
-- Terminal은 xterm.js (`@xterm/xterm` 6, `@xterm/addon-fit`)로 그린다. 모듈 수준 `sessionByWidget` (위젯 id → 터미널 id)이 셸을 화면과 분리한다.
-- AI Chat의 대화는 `createChatSession` (`widgets/ai-chat/session.ts`)이 가진다. 모듈 수준 `sessionByWidget`에 위젯별로 두고, 화면은 `useSyncExternalStore`로 읽는다. 세션은 앱 단위 provider만 잡고 위젯 컴포넌트를 잡지 않는다.
+- 헤더 탭 (`setHeaderTabs`)에 선택 항목 `onAdd`·`addTitle` (탭 끝의 +)과 `onClose` (탭마다 x)를 더했다. Webpage처럼 넘기지 않는 위젯은 그대로다.
+- 위젯 API 모듈 `pty` (`PtyProvider`). provider는 앱 수명 동안 IPC 리스너를 채널마다 하나 두고 터미널 id별 구독자에게 나눠 준다 (`subscribers`).
+- 화면은 xterm.js (`@xterm/xterm` 6, `@xterm/addon-fit`, `@xterm/addon-webgl`). 모듈 수준 `sessionByWidget` (탭의 세션 키 → 터미널 id)이 셸을 화면과 분리한다.
+- main: node-pty로 셸을 실행하고 (`terminalHost`), 터미널마다 화면 사본 (`@xterm/headless` 6, `@xterm/addon-serialize`)을 둔다. 키 입력은 `send`, 출력은 조용하던 뒤 첫 조각은 바로, 이어지는 조각은 16ms에 한 번 보낸다.
 
 ### 까다로웠던 포인트
 
-- **도구를 바꾼 뒤의 대화**: 실행기는 대화를 시작한 CLI로만 이어 간다. 설정에서 도구를 바꾸면 세션이 새 대화를 시작하고 "New conversation with ..." 줄을 남긴다.
-- **새 대화와 첫 전송의 경합**: 첫 턴의 `send` 응답이 오기 전에는 대화 id가 없어 취소할 수 없다. New Conversation이 그 사이에 오면 세션이 `epoch`를 올리고, 늦게 온 응답의 대화를 취소한 뒤 버린다.
-- **설정 화면의 미리보기**: 위젯 설정 화면은 같은 위젯 id로 위젯 본문을 미리 그린다. Terminal 미리보기가 실제 셸에 붙으면 셸 크기가 미리보기 크기로 바뀌고, 닫은 뒤 원래 위젯은 크기를 되돌리지 않는다. 그래서 두 위젯은 미리보기에서 안내 문구만 그린다 (실제 앱 검증 중 발견).
-- **끝 보고가 없는 도구 호출**: Claude는 도구 끝을 이름 없이 보고하므로 가장 오래 열린 호출을 닫는다. 턴이 끝날 때 열린 호출은 실패로 표시한다.
-- **CLI 실행 비용**: 턴마다 `claude -p`를 실행하면 모델 처리 약 1.5초에 CLI 실행 약 3.5초가 붙었다. 실행기는 Claude Code를 대화마다 하나 띄워 두고 (`--input-format stream-json`), 질문을 한 줄씩 보낸다. 10분 동안 쓰지 않거나, 취소하거나, 모델·추론 강도를 바꾸면 프로세스를 끝내고 다음 턴은 `--resume`으로 잇는다. 대기 중 프로세스는 약 255MB를 쓴다 (1회 실측). New Conversation은 `ai-agent-end`로 프로세스를 끝낸다.
-- **Codex app-server**: `codex exec`에는 프로세스를 유지하는 입력 방식이 없다. `codex app-server` (JSON-RPC, Codex가 "experimental"로 표시)로 대화마다 thread 하나를 연다 (read-only sandbox, 승인 요청 없음). Stop은 `turn/interrupt`로 턴만 멈추고 프로세스는 남긴다. thread가 열리기 전에 온 질문은 실행기가 잡아 두었다가 보낸다. 처음에는 Codex가 빈 작업 폴더를 먼저 뒤지느라 Freeter 도구 턴이 18초 걸렸다 (셸은 루프 18회차부터 끈다). thread의 개발자 지시로 Freeter 도구를 쓰라고 알려 6초로 줄었다. CLI 쪽 요청 (승인, 질문)은 거절해서 턴이 멈추지 않게 한다.
-- **AI 작업 항상 허용**: 앱 설정 "AI actions: always allow" (기본 꺼짐)를 켜면 AI 쓰기 작업이 확인 상자 없이 실행된다. 프로그램이나 명령을 실행하는 위젯 (`WidgetType.runsPrograms`: Commander, File Opener, Terminal)의 작업과 그 설정 변경은 계속 묻는다. AI가 읽은 글 (노트, 페이지)이 AI를 조종할 수 있어서, PC에서 명령이 실행되는 길만 남겨 둔다. AI는 이 설정을 바꿀 수 없다 (`app.updateSettings` 허용 목록 밖).
-- **마크다운 표시의 안전**: 답은 신뢰할 수 없는 글이다. `marked`의 renderer에서 원본 HTML은 글자로, 링크는 http(s)·mailto만, 이미지는 alt 글자로 바꾼다. 링크 클릭은 앱 페이지를 옮기지 않고 `shell.openExternalUrl`로 연다.
-- **스트리밍 텍스트의 중복**: `--include-partial-messages`를 켜면 같은 답이 delta와 완성된 assistant 메시지로 두 번 온다. 파서는 assistant 메시지에서 도구 호출만 읽고, 글은 delta로만 만든다.
-- **리뷰로 정한 동작** (2026-11-08 ~ 11-09, `/code-review high` 32회와 `/loop`): 회차별 수정 내용은 git 이력에, 이유는 decisions (D74, D76, D77)와 pitfalls에 있다. 결과로 정해진 동작은 다음과 같다.
-  - 안전:
-    - 두 CLI 모두 셸이 없다 (Claude `--tools ""`, Codex `features.shell_tool=false`, `features.unified_exec=false`; Codex 0.164.0에서 확인). 에이전트는 Freeter 도구로만 일하고, 쓰기는 Freeter 확인 상자를 거친다.
-    - "항상 허용"을 켜도 묻는 작업: 프로그램을 실행하는 위젯 (`runsPrograms`: Commander, File Opener, File Explorer, Terminal, Link Opener, Web Query)의 실행·설정 변경·추가, 다운로드 폴더, Webpage의 주소·탭·user agent·세션·스크립트·CSS (`confirmSettings`, 위젯 타입이 검증한 결과로 판정), AI Chat의 도구·모델·추론 강도, 다른 컴퓨터를 가리키는 경로 (UNC, `file:` URL; 모든 문자열 입력). 삭제는 묻지 않는다.
-    - 확인 없이 실행된 쓰기가 새로 보이게 한 Terminal은 셸을 스스로 시작하지 않는다 (Restart Shell로 시작).
-    - 사용자가 확인 상자에서 허용한 쓰기는 편집 중인 Note도 받는다. 허용 여부는 요청과 함께 넘긴다 (`AiAction.run(input, { confirmed })`).
-  - 실행기:
-    - Stop은 CLI 안에서 턴만 멈춘다. 도구 호출 중이거나 출력 전이면, 또는 10초 안에 멈추지 않으면 프로세스를 끝낸다 (그 자식 `freeter mcp`와 확인 상자도 함께; POSIX는 프로세스 그룹).
-    - Codex는 턴이 도는 중에 온 `turn/start`를 거절하지 않고 그 턴에 합친다 (0.164.0에서 확인). 그래서 Stop이나 다시 시도하지 않는 오류 뒤의 질문은 그 턴이 Codex 안에서 끝날 때까지 기다리고, 10초 안에 끝나지 않으면 프로세스를 끝낸다.
-    - 이어 갈 대화가 CLI에서 사라졌으면 새 대화로 다시 보내고 안내한다. CLI 위치는 찾은 것은 1분, 못 찾은 것은 5초 기억하고, 실행에 실패하면 다시 찾는다.
-  - AI Chat:
-    - 보낼 때, 대화 id를 알 때, 턴이 끝날 때 저장한다. 삭제된 위젯의 뷰는 저장소 없는 빈 세션을 쓴다.
-    - CLI는 입력창에 첫 글자를 넣을 때 미리 띄운다. 답의 조각은 main이 대화별로 60ms에 한 번 묶어 보낸다 (Paseo의 `agent-stream-coalescer`와 같은 방식).
-  - Terminal: 크기가 바뀔 때만 셸에 크기를 보낸다. Start 버튼은 셸 프롬프트에서만 입력한다 (Python, Node, Ruby, PowerShell 이어 쓰기 `>>`에서는 거절). 셸이 시작되는 도중 삭제된 위젯의 셸은 끝낸다. Restart Shell은 삭제 정리와 달리 위젯을 삭제로 표시하지 않는다.
-  - 사용자 결정 (2026-11-09): 삭제는 묻지 않는다 (Terminal 삭제가 실행 중인 셸을 끝내는 것 포함), 경로 판정은 모든 문자열에 적용, CLI는 첫 글자에서 시작, 조각 묶음 60ms, upstream preload의 `removeListener` 결함 수정.
-  - 설치 직후 문제 (swh.24 이후, 2026-11-09): 설치 프로그램 (`msiexec`)이 띄운 Freeter는 사용자 PATH가 없고 `system32`에서 시작했다. 그래서 AI Chat이 "Claude Code is not installed"를 보이고, Terminal 셸도 `claude`를 찾지 못하고 `system32`에서 시작했다. 이제 Windows에서는 시작할 때와 CLI를 찾지 못했을 때 레지스트리의 PATH를 합치고, 시작 폴더가 빈 Terminal은 사용자 홈에서 시작한다.
-  - 고치지 않고 남긴 판단: 스트리밍 중 renderer의 프레임 단위 반영·글자 나눠 보이기·목록 분리 (Paseo의 2~4단계), 마크다운 캐시 500개, 재로드 뒤 AI가 띄운 Terminal의 대기 표시가 사라지는 점 (시작 명령은 사용자 설정이다).
-- **실제 앱 검증**: DevTools 프로토콜 (`--remote-debugging-port`)로 입력해 Claude (haiku)와 "app.describe로 워크플로 이름 읽기 → 이전 질문 인용 (대화 이어 가기) → Stop"을 확인했다. 쓰기 확인 상자는 OS 상자라 자동화하지 못했다 (#99에서 CLI로 확인).
+- **설정 화면의 미리보기**: 위젯 설정 화면은 같은 위젯 id로 위젯 본문을 미리 그린다. Terminal 미리보기가 실제 셸에 붙으면 셸 크기가 미리보기 크기로 바뀌고, 닫은 뒤 원래 위젯은 크기를 되돌리지 않는다. 그래서 미리보기에서는 안내 문구만 그린다 (실제 앱 검증 중 발견).
+- Terminal 성능 (2026-11-09, Paseo의 터미널 방식): 다시 붙을 때 쓰던 1MB 문자열을 조각마다 `(buffer + data).slice(-1MB)`로 갱신해서, main이 조각마다 최대 1MB를 복사했다. 측정 (TUI 같은 170바이트 조각 20,000개): 조각당 약 460~520µs에서 headless xterm으로 약 6~7µs. 함께 바꾼 것: 출력은 조용하던 뒤 첫 조각을 바로 보내고 이어지는 조각은 16ms에 한 번 (키 입력의 echo가 기다리지 않음; 뷰는 어차피 프레임마다 그리므로 더 잘게 나누지 않음), 키 입력은 `invoke` 대신 `send`, 그리기는 WebGL (안 되면 DOM, 뷰가 닫힐 때 컨텍스트를 돌려줌). 화면 사본은 스크롤백 1000줄이고 (120열 하나에 약 1.5MB, 추정), 직렬화와 크기 변경은 앞선 출력의 해석이 끝난 뒤 한다 (headless xterm은 쓰기를 나중에 나눠 해석한다; 바로 직렬화하면 빈 화면이었다). 비용: 모든 출력을 main이 해석한다 (TUI 조각당 약 6µs, 측정). Paseo의 별도 worker 프로세스와 밀림 대처 스냅숏은 넣지 않았다.
+- **Start 버튼 제거** (2026-11-09): 처음 있던 Start Claude Code, Start Codex 버튼은 지웠다. node-pty는 Windows에서 앞에 있는 프로그램을 알려 주지 않아 셸 프롬프트를 출력으로 추측했는데, 추측이 틀리면 실행 중인 Claude Code에 `claude`가 입력됐다. 직접 입력하거나 시작 명령으로 같은 일을 한다.
+- **설치 직후 환경** (2026-11-09): 설치 프로그램 (`msiexec`)이 띄운 Freeter는 사용자 PATH가 없고 `system32`에서 시작해서, Terminal 셸이 `claude`를 찾지 못하고 `system32`에서 시작했다. Windows main은 시작할 때 레지스트리의 PATH를 합치고 (`infra/env/windowsPath.ts`), 시작 폴더가 빈 Terminal은 사용자 홈에서 시작한다.
+- **붙여넣기** (2026-11-09): xterm은 Ctrl+V를 셸에 `^V`로 보내서 붙여넣기가 되지 않았다. Ctrl+V는 브라우저의 붙여넣기로, 선택한 글이 있을 때의 Ctrl+C는 복사로 넘긴다 (Windows Terminal과 같다).
+- **다시 붙는 화면과 탭 이름**: 출력에 번호를 붙여, 화면 사본을 기다리는 동안 나온 출력이 사라지거나 두 번 그려지지 않는다 (탭 전환마다 다시 붙는다). 탭 이름은 main의 화면 사본이 받은 셸 제목을 쓰므로, 보이지 않는 탭도 이름이 바뀐다.
+- **AI가 띄운 Terminal**: "항상 허용"으로 확인 없이 실행된 쓰기가 새로 보이게 한 Terminal은 셸을 스스로 시작하지 않는다 (Restart Shell로 시작; decisions D77). 셸이 시작되는 도중 삭제된 위젯의 셸은 끝낸다. Restart Shell은 삭제 정리와 달리 위젯을 삭제로 표시하지 않는다.
+- **리뷰**: AI Chat과 함께 `/code-review high`를 30여 회 돌렸다. 회차별 수정은 git 이력에, 남은 이유는 decisions (D76, D77)와 pitfalls에 있다. 사용자 결정 (2026-11-09): "항상 허용"에서 삭제는 묻지 않는다 (Terminal 삭제가 실행 중인 셸을 끝내는 것 포함), 다른 컴퓨터 경로 판정은 모든 문자열에 적용, upstream preload의 `removeListener` 결함 수정.
 
 **수정 파일**
 
-- **신규**: `src/renderer/widgets/terminal/{index.ts,settings.tsx,widget.tsx,widget.module.scss,icons/}`, `src/renderer/widgets/ai-chat/{index.ts,settings.tsx,widget.tsx,session.ts,widget.module.scss,icons/}`, `src/renderer/application/interfaces/{ptyProvider,aiAgentProvider}.ts`, `src/renderer/infra/{ptyProvider,aiAgentProvider}/`
-- **신규 (속도·편의 후속)**: `src/main/infra/aiAgent/agentSession.ts` (CLI별 프로토콜), `src/renderer/widgets/ai-chat/markdown.ts`, 의존성 `marked`
-- **신규 (리뷰 후속)**: `src/renderer/application/useCases/widget/initWidgetDeleteHooks.ts`, `src/renderer/infra/subscribers/subscribers.ts`, `src/common/helpers/escapeHtml.ts`, `src/main/application/ai/agentEventCoalescer.ts` (테스트 `tests/main/application/ai/agentEventCoalescer.spec.ts`)
-- **수정**: `src/renderer/base/widgetType.ts` (`onDeleted`), `src/main/cli/cli.ts`, `src/renderer/widgets/to-do-list/widget.tsx`, `src/renderer/base/widgetApi.ts`, `src/renderer/application/useCases/widget/getWidgetApi.ts`, `src/renderer/init.ts`, `src/renderer/widgets/index.ts`, `src/renderer/base/state/ui.ts` (팔레트), `src/renderer/styles.d.ts`, `package.json` (xterm)
-- **테스트**: `tests/renderer/widgets/{terminal,ai-chat}/`, `tests/renderer/infra/{ptyProvider,aiAgentProvider}/`, `tests/renderer/widgets/setupSut.tsx`, `tests/renderer/application/useCases/widget/getWidgetApi.spec.ts`
+- **신규**: `src/renderer/widgets/terminal/{index.ts,settings.tsx,widget.tsx,widget.module.scss,icons/}`, `src/renderer/application/interfaces/ptyProvider.ts`, `src/renderer/infra/{ptyProvider,subscribers}/`, `src/renderer/application/useCases/widget/initWidgetDeleteHooks.ts`, `src/main/infra/terminal/headlessMirror.ts`, `src/main/infra/env/windowsPath.ts`, `src/common/helpers/escapeHtml.ts`, 의존성 `@xterm/xterm`, `@xterm/addon-fit`, `@xterm/addon-webgl`, `@xterm/headless`, `@xterm/addon-serialize`
+- **수정**: `src/main/application/terminal/terminalHost.ts`, `src/main/controllers/pty.ts`, `src/main/index.ts`, `src/renderer/base/widgetType.ts` (`onDeleted`), `src/renderer/base/widgetApi.ts`, `src/renderer/application/useCases/widget/getWidgetApi.ts`, `src/renderer/init.ts`, `src/renderer/widgets/index.ts`, `src/renderer/base/state/ui.ts` (팔레트), `src/renderer/preload/index.ts`
+- **삭제 (AI Chat 제거)**: `src/renderer/widgets/ai-chat/`, `src/renderer/infra/aiAgentProvider/`, `src/main/application/ai/{aiAgentRunner,agentEventCoalescer}.ts`, `src/main/infra/aiAgent/`, `src/common/ai/agent.ts`와 그 테스트
+- **테스트**: `tests/renderer/widgets/terminal/`, `tests/renderer/infra/{ptyProvider,subscribers}/`, `tests/main/infra/{terminal,env}/`, `tests/main/application/terminal/terminalHost.spec.ts`, `tests/renderer/preload/index.spec.ts`
 
 ## 부록: 참고 문서
 

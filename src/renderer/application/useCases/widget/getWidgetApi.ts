@@ -15,7 +15,6 @@ import { ObjectManager } from '@common/base/objectManager';
 import { TerminalProvider } from '@/application/interfaces/terminalProvider';
 import { SystemStatsProvider } from '@/application/interfaces/systemStatsProvider';
 import { PtyProvider } from '@/application/interfaces/ptyProvider';
-import { AiAgentProvider } from '@/application/interfaces/aiAgentProvider';
 import { GetWidgetsInCurrentWorkflowUseCase } from '@/application/useCases/widget/widgetApiWidgets/getWidgetsInCurrentWorkflow';
 import { AppStore } from '@/application/interfaces/store';
 import { resolveWidgetSharedKeyId } from '@/base/widget';
@@ -64,7 +63,6 @@ interface Deps {
   terminalProvider: TerminalProvider;
   systemStatsProvider: SystemStatsProvider;
   ptyProvider: PtyProvider;
-  aiAgentProvider: AiAgentProvider;
   getWidgetsInCurrentWorkflowUseCase: GetWidgetsInCurrentWorkflowUseCase;
   switchProjectUseCase: SwitchProjectUseCase;
   switchWorkflowUseCase: SwitchWorkflowUseCase;
@@ -83,7 +81,6 @@ function _createWidgetApiFactory({
   terminalProvider,
   systemStatsProvider,
   ptyProvider,
-  aiAgentProvider,
   getWidgetsInCurrentWorkflowUseCase,
   switchProjectUseCase,
   switchWorkflowUseCase,
@@ -240,8 +237,7 @@ function _createWidgetApiFactory({
       systemStats: () => ({
         getStats: () => systemStatsProvider.getStats()
       }),
-      pty: () => ptyProvider,
-      aiAgent: () => aiAgentProvider
+      pty: () => ptyProvider
     }
   )
 }

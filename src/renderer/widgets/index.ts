@@ -4,7 +4,6 @@
  */
 
 import {WidgetSettings, WidgetType} from '@/widgets/appModules'
-import aiChat from './ai-chat';
 import calculator from './calculator';
 import clock from './clock';
 import commander from './commander';
@@ -22,7 +21,6 @@ import webQuery from './web-query';
 import webpage from './webpage';
 
 const widgetTypes = [
-  aiChat,
   calculator,
   clock,
   commander,

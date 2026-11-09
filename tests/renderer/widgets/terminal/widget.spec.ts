@@ -8,6 +8,7 @@ import { forgetTerminalSession, widgetComp, resetTerminalSessions } from '@/widg
 import { createSettingsState, Settings } from '@/widgets/terminal/settings';
 import { setupWidgetSut } from '@tests/widgets/setupSut';
 import { ActionBarItems } from '@/widgets/appModules';
+import { WidgetHeaderTabs } from '@/base/widgetApi';
 import terminalType from '@/widgets/terminal';
 import { markRevealedByAi, resetAiActivity } from '@/base/ai/aiActivity';
 
@@ -22,11 +23,12 @@ class FakeTerminal {
   constructor() {
     terms.push(this);
   }
-  loadAddon() {
-    return undefined;
+  addons: unknown[] = [];
+  loadAddon(a: unknown) {
+    this.addons.push(a);
   }
-  open() {
-    return undefined;
+  open(el: HTMLElement) {
+    el.appendChild(document.createElement('canvas')); // where WebGL draws
   }
   write(d: string) {
     this.written.push(d);
@@ -38,6 +40,14 @@ class FakeTerminal {
   type(d: string) {
     this.input?.(d);
   }
+  keyHandler?: (e: KeyboardEvent) => boolean;
+  attachCustomKeyEventHandler(fn: (e: KeyboardEvent) => boolean) {
+    this.keyHandler = fn;
+  }
+  selection = false;
+  hasSelection() {
+    return this.selection;
+  }
   focus() {
     return undefined;
   }
@@ -47,26 +57,47 @@ class FakeTerminal {
 }
 jest.mock('@xterm/xterm', () => ({ Terminal: jest.fn().mockImplementation(() => new FakeTerminal()) }));
 jest.mock('@xterm/addon-fit', () => ({ FitAddon: jest.fn().mockImplementation(() => ({ fit: jest.fn() })) }));
+const webgls: { lost?: () => void; disposed: boolean }[] = [];
+class FakeWebgl {
+  lost?: () => void;
+  disposed = false;
+  constructor() {
+    webgls.push(this);
+  }
+  onContextLoss(fn: () => void) {
+    this.lost = fn;
+  }
+  dispose() {
+    this.disposed = true;
+  }
+}
+jest.mock('@xterm/addon-webgl', () => ({ WebglAddon: jest.fn().mockImplementation(() => new FakeWebgl()) }));
 
 function setupPty(createRes: { ok: true; terminalId: string } | { ok: false; message: string } = { ok: true, terminalId: 'T1' }) {
-  const data = new Map<string, (d: string) => void>();
+  const data = new Map<string, (d: string, seq?: number) => void>();
+  const titleFns = new Set<(id: string, t: string) => void>();
   const exits = new Map<string, (c: number) => void>();
   const pty = {
     create: jest.fn(async () => createRes),
     write: jest.fn(),
     resize: jest.fn(),
     kill: jest.fn(),
-    buffer: jest.fn(async (_id: string): Promise<string | undefined> => undefined),
-    onData: jest.fn((id: string, fn: (d: string) => void) => {
+    buffer: jest.fn(async (_id: string): Promise<{ screen: string; seq: number } | undefined> => undefined),
+    onData: jest.fn((id: string, fn: (d: string, seq?: number) => void) => {
       data.set(id, fn);
       return () => data.delete(id);
+    }),
+    onTitle: jest.fn((fn: (id: string, t: string) => void) => {
+      titleFns.add(fn);
+      return () => titleFns.delete(fn);
     }),
     onExit: jest.fn((id: string, fn: (c: number) => void) => {
       exits.set(id, fn);
       return () => exits.delete(id);
     }),
   };
-  return { pty, data, exits };
+  const title = (id: string, t: string) => titleFns.forEach(fn => fn(id, t));
+  return { pty, data, exits, title };
 }
 
 const settings = (s: Partial<Settings> = {}) => createSettingsState(s);
@@ -96,7 +127,7 @@ describe('Terminal widget', () => {
     first.comp.unmount();
     expect(pty.kill).not.toHaveBeenCalled();
     expect(terms[0].disposed).toBe(true);
-    pty.buffer.mockResolvedValueOnce('earlier output');
+    pty.buffer.mockResolvedValueOnce({ screen: 'earlier output', seq: 0 });
     setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(terms[1].written).toContain('earlier output'));
     expect(pty.create).toHaveBeenCalledTimes(1);
@@ -146,20 +177,6 @@ describe('Terminal widget', () => {
     expect(pty.kill).toHaveBeenCalledWith('T1');
   });
 
-  it('Start Claude Code types nothing when a program (not the shell prompt) is in front, and says so', async () => {
-    const { pty, data } = setupPty();
-    let items: ActionBarItems = [];
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } } });
-    await waitFor(() => expect(pty.onData).toHaveBeenCalled());
-    act(() => data.get('T1')?.('\x1b[2m? for shortcuts\x1b[0m'));
-    act(() => { items.find(i => i.id === 'START-CLAUDE')?.doAction(); });
-    expect(pty.write).not.toHaveBeenCalled();
-    expect(terms[0].written.join('')).toContain('program');
-    act(() => data.get('T1')?.('\r\nuser@host:~$ '));
-    act(() => { items.find(i => i.id === 'START-CLAUDE')?.doAction(); });
-    expect(pty.write).toHaveBeenCalledWith('T1', 'claude\r');
-  });
-
   it('after the shell exited, a new view does not start a shell by itself (Restart Shell does)', async () => {
     const { pty, exits } = setupPty();
     let items: ActionBarItems = [];
@@ -170,7 +187,7 @@ describe('Terminal widget', () => {
     setupWidgetSut(widgetComp, settings({ startCommand: 'claude' }), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } }, widgetId: 'W1' });
     await waitFor(() => expect(terms[1].written.join('')).toContain('Restart Shell'));
     expect(pty.create).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(items.length).toBe(3));
+    await waitFor(() => expect(items.length).toBe(1));
     await act(async () => { items.find(i => i.id === 'RESTART')?.doAction(); });
     await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(2));
   });
@@ -203,7 +220,7 @@ describe('Terminal widget', () => {
     first.comp.unmount();
     pty.buffer.mockImplementationOnce(async () => {
       exits.get('T1')?.(0);
-      return 'earlier';
+      return { screen: 'earlier', seq: 0 };
     });
     setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(terms[1].written.join('')).toContain('exited'));
@@ -255,19 +272,6 @@ describe('Terminal widget', () => {
     }
   });
 
-  it('Start buttons do not type into a language prompt (Python, Node)', async () => {
-    const { pty, data } = setupPty();
-    let items: ActionBarItems = [];
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } } });
-    await waitFor(() => expect(pty.onData).toHaveBeenCalled());
-    await waitFor(() => expect(items.length).toBe(3));
-    for (const prompt of ['>>> ', '> ', '... ', 'irb(main):001:0> ', '>> ']) { // '>>': PowerShell's unfinished input
-      act(() => data.get('T1')?.('\r\n' + prompt));
-      act(() => { items.find(i => i.id === 'START-CLAUDE')?.doAction(); });
-    }
-    expect(pty.write).not.toHaveBeenCalled();
-  });
-
   it('does not start a shell by itself when an AI write without the confirm box showed it', async () => {
     const { pty } = setupPty();
     markRevealedByAi(['WIDGET-ID']);
@@ -275,7 +279,7 @@ describe('Terminal widget', () => {
     setupWidgetSut(widgetComp, settings({ startCommand: 'claude' }), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } } });
     await waitFor(() => expect(terms[0].written.join('')).toContain('Restart Shell'));
     expect(pty.create).not.toHaveBeenCalled();
-    await waitFor(() => expect(items.length).toBe(3));
+    await waitFor(() => expect(items.length).toBe(1));
     await act(async () => { items.find(i => i.id === 'RESTART')?.doAction(); });
     await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(pty.onData).toHaveBeenCalledWith('T1', expect.any(Function))); // the shell is shown
@@ -307,23 +311,11 @@ describe('Terminal widget', () => {
     await waitFor(() => expect(pty.onData).toHaveBeenCalled());
     first.comp.unmount();
     markRevealedByAi(['W1']);
-    pty.buffer.mockResolvedValueOnce('earlier');
+    pty.buffer.mockResolvedValueOnce({ screen: 'earlier', seq: 0 });
     setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } }, widgetId: 'W1' });
-    await waitFor(() => expect(items.length).toBe(3));
+    await waitFor(() => expect(items.length).toBe(1));
     await act(async () => { items.find(i => i.id === 'RESTART')?.doAction(); });
     await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(2));
-  });
-
-  it('Start buttons on a Terminal that waits for the user say to start the shell first', async () => {
-    const { pty } = setupPty();
-    markRevealedByAi(['W1']);
-    let items: ActionBarItems = [];
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } }, widgetId: 'W1' });
-    await waitFor(() => expect(items.length).toBe(3));
-    await waitFor(() => expect(terms[0].written.join('')).toContain('Restart Shell'));
-    const before = terms[0].written.length;
-    act(() => { items.find(i => i.id === 'START-CLAUDE')?.doAction(); });
-    expect(terms[0].written.slice(before).join('')).toMatch(/Restart Shell/);
   });
 
   it('shows the exit code when the shell ends', async () => {
@@ -340,19 +332,148 @@ describe('Terminal widget', () => {
     expect(await screen.findByText(/File not found/)).toBeInTheDocument();
   });
 
-  it('has action bar items to restart the shell and to start Claude Code or Codex in it', async () => {
+  it('draws with WebGL once the view is open, and goes back to the DOM renderer when the WebGL context is lost', async () => {
+    webgls.length = 0;
+    const { pty } = setupPty();
+    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty } });
+    await waitFor(() => expect(webgls).toHaveLength(1));
+    expect(terms[0].addons).toContain(webgls[0]);
+    webgls[0].lost?.();
+    expect(webgls[0].disposed).toBe(true);
+  });
+
+  it('releases its WebGL context when the view goes (Chromium keeps only a few; the oldest would be lost)', async () => {
+    webgls.length = 0;
+    const loseContext = jest.fn();
+    const getContext = jest.spyOn(HTMLCanvasElement.prototype, 'getContext')
+      .mockImplementation(() => ({ getExtension: () => ({ loseContext }) }) as unknown as RenderingContext);
+    const { pty } = setupPty();
+    const { comp } = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty } });
+    await waitFor(() => expect(webgls).toHaveLength(1));
+    comp.unmount();
+    expect(webgls[0].disposed).toBe(true);
+    expect(loseContext).toHaveBeenCalled();
+    getContext.mockRestore();
+  });
+
+  it('works without WebGL (the addon cannot start)', async () => {
+    const { WebglAddon } = jest.requireMock('@xterm/addon-webgl') as { WebglAddon: jest.Mock };
+    WebglAddon.mockImplementationOnce(() => { throw new Error('no WebGL'); });
+    const { pty } = setupPty();
+    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty } });
+    await waitFor(() => expect(pty.onData).toHaveBeenCalled());
+  });
+
+  it('draws a re-attached shell from its screen copy, then only the output the copy does not cover', async () => {
     const { pty, data } = setupPty();
+    const first = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    await waitFor(() => expect(pty.onData).toHaveBeenCalled());
+    first.comp.unmount();
+    let answer: (v: { screen: string; seq: number }) => void = () => undefined;
+    pty.buffer.mockImplementationOnce(() => new Promise(r => { answer = r; }));
+    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    await waitFor(() => expect(pty.buffer).toHaveBeenCalledTimes(1));
+    act(() => data.get('T1')?.('old', 1)); // sent while main made the copy: in the copy
+    act(() => data.get('T1')?.('new', 3)); // after the copy
+    await act(async () => answer({ screen: 'SCREEN', seq: 2 }));
+    expect(terms[1].written).toEqual(['SCREEN', 'new']);
+  });
+
+  it('pastes with Ctrl+V and copies a selection with Ctrl+C, as Windows Terminal does (the keys are not sent to the shell)', async () => {
+    const { pty } = setupPty();
+    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty } });
+    await waitFor(() => expect(terms[0].keyHandler).toBeDefined());
+    const key = (k: Partial<KeyboardEvent>) => terms[0].keyHandler?.({ type: 'keydown', ...k } as KeyboardEvent);
+    expect(key({ ctrlKey: true, key: 'v' })).toBe(false); // the browser pastes into xterm
+    expect(key({ ctrlKey: true, shiftKey: true, key: 'V' })).toBe(false);
+    expect(key({ ctrlKey: true, key: 'c' })).toBe(true); // no selection: ^C to the shell
+    terms[0].selection = true;
+    expect(key({ ctrlKey: true, key: 'c' })).toBe(false); // the browser copies the selection
+    expect(key({ key: 'a' })).toBe(true);
+  });
+
+  describe('tabs', () => {
+    function setupTabs(widgetId = 'W1') {
+      const { pty, title } = setupPty();
+      let n = 0;
+      pty.create.mockImplementation(async () => ({ ok: true as const, terminalId: `T${++n}` }));
+      pty.buffer.mockResolvedValue({ screen: '', seq: 0 }); // the shells run: a view that attaches again gets their screen
+      let header: WidgetHeaderTabs | null = null;
+      let calls = 0;
+      const setHeaderTabs = (t: WidgetHeaderTabs | null) => {
+        header = t;
+        calls++;
+      };
+      const view = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty, setHeaderTabs }, widgetId });
+      const tabs = () => header as WidgetHeaderTabs | null;
+      return { pty, tabs, view, setHeaderTabs, title, headerCalls: () => calls };
+    }
+
+    it('shows one tab with + and no x (a terminal keeps one shell at least)', async () => {
+      const { tabs } = setupTabs();
+      await waitFor(() => expect(tabs()?.tabs.map(t => t.label)).toEqual(['Shell 1']));
+      expect(tabs()?.onAdd).toBeDefined();
+      expect(tabs()?.onClose).toBeUndefined();
+    });
+
+    it('+ opens a new tab with its own shell; the first tab\'s shell keeps running and comes back on select', async () => {
+      const { pty, tabs } = setupTabs();
+      await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(1));
+      await act(async () => { tabs()?.onAdd?.(); });
+      await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(2));
+      expect(tabs()?.tabs.map(t => t.label)).toEqual(['Shell 1', 'Shell 2']);
+      expect(tabs()?.active).toBe(1);
+      expect(pty.kill).not.toHaveBeenCalled();
+      await act(async () => { tabs()?.onSelect(0); });
+      await waitFor(() => expect(pty.buffer).toHaveBeenCalledWith('T1')); // its screen is drawn again
+      expect(pty.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('x closes a tab and ends its shell', async () => {
+      const { pty, tabs } = setupTabs();
+      await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(1));
+      await act(async () => { tabs()?.onAdd?.(); });
+      await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(2));
+      await act(async () => { tabs()?.onClose?.(0); });
+      expect(pty.kill).toHaveBeenCalledWith('T1');
+      expect(tabs()?.tabs.map(t => t.label)).toEqual(['Shell 2']);
+      expect(tabs()?.active).toBe(0);
+      expect(tabs()?.onClose).toBeUndefined();
+    });
+
+    it('keeps its tabs when the view mounts again (Memory Saver), and a delete ends every tab\'s shell', async () => {
+      const { pty, tabs, view, setHeaderTabs } = setupTabs();
+      await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(1));
+      await act(async () => { tabs()?.onAdd?.(); });
+      await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(2));
+      view.comp.unmount();
+      setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty, setHeaderTabs }, widgetId: 'W1' });
+      await waitFor(() => expect(tabs()?.tabs.map(t => t.label)).toEqual(['Shell 1', 'Shell 2']));
+      expect(pty.create).toHaveBeenCalledTimes(2);
+      forgetTerminalSession('W1');
+      expect(pty.kill).toHaveBeenCalledWith('T1');
+      expect(pty.kill).toHaveBeenCalledWith('T2');
+    });
+
+    it('names a tab by the title its shell sets, also while another tab is shown (and once per new title)', async () => {
+      const { pty, tabs, title, headerCalls } = setupTabs();
+      await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(1));
+      await act(async () => { tabs()?.onAdd?.(); });
+      await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(2));
+      act(() => title('T1', 'Claude Code')); // tab 1 is not shown
+      await waitFor(() => expect(tabs()?.tabs.map(t => t.label)).toEqual(['Claude Code', 'Shell 2']));
+      const calls = headerCalls();
+      act(() => title('T1', 'Claude Code'));
+      expect(headerCalls()).toBe(calls); // the same title again draws nothing
+    });
+  });
+
+  it('has only Restart Shell in the action bar (no button types commands into the shell)', async () => {
+    const { pty } = setupPty();
     let items: ActionBarItems = [];
     setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } } });
-    await waitFor(() => expect(pty.onData).toHaveBeenCalled());
-    await waitFor(() => expect(items.length).toBe(3));
-    act(() => data.get('T1')?.('PS C:\\work> '));
-    act(() => { items.find(i => i.id === 'START-CLAUDE')?.doAction(); });
-    expect(pty.write).toHaveBeenCalledWith('T1', 'claude\r');
-    act(() => { items.find(i => i.id === 'START-CODEX')?.doAction(); });
-    expect(pty.write).toHaveBeenCalledWith('T1', 'codex\r');
-    await act(async () => { items.find(i => i.id === 'RESTART')?.doAction(); });
-    expect(pty.kill).toHaveBeenCalledWith('T1');
-    await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(items.map(i => i.id)).toEqual(['RESTART']));
+    expect(pty.write).not.toHaveBeenCalled();
   });
+
 });

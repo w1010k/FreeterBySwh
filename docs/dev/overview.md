@@ -249,7 +249,7 @@ main은 `did-attach-webview`에서 guest마다 아래를 건다.
 - main → renderer 요청-응답은 AI 제어에만 있다. main이 `ai-action-request` 알림을 `[reqId, req]`로 보내고, renderer (`init.ts`)가 실행 뒤
   `ai-action-response` invoke로 `[reqId, res]`를 돌려준다. main `createAiActionBridge`가 `reqId`별로 150초 기다리고, 늦은 응답은 버린다. 쓰기 확인은
   renderer가 `ai-confirm` invoke로 main에 요청한다 [fork #99]
-- 에이전트 실행기와 앱 안 터미널: renderer가 `ai-agent-detect/warm/send/cancel/end`, `pty-create/write/resize/buffer/kill`을 invoke하고, main이 `ai-agent-event`, `pty-data`, `pty-exit` 알림을 보낸다. 위젯은 `aiAgent`, `pty` 위젯 API 모듈로 쓴다 (AI Chat, Terminal 위젯) [fork #99 #100]
+- 앱 안 터미널: renderer가 `pty-create/resize/buffer/kill`을 invoke하고 키 입력은 `pty-write`로 send하며, main이 `pty-data`, `pty-exit` 알림을 보낸다. Terminal 위젯은 `pty` 위젯 API 모듈로 쓴다 [fork #100]
 
 #### 검증과 preload
 
@@ -260,7 +260,7 @@ main은 `did-attach-webview`에서 guest마다 아래를 건다.
   `getMainApiOnce`는 첫 호출에만 `MainApi`를 돌려준다. `src/renderer/infra/mainApi/mainApi.ts`가 모듈 로드 때 한 번 받아
   `electronIpcRenderer`로 export하고, 못 받으면 throw한다 [upstream]
 - preload의 리스너는 Electron event 객체를 빼고 인자만 넘긴다 [upstream]
-- preload `removeListener`는 `on`으로 등록한 리스너를 해제한다 (`on`이 WeakMap에 기록한 래퍼를 그대로 등록; 2026-11-09 upstream 결함 수정, `tests/renderer/preload/index.spec.ts`). 앱 수명 동안 리스너 하나를 두는 provider (`aiAgentProvider`, `ptyProvider`)는 `src/renderer/infra/subscribers/subscribers.ts` (`createSubscribers`: id별 구독자 목록, `add`·`has`·`emit`)로 메시지를 대화·터미널 id별 구독자에게 나눠 준다. [upstream, fork #100]
+- preload `removeListener`는 `on`으로 등록한 리스너를 해제한다 (`on`이 WeakMap에 기록한 래퍼를 그대로 등록; 2026-11-09 upstream 결함 수정, `tests/renderer/preload/index.spec.ts`). 앱 수명 동안 리스너 하나를 두는 provider (`ptyProvider`)는 `src/renderer/infra/subscribers/subscribers.ts` (`createSubscribers`: id별 구독자 목록, `add`·`has`·`emit`)로 메시지를 대화·터미널 id별 구독자에게 나눠 준다. [upstream, fork #100]
 
 #### 등록되지 않은 채널
 
@@ -379,7 +379,6 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 | `shared/<widgetType>/<sharedKeyId>/<key>` | 공유 데이터 키 버킷. `sharedKeyId`는 idGenerator가 만든 id다. To-Do List 프로젝트 동기화는 `shared/to-do-list/<scope>/` | [fork #8 #9] |
 | `telemetry/events-YYYY-MM-DD`             | 사용 통계 일자 파일                                                                                                     | [fork #62]   |
 | `ai/endpoint.json`, `ai/control.sock`     | AI 제어 연결 정보 (`pipe`, `token`, `pid`, 실행 중에만 존재)와 Linux 소켓                                               | [fork #99]   |
-| `ai/empty`, `ai/mcp-claude.json`          | 에이전트 실행기의 작업 폴더 (비어 있음)와 Claude용 MCP 설정                                                              | [fork #99]   |
 
 - `isDevMode` (`process.env.NODE_ENV !== 'production'`, `src/main/infra/processProvider/processProvider.ts`)는 renderer
   출처 (개발 서버 또는 빌드 파일)와 DevTools를 정한다. `app.isPackaged`는 데이터 폴더, 앱 이름, 창 제목 고정을 정한다. `yarn prod:run`은 production 빌드지만
@@ -413,8 +412,7 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 | systemStats          | CPU 사용률 (직전 호출 대비, 전체·코어별), 메모리, 시스템 드라이브 사용량, 가동 시간, Freeter 프로세스 합계 CPU·메모리 [fork #98]                                           | `infra/systemStatsProvider/systemStatsProvider.ts`                                                                                             | [fork #60]                      |
 | download             | 모든 session의 다운로드를 지정 폴더로 저장, 이름 충돌 시 ` (n)`                                                                                                             | `infra/downloads/downloadManager.ts` (`resolveUniqueSavePath`)                                                                                 | [fork #41]                      |
 | ai                   | AI 제어 서버 (named pipe/Unix 소켓, 줄 단위 JSON-RPC, 토큰), renderer로 요청 전달, 쓰기 확인 상자 (120초 abort, 한 번에 하나)                                                | `infra/aiControlServer/`, `application/ai/aiActionBridge.ts`, `useCases/ai/confirmAiAction.ts`, `controllers/ai.ts`, CLI는 `cli/`               | [fork #99]                      |
-| aiAgent              | 에이전트 실행기: `claude`/`codex`를 빈 폴더에서 실행하고 `freeter mcp`를 붙인다. 대화마다 프로세스 하나 (Claude stream-json 입력, Codex `app-server` JSON-RPC; 미리 띄우기 `ai-agent-warm`, 5분 유휴 종료, `ai-agent-end`로 종료). 출력을 공통 이벤트 (답은 `textDelta`로 스트리밍)로 바꿔 `ai-agent-event`로 보낸다. 결과나 실패 이벤트에서 턴을 끝낸다. 턴당 300초. 이벤트는 바로 보낸다 (답의 조각만 대화별 60ms 묶음, `application/ai/agentEventCoalescer.ts`). 구독 전에 온 이벤트는 renderer `aiAgentProvider`가 보관했다가 넘긴다. 앱 페이지가 새로 로드되면 (`did-navigate`) 실행 중인 턴과 앱 안 셸을 모두 끝낸다 | `application/ai/aiAgentRunner.ts`, `infra/aiAgent/agentCommand.ts` (인자, PATH 탐색, .cmd escape), `infra/aiAgent/agentSession.ts` (CLI별 프로토콜), `infra/aiAgent/agentEvents.ts` (Claude 출력) | [fork #99 #100]                      |
-| terminal (pty)       | 앱 안 터미널: node-pty로 셸 실행, 출력 16ms 묶음 전송, 터미널마다 최근 1MiB 보관 (다시 붙을 때 그리기용). 셸 env에 AI 제어 endpoint와 설치본의 `freeter` 래퍼 폴더 | `application/terminal/terminalHost.ts`, `controllers/pty.ts`. node-pty는 지연 로딩 (`index.ts`)                                          | [fork #99]                      |
+| terminal (pty)       | 앱 안 터미널: node-pty로 셸 실행, 출력 16ms 묶음 전송 (조용하던 뒤 첫 조각은 바로), 터미널마다 화면 사본 (`@xterm/headless` + `addon-serialize`, 스크롤백 1000줄, 다시 붙을 때 그리기용; `infra/terminal/headlessMirror.ts`; 직렬화와 크기 변경은 앞선 출력의 해석이 끝난 뒤), 입력은 `send`로 받아 바로 셸에 씀 (`createPtyInputListener`). 셸 env에 AI 제어 endpoint와 설치본의 `freeter` 래퍼 폴더 | `application/terminal/terminalHost.ts`, `controllers/pty.ts`. node-pty는 지연 로딩 (`index.ts`)                                          | [fork #99]                      |
 
 infra 전용 구성: `infra/protocolHandler/` (`freeter-file` 스킴 등록) [upstream], `infra/ipcMain/` [upstream],
 `infra/httpAuth/` [fork #71], `infra/permissions/` (세션 권한 처리기) [fork #88].

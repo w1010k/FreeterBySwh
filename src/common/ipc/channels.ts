@@ -4,7 +4,6 @@
  */
 
 import { AiOrigin, AiRpcRequest, AiRpcResult } from '@common/ai/protocol';
-import { AgentEvent, AgentSendRequest, AgentTool } from '@common/ai/agent';
 import { MenuItemsIpc } from '@common/base/menu';
 import { ProcessInfo } from '@common/base/process';
 import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
@@ -267,29 +266,6 @@ export const ipcAiReadyChannel = makeIpcChannelName('ai-ready');
 export type IpcAiReadyArgs = [];
 export type IpcAiReadyRes = void;
 
-/** Agent runner: Freeter runs Claude Code / Codex itself (for its own AI screens). */
-export const ipcAiAgentDetectChannel = makeIpcChannelName('ai-agent-detect');
-export type IpcAiAgentDetectArgs = [];
-export type IpcAiAgentDetectRes = Record<AgentTool, boolean>;
-
-export const ipcAiAgentSendChannel = makeIpcChannelName('ai-agent-send');
-export type IpcAiAgentSendArgs = [conversationId: string | null, req: AgentSendRequest];
-export type IpcAiAgentSendRes = { ok: true; conversationId: string } | { ok: false; message: string };
-
-export const ipcAiAgentCancelChannel = makeIpcChannelName('ai-agent-cancel');
-export type IpcAiAgentCancelArgs = [conversationId: string];
-export type IpcAiAgentCancelRes = void;
-
-/** Starts the conversation's CLI before the first prompt; conversationId null starts a new conversation. */
-export const ipcAiAgentWarmChannel = makeIpcChannelName('ai-agent-warm');
-export type IpcAiAgentWarmArgs = [conversationId: string | null, o: Omit<AgentSendRequest, 'prompt'>];
-export type IpcAiAgentWarmRes = IpcAiAgentSendRes;
-
-/** Forgets the conversation and ends its CLI. */
-export const ipcAiAgentEndChannel = makeIpcChannelName('ai-agent-end');
-export type IpcAiAgentEndArgs = [conversationId: string];
-export type IpcAiAgentEndRes = void;
-
 /** Shells in pseudo-terminals for in-app terminal views ('terminal-*' channels run the OS terminal app). */
 export const ipcPtyCreateChannel = makeIpcChannelName('pty-create');
 export type IpcPtyCreateArgs = [o: { cols: number; rows: number; shell?: string; cwd?: string; command?: string }];
@@ -297,7 +273,6 @@ export type IpcPtyCreateRes = { ok: true; terminalId: string } | { ok: false; me
 
 export const ipcPtyWriteChannel = makeIpcChannelName('pty-write');
 export type IpcPtyWriteArgs = [terminalId: string, data: string];
-export type IpcPtyWriteRes = void;
 
 export const ipcPtyResizeChannel = makeIpcChannelName('pty-resize');
 export type IpcPtyResizeArgs = [terminalId: string, cols: number, rows: number];
@@ -305,7 +280,8 @@ export type IpcPtyResizeRes = void;
 
 export const ipcPtyBufferChannel = makeIpcChannelName('pty-buffer');
 export type IpcPtyBufferArgs = [terminalId: string];
-export type IpcPtyBufferRes = string | undefined;
+/** The screen copy and the number of the last output chunk it covers. */
+export type IpcPtyBufferRes = { screen: string; seq: number } | undefined;
 
 export const ipcPtyKillChannel = makeIpcChannelName('pty-kill');
 export type IpcPtyKillArgs = [terminalId: string];
@@ -313,10 +289,10 @@ export type IpcPtyKillRes = void;
 
 /** main → renderer: output of a terminal (batched) and its exit. */
 export const ipcPtyDataChannel = makeIpcChannelName('pty-data');
-export type IpcPtyDataArgs = [terminalId: string, data: string];
+export type IpcPtyDataArgs = [terminalId: string, data: string, seq: number];
+/** main → renderer: the title a terminal's shell set. */
+export const ipcPtyTitleChannel = makeIpcChannelName('pty-title');
+export type IpcPtyTitleArgs = [terminalId: string, title: string];
 export const ipcPtyExitChannel = makeIpcChannelName('pty-exit');
 export type IpcPtyExitArgs = [terminalId: string, exitCode: number];
 
-/** main → renderer: one event of a running turn. */
-export const ipcAiAgentEventChannel = makeIpcChannelName('ai-agent-event');
-export type IpcAiAgentEventArgs = [conversationId: string, event: AgentEvent];

@@ -4,6 +4,7 @@
  */
 
 import { Controller } from '@/controllers/controller';
+import { IpcMainListener } from '@/controllers/interfaces/ipcMain';
 import { TerminalHost } from '@/application/terminal/terminalHost';
 import {
   IpcPtyBufferArgs,
@@ -14,8 +15,6 @@ import {
   IpcPtyKillRes,
   IpcPtyResizeArgs,
   IpcPtyResizeRes,
-  IpcPtyWriteArgs,
-  IpcPtyWriteRes,
   ipcPtyBufferChannel,
   ipcPtyCreateChannel,
   ipcPtyKillChannel,
@@ -29,7 +28,6 @@ type Deps = {
 
 export function createPtyControllers({ terminalHost }: Deps): [
   Controller<IpcPtyCreateArgs, IpcPtyCreateRes>,
-  Controller<IpcPtyWriteArgs, IpcPtyWriteRes>,
   Controller<IpcPtyResizeArgs, IpcPtyResizeRes>,
   Controller<IpcPtyBufferArgs, IpcPtyBufferRes>,
   Controller<IpcPtyKillArgs, IpcPtyKillRes>,
@@ -37,9 +35,6 @@ export function createPtyControllers({ terminalHost }: Deps): [
   return [{
     channel: ipcPtyCreateChannel,
     handle: async (_event, o) => terminalHost.create(o)
-  }, {
-    channel: ipcPtyWriteChannel,
-    handle: async (_event, id, data) => terminalHost.write(id, data)
   }, {
     channel: ipcPtyResizeChannel,
     handle: async (_event, id, cols, rows) => terminalHost.resize(id, cols, rows)
@@ -50,4 +45,16 @@ export function createPtyControllers({ terminalHost }: Deps): [
     channel: ipcPtyKillChannel,
     handle: async (_event, id) => terminalHost.kill(id)
   }]
+}
+
+/** Keystrokes come with ipc send (no answer to wait for, like Paseo's terminal input); text only. */
+export function createPtyInputListener({ terminalHost }: Deps): { channel: string; listener: IpcMainListener } {
+  return {
+    channel: ipcPtyWriteChannel,
+    listener: (_event, id, data) => {
+      if (typeof id === 'string' && typeof data === 'string') {
+        terminalHost.write(id, data);
+      }
+    },
+  };
 }

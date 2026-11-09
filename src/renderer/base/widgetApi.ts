@@ -9,10 +9,7 @@ import { ActionBarItems } from './actionBar';
 import { ProcessInfo } from '@common/base/process';
 import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
 import { SystemStats } from '@common/base/systemStats';
-import { AgentEvent } from '@common/ai/agent';
-import {
-  IpcAiAgentDetectRes, IpcAiAgentSendArgs, IpcAiAgentSendRes, IpcAiAgentWarmArgs, IpcAiAgentWarmRes, IpcPtyCreateArgs, IpcPtyCreateRes
-} from '@common/ipc/channels';
+import { IpcPtyCreateArgs, IpcPtyCreateRes } from '@common/ipc/channels';
 import { OpenDialogResult, OpenDirDialogConfig, OpenFileDialogConfig } from '@common/base/dialog';
 import { TelemetryActivityPayload, TelemetryActivityType } from '@common/base/telemetry';
 
@@ -32,6 +29,11 @@ export interface WidgetHeaderTabs {
   }>;
   active: number;
   onSelect: (index: number) => void;
+  /** Given: a + after the tabs adds one (e.g. a Terminal's new shell); `addTitle` names it. */
+  onAdd?: () => void;
+  addTitle?: string;
+  /** Given: each tab has an x that closes it. */
+  onClose?: (index: number) => void;
 }
 
 interface WidgetApiCommon {
@@ -72,26 +74,16 @@ export interface WidgetApiPty {
   write(terminalId: string, data: string): void;
   resize(terminalId: string, cols: number, rows: number): void;
   kill(terminalId: string): void;
-  /** Recent output kept by main (to redraw a view that attaches again); undefined once the shell ended. */
-  buffer(terminalId: string): Promise<string | undefined>;
-  /** Returns the unsubscribe function. */
-  onData(terminalId: string, fn: (data: string) => void): () => void;
+  /**
+   * Main's copy of the screen (to redraw a view that attaches again) and the number of the last output chunk it
+   * covers; undefined once the shell ended.
+   */
+  buffer(terminalId: string): Promise<{ screen: string; seq: number } | undefined>;
+  /** Returns the unsubscribe function. `seq`: the number of the last output chunk in `data`. */
+  onData(terminalId: string, fn: (data: string, seq: number) => void): () => void;
   onExit(terminalId: string, fn: (exitCode: number) => void): () => void;
-}
-
-/** Claude Code / Codex turns run by the main process (Freeter's own AI screens). */
-export interface WidgetApiAiAgent {
-  /** Which agent CLIs are on PATH. */
-  detect(): Promise<IpcAiAgentDetectRes>;
-  /** Starts a turn; conversationId null starts a new conversation. */
-  send(conversationId: IpcAiAgentSendArgs[0], req: IpcAiAgentSendArgs[1]): Promise<IpcAiAgentSendRes>;
-  cancel(conversationId: string): void;
-  /** Starts the conversation's CLI before the first prompt; conversationId null starts a new conversation. */
-  warm(conversationId: IpcAiAgentWarmArgs[0], o: IpcAiAgentWarmArgs[1]): Promise<IpcAiAgentWarmRes>;
-  /** Forgets the conversation and ends its CLI. */
-  end(conversationId: string): void;
-  /** Returns the unsubscribe function. */
-  onEvent(conversationId: string, fn: (event: AgentEvent) => void): () => void;
+  /** The titles any shell sets (e.g. Claude Code's), shown tab or not. */
+  onTitle(fn: (terminalId: string, title: string) => void): () => void;
 }
 
 interface WidgetApiModules {
@@ -156,8 +148,6 @@ interface WidgetApiModules {
   }
   /** In-app terminals: shells in pseudo-terminals run by the main process. */
   readonly pty: WidgetApiPty;
-  /** Claude Code / Codex conversations run by Freeter (the agent can use Freeter through its tools). */
-  readonly aiAgent: WidgetApiAiAgent;
 }
 
 export type WidgetApiModuleName = keyof WidgetApiModules;

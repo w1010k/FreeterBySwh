@@ -646,12 +646,12 @@
 
 #### D74. 에이전트 실행기: 대화마다 CLI 프로세스 하나
 
-- 상태: 유효
+- 상태: 폐기 (2026-11-09). AI Chat 위젯과 함께 실행기를 지웠다. 같은 CLI를 Terminal에서 쓰는 쪽이 훨씬 나았다 (사용자 판단). 아래는 기록이다.
 - 출처: `[fork #99]`
 - 결정: Freeter가 설치된 CLI를 실행한다. Claude Code는 대화마다 `claude -p --input-format stream-json --include-partial-messages` 프로세스 하나를 띄워 두고, 질문을 stream-json 한 줄로 보낸다. 입력창에 첫 글자를 넣을 때 미리 띄운다 (`warm`; 포커스만으로는 띄우지 않는다, 2026-11-09 사용자 결정). Codex는 대화마다 `codex app-server` 하나를 띄우고 JSON-RPC로 thread를 연다 (`thread/start` 또는 `thread/resume`, `turn/start`, `turn/interrupt`). CLI별 차이는 `agentSession.ts`가 맡는다. 5분 동안 턴이 없거나, 모델·추론 강도가 바뀌거나, Stop을 프로세스 안에서 처리할 수 없으면 (Freeter 도구 호출 중, 출력 전, 10초 안에 멈추지 않음) 프로세스를 끝내고, 다음 턴은 새 프로세스에서 대화를 잇는다. 그 밖의 Stop은 프로세스 안에서 턴만 멈춘다 (Claude `control_request` `interrupt`, Codex `turn/interrupt`). 새 대화도 `resume` id로 저장된 CLI 대화를 이을 수 있다 (앱 재시작 뒤). 작업 폴더는 빈 `ai/empty`, 도구는 `freeter mcp`뿐이다 (Claude는 `--tools ""`, Codex는 read-only sandbox). 결과나 실패 이벤트가 오면 턴을 끝낸다. `.cmd` CLI (npm의 codex)는 cmd.exe로 실행하고 cross-spawn 방식으로 인자를 두 번 escape한다.
 - 이유: 사용자의 구독과 로그인을 그대로 쓰고, Freeter는 계정을 다루지 않는다 (Lomar와 같은 방식). 턴마다 `claude`를 실행하면 한 턴이 약 5초였고, 그중 약 3.5초가 CLI 실행 비용이었다 (haiku, "pong" 응답, 3회 실측). 프로세스를 유지하면 두 번째 턴부터 약 1.3초, 미리 띄운 첫 턴도 약 1.2초다 (실제 앱 실측). 대기 중 프로세스 하나는 Working Set 약 255MB, MCP 자식 약 33MB였다 (1회 실측).
 - 버린 대안: 턴마다 `claude`·`codex exec` 실행 (위 지연, `codex exec` 한 턴 6.6~7.0초), `--permission-prompt-tool`로 확인 받기 (Claude 전용, D72가 대신), `cross-spawn` 의존성 추가 (escape 함수 두 개로 충분).
-- 셸 없음: Claude는 `--tools ""`, Codex는 `-c features.shell_tool=false -c features.unified_exec=false` (Codex 0.164.0에서 확인: 명령 실행 항목이 생기지 않음). AI Chat의 에이전트가 Freeter 확인 상자를 거치지 않고 명령을 실행하는 길이 없다. thread 지시는 Freeter 도구를 쓰게 한다 (빈 작업 폴더를 둘러보는 시간을 줄임).
+- 셸 없음: Claude는 `--tools ""`, Codex는 `-c features.shell_tool=false -c features.unified_exec=false` (Codex 0.164.0에서 확인: 명령 실행 항목이 생기지 않음). thread 지시는 Freeter 도구를 쓰게 한다 (빈 작업 폴더를 둘러보는 시간을 줄임).
 - 한계: `codex app-server`는 Codex가 "experimental"로 표시한 기능이라 Codex 업데이트로 프로토콜이 바뀔 수 있다 (`codex app-server generate-ts`로 확인). Stop은 두 CLI 모두 프로세스 안에서 턴만 멈춘다 (Claude `control_request` `interrupt`, Codex `turn/interrupt`); 10초 안에 멈춘 턴이 끝나지 않거나, 턴이 아직 출력을 내지 않았거나, Freeter 도구 호출 중이면 프로세스를 끝낸다. Freeter 도구 호출 중이면 프로세스를 끝내 그 확인 상자를 닫는다. 대화 기록은 각 CLI의 저장 위치에 남는다.
 - 근거: `src/main/application/ai/aiAgentRunner.ts`, `src/main/infra/aiAgent/`, `tests/main/application/ai/aiAgentRunner.e2e.spec.ts` (실제 CLI, 수동)
 
@@ -665,21 +665,21 @@
 - 한계: Linux용 prebuild가 없어 Linux CI는 설치 때 소스 빌드한다 (검증하지 않음). 패키지에 darwin, arm64 prebuild도 들어간다.
 - 근거: `package.json`, `webpack.main.config.js` externals, `electron-builder.config.js`, `src/main/index.ts`
 
-#### D76. 채팅과 셸은 위젯 화면 밖에 두고 저장하지 않는다
+#### D76. 셸은 위젯 화면 밖에 두고 출력은 저장하지 않는다
 
 - 상태: 유효
 - 출처: `[fork #100]`
-- 결정: Terminal의 셸과 AI Chat의 대화는 위젯 모듈 수준 Map (위젯 id별)에 둔다. 화면이 언마운트돼도 계속 돌고, 다시 마운트되면 이어 보인다. AI Chat은 턴이 끝날 때 기록 (최근 200개)과 CLI 대화 id를 위젯 데이터 `chat`에 저장한다. 셸 출력은 저장하지 않는다.
-- 이유: Memory Saver가 워크플로를 내려도 실행 중인 에이전트 턴이나 셸은 멈추면 안 된다. 저장된 CLI 대화 id로 앱 재시작 뒤에도 같은 대화를 잇는다 (`resume`).
-- 버린 대안: 컴포넌트 state (언마운트 때 사라짐), 스트리밍 토큰마다 저장 (디스크 쓰기 과다), 앱 상태 store (위젯 실행 상태가 전역 상태와 저장 대상에 섞임).
-- 한계: 위젯을 지우면 `WidgetType.onDeleted`가 셸과 대화를 끝낸다 (store 감시, `initWidgetDeleteHooks`). 세션은 앱 단위 provider만 잡아 위젯 컴포넌트를 붙잡지 않는다 (pitfalls "전역 상태에 보관한 위젯 API의 DOM 누수").
-- 근거: `src/renderer/widgets/terminal/widget.tsx`, `src/renderer/widgets/ai-chat/{widget.tsx,session.ts}`
+- 결정: Terminal의 셸은 위젯 모듈 수준 Map (위젯 id별)에 둔다. 화면이 언마운트돼도 계속 돌고, 다시 마운트되면 main의 화면 사본으로 이어 보인다. 셸 출력은 디스크에 저장하지 않는다. (AI Chat의 대화도 같은 방식이었으나 2026-11-09에 위젯과 함께 지웠다.)
+- 이유: Memory Saver가 워크플로를 내려도 실행 중인 셸 (그 안의 에이전트)은 멈추면 안 된다.
+- 버린 대안: 컴포넌트 state (언마운트 때 사라짐), 앱 상태 store (위젯 실행 상태가 전역 상태와 저장 대상에 섞임).
+- 한계: 위젯을 지우면 `WidgetType.onDeleted`가 셸을 끝낸다 (store 감시, `initWidgetDeleteHooks`). 세션은 앱 단위 provider만 잡아 위젯 컴포넌트를 붙잡지 않는다 (pitfalls "전역 상태에 보관한 위젯 API의 DOM 누수").
+- 근거: `src/renderer/widgets/terminal/widget.tsx`, `src/main/application/terminal/terminalHost.ts`
 
 #### D77. "AI 작업 항상 허용"은 명령 실행 위젯을 빼고
 
 - 상태: 유효
 - 출처: `[fork #100]`
-- 결정: 앱 설정 `aiAlwaysAllow` (기본 false)를 켜면 AI 쓰기 작업이 확인 없이 실행된다. `AiAction.alwaysConfirm`이 참인 작업은 계속 묻는다: `WidgetType.runsPrograms` 위젯 (Commander, File Opener, Terminal, 더블클릭으로 항목을 여는 File Explorer, 그리고 URL을 그대로 OS에 넘기는 Link Opener, Web Query)의 위젯 작업과 `widget.updateSettings`, 그리고 입력에 다른 컴퓨터를 가리키는 값 (UNC, `file:`; `runAiRequest`의 `pointsToAnotherComputer`)이 있는 모든 쓰기, 다운로드 폴더를 바꾸는 `app.updateSettings` (다운로드는 묻지 않고 그 폴더에 저장된다), `WidgetType.confirmSettings` (Webpage `injectedJS`, `injectedCSS`, `customActions`, `url`, `tabs`, `userAgent`, `sessionScope`, `sessionPersist`)를 바꾸는 `widget.updateSettings`, `runsPrograms` 위젯을 추가하는 `widget.add`, AI Chat의 `tool`·`model`·`effort` 변경. 확인 없이 실행된 쓰기가 새로 보이게 한 위젯은 (`runAiRequest`가 쓰기 전후로 화면의 위젯: 셸프와 활성 워크플로를 비교) 표시되고, 그중 Terminal은 처음에 셸을 스스로 시작하지 않는다 (`base/ai/aiActivity.ts`; Restart Shell로 시작). 작업마다 Terminal 확인을 넣던 방식은 새 작업마다 빠뜨릴 수 있어 버렸다. 확인 없이 실행하기 전에는 그 요청이 아직 유효한지 main에 묻는다 (`ai-alive`). 이 설정은 요청 출처 (AI Chat, Terminal, CLI, MCP)와 관계없이 같다.
+- 결정: 앱 설정 `aiAlwaysAllow` (기본 false)를 켜면 AI 쓰기 작업이 확인 없이 실행된다. `AiAction.alwaysConfirm`이 참인 작업은 계속 묻는다: `WidgetType.runsPrograms` 위젯 (Commander, File Opener, Terminal, 더블클릭으로 항목을 여는 File Explorer, 그리고 URL을 그대로 OS에 넘기는 Link Opener, Web Query)의 위젯 작업과 `widget.updateSettings`, 그리고 입력에 다른 컴퓨터를 가리키는 값 (UNC, `file:`; `runAiRequest`의 `pointsToAnotherComputer`)이 있는 모든 쓰기, 다운로드 폴더를 바꾸는 `app.updateSettings` (다운로드는 묻지 않고 그 폴더에 저장된다), `WidgetType.confirmSettings` (Webpage `injectedJS`, `injectedCSS`, `customActions`, `url`, `tabs`, `userAgent`, `sessionScope`, `sessionPersist`)를 바꾸는 `widget.updateSettings`, `runsPrograms` 위젯을 추가하는 `widget.add`. 확인 없이 실행된 쓰기가 새로 보이게 한 위젯은 (`runAiRequest`가 쓰기 전후로 화면의 위젯: 셸프와 활성 워크플로를 비교) 표시되고, 그중 Terminal은 처음에 셸을 스스로 시작하지 않는다 (`base/ai/aiActivity.ts`; Restart Shell로 시작). 작업마다 Terminal 확인을 넣던 방식은 새 작업마다 빠뜨릴 수 있어 버렸다. 확인 없이 실행하기 전에는 그 요청이 아직 유효한지 main에 묻는다 (`ai-alive`). 이 설정은 요청 출처 (Terminal, CLI, MCP)와 관계없이 같다.
 - 이유: 확인 상자의 반복이 큰 불편이었다. 반면 AI는 노트·페이지 글을 읽으므로 그 글이 AI를 조종할 수 있다 (프롬프트 인젝션). Freeter 안의 변경은 데이터 손실로 끝나지만, 명령 실행은 PC 전체가 피해를 입는다.
 - 삭제: 위젯·워크플로·프로젝트 삭제는 묻지 않는다. Terminal을 지우면 그 안에서 실행 중인 셸과 작업도 확인 없이 끝난다. 이 결과도 받아들인다 (2026-11-09 사용자 결정, 루프 25회차 리뷰 지적).
 - 다른 컴퓨터 경로 판정 (`pointsToAnotherComputer`)은 쓰기 입력의 모든 문자열에 적용한다. 경로가 열리는 곳을 다 나열하지 않아도 막는 방어선이다. `//TODO`로 시작하는 글에도 상자가 뜨는 것은 받아들인다 (2026-11-09 사용자 결정).

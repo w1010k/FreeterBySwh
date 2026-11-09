@@ -302,7 +302,7 @@ export function createApplicationSettingsComponent({
                       app settings) run without the confirm box. Actions that can run programs or commands on this
                       computer (Commander, File Opener, File Explorer, Terminal, Link Opener, Web Query: running them, changing
                       their settings or adding them), changing the download folder, Webpage navigation, address, user agent, session and
-                      injected script/CSS, the AI Chat tool, model and effort, and paths to other computers still ask.
+                      injected script/CSS, and paths to other computers still ask.
                       Text the agent reads (a note, a page) can steer it, so turn this on only if you accept that. Off by default.'
             >
               <select id="ai-always-allow" value={convertBoolToStr(appConfig.aiAlwaysAllow)}

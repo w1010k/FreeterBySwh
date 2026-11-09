@@ -9,7 +9,6 @@ import { ProcessProvider } from '@/application/interfaces/processProvider';
 import { TerminalProvider } from '@/application/interfaces/terminalProvider';
 import { SystemStatsProvider } from '@/application/interfaces/systemStatsProvider';
 import { PtyProvider } from '@/application/interfaces/ptyProvider';
-import { AiAgentProvider } from '@/application/interfaces/aiAgentProvider';
 import { createGetWidgetApiUseCase } from '@/application/useCases/widget/getWidgetApi';
 import { ActionBarItems } from '@/base/actionBar';
 import { WidgetContextMenuFactory } from '@/base/widget';
@@ -89,11 +88,7 @@ async function setup(deletingSharedDataKeys = new Set<string>()) {
   }
 
   const ptyProvider: jest.MockedObject<PtyProvider> = {
-    create: jest.fn(), write: jest.fn(), resize: jest.fn(), kill: jest.fn(), buffer: jest.fn(), onData: jest.fn(), onExit: jest.fn()
-  }
-
-  const aiAgentProvider: jest.MockedObject<AiAgentProvider> = {
-    detect: jest.fn(), send: jest.fn(), cancel: jest.fn(), warm: jest.fn(), end: jest.fn(), onEvent: jest.fn()
+    create: jest.fn(), write: jest.fn(), resize: jest.fn(), kill: jest.fn(), buffer: jest.fn(), onData: jest.fn(), onExit: jest.fn(), onTitle: jest.fn()
   }
 
   const getWidgetsInCurrentWorkflowUseCase = jest.fn();
@@ -116,7 +111,6 @@ async function setup(deletingSharedDataKeys = new Set<string>()) {
     terminalProvider,
     systemStatsProvider,
     ptyProvider,
-    aiAgentProvider,
     getWidgetsInCurrentWorkflowUseCase,
     switchProjectUseCase,
     switchWorkflowUseCase,

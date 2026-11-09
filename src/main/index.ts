@@ -136,22 +136,18 @@ import {app, BrowserWindow as ElectronBrowserWindow, dialog as electronDialog, p
 import {delimiter as pathDelimiter, join} from 'node:path';
 import type * as NodePty from 'node-pty';
 import {createTerminalHost, prependPath} from '@/application/terminal/terminalHost';
-import {createPtyControllers} from '@/controllers/pty';
+import {createPtyControllers, createPtyInputListener} from '@/controllers/pty';
+import {createHeadlessMirror} from '@/infra/terminal/headlessMirror';
 import {randomBytes, randomUUID} from 'node:crypto';
-import {ChildProcess, execFileSync, spawn as spawnChild} from 'node:child_process';
+import {execFileSync} from 'node:child_process';
 import {homedir} from 'node:os';
-import {mkdir, writeFile} from 'node:fs/promises';
-import {createAiAgentRunner} from '@/application/ai/aiAgentRunner';
-import {createAgentEventCoalescer} from '@/application/ai/agentEventCoalescer';
-import {
-  buildAgentArgs, endGroupWithLeader, expandEnvVars, findOnPath, killTree, mergePath, parseRegPath, spawnSpec,
-} from '@/infra/aiAgent/agentCommand';
+import {expandEnvVars, mergePath, parseRegPath} from '@/infra/env/windowsPath';
 import {createAiActionBridge} from '@/application/ai/aiActionBridge';
 import {createConfirmAiActionUseCase} from '@/application/useCases/ai/confirmAiAction';
 import {createAiControllers} from '@/controllers/ai';
 import {createAiControlServer} from '@/infra/aiControlServer/aiControlServer';
 import {getAiPipePath, removeAiEndpointSync, writeAiEndpoint} from '@/infra/aiControlServer/endpoint';
-import {ipcAiActionRequestChannel, ipcAiAgentEventChannel, ipcPtyDataChannel, ipcPtyExitChannel} from '@common/ipc/channels';
+import {ipcAiActionRequestChannel, ipcPtyDataChannel, ipcPtyExitChannel, ipcPtyTitleChannel} from '@common/ipc/channels';
 
 let appWindow: BrowserWindow | null = null; // ref to the app window
 
@@ -235,9 +231,6 @@ if (!app.requestSingleInstanceLock()) {
   // removes ai/endpoint.json so the `freeter` CLI reports "not running".
   let stopAiControl: (() => void) | undefined;
 
-  // Set after the agent runner is created; on quit it ends running Claude Code / Codex turns.
-  let stopAiAgents: (() => void) | undefined;
-
   // Set after the terminal host is created; on quit it ends the in-app terminals' shells.
   let stopTerminals: (() => void) | undefined;
 
@@ -274,7 +267,6 @@ if (!app.requestSingleInstanceLock()) {
     stopAnalyticsServer?.();
     // Close the AI control pipe and remove its endpoint file.
     stopAiControl?.();
-    stopAiAgents?.();
     stopTerminals?.();
     // Unregister global shortcuts
     globalShortcutProvider.destroy();
@@ -418,29 +410,13 @@ if (!app.requestSingleInstanceLock()) {
         aiControlServer.stop();
       });
 
-    // Agent runner: Freeter runs Claude Code / Codex itself, in an empty folder, with
-    // `freeter mcp` (this same executable as Node, ELECTRON_RUN_AS_NODE) as their only tools.
     const aiDir = join(appDataDir, 'ai');
-    const aiWorkDir = join(aiDir, 'empty');
-    const aiMcp = {
-      command: process.execPath,
-      args: [join(__dirname, 'cli.js'), 'mcp'],
-      env: {ELECTRON_RUN_AS_NODE: '1', FREETER_AI_ENDPOINT: join(aiDir, 'endpoint.json'), FREETER_AI_ORIGIN: 'agent-runner'},
-    };
-    const aiMcpConfigPath = join(aiDir, 'mcp-claude.json');
-    mkdir(aiWorkDir, {recursive: true})
-      .then(() => writeFile(aiMcpConfigPath, JSON.stringify({mcpServers: {freeter: aiMcp}})))
-      .catch(err => console.error('AI agent folder setup failed', err));
     /**
      * Windows: the PATH of the registry (system, then user) joins the app's own. Started by the installer (msiexec),
-     * the app has no user PATH, so neither its CLIs nor its terminals find programs such as claude (2026-11-09).
-     * Also read again when a CLI is not found: it may have been installed after Freeter started.
+     * the app has no user PATH, so its terminals do not find programs such as claude (2026-11-09).
      * ponytail: reg output is in the OEM code page; a folder name with non-ASCII letters may not match (it is skipped).
      */
-    const refreshWindowsPath = () => {
-      if (process.platform !== 'win32') {
-        return;
-      }
+    if (process.platform === 'win32') {
       const read = (key: string) => {
         try {
           return parseRegPath(execFileSync('reg', ['query', key, '/v', 'Path'], {encoding: 'utf8', windowsHide: true, timeout: 5000}));
@@ -453,57 +429,7 @@ if (!app.requestSingleInstanceLock()) {
         .map(v => expandEnvVars(v, process.env))
         .join(';');
       process.env.PATH = mergePath(process.env.PATH ?? '', fromRegistry);
-    };
-    refreshWindowsPath();
-    const killQuietly = (pid: number, signal: NodeJS.Signals) => {
-      try {
-        process.kill(pid, signal);
-      } catch {
-        // ended already
-      }
-    };
-    const aiAgentRunner = createAiAgentRunner({
-      findProgram: tool => {
-        const find = () => findOnPath(process.platform === 'win32' ? [`${tool}.exe`, `${tool}.cmd`] : [tool], process.env.PATH ?? '');
-        const found = find();
-        if (found !== undefined) {
-          return found;
-        }
-        refreshWindowsPath();
-        return find();
-      },
-      spawn: (program, args) => {
-        const spec = spawnSpec(program, args, process.platform);
-        // detached on POSIX: the CLI leads a process group, so killTree ends its children too.
-        const child = spawnChild(spec.command, spec.args, {
-          cwd: aiWorkDir, windowsVerbatimArguments: spec.verbatim, windowsHide: true, detached: process.platform !== 'win32',
-        });
-        endGroupWithLeader(child, process.platform, killQuietly);
-        return child;
-      },
-      kill: proc => {
-        if (proc.pid === undefined) {
-          (proc as ChildProcess).kill();
-          return;
-        }
-        killTree(proc.pid, process.platform, {
-          // An 'error' without a listener (taskkill could not start) would be an uncaught exception in main.
-          run: (command, args) => spawnChild(command, args, {windowsHide: true}).on('error', err => console.error('Could not end the AI CLI', err)),
-          kill: killQuietly,
-        });
-      },
-      // An event can come before the page knows a new conversation id (a spawn failure in send()): the page's
-      // aiAgentProvider keeps events of a conversation nobody listens to yet and hands them over on subscribe.
-      // Streamed text goes at most once per 60 ms per conversation (one IPC message and one render each).
-      emit: createAgentEventCoalescer((conversationId, event) => sendToAppWindow(ipcAiAgentEventChannel, conversationId, event), 60),
-      argsFor: (tool, o) => buildAgentArgs(tool, {mcpConfigPath: aiMcpConfigPath, mcp: aiMcp, ...o}),
-      newId: () => randomUUID(),
-      timeoutMs: 300000,
-      // ponytail: one idle CLI process (Claude Code or Codex) per conversation for this long (memory); the next turn resumes it.
-      idleMs: 5 * 60 * 1000,
-    });
-    stopAiAgents = () => aiAgentRunner.stopAll();
-
+    }
     // In-app terminals (pseudo-terminals). The shell gets the AI control endpoint and, in
     // an installed app, the `freeter` wrappers on PATH, so agents started in it can use them.
     const baseEnv: Record<string, string> = {
@@ -528,11 +454,14 @@ if (!app.requestSingleInstanceLock()) {
       defaultShell: process.platform === 'win32' ? 'powershell.exe' : (process.env.SHELL || '/bin/bash'),
       defaultCwd: homedir(),
       env: ptyEnv,
-      emitData: (id, data) => sendToAppWindow(ipcPtyDataChannel, id, data),
+      emitData: (id, data, seq) => sendToAppWindow(ipcPtyDataChannel, id, data, seq),
+      emitTitle: (id, title) => sendToAppWindow(ipcPtyTitleChannel, id, title),
       emitExit: (id, code) => sendToAppWindow(ipcPtyExitChannel, id, code),
       newId: () => randomUUID(),
       batchMs: 16,
-      maxBuffer: 1024 * 1024,
+      // A re-attached view gets this much history (the view itself keeps 5000 lines). ponytail: about 1.5 MB per
+      // 120-column terminal (estimate); the parser runs on main for all output (measured about 6 us per TUI chunk).
+      createMirror: (cols, rows) => createHeadlessMirror(cols, rows, 1000),
     });
     stopTerminals = () => terminalHost.killAll();
 
@@ -625,9 +554,11 @@ if (!app.requestSingleInstanceLock()) {
       }),
       ...createOsActivityControllers({setOsMonitoringUseCase}),
       ...createAnalyticsControllers({openAnalyticsInBrowserUseCase}),
-      ...createAiControllers({aiActionBridge, confirmAiActionUseCase, aiAgentRunner}),
+      ...createAiControllers({aiActionBridge, confirmAiActionUseCase}),
       ...createPtyControllers({terminalHost})
     ])
+    const ptyInput = createPtyInputListener({terminalHost});
+    ipcMain.on(ptyInput.channel, ptyInput.listener);
 
     const [windowStore] = createWindowStore({
       stateStorage: createWindowStateStorage(
@@ -660,9 +591,8 @@ if (!app.requestSingleInstanceLock()) {
       // A (re)load drops the page's listener; it says ai-ready again once it listens.
       ElectronBrowserWindow.getAllWindows().find(w => w === appWindow)?.webContents
         .on('did-start-loading', () => aiActionBridge.setReady(false))
-        // A new page (reload) has no view for the old shells and turns, and starts its own.
+        // A new page (reload) has no view for the old shells, and starts its own.
         .on('did-navigate', () => {
-          stopAiAgents?.();
           stopTerminals?.();
         });
 

@@ -8,8 +8,8 @@ import { electronIpcRenderer } from '@/infra/mainApi/mainApi';
 import { createSubscribers } from '@/infra/subscribers/subscribers';
 import {
   IpcPtyBufferArgs, IpcPtyBufferRes, IpcPtyCreateArgs, IpcPtyCreateRes, IpcPtyKillArgs, IpcPtyKillRes, IpcPtyResizeArgs, IpcPtyResizeRes,
-  IpcPtyWriteArgs, IpcPtyWriteRes,
-  ipcPtyBufferChannel, ipcPtyCreateChannel, ipcPtyDataChannel, ipcPtyExitChannel, ipcPtyKillChannel, ipcPtyResizeChannel, ipcPtyWriteChannel
+  IpcPtyWriteArgs,
+  ipcPtyBufferChannel, ipcPtyCreateChannel, ipcPtyDataChannel, ipcPtyExitChannel, ipcPtyKillChannel, ipcPtyResizeChannel, ipcPtyTitleChannel, ipcPtyWriteChannel
 } from '@common/ipc/channels';
 
 /**
@@ -18,11 +18,17 @@ import {
  * it hands each message to the views subscribed to that terminal.
  */
 export function createPtyProvider(): PtyProvider {
-  const dataSubs = createSubscribers<string>();
+  const dataSubs = createSubscribers<[data: string, seq: number]>();
   const exitSubs = createSubscribers<number>();
-  electronIpcRenderer.on(ipcPtyDataChannel, (id, data) => {
-    if (typeof id === 'string' && typeof data === 'string') {
-      dataSubs.emit(id, data);
+  const titleFns = new Set<(terminalId: string, title: string) => void>();
+  electronIpcRenderer.on(ipcPtyDataChannel, (id, data, seq) => {
+    if (typeof id === 'string' && typeof data === 'string' && typeof seq === 'number') {
+      dataSubs.emit(id, [data, seq]);
+    }
+  });
+  electronIpcRenderer.on(ipcPtyTitleChannel, (id, title) => {
+    if (typeof id === 'string' && typeof title === 'string') {
+      titleFns.forEach(fn => fn(id, title));
     }
   });
   electronIpcRenderer.on(ipcPtyExitChannel, (id, code) => {
@@ -33,7 +39,8 @@ export function createPtyProvider(): PtyProvider {
   return {
     create: (o) => electronIpcRenderer.invoke<IpcPtyCreateArgs, IpcPtyCreateRes>(ipcPtyCreateChannel, o),
     write: (id, data) => {
-      electronIpcRenderer.invoke<IpcPtyWriteArgs, IpcPtyWriteRes>(ipcPtyWriteChannel, id, data).catch(() => undefined);
+      // Sent, not invoked: a keystroke waits for no answer (like Paseo's terminal input).
+      electronIpcRenderer.send<IpcPtyWriteArgs>(ipcPtyWriteChannel, id, data);
     },
     resize: (id, cols, rows) => {
       electronIpcRenderer.invoke<IpcPtyResizeArgs, IpcPtyResizeRes>(ipcPtyResizeChannel, id, cols, rows).catch(() => undefined);
@@ -42,7 +49,13 @@ export function createPtyProvider(): PtyProvider {
       electronIpcRenderer.invoke<IpcPtyKillArgs, IpcPtyKillRes>(ipcPtyKillChannel, id).catch(() => undefined);
     },
     buffer: (id) => electronIpcRenderer.invoke<IpcPtyBufferArgs, IpcPtyBufferRes>(ipcPtyBufferChannel, id),
-    onData: (id, fn) => dataSubs.add(id, fn),
+    onData: (id, fn) => dataSubs.add(id, ([data, seq]) => fn(data, seq)),
+    onTitle: fn => {
+      titleFns.add(fn);
+      return () => {
+        titleFns.delete(fn);
+      };
+    },
     onExit: (id, fn) => exitSubs.add(id, fn),
   };
 }

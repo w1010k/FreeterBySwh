@@ -6,81 +6,99 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { WebglAddon } from '@xterm/addon-webgl';
 import '@xterm/xterm/css/xterm.css';
 import { ActionBarItems, ReactComponent, WidgetReactComponentProps } from '@/widgets/appModules';
 import { Settings } from './settings';
-import { agentSvg, restartSvg } from './icons';
+import { restartSvg } from './icons';
 import styles from './widget.module.scss';
 import { takeRevealedByAi } from '@/base/ai/aiActivity';
 
 /**
  * Shells outlive the widget's view: Memory Saver unmounts unused workflows, and a
  * running agent (e.g. Claude Code) must keep going. A view that mounts again redraws
- * from the output main keeps. A deleted widget's shell ends (forgetTerminalSession).
+ * from main's screen copy. A deleted widget's shells end (forgetTerminalSession).
+ * The maps below are by session key: one per tab (see tabsByWidget).
  */
 const sessionByWidget = new Map<string, string>();
-/** Widgets whose shell exited: a new view shows that and waits for Restart Shell (no surprise start command). */
+/** Tabs whose shell exited: a new view shows that and waits for Restart Shell (no surprise start command). */
 const exitedWidgets = new Set<string>();
-/** Widgets an AI write showed without the confirm box: their first shell waits for the user, across remounts too. */
+/** First tabs of widgets an AI write showed without the confirm box: their shell waits for the user, across remounts too. */
 const waitingForUser = new Set<string>();
-/** The end of each shell's output, to tell whether a shell prompt is in front. */
-const tailByWidget = new Map<string, string>();
-/** Deleted widgets: a shell that finishes starting after the delete ends at once. ponytail: ids are never reused, kept for the session. */
+/** Tabs of deleted widgets: a shell that finishes starting after the delete ends at once. ponytail: ids are never reused, kept for the session. */
 const deletedWidgets = new Set<string>();
+/**
+ * Each widget's tabs: one shell each, by session key (the first tab's key is the widget id, the others
+ * `<widget id>#<n>`), and the one shown. Kept like the shells: a view that mounts again shows the same tabs.
+ */
+interface Tabs {
+  keys: string[];
+  active: number;
+  next: number;
+}
+const tabsByWidget = new Map<string, Tabs>();
+/** The title a tab's shell set (e.g. Claude Code sets one), shown as the tab's label. */
+const titleByKey = new Map<string, string>();
 const EXITED_NOTE = '\r\n[The shell has exited. Restart Shell starts a new one.]\r\n';
 /** The app's pty module (one for all widgets), kept to end the shell of a deleted widget. */
 let ptyOfSessions: WidgetReactComponentProps<Settings>['widgetApi']['pty'] | undefined;
 
-/** The widget's shell ends and its state goes (delete, Restart Shell). */
-function endShell(widgetId: string): void {
-  const terminalId = sessionByWidget.get(widgetId);
-  sessionByWidget.delete(widgetId);
-  exitedWidgets.delete(widgetId);
-  waitingForUser.delete(widgetId);
-  takeRevealedByAi(widgetId); // Restart (or delete) is the user's start: no mark is left
-  tailByWidget.delete(widgetId);
+function tabsOf(widgetId: string): Tabs {
+  let tabs = tabsByWidget.get(widgetId);
+  if (!tabs) {
+    tabs = { keys: [widgetId], active: 0, next: 2 };
+    tabsByWidget.set(widgetId, tabs);
+  }
+  return tabs;
+}
+
+const tabNumber = (widgetId: string, key: string) => (key === widgetId ? 1 : Number(key.slice(widgetId.length + 1)));
+
+/** A tab's shell ends and its state goes (delete, close, Restart Shell). */
+function endShell(key: string): void {
+  const terminalId = sessionByWidget.get(key);
+  sessionByWidget.delete(key);
+  exitedWidgets.delete(key);
+  waitingForUser.delete(key);
+  titleByKey.delete(key);
+  takeRevealedByAi(key); // Restart (or delete) is the user's start: no mark is left
   if (terminalId) {
     ptyOfSessions?.kill(terminalId);
   }
 }
 
-/** The widget was deleted: its shell ends. */
+/** The widget was deleted: every tab's shell ends. */
 export function forgetTerminalSession(widgetId: string): void {
-  deletedWidgets.add(widgetId);
-  endShell(widgetId);
-}
-
-// eslint-disable-next-line no-control-regex
-const ansi = /\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(\x07|\x1b\\)|\x1b[@-_]/g;
-
-/**
- * ponytail: guesses from the output whether the shell prompt is in front (last line ends like
- * "PS C:\\> ", "$ ", "# ", "% ", "❯ "). node-pty cannot name the foreground program on Windows.
- * A custom prompt that ends otherwise only makes the Start buttons refuse.
- */
-function atShellPrompt(tail: string): boolean {
-  const lines = tail.replace(ansi, '').split(/\r?\n|\r/);
-  const last = (lines[lines.length - 1] ?? '').trim();
-  // Language prompts end the same way: Python ">>>" / "...", Node ">", Ruby "irb(...)>", and PowerShell's ">>" (unfinished input).
-  if (/^(>>>|>>|\.\.\.|>)$/.test(last) || last.startsWith('irb(')) {
-    return false;
+  const keys = tabsByWidget.get(widgetId)?.keys ?? [widgetId];
+  tabsByWidget.delete(widgetId);
+  for (const key of keys) {
+    deletedWidgets.add(key);
+    endShell(key);
   }
-  return /[>$#%❯]$/.test(last);
 }
+
 
 /** For tests. */
 export function resetTerminalSessions(): void {
   sessionByWidget.clear();
+  tabsByWidget.clear();
+  titleByKey.clear();
   deletedWidgets.clear();
   exitedWidgets.clear();
   waitingForUser.clear();
-  tailByWidget.clear();
 }
 
-function LiveTerminal({id, settings, widgetApi}: WidgetReactComponentProps<Settings>) {
+interface LiveTerminalProps {
+  widgetId: string;
+  /** The tab's shell (see tabsByWidget). */
+  sessionKey: string;
+  settings: Settings;
+  widgetApi: WidgetReactComponentProps<Settings>['widgetApi'];
+}
+
+function LiveTerminal({widgetId, sessionKey, settings, widgetApi}: LiveTerminalProps) {
   const {pty, updateActionBar} = widgetApi;
   const hostRef = useRef<HTMLDivElement>(null);
-  const termRef = useRef<Terminal | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   // Bumped to start a fresh shell.
   const [generation, setGeneration] = useState(0);
@@ -98,13 +116,39 @@ function LiveTerminal({id, settings, widgetApi}: WidgetReactComponentProps<Setti
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(el);
-    termRef.current = term;
+    // Ctrl+V pastes and Ctrl+C copies a selection, as in Windows Terminal: xterm would send them to the shell as
+    // ^V / ^C, and PowerShell cannot read the clipboard from a pseudo-terminal. Left to the browser, the paste goes
+    // through xterm's paste handling (bracketed paste) and the copy takes xterm's selection.
+    term.attachCustomKeyEventHandler(e => !(e.type === 'keydown' && e.ctrlKey && !e.altKey && !e.metaKey
+      && (e.key.toLowerCase() === 'v' || (e.key.toLowerCase() === 'c' && term.hasSelection()))));
     try {
       fit.fit();
     } catch { /* not laid out yet */ }
 
     let disposed = false;
     const offs: (() => void)[] = [];
+    // WebGL draws a busy TUI (Claude Code) much faster than the DOM renderer; loaded after the view opens, like Paseo.
+    // Without WebGL, or once its context is lost, xterm draws with the DOM again.
+    const webglFrame = requestAnimationFrame(() => {
+      if (disposed) {
+        return;
+      }
+      try {
+        const webgl = new WebglAddon();
+        webgl.onContextLoss(() => webgl.dispose());
+        term.loadAddon(webgl);
+        // The addon does not give its context back on dispose; Chromium keeps only a few, and drops the oldest
+        // (maybe a visible terminal's) when a remount makes a new one.
+        offs.push(() => {
+          const gl = el.querySelector('canvas')?.getContext('webgl2') as WebGL2RenderingContext | null | undefined;
+          webgl.dispose();
+          gl?.getExtension('WEBGL_lose_context')?.loseContext();
+        });
+      } catch {
+        // the DOM renderer stays
+      }
+    });
+    offs.push(() => cancelAnimationFrame(webglFrame));
     /** The size the shell has; a drag fires the observer many times with the same size. */
     let sentSize = '';
     const sendSize = (terminalId: string) => {
@@ -118,58 +162,71 @@ function LiveTerminal({id, settings, widgetApi}: WidgetReactComponentProps<Setti
     const watchExit = (terminalId: string) => {
       offs.push(pty.onExit(terminalId, code => {
         // An old shell (Restart) or the shell of a deleted widget: nothing to mark.
-        if (sessionByWidget.get(id) !== terminalId) {
+        if (sessionByWidget.get(sessionKey) !== terminalId) {
           return;
         }
-        sessionByWidget.delete(id);
-        exitedWidgets.add(id);
+        sessionByWidget.delete(sessionKey);
+        exitedWidgets.add(sessionKey);
         term.write(`\r\n[The shell exited with code ${code}. Restart Shell starts a new one.]\r\n`);
       }));
     };
-    const attach = (terminalId: string) => {
-      offs.push(pty.onData(terminalId, data => {
-        tailByWidget.set(id, ((tailByWidget.get(id) ?? '') + data).slice(-400));
-        term.write(data);
-      }));
+    const attachInput = (terminalId: string) => {
       const input = term.onData(data => pty.write(terminalId, data));
       offs.push(() => input.dispose());
     };
 
     (async () => {
-      if (exitedWidgets.has(id)) {
+      if (exitedWidgets.has(sessionKey)) {
         term.write(EXITED_NOTE);
         return;
       }
-      let terminalId = sessionByWidget.get(id);
+      let terminalId = sessionByWidget.get(sessionKey);
       if (terminalId) {
         watchExit(terminalId);
-        // ponytail: output between this read and the subscription below can be lost; subscribe-first would duplicate it instead.
-        const earlier = await pty.buffer(terminalId);
-        if (earlier === undefined) {
-          if (sessionByWidget.get(id) !== terminalId) {
+        // Listen before asking for the copy: output sent meanwhile waits here, and only what the copy does not
+        // cover (by its number) is drawn after it. Neither lost nor drawn twice (a tab switch does this every time).
+        let drawing = false;
+        const waiting: [string, number][] = [];
+        offs.push(pty.onData(terminalId, (data, seq) => {
+          if (drawing) {
+            term.write(data);
+          } else {
+            waiting.push([data, seq]);
+          }
+        }));
+        const copy = await pty.buffer(terminalId);
+        if (copy === undefined) {
+          if (sessionByWidget.get(sessionKey) !== terminalId) {
             return; // its exit came first, and watchExit said so
           }
           // It ended while no view was attached.
-          sessionByWidget.delete(id);
-          exitedWidgets.add(id);
+          sessionByWidget.delete(sessionKey);
+          exitedWidgets.add(sessionKey);
           if (!disposed) {
             term.write(EXITED_NOTE);
           }
           return;
         }
         if (!disposed) {
-          tailByWidget.set(id, earlier.slice(-400));
-          term.write(earlier);
+          term.write(copy.screen);
+          waiting.filter(([, seq]) => seq > copy.seq).forEach(([data]) => term.write(data));
+          drawing = true;
         }
-        if (sessionByWidget.get(id) !== terminalId) {
+        if (sessionByWidget.get(sessionKey) !== terminalId) {
           return; // it exited during the wait (watchExit showed that)
         }
+        if (!disposed) {
+          setError(null);
+          attachInput(terminalId);
+        }
+        return;
       }
-      // Taken by every view (a running shell uses up its mark too), acted on only before a shell exists.
-      if (takeRevealedByAi(id) && !terminalId) {
-        waitingForUser.add(id);
+      // Taken by every view of the first tab (a running shell uses up its mark too), acted on only before a shell exists.
+      // An AI write shows the widget; the tabs the user opens later are the user's own start.
+      if (sessionKey === widgetId && takeRevealedByAi(widgetId) && !terminalId) {
+        waitingForUser.add(sessionKey);
       }
-      if (!terminalId && waitingForUser.has(id)) {
+      if (!terminalId && waitingForUser.has(sessionKey)) {
         // Shown by an AI write that ran without the confirm box: the user starts the shell (Restart Shell).
         term.write('[This terminal was shown by an AI action. Restart Shell starts the shell.]\r\n');
         return;
@@ -189,21 +246,23 @@ function LiveTerminal({id, settings, widgetApi}: WidgetReactComponentProps<Setti
           }
           return;
         }
-        if (disposed || deletedWidgets.has(id)) {
+        if (disposed || deletedWidgets.has(sessionKey)) {
           // The view restarted or went away while the shell started (a newer view starts its own), or the widget was deleted.
           pty.kill(res.terminalId);
           return;
         }
         terminalId = res.terminalId;
-        sessionByWidget.set(id, terminalId);
+        sessionByWidget.set(sessionKey, terminalId);
         ptyOfSessions = pty;
         watchExit(terminalId);
         // The view may have resized while the shell started (its size was read before).
         sendSize(terminalId);
       }
       if (!disposed) {
+        const newId = terminalId;
         setError(null);
-        attach(terminalId);
+        offs.push(pty.onData(newId, data => term.write(data)));
+        attachInput(newId);
       }
     })().catch(err => {
       if (!disposed) {
@@ -217,7 +276,7 @@ function LiveTerminal({id, settings, widgetApi}: WidgetReactComponentProps<Setti
       } catch {
         return;
       }
-      const terminalId = sessionByWidget.get(id);
+      const terminalId = sessionByWidget.get(sessionKey);
       if (terminalId) {
         sendSize(terminalId);
       }
@@ -231,39 +290,22 @@ function LiveTerminal({id, settings, widgetApi}: WidgetReactComponentProps<Setti
       offs.forEach(off => off());
       term.dispose();
     };
-  }, [id, pty, generation]);
+  }, [widgetId, sessionKey, pty, generation]);
 
   const restart = useCallback(() => {
     // The same clean-up as for a deleted widget (the widget stays); then a new view starts a new shell.
     ptyOfSessions = pty;
-    endShell(id);
+    endShell(sessionKey);
     setGeneration(g => g + 1);
-  }, [id, pty]);
+  }, [sessionKey, pty]);
 
-  const typeCommand = useCallback((command: string) => {
-    const terminalId = sessionByWidget.get(id);
-    if (!terminalId) {
-      if (waitingForUser.has(id)) {
-        termRef.current?.write('\r\n[Restart Shell starts the shell first.]\r\n');
-      }
-      return;
-    }
-    // Typed into a running program (e.g. Claude Code itself), the command would become its input.
-    if (!atShellPrompt(tailByWidget.get(id) ?? '')) {
-      termRef.current?.write(`\r\n[Freeter: a program seems to be running. Exit it first, or type ${command} yourself.]\r\n`);
-      return;
-    }
-    pty.write(terminalId, `${command}\r`);
-  }, [id, pty]);
 
   useEffect(() => {
     const items: ActionBarItems = [
-      { id: 'START-CLAUDE', icon: agentSvg, title: 'Start Claude Code', doAction: async () => typeCommand('claude') },
-      { id: 'START-CODEX', icon: agentSvg, title: 'Start Codex', doAction: async () => typeCommand('codex') },
       { id: 'RESTART', icon: restartSvg, title: 'Restart Shell', doAction: async () => restart() },
     ];
     updateActionBar(items);
-  }, [updateActionBar, typeCommand, restart]);
+  }, [updateActionBar, restart]);
 
   return (
     <div className={styles['terminal']}>
@@ -274,6 +316,59 @@ function LiveTerminal({id, settings, widgetApi}: WidgetReactComponentProps<Setti
 }
 
 /**
+ * Tabs in the widget header (+ adds a shell, x closes one; no edit mode needed). Only the shown tab has a view;
+ * the other shells keep running in main and their screen comes back from main's copy when selected.
+ */
+function TerminalTabs({id, settings, widgetApi}: WidgetReactComponentProps<Settings>) {
+  const {setHeaderTabs, pty} = widgetApi;
+  const [version, setVersion] = useState(0);
+  const refresh = useCallback(() => setVersion(v => v + 1), []);
+  // Titles come from main's copy of every shell, so a tab not shown is named too.
+  useEffect(() => pty.onTitle((terminalId, title) => {
+    const key = tabsOf(id).keys.find(k => sessionByWidget.get(k) === terminalId);
+    if (key !== undefined && titleByKey.get(key) !== title) {
+      titleByKey.set(key, title);
+      refresh();
+    }
+  }), [id, pty, refresh]);
+
+  useEffect(() => {
+    const tabs = tabsOf(id);
+    setHeaderTabs({
+      tabs: tabs.keys.map(key => ({ label: titleByKey.get(key) || `Shell ${tabNumber(id, key)}` })),
+      active: tabs.active,
+      onSelect: index => {
+        tabsOf(id).active = index;
+        refresh();
+      },
+      onAdd: () => {
+        const t = tabsOf(id);
+        t.keys.push(`${id}#${t.next++}`);
+        t.active = t.keys.length - 1;
+        refresh();
+      },
+      addTitle: 'New Tab',
+      // The last tab has no x: a terminal keeps one shell at least.
+      onClose: tabs.keys.length > 1 ? index => {
+        const t = tabsOf(id);
+        const [key] = t.keys.splice(index, 1);
+        ptyOfSessions = pty;
+        endShell(key);
+        if (index < t.active || t.active >= t.keys.length) {
+          t.active = Math.max(0, t.active - 1);
+        }
+        refresh();
+      } : undefined,
+    });
+  }, [id, version, setHeaderTabs, refresh, pty]);
+  useEffect(() => () => setHeaderTabs(null), [setHeaderTabs]);
+
+  const tabs = tabsOf(id);
+  const sessionKey = tabs.keys[Math.min(tabs.active, tabs.keys.length - 1)];
+  return <LiveTerminal key={sessionKey} widgetId={id} sessionKey={sessionKey} settings={settings} widgetApi={widgetApi}/>;
+}
+
+/**
  * The settings screen previews the widget with the same id: a live view there would attach
  * to the widget's shell and resize it to the preview's size.
  */
@@ -281,7 +376,7 @@ function WidgetComp(props: WidgetReactComponentProps<Settings>) {
   if (props.env.isPreview) {
     return <div className={styles['preview']}>The shell runs in the widget.</div>;
   }
-  return <LiveTerminal {...props}/>;
+  return <TerminalTabs {...props}/>;
 }
 
 export const widgetComp: ReactComponent<WidgetReactComponentProps<Settings>> = {

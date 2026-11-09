@@ -8,8 +8,8 @@
  * (or `freeter mcp`) and the running app's control server.
  */
 
-export type AiOrigin = 'cli' | 'mcp' | 'agent-runner' | 'terminal';
-export const aiOrigins: readonly AiOrigin[] = ['cli', 'mcp', 'agent-runner', 'terminal'];
+export type AiOrigin = 'cli' | 'mcp' | 'terminal';
+export const aiOrigins: readonly AiOrigin[] = ['cli', 'mcp', 'terminal'];
 
 export type AiErrorCode =
   | 'parse_error'
