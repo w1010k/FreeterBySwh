@@ -49,7 +49,8 @@ export const Button = ({
       )}
       aria-pressed={pressed}
       title={title || caption}
-      aria-label={ariaLabel || title || caption}
+      // A visible caption is the name (voice control says what it sees); the title then only adds a tooltip.
+      aria-label={ariaLabel || (caption ? undefined : title)}
       {...restProps}
     >
       {iconImgSrc

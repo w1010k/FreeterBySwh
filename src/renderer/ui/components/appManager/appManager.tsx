@@ -42,6 +42,7 @@ export function createAppManagerComponent({
       appAddedTrigger,
       deleteAppAction,
       duplicateAppAction,
+      moveAppAction,
       showOpenFileDialogUseCase,
     } = useAppManagerViewModel();
 
@@ -63,6 +64,7 @@ export function createAppManagerComponent({
             deleteAppAction={deleteAppAction}
             deleteAppIds={deleteAppIds}
             duplicateAppAction={duplicateAppAction}
+            moveAppAction={moveAppAction}
           ></AppManagerList>
         </div>
         <div className={clsx(settingsScreenStyles['settings-screen-panel'], styles['settings-editor'])}>

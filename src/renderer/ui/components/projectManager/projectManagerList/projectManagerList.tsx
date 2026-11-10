@@ -25,6 +25,7 @@ export function ProjectManagerList(props: ProjectManagerListProps) {
     deleteProjectAction,
     deleteProjectIds,
     duplicateProjectAction,
+    moveProjectAction,
   } = useProjectManagerListViewModel(props);
 
   // Presentational name filter, local to the component. Note: drag-reorder
@@ -33,7 +34,8 @@ export function ProjectManagerList(props: ProjectManagerListProps) {
   const query = search.trim().toLowerCase();
   const visibleList = query === '' ? projectList : projectList.filter(item => item.settings.name.toLowerCase().includes(query));
 
-  return (<div role="tablist">
+  // Only the tabs are in the tablist; the search and the Add button are around it.
+  return (<div>
     {/* Keep the input while a query is active so the filter can always be cleared. */}
     {(projectList.length > 1 || query !== '') && <input
       type="text"
@@ -45,7 +47,8 @@ export function ProjectManagerList(props: ProjectManagerListProps) {
     />}
     {projectList.length === 0 && <div className={styles['project-list-note']}>No projects yet — use “Add Project” below to create one.</div>}
     {projectList.length > 0 && visibleList.length === 0 && <div className={styles['project-list-note']}>No projects found</div>}
-    {visibleList.map(item=>(
+    <div role="tablist" aria-label="Projects">
+    {visibleList.map((item, i)=>(
       <ProjectManagerListItem
         isCurrent={currentProjectId===item.id}
         isDropArea={draggingOverProjectId===item.id}
@@ -61,8 +64,13 @@ export function ProjectManagerList(props: ProjectManagerListProps) {
         key={item.id}
         deleteProjectAction={deleteProjectAction}
         duplicateProjectAction={duplicateProjectAction}
+        moveProjectAction={moveProjectAction}
+        // Not while searching: a move would go over the hidden items, so the visible order may not change.
+        canMoveUp={query === '' && i > 0}
+        canMoveDown={query === '' && i < projectList.length - 1}
       ></ProjectManagerListItem>
     ))}
+    </div>
     <div className={styles['project-list-actions']}>
       <Button
         caption='Add Project'

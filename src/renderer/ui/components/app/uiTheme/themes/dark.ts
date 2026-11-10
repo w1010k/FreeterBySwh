@@ -1,4 +1,7 @@
 const base = {
+  // The edge of a control (input, select, textarea, button) at 3:1 or more on its background.
+  controlBorder: '#808080', // 3.3:1 on the input background, some room over 3:1
+  textSecondary: '#9D9D9D',
   primary: '#2488DB',
 
   inputBackground: '#313131',
@@ -26,6 +29,13 @@ export const darkTheme = {
   componentColor: base.componentColor,
   dropAreaBackground: base.dropAreaBackground,
   primary: `${base.primary}`,
+  // Solid text colors (4.5:1 or more on the component, widget and textarea backgrounds). The alpha steps below are
+  // for fills and lines: as text they fall under 3:1.
+  textSecondary: base.textSecondary,
+  accentText: '#4DAAFC',
+  // Under floating menus and bars inside widgets (File Explorer menu, Webpage find bar).
+  popupShadow: base.shadow,
+  dangerText: '#F48771',
 
   primary90: `${base.primary}90`,
   primary80: `${base.primary}80`,
@@ -59,14 +69,16 @@ export const darkTheme = {
    */
   inputBackground: base.inputBackground,
   inputColor: base.inputColor,
-  inputBorder: base.inputBorder,
+  inputBorder: base.controlBorder,
 
   selectBackground: base.inputBackground,
   selectColor: base.inputColor,
-  selectBorder: base.inputBorder,
+  selectBorder: base.controlBorder,
 
   textareaBackground: base.inputBackground,
   textareaColor: base.inputColor,
+  // Separator lines and decorative edges (Note, To-Do, File Explorer menu, System Monitor tracks); controls, the textarea
+  // included (globals.scss), use inputBorder.
   textareaBorder: base.inputBorder,
 
   /**
@@ -88,7 +100,7 @@ export const darkTheme = {
   /**
    * In-App Notes
    */
-  inAppNoteColor: '#CCCCCC60',
+  inAppNoteColor: base.textSecondary,
   inAppNoteIconColor: '#CCCCCC',
   inAppNoteNoProjectsBackground: '#181818',
   inAppNoteNoWorkflowsBackground: '#181818',
@@ -188,7 +200,7 @@ export const darkTheme = {
   aboutScreenLeftColor: base.componentColor,
   aboutScreenRightBackground: '#1F1F1F',
   aboutScreenRightColor: base.componentColor,
-  aboutScreenRightLinkColor: base.primary,
+  aboutScreenRightLinkColor: '#3794FF', // primary on this background is 4.41:1, under 4.5
   aboutScreenLogoColor1: '#3B3B3B',
   aboutScreenLogoColor2: '#FFFFFF',
   aboutScreenLogoBorderColor: '#181818',

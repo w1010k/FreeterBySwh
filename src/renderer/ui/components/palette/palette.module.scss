@@ -18,7 +18,7 @@
 .palette-tab {
   z-index: 1;
   display: inline-block;
-  font-family: 'Roboto Condensed';
+  font-family: 'Roboto Condensed', 'Malgun Gothic', sans-serif;
   font-size: 16px;
   line-height: 16px;
   background-color: var(--freeter-paletteTabBackground);
@@ -59,12 +59,15 @@
   box-sizing: border-box;
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
   width: 100%;
   z-index: 0;
   max-height: 500px;
   display: none;
   background-color: var(--freeter-paletteSectionBackground);
   box-shadow: 0 4px 8px 0 var(--freeter-paletteShadow);
+  // Forced colors (Windows high contrast) drop the shadow; this edge stays.
+  border: 1px solid transparent;
 }
 
 .palette.drop-up .palette-section {
@@ -108,19 +111,22 @@
 $sections: 'add', 'paste';
 @each $section in $sections {
   .palette-tab-#{$section}:hover ~ .palette-section-#{$section},
-  .palette-tab-#{$section}:focus ~ .palette-section-#{$section} {
+  // :focus-visible: a trigger a mouse click focused does not keep its list open after the mouse leaves.
+  .palette-tab-#{$section}:focus-visible ~ .palette-section-#{$section} {
     display: block;
   }
 
-  // :focus-within keeps the section open while typing in the search input,
-  // even when the mouse leaves; it also makes the dropdown keyboard-reachable.
+  // A visible focus inside keeps the section open while typing in the search input (a text field always shows its
+  // focus), even when the mouse leaves; it also makes the dropdown keyboard-reachable. Not :focus-within: an item a
+  // mouse click focused (items are Tab stops) would keep the list open over the worktable after the click.
   .palette-section-#{$section}:hover,
-  .palette-section-#{$section}:focus-within {
+  .palette-section-#{$section}:has(:focus-visible) {
     display: block;
   }
 
   .palette-tab-#{$section}:has(~ .palette-section-#{$section}:hover),
-  .palette-tab-#{$section}:has(~ .palette-section-#{$section}:focus-within) {
+  // Not :has() inside :has() (invalid, it would drop the whole rule): a descendant of the section.
+  .palette-tab-#{$section}:has(~ .palette-section-#{$section} :focus-visible) {
     @include palette-tab-hover;
   }
 }
@@ -154,9 +160,11 @@ $sections: 'add', 'paste';
 
 .palette-item-name {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 14px;
-  line-height: 14px;
-  margin-top: 2px;
+  line-height: 18px; // taller than the font: overflow:hidden would cut off g, p, y at 14px
 }
 
 .palette-item-icon {

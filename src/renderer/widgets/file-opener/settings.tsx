@@ -130,7 +130,8 @@ function SettingsEditorComp({settings, settingsApi, sharedState}: SettingsEditor
               id={'path'+i}
               type="text"
               value={path}
-              placeholder={`Enter a ${settingsTypeNames[settings.type]} path`}
+              placeholder={`The ${settingsTypeNames[settings.type]} to open`}
+              aria-label={`Path ${i + 1}`}
               onChange={e => updPath(i, e.target.value)}
             />
             <SettingActions
@@ -171,7 +172,7 @@ function SettingsEditorComp({settings, settingsApi, sharedState}: SettingsEditor
               addPath();
               triggerLastPathFocus();
             }}
-            caption={`Add a ${settingsTypeNames[settings.type]} path`}
+            caption={`Add ${settingsTypeNamesCapital[settings.type]}`}
             primary={true}
           ></Button>
         </div>

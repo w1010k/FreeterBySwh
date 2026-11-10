@@ -11,8 +11,8 @@
   bottom: 0;
   background-color: var(--freeter-widgetBackground);
   color: var(--freeter-widgetColor);
-  // Clip the header/body to the rounded layout-item corners.
-  border-radius: 4px;
+  // Clip the header/body to the rounded layout-item corners: 4px outside, less its 1px border.
+  border-radius: 3px;
   overflow: hidden;
 }
 .widget-header {
@@ -113,7 +113,7 @@
 }
 .widget-header-tab-active {
   opacity: 1;
-  font-weight: 600;
+  font-weight: 700;
   background: var(--freeter-widgetBackground);
 }
 // A closable tab: the tab and its x share one border and background.
@@ -133,29 +133,49 @@
   }
 }
 .widget-header-tab-close,
-.widget-header-tab-add {
+.widget-header-tab-add,
+.widget-header-tab-add-menu {
   flex: 0 0 auto;
   border: none;
   background: transparent;
   color: var(--freeter-widgetHeaderColor);
   cursor: pointer;
   opacity: 0.6;
-  line-height: 26px;
+  // Centers the icon in the 26px header row.
+  display: flex;
+  align-items: center;
+  height: 26px;
   &:hover {
     opacity: 1;
   }
 }
 .widget-header-tab-close {
-  font-size: 14px;
   padding: 0 8px 0 2px;
   user-select: none;
 }
 .widget-header-tab-add {
-  font-size: 16px;
   padding: 0 10px;
 }
+// The ▾ belongs to the + before it (one split control), so it sits close to it.
+.widget-header-tab-add-menu {
+  padding: 0 8px 0 0;
+}
+.widget-header-tab-icon-btn {
+  display: block;
+  width: 12px;
+  height: 12px;
+}
+.widget-header-tab-menu-icon {
+  display: block;
+  width: 10px;
+  height: 10px;
+}
 .widget-header-action-bar {
-  visibility: hidden;
+  // Hidden by opacity, not visibility, so its buttons stay in the Tab order and a focused one shows the bar
+  // (:focus-within below): a widget with nothing focusable (Clock, any widget in Edit Mode, where the body is inert)
+  // is reachable by keyboard. No pointer events while hidden, so it does not cover the resize handles.
+  opacity: 0;
+  pointer-events: none;
   z-index:1; // to overlap WidgetLayoutItem's resize handles
   position: absolute;
   top: 0;
@@ -165,10 +185,30 @@
   border-left: 1px solid var(--freeter-widgetHeaderBorder);
 }
 
+// With tabs and a +, the action bar keeps its own room at the end (hidden until hover), so it never covers + and ▾.
+// Tabs without a + (Webpage) keep the full width; the bar covers their end on hover.
+.widget-header-with-tabs {
+  display: flex;
+  // The tab list, +, ▾ and the action bar are one flex row. The tab list (min-width 0, it scrolls) gives way first,
+  // so + and ▾ stay next to it and the action bar keeps its buttons.
+  .widget-header-tabs-bar {
+    display: contents;
+  }
+  .widget-header-action-bar {
+    position: static;
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+}
+// While anything drags or resizes: also out of the focus order, so a focused button cannot act unseen (no layout change).
+.dont-show-action-bar .widget-header-action-bar {
+  visibility: hidden;
+}
 .widget:not(.dont-show-action-bar) {
   &:hover, &:focus-within {
     .widget-header-action-bar {
-      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
     }
   }
 }
@@ -197,5 +237,5 @@
   font-family: monospace;
   font-size: 11px;
   opacity: 0.8;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }

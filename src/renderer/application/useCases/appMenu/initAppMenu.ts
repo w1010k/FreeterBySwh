@@ -87,7 +87,7 @@ export function createInitAppMenuUseCase({
 
   const itemCheckUpdates: MenuItem = {
     doAction: async () => shellProvider.openExternal(urlDownload),
-    label: 'Check for updates...'
+    label: 'Original Freeter Downloads'
   };
 
   const itemQuit: MenuItem = {
@@ -264,19 +264,19 @@ export function createInitAppMenuUseCase({
 
   const itemTwitter: MenuItem = {
     doAction: async () => shellProvider.openExternal(urlTwitter),
-    label: 'Join us on Twitter'
+    label: 'Original Freeter on Twitter'
   };
   const itemCommunity: MenuItem = {
     doAction: async () => shellProvider.openExternal(urlCommunity),
-    label: 'Join Freeter Community'
+    label: 'Original Freeter Community'
   };
   const itemFeatureRequests: MenuItem = {
     doAction: async () => shellProvider.openExternal(urlFeatureRequests),
-    label: 'Search Feature Requests'
+    label: 'Original Freeter Feature Requests'
   };
   const itemReportIssue: MenuItem = {
     doAction: async () => shellProvider.openExternal(urlBugReports),
-    label: 'Report Issues'
+    label: 'Original Freeter Bug Reports'
   };
 
   const menuHelp: MenuItem = {

@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { ContextMenuEvent, ReactComponent, WidgetReactComponentProps } from '@/widgets/appModules';
+import { ContextMenuEvent, ReactComponent, SvgIcon, WidgetReactComponentProps, arrDown14Svg, arrUp14Svg, close14Svg } from '@/widgets/appModules';
 import { Settings } from './settings';
 import styles from './widget.module.scss';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -597,6 +597,7 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
         className={styles['find-input']}
         value={findQuery}
         placeholder="Find in page"
+        aria-label="Find in page"
         onChange={e => setFindQuery(e.target.value)}
         onKeyDown={e => {
           if (e.key === 'Enter') {
@@ -609,9 +610,15 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
         }}
       />
       <span className={styles['find-count']}>{findQuery !== '' ? `${findResult.active}/${findResult.total}` : ''}</span>
-      <button className={styles['find-btn']} title="Previous (Shift+Enter)" onClick={() => findNext(false)}>↑</button>
-      <button className={styles['find-btn']} title="Next (Enter)" onClick={() => findNext(true)}>↓</button>
-      <button className={styles['find-btn']} title="Close (Esc)" onClick={closeFind}>✕</button>
+      <button className={styles['find-btn']} title="Previous (Shift+Enter)" aria-label="Previous match" onClick={() => findNext(false)}>
+        <SvgIcon svg={arrUp14Svg} className={styles['find-btn-icon']}/>
+      </button>
+      <button className={styles['find-btn']} title="Next (Enter)" aria-label="Next match" onClick={() => findNext(true)}>
+        <SvgIcon svg={arrDown14Svg} className={styles['find-btn-icon']}/>
+      </button>
+      <button className={styles['find-btn']} title="Close (Esc)" aria-label="Close find" onClick={closeFind}>
+        <SvgIcon svg={close14Svg} className={styles['find-btn-icon']}/>
+      </button>
     </div>}
     {loadError !== null && <div className={styles['load-error']}>
       <div className={styles['load-error-title']}>This page couldn{'’'}t be loaded</div>

@@ -11,6 +11,7 @@
   --text: #1d2330;
   --muted: #6b7380;
   --accent: #2f6fde;
+  --accent-solid: #2f6fde; // fill under white text (4.5:1 or more)
   --accent-alt: #e08a2c;
   --danger: #c63d3d;
   --focus-bg: #eaf1fd;
@@ -25,6 +26,7 @@
     --text: #e4e7ec;
     --muted: #9099a6;
     --accent: #6b9cf0;
+    --accent-solid: #3b6fd0;
     --accent-alt: #e9a35a;
     --danger: #e06c6c;
     --focus-bg: #1f2c44;
@@ -55,7 +57,7 @@
   h1 { font-size: 20px; margin: 0 0 12px; }
   h2 { font-size: 16px; margin: 0 0 12px; }
   h3 { font-size: 14px; margin: 0 0 8px; }
-  h4 { font-size: 13px; margin: 12px 0 6px; }
+  h4 { font-size: 14px; font-weight: 700; margin: 12px 0 6px; }
 
   button, input, select {
     font: inherit;
@@ -85,7 +87,7 @@
   button { border-radius: 0; margin-left: -1px; }
   button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
   button:last-child { border-radius: 0 6px 6px 0; }
-  button[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button[aria-pressed='true'] { background: var(--accent-solid); border-color: var(--accent-solid); color: #fff; }
 }
 
 .spacer { flex: 1; }

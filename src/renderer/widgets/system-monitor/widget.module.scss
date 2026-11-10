@@ -30,14 +30,14 @@
 }
 
 .label {
-  font-family: 'Roboto Condensed';
+  font-family: 'Roboto Condensed', 'Malgun Gothic', sans-serif;
   letter-spacing: 0.04em;
   opacity: 0.8;
 }
 
 .val {
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .bar {
@@ -50,8 +50,14 @@
 
 .fill {
   height: 100%;
-  background-color: var(--freeter-primary60);
-  transition: width 300ms ease;
+  background-color: var(--freeter-accentText); // solid: a bar shows a value, 3:1 or more on the track
+  // Scaled, not sized: a transform transition does not lay the page out on every frame.
+  width: 100%;
+  transform-origin: left;
+  transition: transform 300ms ease;
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 }
 
 .cores {
@@ -74,14 +80,20 @@
 
 .core-fill {
   width: 100%;
-  background-color: var(--freeter-primary60);
-  transition: height 300ms ease;
+  background-color: var(--freeter-accentText); // solid: a bar shows a value, 3:1 or more on the track
+  // Scaled, not sized: a transform transition does not lay the page out on every frame.
+  height: 100%;
+  transform-origin: bottom;
+  transition: transform 300ms ease;
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 }
 
 .detail {
   margin-top: 3px;
   font-size: 11px;
-  opacity: 0.6;
+  color: var(--freeter-textSecondary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }

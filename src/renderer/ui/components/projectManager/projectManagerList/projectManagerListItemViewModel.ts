@@ -6,12 +6,14 @@
 import { ActionBarItems } from '@/base/actionBar';
 import { EntityId } from '@/base/entity';
 import { Project } from '@/base/project';
-import { delete14Svg, duplicate14Svg } from '@/ui/assets/images/appIcons';
+import { arrDown14Svg, arrUp14Svg, delete14Svg, duplicate14Svg } from '@/ui/assets/images/appIcons';
 import { DragEvent, MouseEvent, useCallback, useMemo } from 'react';
 
 export type ProjectManagerListItemOnMouseEvent = (evt: MouseEvent<HTMLElement>, projectId: EntityId) => void;
 export type ProjectManagerListItemOnDragEvent = (evt: DragEvent<HTMLElement>, projectId: EntityId) => void;
 export type ProjectManagerListItemProjectAction = (itemId: EntityId) => void;
+/** One place up (-1) or down (1): the keyboard and button way to do what dragging an item does. */
+export type ProjectManagerListItemMoveAction = (itemId: EntityId, offset: -1 | 1) => void;
 
 export interface ProjectManagerListItemProps {
   project: Project;
@@ -27,6 +29,9 @@ export interface ProjectManagerListItemProps {
   onDrop: ProjectManagerListItemOnDragEvent;
   duplicateProjectAction: ProjectManagerListItemProjectAction;
   deleteProjectAction: ProjectManagerListItemProjectAction;
+  moveProjectAction: ProjectManagerListItemMoveAction;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
 }
 
 export function useProjectManagerListItemViewModel(props: ProjectManagerListItemProps) {
@@ -37,6 +42,9 @@ export function useProjectManagerListItemViewModel(props: ProjectManagerListItem
     project,
     deleteProjectAction,
     duplicateProjectAction,
+    moveProjectAction,
+    canMoveUp,
+    canMoveDown,
     isDropArea,
     onDragEnd,
     onDragEnter,
@@ -80,7 +88,36 @@ export function useProjectManagerListItemViewModel(props: ProjectManagerListItem
     onDrop(evt, id);
   }, [id, onDrop])
 
+  // The list re-renders in the new order; keep the keyboard focus on the button pressed (the same DOM node, moved),
+  // or on the item once that button turns disabled at an end of the list.
+  const moveKeepingFocus = useCallback((offset: -1 | 1) => {
+    const pressed = document.activeElement;
+    moveProjectAction(id, offset);
+    setTimeout(() => {
+      if (pressed instanceof HTMLButtonElement && pressed.isConnected) {
+        // The item (the draggable row) holds the tab next to its action bar.
+        (pressed.disabled ? pressed.closest('[draggable]')?.querySelector<HTMLElement>('[role="tab"]') : pressed)?.focus();
+      }
+    });
+  }, [id, moveProjectAction])
+
   const actionBarItems = useMemo<ActionBarItems>(() => [{
+    enabled: canMoveUp,
+    icon: arrUp14Svg,
+    id: 'MOVE-PROJECT-UP',
+    title: 'Move Up',
+    doAction: async () => {
+      moveKeepingFocus(-1);
+    }
+  }, {
+    enabled: canMoveDown,
+    icon: arrDown14Svg,
+    id: 'MOVE-PROJECT-DOWN',
+    title: 'Move Down',
+    doAction: async () => {
+      moveKeepingFocus(1);
+    }
+  }, {
     enabled: true,
     icon: duplicate14Svg,
     id: 'DUPLICATE-PROJECT',
@@ -97,7 +134,7 @@ export function useProjectManagerListItemViewModel(props: ProjectManagerListItem
     doAction: async () => {
       deleteProjectAction(id);
     }
-  }], [hasDeletionMark, duplicateProjectAction, id, deleteProjectAction])
+  }], [hasDeletionMark, duplicateProjectAction, id, deleteProjectAction, moveKeepingFocus, canMoveUp, canMoveDown])
 
   return {
     name,

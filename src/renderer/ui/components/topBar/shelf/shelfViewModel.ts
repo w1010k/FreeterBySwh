@@ -21,6 +21,7 @@ import { WidgetType } from '@/base/widgetType';
 import { ShowContextMenuUseCase } from '@/application/useCases/contextMenu/showContextMenu';
 import { AddWidgetToShelfUseCase } from '@/application/useCases/shelf/addWidgetToShelf';
 import { SetShelfItemSizeUseCase } from '@/application/useCases/shelf/setShelfItemSize';
+import { MoveShelfItemUseCase } from '@/application/useCases/shelf/moveShelfItem';
 
 type Deps = {
   useAppState: UseAppState;
@@ -33,6 +34,7 @@ type Deps = {
   addWidgetToShelfUseCase: AddWidgetToShelfUseCase;
   setShelfItemSizeUseCase: SetShelfItemSizeUseCase;
   showContextMenuUseCase: ShowContextMenuUseCase;
+  moveShelfItemUseCase: MoveShelfItemUseCase;
 }
 
 const env: WidgetEnvAreaShelf = createWidgetEnv({
@@ -50,6 +52,7 @@ export function createShelfViewModelHook({
   addWidgetToShelfUseCase,
   setShelfItemSizeUseCase,
   showContextMenuUseCase,
+  moveShelfItemUseCase,
 }: Deps) {
   function buildAddMenuItems(
     widgetTypes: EntityList<WidgetType>,
@@ -85,11 +88,11 @@ export function createShelfViewModelHook({
     copiedWidgets: EntityList<CopiedEntitiesItem<Widget, WidgetEntityDeps>>,
   ) => MenuItems = (widgetTypes, copiedWidgets) => [{
     enabled: true,
-    label: 'Add Widget...',
+    label: 'Add Widget',
     submenu: buildAddMenuItems(widgetTypes, null)
   }, {
     enabled: true,
-    label: 'Paste Widget...',
+    label: 'Paste Widget',
     submenu: buildPasteMenuItems(copiedWidgets, null)
   }]
 
@@ -97,14 +100,27 @@ export function createShelfViewModelHook({
     id: EntityId,
     widgetTypes: EntityList<WidgetType>,
     copiedWidgets: EntityList<CopiedEntitiesItem<Widget, WidgetEntityDeps>>,
-  ) => MenuItems = (id, widgetTypes, copiedWidgets) => [{
+    idx: number,
+    count: number,
+  ) => MenuItems = (id, widgetTypes, copiedWidgets, idx, count) => [{
     enabled: true,
-    label: 'Add Widget...',
+    label: 'Add Widget',
     submenu: buildAddMenuItems(widgetTypes, id)
   }, {
     enabled: true,
-    label: 'Paste Widget...',
+    label: 'Paste Widget',
     submenu: buildPasteMenuItems(copiedWidgets, id)
+  }, {
+    type: 'separator'
+  }, {
+    // Moving an item without dragging it (keyboard: the context menu key).
+    enabled: idx > 0,
+    label: 'Move Left',
+    doAction: async () => moveShelfItemUseCase(id, -1)
+  }, {
+    enabled: idx > -1 && idx < count - 1,
+    label: 'Move Right',
+    doAction: async () => moveShelfItemUseCase(id, 1)
   }]
 
   function useViewModel() {
@@ -229,10 +245,11 @@ export function createShelfViewModelHook({
 
     const onItemContextMenu = useCallback((e: MouseEvent<HTMLElement>, itemId: EntityId) => {
       if (isEditMode) {
-        const contextMenuItems: MenuItems = createItemContextMenuItemsEditMode(itemId, widgetTypes, copiedWidgets);
+        const idx = widgetList.findIndex(item => item.id === itemId);
+        const contextMenuItems: MenuItems = createItemContextMenuItemsEditMode(itemId, widgetTypes, copiedWidgets, idx, widgetList.length);
         showContextMenuUseCase(contextMenuItems);
       }
-    }, [copiedWidgets, isEditMode, widgetTypes])
+    }, [copiedWidgets, isEditMode, widgetTypes, widgetList])
 
     return {
       env,

@@ -174,7 +174,7 @@ describe('File Opener Widget Settings', () => {
     const testFiles = ['file/path1', 'file/path2'];
     const settings = fixtureSettings({ type: SettingsType.File, files: testFiles });
     const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
-    const btn = screen.getByRole('button', { name: 'Add a file path' });
+    const btn = screen.getByRole('button', { name: 'Add File' });
 
     await userEvent.click(btn);
 
@@ -185,7 +185,7 @@ describe('File Opener Widget Settings', () => {
     const testFolders = ['folder/path1', 'folder/path2'];
     const settings = fixtureSettings({ type: SettingsType.Folder, folders: testFolders });
     const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
-    const btn = screen.getByRole('button', { name: 'Add a folder path' });
+    const btn = screen.getByRole('button', { name: 'Add Folder' });
 
     await userEvent.click(btn);
 

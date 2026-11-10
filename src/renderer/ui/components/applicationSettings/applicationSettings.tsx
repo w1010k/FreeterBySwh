@@ -111,7 +111,7 @@ export function createApplicationSettingsComponent({
 
             <SettingBlock
               titleForId='workflow-bar-pos'
-              title='Workflow bar position'
+              title='Workflow Bar Position'
               moreInfo='Where the workflow tab bar sits. Left/Right show it as a vertical side panel whose width you can set here (or drag its edge while in Edit Mode).'
             >
               <select id="workflow-bar-pos" value={appConfig.workflowBarPos} onChange={e => updateSettings({
@@ -139,7 +139,7 @@ export function createApplicationSettingsComponent({
 
             <SettingBlock
               titleForId='download-dir'
-              title='Download folder'
+              title='Download Folder'
               moreInfo='Where files downloaded from Webpage widgets are saved. Leave empty to use the
                       system default Downloads folder.'
             >
@@ -159,7 +159,7 @@ export function createApplicationSettingsComponent({
 
             <SettingBlock
               titleForId='worktable-bg-color'
-              title='Workflow background color'
+              title='Workflow Background Color'
               moreInfo='Custom background color for the workflow area. Leave as default to use the theme color.'
             >
               <div className={styles['download-dir-row']}>
@@ -177,7 +177,7 @@ export function createApplicationSettingsComponent({
 
             <SettingBlock
               titleForId='worktable-bg-image'
-              title='Workflow background image'
+              title='Workflow Background Image'
               moreInfo='Optional image shown behind the widgets. Leave empty for no image.'
             >
               <div className={styles['download-dir-row']}>
@@ -208,7 +208,7 @@ export function createApplicationSettingsComponent({
 
             {(appConfig.bgColor !== '' || appConfig.bgImage !== '') && <SettingBlock
               titleForId='worktable-bg-opacity'
-              title='Workflow background opacity'
+              title='Workflow Background Opacity'
               moreInfo='Opacity of the custom background color/image. Lower values let the theme background show through.'
             >
               <div className={styles['download-dir-row']}>
@@ -234,7 +234,7 @@ export function createApplicationSettingsComponent({
             >
               <SettingBlock
                 titleForId='mem-saver-inactive'
-                title='Workflow becomes inactive after'
+                title='Workflow Becomes Inactive After'
                 moreInfo='This setting defines when workflows become inactive.'
               >
                 <select id="mem-saver-inactive" value={appConfig.memSaver.workflowInactiveAfter}
@@ -252,7 +252,7 @@ export function createApplicationSettingsComponent({
               </SettingBlock>
               <SettingBlock
                 titleForId='mem-saver-activate-on-project'
-                title='Activate all workflows when switching project'
+                title='Activate All Workflows When Switching Project'
                 moreInfo='When turned on, switching to a project will activate all of its workflows.'
               >
                 <select id="mem-saver-activate-on-project"
@@ -273,7 +273,7 @@ export function createApplicationSettingsComponent({
 
             <SettingBlock
               titleForId='telemetry-enabled'
-              title='Usage analytics (local only)'
+              title='Usage Analytics (Local Only)'
               moreInfo='When on, Freeter records how you use it — workflows opened and for how long, app
                       focus time, keystroke counts (never the keys themselves), and an activity timeline:
                       Web Query searches, visited page titles/URLs, opened files, completed to-dos. While
@@ -297,7 +297,7 @@ export function createApplicationSettingsComponent({
 
             <SettingBlock
               titleForId='ai-always-allow'
-              title='AI actions: always allow'
+              title='AI Actions: Always Allow'
               moreInfo='When on, changes an AI agent makes in Freeter (widgets, notes, to-dos, workflows, projects,
                       app settings) run without the confirm box. Actions that can run programs or commands on this
                       computer (Commander, File Opener, File Explorer, Terminal, Link Opener, Web Query: running them, changing

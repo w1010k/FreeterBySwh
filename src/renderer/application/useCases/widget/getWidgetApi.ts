@@ -23,6 +23,8 @@ import { AppState } from '@/base/state/app';
 import { SwitchProjectUseCase } from '@/application/useCases/projectSwitcher/switchProject';
 import { SwitchWorkflowUseCase } from '@/application/useCases/workflowSwitcher/switchWorkflow';
 import { ShowBrowserWindowUseCase } from '@/application/useCases/browserWindow/showBrowserWindow';
+import { DialogProvider } from '@/application/interfaces/dialogProvider';
+import { confirmDialog } from '@/helpers/confirmDialog';
 
 const todoListWidgetType = 'to-do-list';
 const appScope = 'app';
@@ -67,6 +69,7 @@ interface Deps {
   switchProjectUseCase: SwitchProjectUseCase;
   switchWorkflowUseCase: SwitchWorkflowUseCase;
   showBrowserWindowUseCase: ShowBrowserWindowUseCase;
+  dialogProvider: DialogProvider;
 }
 function _createWidgetApiFactory({
   appStore,
@@ -85,6 +88,7 @@ function _createWidgetApiFactory({
   switchProjectUseCase,
   switchWorkflowUseCase,
   showBrowserWindowUseCase,
+  dialogProvider,
 }: Deps, forPreview: boolean) {
   return createWidgetApiFactory(
     (
@@ -114,6 +118,7 @@ function _createWidgetApiFactory({
       logActivity: !forPreview ? (type, payload) => {
         logActivityHandler(type, payload);
       } : () => undefined,
+      confirm: !forPreview ? (message, okLabel) => confirmDialog(dialogProvider, message, okLabel) : async () => false,
       // The location is looked up on each call, not when the API is built:
       // the widget's workflow can move to another project while it stays mounted.
       // The workflow is made current first, so the project switch activates it

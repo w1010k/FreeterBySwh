@@ -338,6 +338,52 @@ describe('<Palette />', () => {
     expect(addWidgetToWorkflowUseCase).toHaveBeenCalledWith(widgetTypeId, workflowId);
   });
 
+  it('can be used by keyboard: each trigger comes before its section, and Enter or Space on an item adds it', async () => {
+    const workflowId = 'WFL-ID';
+    const projectId = 'PRJ-ID';
+    const widgetTypeId = 'WT-B';
+    const {addWidgetToWorkflowUseCase} = await setup(fixtureAppState({
+      entities: {
+        projects: { ...fixtureProjectAInColl({ id: projectId, currentWorkflowId: workflowId }) },
+        widgetTypes: { ...fixtureWidgetTypeAInColl({ id: widgetTypeId }) },
+      },
+      ui: {
+        palette: fixturePalette({ widgetTypeIds: [widgetTypeId] }),
+        projectSwitcher: fixtureProjectSwitcher({ currentProjectId: projectId })
+      }
+    }))
+    const palAdd = screen.getByTestId('palette-add');
+    // DOM order is Tab order: the Add trigger, its search and items, then the Paste trigger.
+    const trigger = screen.getByRole('button', { name: 'Add Widget' });
+    expect(trigger.nextElementSibling).toBe(palAdd);
+    const item = within(palAdd).getByRole('listitem');
+    expect(item).toHaveAttribute('tabindex', '0');
+
+    fireEvent.keyDown(item, { key: 'Enter' });
+    fireEvent.keyDown(item, { key: ' ' });
+
+    // A held key or a modifier does not add.
+    fireEvent.keyDown(item, { key: 'Enter', repeat: true });
+    fireEvent.keyDown(item, { key: 'Enter', ctrlKey: true });
+    fireEvent.keyDown(item, { key: ' ', repeat: true });
+
+    expect(addWidgetToWorkflowUseCase).toHaveBeenCalledTimes(2);
+    expect(addWidgetToWorkflowUseCase).toHaveBeenCalledWith(widgetTypeId, workflowId);
+
+    // Enter on the trigger goes into its section (the search field first).
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: 'Enter' });
+    expect(within(palAdd).getByRole('textbox')).toHaveFocus();
+
+    // Escape closes the open section by taking the focus out of it.
+    item.focus();
+    fireEvent.keyDown(item, { key: 'Escape' });
+    expect(item).not.toHaveFocus();
+
+    // The Paste trigger comes right before its section too.
+    expect(screen.getByRole('button', { name: 'Paste Widget' }).nextElementSibling).toHaveClass('palette-section-paste');
+  });
+
   it('should call right use cases with right params, when start/end dragging item from the Paste Widget list', async () => {
     const widgetTypeA = fixtureWidgetTypeA();
     const widgetA = fixtureWidgetA({type: widgetTypeA.id});

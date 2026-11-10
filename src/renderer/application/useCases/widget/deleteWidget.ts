@@ -4,6 +4,7 @@
  */
 
 import { DialogProvider } from '@/application/interfaces/dialogProvider';
+import { confirmDialog } from '@/helpers/confirmDialog';
 import { AppStore } from '@/application/interfaces/store';
 import { deleteWidgetsFromWidgetListSubCase } from '@/application/useCases/shelf/subs/deleteWidgetsFromWidgetList';
 import { deleteWidgetsFromWidgetLayoutSubCase } from '@/application/useCases/workflow/subs/deleteWidgetsFromWidgetLayout';
@@ -50,8 +51,7 @@ export function createDeleteWidgetUseCase({
 
     const widgetType = getOneFromEntityCollection(state.entities.widgetTypes, widget.type);
     const name = getWidgetDisplayName(widget, widgetType);
-    const dialogRes = await dialog.showMessageBox({ message: `Are you sure you want to delete the "${name}" widget?`, buttons: ['Ok', 'Cancel'], cancelId: 1, defaultId: 1, type: 'warning' })
-    if (dialogRes.response === 0) {
+    if (await confirmDialog(dialog, `Delete the "${name}" widget?`, 'Delete Widget')) {
       switch (env.area) {
         case 'shelf': {
           const [newList, delIds] = deleteWidgetsFromWidgetListSubCase([widgetId], state.ui.shelf.widgetList);

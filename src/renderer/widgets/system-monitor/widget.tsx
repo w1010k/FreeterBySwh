@@ -64,7 +64,7 @@ function Metric({ label, percent, children }: { label: string; percent: number; 
         <span className={styles['label']}>{label}</span>
         <span className={styles['val']}>{percent}%</span>
       </div>
-      <div className={styles['bar']}><div className={styles['fill']} style={{ width: `${percent}%` }} /></div>
+      <div className={styles['bar']}><div className={styles['fill']} style={{ transform: `scaleX(${percent / 100})` }} /></div>
       {children}
     </div>
   );
@@ -102,7 +102,7 @@ function WidgetComp({widgetApi}: WidgetReactComponentProps<Settings>) {
         {stats && stats.cpuCorePercents.length > 1 && (
           <div className={styles['cores']} title='Per-core usage'>
             {stats.cpuCorePercents.map((p, i) => (
-              <div key={i} className={styles['core']}><div className={styles['core-fill']} style={{ height: `${toPercent(p)}%` }} /></div>
+              <div key={i} className={styles['core']}><div className={styles['core-fill']} style={{ transform: `scaleY(${toPercent(p) / 100})` }} /></div>
             ))}
           </div>
         )}

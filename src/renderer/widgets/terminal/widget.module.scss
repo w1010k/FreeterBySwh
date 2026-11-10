@@ -8,8 +8,7 @@
   flex-direction: column;
   width: 100%;
   height: 100%;
-  // xterm draws its own dark surface; keep the widget around it the same.
-  background: #000;
+  // The background is the terminal theme's (inline style in widget.tsx), so the padding around xterm matches it.
 }
 
 .host {
@@ -20,13 +19,12 @@
 
 .error {
   padding: 8px;
-  color: #f88;
+  color: var(--freeter-dangerText);
   font-size: 0.9em;
 }
 
 .preview {
   padding: 8px;
-  color: #ccc;
-  background: #000;
+  color: var(--freeter-textSecondary);
   height: 100%;
 }

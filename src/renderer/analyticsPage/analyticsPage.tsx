@@ -19,7 +19,7 @@ import {
   toOsSegments,
 } from '@/base/telemetryInsights';
 import { TelemetryDay, TelemetryEntitiesSnapshot, toLocalDateStr } from '@common/base/telemetry';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import styles from './analyticsPage.module.scss';
 
 /** Work blocks shorter than this are folded into one "skipped" line in the daily review. */
@@ -44,6 +44,21 @@ interface Loaded {
 }
 
 const today = () => toLocalDateStr(Date.now());
+
+/** A switch rate counts for hours with this much use or more: one switch in a minute of use is no pattern. */
+const summaryMinHourMs = 5 * 60 * 1000;
+
+/** In words, for the heatmap image: the three hours with the most use and the most switches. */
+function heatmapSummary(perHourMs: ReadonlyArray<number>, hourRates: ReadonlyArray<number>): string {
+  const top = (values: ReadonlyArray<number>, counts = (_hour: number) => true) => values
+    .map((value, hour) => ({ value, hour }))
+    .filter(v => v.value > 0 && counts(v.hour))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 3);
+  const use = top(perHourMs).map(v => `${v.hour}시 ${formatDuration(v.value)}`).join(', ');
+  const switches = top(hourRates, hour => perHourMs[hour] >= summaryMinHourMs).map(v => `${v.hour}시 시간당 ${v.value.toFixed(1)}회`).join(', ');
+  return `시간대별 사용 시간과 전환 빈도. 사용이 많은 시간: ${use || '없음'}. 전환이 잦은 시간 (5분 이상 쓴 시간 중): ${switches || '없음'}.`;
+}
 
 function hhmm(ts: number): string {
   const d = new Date(ts);
@@ -159,7 +174,9 @@ function DayReview({ day, entities }: { day: TelemetryDay; entities: TelemetryEn
                     <span className={styles['block-ms']}>{formatDuration(b.ms)}</span>
                     {b.interruptions > 0 && <span className={styles['block-int']}>끼어듦 {b.interruptions}회</span>}
                     {b.titles.length > 0 && (
-                      <span className={styles['block-titles']}>{b.titles.slice(0, 3).map(t => t.title).join(' · ')}</span>
+                      <span className={styles['block-titles']} title={b.titles.map(t => t.title).join('\n')}>
+                        {b.titles.slice(0, 3).map(t => t.title).join(' · ')}
+                      </span>
                     )}
                   </div>
                 </li>
@@ -300,10 +317,15 @@ export function AnalyticsPage() {
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
   };
 
+  // Asked in the page, with Cancel focused: a browser confirm() makes OK the default, so a reflex Enter would delete.
+  const [askingDelete, setAskingDelete] = useState(false);
+  const deleteAllRef = useRef<HTMLButtonElement>(null);
+  const closeDeleteAsk = () => {
+    setAskingDelete(false);
+    deleteAllRef.current?.focus();
+  };
   const onDeleteAll = async () => {
-    if (!window.confirm('수집된 모든 사용 통계를 삭제할까요? 이 작업은 되돌릴 수 없습니다.')) {
-      return;
-    }
+    closeDeleteAsk();
     try {
       await fetchJson('api/clear', { method: 'POST' });
     } catch {
@@ -332,14 +354,19 @@ export function AnalyticsPage() {
               <button key={q.id} type="button" aria-pressed={quick === q.id} onClick={() => pickQuick(q.id)}>{q.label}</button>
             ))}
           </div>
-          <label>From <input type="date" value={range.from} max={range.to} onChange={e => e.target.value && setFrom(e.target.value)} /></label>
-          <label>To <input type="date" value={range.to} min={range.from} max={today()} onChange={e => e.target.value && setTo(e.target.value)} /></label>
+          <label>시작 <input type="date" value={range.from} max={range.to} onChange={e => e.target.value && setFrom(e.target.value)} /></label>
+          <label>끝 <input type="date" value={range.to} min={range.from} max={today()} onChange={e => e.target.value && setTo(e.target.value)} /></label>
           <span className={styles['spacer']} />
           <button type="button" onClick={reload}>새로고침</button>
-          <button type="button" onClick={onExport} disabled={!view}>Export…</button>
-          <button type="button" className={styles['danger']} onClick={onDeleteAll}>Delete all</button>
+          <button type="button" onClick={onExport} disabled={!view}>내보내기…</button>
+          <button type="button" ref={deleteAllRef} className={styles['danger']} onClick={() => setAskingDelete(true)}>사용 통계 모두 삭제</button>
         </div>
-        {!rangeValid && <p className={styles['error']}>From 날짜가 To 날짜보다 늦습니다.</p>}
+        {askingDelete && <div role="alertdialog" aria-label="사용 통계 삭제" className={styles['controls']} onKeyDown={e => e.key === 'Escape' && closeDeleteAsk()}>
+          <span>수집된 모든 사용 통계를 삭제할까요? 이 작업은 되돌릴 수 없습니다.</span>
+          <button type="button" autoFocus onClick={closeDeleteAsk}>취소</button>
+          <button type="button" className={styles['danger']} onClick={onDeleteAll}>삭제</button>
+        </div>}
+        {!rangeValid && <p className={styles['error']}>시작 날짜가 끝 날짜보다 늦습니다. 시작을 끝보다 앞으로 바꾸세요.</p>}
       </header>
 
       {actionError && <p className={styles['error']}>{actionError}</p>}
@@ -388,7 +415,8 @@ export function AnalyticsPage() {
 
           <section>
             <h2>집중·방해 패턴</h2>
-            <div className={styles['heatmap']} aria-label="시간대별 사용 시간과 전환 빈도">
+            {/* The cells show values by shade (and title) only: the image name says the busiest hours in words. */}
+            <div className={styles['heatmap']} role="img" aria-label={heatmapSummary(f.perHourMs, hourRates)}>
               <span className={styles['heat-head']}>사용</span>
               {f.perHourMs.map((ms, h) => (
                 <span key={h} className={styles['heat-cell']} title={`${h}시 · ${formatDuration(ms)}`}

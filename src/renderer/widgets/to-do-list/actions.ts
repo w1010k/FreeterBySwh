@@ -15,6 +15,8 @@ export const labelMarkComplete = 'Mark as Complete';
 export const labelEditItem = 'Edit Item';
 export const labelDeleteItem = 'Delete Item';
 export const labelDeleteCompleted = 'Delete Completed Items';
+export const labelMoveItemUp = 'Move Up';
+export const labelMoveItemDown = 'Move Down';
 
 function createToDoListItem(list: ToDoListState, text: string, idx?: number): [ToDoListState, ToDoListItem] {
   const id = list.nextItemId;
@@ -55,11 +57,12 @@ export function deleteItem(id: number, getState: GetToDoListState, setState: Set
   }
 }
 
-export function deleteCompleted(getState: GetToDoListState, setState: SetToDoListState) {
+/** Deletes the given items (the completed ones the user confirmed) that are still completed, nothing else. */
+export function deleteCompleted(ids: ReadonlySet<number>, getState: GetToDoListState, setState: SetToDoListState) {
   const state = getState();
   setState({
     ...state,
-    items: state.items.filter(item => !item.isDone)
+    items: state.items.filter(item => !(ids.has(item.id) && item.isDone))
   })
 }
 
@@ -100,6 +103,19 @@ export function markComplete(itemId: number, toBottom: boolean, getState: GetToD
     ...state,
     items: updItems
   })
+}
+
+/** One place up (-1) or down (1): the keyboard and menu way to do what dragging an item does. */
+export function moveItem(id: number, offset: -1 | 1, getState: GetToDoListState, setState: SetToDoListState) {
+  const state = getState();
+  const idx = state.items.findIndex(item => item.id === id);
+  const toIdx = idx + offset;
+  if (idx > -1 && toIdx >= 0 && toIdx < state.items.length) {
+    setState({
+      ...state,
+      items: moveItemInList(state.items, idx, toIdx)
+    })
+  }
 }
 
 export function activateItemEditor(id: ItemEditorId, setActiveItemEditorState: SetActiveItemEditorState) {

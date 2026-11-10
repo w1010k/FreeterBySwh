@@ -58,7 +58,8 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
               id={'url'+i}
               type="text"
               value={url}
-              placeholder={'Enter a URL'}
+              placeholder={'https://example.com'}
+              aria-label={`URL ${i + 1}`}
               onChange={e => updUrl(i, e.target.value)}
             />
             <SettingActions
@@ -89,7 +90,7 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
               addPath();
               triggerLastUrlFocus();
             }}
-            caption={'Add a URL'}
+            caption={'Add URL'}
             primary={true}
           ></Button>
         </div>

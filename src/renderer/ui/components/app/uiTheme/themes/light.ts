@@ -1,4 +1,7 @@
 const base = {
+  // The edge of a control (input, select, textarea, button) at 3:1 or more on its background.
+  controlBorder: '#909090',
+  textSecondary: '#6E6E6E',
   primary: '#005FB8',
 
   inputBackground: '#FFFFFF',
@@ -26,6 +29,13 @@ export const lightTheme = {
   componentColor: base.componentColor,
   dropAreaBackground: base.dropAreaBackground,
   primary: `${base.primary}`,
+  // Solid text colors (4.5:1 or more on the component, widget and textarea backgrounds). The alpha steps below are
+  // for fills and lines: as text they fall under 3:1.
+  textSecondary: base.textSecondary,
+  accentText: base.primary,
+  // Under floating menus and bars inside widgets (File Explorer menu, Webpage find bar).
+  popupShadow: base.shadow,
+  dangerText: '#C42B1C',
 
   primary90: `${base.primary}90`,
   primary80: `${base.primary}80`,
@@ -59,14 +69,16 @@ export const lightTheme = {
    */
   inputBackground: base.inputBackground,
   inputColor: base.inputColor,
-  inputBorder: base.inputBorder,
+  inputBorder: base.controlBorder,
 
   selectBackground: base.inputBackground,
   selectColor: base.inputColor,
-  selectBorder: base.inputBorder,
+  selectBorder: base.controlBorder,
 
   textareaBackground: base.inputBackground,
   textareaColor: base.inputColor,
+  // Separator lines and decorative edges (Note, To-Do, File Explorer menu, System Monitor tracks); controls, the textarea
+  // included (globals.scss), use inputBorder.
   textareaBorder: base.inputBorder,
 
   /**
@@ -88,7 +100,7 @@ export const lightTheme = {
   /**
    * In-App Notes
    */
-  inAppNoteColor: '#3B3B3B60',
+  inAppNoteColor: base.textSecondary,
   inAppNoteIconColor: '#3B3B3B',
   inAppNoteNoProjectsBackground: '#F8F8F8',
   inAppNoteNoWorkflowsBackground: '#F8F8F8',

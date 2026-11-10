@@ -229,12 +229,13 @@ function NoteInner({widgetApi, settings}: WidgetReactComponentProps<Settings>) {
           onChange={handleChange}
           onBlur={handleBlur}
           placeholder='Write a note here'
+          aria-label='Note'
           data-widget-context={textAreaContextId}
           spellCheck={settings.spellCheck}
         ></textarea>
         <div className={styles['note-count']}>{counts.words} words · {counts.chars} chars</div>
       </>
-    : <>{loadFailed ? 'Unable to load note. Restart the app to retry.' : 'Loading Note...'}</>
+    : <>{loadFailed ? 'Unable to load note. Restart the app to retry.' : 'Loading note…'}</>
   )
 }
 

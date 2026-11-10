@@ -22,7 +22,7 @@
 | 위젯 API 정의         | `src/renderer/base/widgetApi.ts` `WidgetApi`, `WidgetSettingsApi`, `WidgetHeaderTabs`, `createWidgetApiFactory`                            | 위젯이 받는 API의 타입과 조립 함수                          | [upstream, fork #8 #11 #21 #31 #32 #60 #63 #67 #69 변경] |
 | 위젯 API 생성         | `src/renderer/application/useCases/widget/getWidgetApi.ts` `createGetWidgetApiUseCase`                                                     | 위젯별 API 객체 생성, 저장소 라우팅                         | [upstream, fork #8 #9 #11 #21 #31 #60 #63 #67 변경]      |
 | 설정 API 생성         | `src/renderer/application/useCases/widgetSettings/getWidgetSettingsApi.ts` `createGetWidgetSettingsApiUseCase`                             | 설정 편집기용 API                                           | [upstream, fork #8 변경]                                 |
-| 위젯 셸               | `src/renderer/ui/components/widget/widget.tsx` `createWidgetComponent`, `widgetViewModel.ts` `createWidgetViewModelHook`                   | 헤더(이름 또는 탭), 액션바, 컨텍스트 메뉴, 본문             | [upstream, fork #11 #12 #58 #63 #67 #69 변경]            |
+| 위젯 셸               | `src/renderer/ui/components/widget/widget.tsx` `createWidgetComponent`, `widgetViewModel.ts` `createWidgetViewModelHook`                   | 헤더(이름 또는 탭), 액션바, 컨텍스트 메뉴, 본문             | [upstream, fork #11 #12 #58 #63 #67 #69 #103 변경]       |
 | 컴포넌트 props 타입   | `src/renderer/ui/types/widgetType.ts` `WidgetReactComponentProps`, `SettingsEditorReactComponentProps`                                     | `widgetComp`·`settingsEditorComp`가 받는 props              | [upstream]                                               |
 | 위젯용 공용 export    | `src/renderer/widgets/appModules.ts`                                                                                                       | 위젯 코드가 import하는 타입·UI 부품·헬퍼의 창구             | [upstream, fork #75 변경]                                |
 | 공유 상태             | `src/renderer/base/state/shared.ts` `SharedState`, `createSharedState`, `sharedStateEquals`                                                | `requiresState`로 받는 앱 상태 조각                         | [upstream, fork #8 #33 변경]                             |
@@ -54,7 +54,7 @@
 | `widgetComp`, `settingsEditorComp` | `{ type: 'react', Comp }`           | `ReactComponent` 타입                                                                                                                                   |
 | `createSettingsState`              | 부분 설정을 받아 완전한 설정 반환   | 생성 시 `{}`, 로드 시 저장값으로 호출. 타입 검증, 기본값, 마이그레이션 담당                                                                             |
 | `requiresApi`                      | 받을 `WidgetApi` 모듈 이름 목록     | 선언하지 않은 모듈은 `widgetApi`에 속성 자체가 없다 (`createWidgetApiFactory`가 `availableModules`만 조립)                                              |
-| `requiresState`                    | 받을 공유 상태 슬라이스             | `apps`(File Opener), `sharedDataKeys`(Note)                                                                                                             |
+| `requiresState`                    | 받을 공유 상태 슬라이스             | `apps`(File Opener), `sharedDataKeys`(Note), `uiTheme`(Terminal: 앱의 light·dark) [fork #103]                                                                                                             |
 | `aiActions`                        | AI 에이전트가 쓸 위젯 작업          | `WidgetAiAction[]` (`src/renderer/base/ai/widgetAiAction.ts`). 아래 "AI 작업" 참조 [fork #99]                                                          |
 | `onDeleted`                        | 위젯이 지워진 뒤 호출               | `(widgetId) => void`. 화면 밖에서 도는 것 (셸, AI 대화)을 끝낸다. 위젯은 여러 경로로 지워지므로 `initWidgetDeleteHooks`가 store의 `entities.widgets`를 지켜보다 빠진 id마다 호출한다 [fork #100] |
 
@@ -84,9 +84,13 @@
   Widget이 있다. 위젯이 작아 액션바가 잘려도 설정과 삭제에 접근하기 위한 장치다 [upstream, fork #58 변경].
 - **컨텍스트 메뉴**: 편집 모드는 셸의 고정 메뉴, 보기 모드는 위젯이 `setContextMenuFactory`로 등록한 팩토리를 쓴다. 팩토리의 `contextId` 인자는 이벤트 대상에서 가장 가까운
   조상의 `data-widget-context` 값이다 (`getContextId`). 위젯 본문 div가 `data-widget-context=""`를 갖는다.
-- **편집 모드 본문**: `inert`로 상호작용을 막는다 [upstream]. 리사이즈나 드래그 중에는 액션바를 숨긴다 (`dontShowActionBar`).
+- **편집 모드 본문**: `inert`로 상호작용을 막는다 [upstream]. 리사이즈나 드래그 중에는 액션바를 숨긴다 (`dontShowActionBar`). 숨은 액션바는
+  `visibility: hidden` 대신 `opacity: 0` + `pointer-events: none`이다: 버튼이 Tab 순서에 남아 포커스가 가면 `:focus-within`으로 보이고 (본문이 inert인
+  편집 모드, 포커스 받을 내용이 없는 Clock 등도 키보드로 간다), 숨은 동안 마우스를 받지 않아 리사이즈 핸들을 가리지 않는다 [fork #103].
 - **헤더 탭**: 위젯이 `setHeaderTabs`로 탭을 넘기고 편집 모드가 아니면, 헤더가 이름 대신 탭 바를 그린다. 선택적으로 `onAdd` (탭 끝의 +, 이름은 `addTitle`), `addMenu` (+ 옆 ▾가 띄우는 OS 메뉴)와 `onClose` (탭마다 x; 버튼 안에 버튼을 둘 수 없어 탭과 x를 `widget-header-tab-wrap`으로 나란히 둔다)를 넘긴다. 숨은 스크롤바 대신 세로 휠을 가로 스크롤로 바꾸고, 활성 탭을
-  `scrollIntoView`로 보이게 한다 [fork #67 #69].
+  `scrollIntoView`로 보이게 한다 (편집 모드가 끝나 탭 목록이 다시 마운트될 때도) [fork #67 #69]. 탭과 +가 있으면 (`onAdd`) 헤더가 flex 줄이 된다
+  (`widget-header-with-tabs`, 탭 바는 `display: contents`): 탭 목록, +, ▾, 액션바 순서이고 액션바는 숨어도 자리를 차지해 hover 때 + 와 ▾를 가리지 않는다.
+  탭 목록 (`min-width: 0`)이 먼저 준다. +가 없는 탭 (Webpage)은 전처럼 전체 폭을 쓰고 hover 때 액션바가 끝을 덮는다. 탭의 `title`이 없으면 라벨을 툴팁으로 쓰고, tablist와 액션바는 `<위젯 이름> tabs`/`actions`로 이름 붙는다 [fork #103].
 - **오류 격리**: 셸은 `WidgetComp`를 `WidgetErrorBoundary` (`widgetErrorBoundary.tsx`)로 감싼다 (본문과 미리보기 모두). 렌더나 effect에서 난 오류는 그
   위젯만 `role="alert"` 안내와 Retry 버튼으로 바꾼다. `resetKey`는 `widget.settings`라서 설정을 저장하면 다시 시도한다 [fork #92].
 - **`data-widget-type` 속성**: 루트 div에 위젯 타입를 노출한다. `widget.module.scss`가 이 속성으로 Webpage 헤더 이름만 텍스트 선택을 허용한다 [fork #12].
@@ -109,6 +113,7 @@
 | `setDynamicTitle(title \| null)` | 이름이 빈 위젯의 헤더 제목   | `setWidgetDynamicTitleUseCase` → `ui.widgetDynamicTitles`. 공백·빈 문자열은 null로 정규화, 같은 값은 재기록하지 않음 | [fork #11]     |
 | `setHeaderTabs(tabs \| null)`    | 헤더를 탭 바로 교체          | 셸 로컬 state                                                                                                        | [fork #67 #69] |
 | `logActivity(type, payload)`     | 활동 타임라인 기록           | `logTelemetryActivityUseCase`. 셸이 `widgetId`를 붙인다. 동의가 꺼져 있으면 collector에서 무시                       | [fork #63]     |
+| `confirm(message, okLabel)`      | 되돌릴 수 없는 동작 전 확인  | `getWidgetApi.ts`가 `dialogProvider.showMessageBox` (OS 메시지 상자, 버튼 `okLabel`/Cancel)로 묻고 OK면 true. `window.confirm`은 renderer를 막으므로 쓰지 않는다. 미리보기는 false | [fork #103]    |
 | `revealWidget()`                 | 위젯이 있는 곳으로 화면 전환 | `getWidgetApi.ts`가 호출 시점의 위치를 찾아 `switchWorkflowUseCase` → `switchProjectUseCase` (워크플로우 먼저) → `showBrowserWindowUseCase`로 창 표시. 셸프나 어느 워크플로우에도 없는 위젯은 창 표시만 | [fork #95]     |
 
 #### 위젯 API 모듈
@@ -492,6 +497,8 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
 
 #### Terminal (`terminal`)
 
+- **색**: xterm은 앱 CSS 변수를 쓰지 않고 자기 색으로 그린다. `requiresState: ['uiTheme']`로 앱 테마를 받아 `theme.ts`의 light·dark 팔레트를
+  `term.options.theme`에 넣고, 테마가 바뀌면 바로 바꾼다. `minimumContrastRatio: 4.5`로 프로그램이 정한 배경 위의 글자도 읽힌다. 팔레트의 글자색도 기본 배경 대비 4.5:1 이상이다 (`tests/renderer/widgets/terminal/theme.spec.ts`) [fork #103].
 - **역할**: 위젯 안의 셸 [fork #100]. xterm.js로 그리고 (화면이 열린 다음 프레임에 `@xterm/addon-webgl`; 실패하거나 WebGL 컨텍스트를 잃으면 DOM 렌더러. 뷰가 닫힐 때 `WEBGL_lose_context`로 컨텍스트를 돌려준다: 애드온은 돌려주지 않고, Chromium은 몇 개만 두고 가장 오래된 것을 잃게 한다) main의 node-pty 셸과 `pty` 모듈로 주고받는다. 키 입력은 `pty.write`가 응답 없는 `send`로 보낸다.
 - **설정**: `shell` (빈 값은 플랫폼 기본: Windows는 PowerShell 7이 있으면 pwsh, 없으면 Windows PowerShell), `cwd` (빈 값은 사용자 홈, main `terminalHost`의 `defaultCwd`), `startCommand` (셸 시작 뒤 입력), `fontSize` (기본 13, 6~48, `clampFontSize`). `fontSize`는 바로 적용되고, 나머지는 Restart Shell 뒤 적용된다.
 - **탭**: 헤더 탭으로 셸을 여러 개 연다 (+로 추가, x로 닫기; 마지막 탭에는 x가 없다). 모듈 수준 `tabsByWidget`이 위젯별 탭 (세션 키: 첫 탭은 위젯 id, 나머지는 `<위젯 id>#<n>`)과 선택한 탭을 가져, 다시 마운트해도 탭이 그대로다. 화면은 선택한 탭만 그리고 (`LiveTerminal`을 세션 키로 다시 마운트), 다른 탭의 셸은 main에서 계속 돈다. 탭 이름은 셸이 정한 제목 (main의 화면 사본이 받는 OSC 제목, `pty.onTitle`; 보이지 않는 탭도 바뀐다), 없으면 `Shell <n>`. 탭 x는 보조 기술에서 숨긴 마우스용이고, 탭 자체가 Delete로 닫힌다 (탭 목록에는 탭만 둔다). 위젯 삭제는 모든 탭의 셸을 끝낸다. "항상 허용" 작업이 띄운 Terminal의 대기는 첫 탭에만 적용한다. 탭 목록은 앱을 다시 시작하면 하나로 돌아간다.
@@ -542,7 +549,7 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
 - **설정**: 없음.
 - **동작**: `eval` 없이 `calcReducer`(`calc.ts`) 상태 머신으로 계산한다. 키보드는 `tabIndex={0}` div의 `onKeyDown`이 받으므로 위젯에 포커스가 있어야 한다.
   디스플레이 클릭 또는 Ctrl/Cmd+C로 값 복사 (`clipboard`), `c` 단독은 Clear라서 수정자 조합을 먼저 검사한다 [fork #77].
-- **스타일**: `var(--freeter-buttonBorder, var(--freeter-textareaBorder))`를 쓴다. `buttonBorder`는 테마에 없고 대체값이 적용된다.
+- **스타일**: 키 테두리는 컨트롤 경계라서 `--freeter-inputBorder` (3:1 이상)를 쓴다 [fork #103].
 
 #### System Monitor (`system-monitor`)
 

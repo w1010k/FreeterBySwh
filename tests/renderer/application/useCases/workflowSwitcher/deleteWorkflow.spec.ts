@@ -163,7 +163,7 @@ describe('deleteWorkflowUseCase()', () => {
 
     expect(appStore.get()).toBe(expectState);
     expect(dialogProviderMock.showMessageBox).toHaveBeenCalled();
-    expect(dialogProviderMock.showMessageBox).toHaveBeenCalledWith(expect.objectContaining({ buttons: ['Ok', 'Cancel'] } as MessageBoxConfig));
+    expect(dialogProviderMock.showMessageBox).toHaveBeenCalledWith(expect.objectContaining({ buttons: ['Delete Workflow', 'Cancel'] } as MessageBoxConfig));
   })
 
   it('should do nothing, when the message box returns "Cancel"', async () => {

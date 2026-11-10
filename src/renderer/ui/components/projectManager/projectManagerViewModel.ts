@@ -153,6 +153,13 @@ export function createProjectManagerViewModelHook({
 
     const deleteProjectAction: ProjectManagerListItemProjectAction = useCallback((projectId) => toggleDeletionInProjectManagerUseCase(projectId), [])
 
+    const moveProjectAction = useCallback((projectId: EntityId, offset: -1 | 1) => {
+      const idx = projectIds ? projectIds.indexOf(projectId) : -1;
+      if (projectIds && idx !== -1 && idx + offset >= 0 && idx + offset < projectIds.length) {
+        updateProjectsOrderInProjectManagerUseCase(moveItemInList(projectIds, idx, idx + offset));
+      }
+    }, [projectIds])
+
     const duplicateProjectAction: ProjectManagerListItemProjectAction = useCallback((projectId) => duplicateProjectInProjectManagerUseCase(projectId), [])
 
 
@@ -167,6 +174,7 @@ export function createProjectManagerViewModelHook({
       projectAddedTrigger,
       deleteProjectAction,
       duplicateProjectAction,
+      moveProjectAction,
       updateSettings,
       onOkClick,
       onCancelClick,

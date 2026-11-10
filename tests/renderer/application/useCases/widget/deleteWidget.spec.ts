@@ -80,7 +80,7 @@ describe('deleteWidgetUseCase()', () => {
     await deleteWidgetUseCase(widgetId1, fixtureWidgetEnvAreaShelf());
 
     expect(dialogProviderMock.showMessageBox).toHaveBeenCalled();
-    expect(dialogProviderMock.showMessageBox).toHaveBeenCalledWith(expect.objectContaining({ buttons: ['Ok', 'Cancel'] } as MessageBoxConfig));
+    expect(dialogProviderMock.showMessageBox).toHaveBeenCalledWith(expect.objectContaining({ buttons: ['Delete Widget', 'Cancel'] } as MessageBoxConfig));
   })
 
   it('should do nothing, when the message box returns "Cancel"', async () => {

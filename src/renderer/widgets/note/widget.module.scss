@@ -24,7 +24,8 @@
   box-sizing: border-box;
   font-size: 11px;
   text-align: right;
-  color: var(--freeter-componentColor60);
+  color: var(--freeter-textSecondary);
+  font-variant-numeric: tabular-nums; // the word and character counts do not shift while typing
   background-color: var(--freeter-textareaBackground);
   border-top: 1px solid var(--freeter-textareaBorder);
   user-select: none;
@@ -101,7 +102,7 @@
   }
 
   .TMInfoString {
-    color: #0000ff;
+    color: var(--freeter-accentText);
   }
 
   .TMCode {
@@ -117,15 +118,15 @@
   }
 
   .TMMark {
-    color:#a0a0a0;
+    color: var(--freeter-textSecondary);
   }
 
   .TMMark_TMH1, .TMMark_TMH2 {
-    color: var(--freeter-primary60);//#ff8080;
+    color: var(--freeter-accentText);//#ff8080;
   }
 
   .TMMark_TMUL, .TMMark_TMOL {
-    color: var(--freeter-primary60);//#ff8080;
+    color: var(--freeter-accentText);//#ff8080;
   }
 
   .TMImage {
@@ -145,11 +146,11 @@
   }
 
   .TMLinkLabel_Definition, .TMLinkLabel_Valid {
-    color: var(--freeter-componentColor40);//#40c040;
+    color: var(--freeter-textSecondary);//#40c040;
   }
 
   .TMLinkLabel_Invalid {
-    color: #ff0000;
+    color: var(--freeter-dangerText);
   }
 
   .TMLinkTitle {
@@ -158,7 +159,7 @@
 
   .TMLinkDestination, .TMAutolink {
     text-decoration: underline;
-    color: var(--freeter-componentColor60);//#0000ff;
+    color: var(--freeter-textSecondary);//#0000ff;
   }
 
   .TMHR {
@@ -178,11 +179,7 @@
   .TMHTML, .TMHTMLBlock {
     font-family:monospace;
     font-size:.9em;
-    color:var(--freeter-primary40);//#8000ff;
-  }
-
-  .TMHTMLBlock {
-    color:var(--freeter-primary30);//#6000c0;
+    color: var(--freeter-accentText);
   }
 
 }

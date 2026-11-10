@@ -4,13 +4,14 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Terminal } from '@xterm/xterm';
+import { Terminal, ITheme } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import { ActionBarItems, ReactComponent, WidgetReactComponentProps } from '@/widgets/appModules';
 import { clampFontSize, Settings } from './settings';
+import { terminalThemes } from './theme';
 import { restartSvg } from './icons';
 import styles from './widget.module.scss';
 import { takeRevealedByAi } from '@/base/ai/aiActivity';
@@ -107,13 +108,14 @@ export function resetTerminalSessions(): void {
 
 interface LiveTerminalProps {
   widgetId: string;
+  theme: ITheme;
   /** The tab's shell (see tabsByWidget). */
   sessionKey: string;
   settings: Settings;
   widgetApi: WidgetReactComponentProps<Settings>['widgetApi'];
 }
 
-function LiveTerminal({widgetId, sessionKey, settings, widgetApi}: LiveTerminalProps) {
+function LiveTerminal({widgetId, theme, sessionKey, settings, widgetApi}: LiveTerminalProps) {
   const {pty, updateActionBar, shell} = widgetApi;
   const hostRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -128,6 +130,14 @@ function LiveTerminal({widgetId, sessionKey, settings, widgetApi}: LiveTerminalP
   /** Read when the view is made; later sizes go through the effect below. */
   const fontSizeRef = useRef(fontSize);
   const termRef = useRef<Terminal | null>(null);
+  /** Read when the view is made; a later theme goes through the effect below. */
+  const themeRef = useRef(theme);
+  useEffect(() => {
+    themeRef.current = theme;
+    if (termRef.current) {
+      termRef.current.options.theme = theme;
+    }
+  }, [theme]);
   /** Fits the view to its box and tells the shell the new size. */
   const refitRef = useRef<() => void>(() => undefined);
   useEffect(() => {
@@ -144,7 +154,9 @@ function LiveTerminal({widgetId, sessionKey, settings, widgetApi}: LiveTerminalP
     if (!el) {
       return undefined;
     }
-    const term = new Terminal({ cursorBlink: true, fontSize: fontSizeRef.current, scrollback: 5000 });
+    const term = new Terminal({ cursorBlink: true, fontSize: fontSizeRef.current, scrollback: 5000, theme: themeRef.current,
+      // Text at 4.5:1 or more on whatever background a program sets (white on white, grey on blue...).
+      minimumContrastRatio: 4.5 });
     termRef.current = term;
     /** null: back to the Font Size setting. */
     const zoomBy = (step: number | null) => {
@@ -386,7 +398,7 @@ function LiveTerminal({widgetId, sessionKey, settings, widgetApi}: LiveTerminalP
   }, [updateActionBar, restart]);
 
   return (
-    <div className={styles['terminal']}>
+    <div className={styles['terminal']} style={{ background: theme.background }}>
       {error && <div role="alert" className={styles['error']}>The shell could not start: {error}</div>}
       <div ref={hostRef} className={styles['host']}/>
     </div>
@@ -397,7 +409,7 @@ function LiveTerminal({widgetId, sessionKey, settings, widgetApi}: LiveTerminalP
  * Tabs in the widget header (+ adds a shell, the menu next to it a chosen one, x closes one; no edit mode needed). Only the shown tab has a view;
  * the other shells keep running in main and their screen comes back from main's copy when selected.
  */
-function TerminalTabs({id, settings, widgetApi}: WidgetReactComponentProps<Settings>) {
+function TerminalTabs({id, settings, widgetApi, sharedState}: WidgetReactComponentProps<Settings>) {
   const {setHeaderTabs, pty} = widgetApi;
   const [version, setVersion] = useState(0);
   const refresh = useCallback(() => setVersion(v => v + 1), []);
@@ -470,7 +482,9 @@ function TerminalTabs({id, settings, widgetApi}: WidgetReactComponentProps<Setti
 
   const tabs = tabsOf(id);
   const sessionKey = tabs.keys[Math.min(tabs.active, tabs.keys.length - 1)];
-  return <LiveTerminal key={sessionKey} widgetId={id} sessionKey={sessionKey} settings={settings} widgetApi={widgetApi}/>;
+  // The app's light or dark theme (the terminal draws its own colors).
+  const theme = terminalThemes[sharedState.uiTheme.themeId];
+  return <LiveTerminal key={sessionKey} widgetId={id} theme={theme} sessionKey={sessionKey} settings={settings} widgetApi={widgetApi}/>;
 }
 
 /**

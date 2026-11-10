@@ -27,7 +27,7 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
   const addItemTopInputRef = useRef<HTMLInputElement>(null);
   const addItemBottomInputRef = useRef<HTMLInputElement>(null);
   const editItemInputRef = useRef<HTMLInputElement>(null);
-  const {updateActionBar, setContextMenuFactory, dataStorage, exposeApi} = widgetApi;
+  const {updateActionBar, setContextMenuFactory, dataStorage, exposeApi, confirm} = widgetApi;
   // Shared in-memory store — sibling widgets in the same scope subscribe to
   // the same map entry, so any setState() reaches them synchronously without
   // an IPC roundtrip. Disk persistence still happens via debounced setJson.
@@ -42,8 +42,11 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
 
   // Safe under the contract that getToDoList is only invoked from handlers
   // mounted under the `toDoList ?` JSX gate or from effects that early-out
-  // when toDoList is undefined.
-  const getToDoList = useCallback(() => toDoList!, [toDoList]);
+  // when toDoList is undefined. The store's current list, not this render's: a
+  // sibling widget or an AI action can change it before this widget re-renders
+  // (and Delete Completed Items awaits a dialog), and an edit built on an older
+  // list would save over that change.
+  const getToDoList = useCallback(() => getTodoListState(scope) as ToDoListState, [scope]);
 
   // Shorter debounce than typical text widgets: to-do actions (checkbox toggle,
   // item add/delete/reorder) are discrete operations where a fast propagation
@@ -90,16 +93,15 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
     if (!item || item.isDone === done) {
       return;
     }
-    const getList = () => getTodoListState(scope) as ToDoListState;
     if (done) {
-      markComplete(itemId, settings.doneToBottom, getList, setToDoListAndSave);
+      markComplete(itemId, settings.doneToBottom, getToDoList, setToDoListAndSave);
       if (item.text.trim() !== '') {
         widgetApi.logActivity('todo_done', { text: item.text.trim() });
       }
     } else {
-      markIncomplete(itemId, getList, setToDoListAndSave);
+      markIncomplete(itemId, getToDoList, setToDoListAndSave);
     }
-  }, [scope, settings.doneToBottom, setToDoListAndSave, widgetApi]);
+  }, [scope, settings.doneToBottom, getToDoList, setToDoListAndSave, widgetApi]);
 
   // AI actions (aiActions.ts) edit through this widget's own store and save path.
   // The exposed object closes over only the scope and a ref, and is cleared on
@@ -132,19 +134,35 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
     };
   }, [saveData])
 
+  // The menu and the action bar read the list when used, so they are set once the list exists, not on every change.
+  const hasToDoList = toDoList !== undefined;
   useEffect(() => {
-    if (toDoList) {
+    if (hasToDoList) {
       updateActionBar(createActionBarItems(getToDoList, setToDoListAndSave, setActiveItemEditorState));
     }
-  }, [getToDoList, toDoList, setToDoListAndSave, updateActionBar]);
+  }, [getToDoList, hasToDoList, setToDoListAndSave, updateActionBar]);
 
+  // Delete Completed Items saves after a dialog: not once this widget is gone (deleted, or moved by an AI action),
+  // or it would write through a stale data storage. Only a real unmount counts (a settings change re-runs effects).
+  const mountedRef = useRef(true);
   useEffect(() => {
-    if (toDoList) {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (hasToDoList) {
+      const saveWhileMounted = (next: ToDoListState) => {
+        if (mountedRef.current) {
+          setToDoListAndSave(next);
+        }
+      };
       setContextMenuFactory(
-        createContextMenuFactory(settings, getToDoList, setToDoListAndSave, setActiveItemEditorState)
+        createContextMenuFactory(settings, getToDoList, saveWhileMounted, setActiveItemEditorState, confirm)
         );
     }
-  }, [getToDoList, toDoList, setContextMenuFactory, setToDoListAndSave, settings]);
+  }, [getToDoList, hasToDoList, setContextMenuFactory, setToDoListAndSave, settings, confirm]);
 
   useEffect(() => {
     if (activeItemEditorState!==null) {
@@ -248,19 +266,20 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
   }, [dragState])
 
   const itemDropHandler = useCallback((_evt: DragEvent<HTMLElement>, itemId: number) => {
-    if (!toDoList || !dragState?.draggingItemId) {
+    const list = getToDoList();
+    if (!list || !dragState?.draggingItemId) {
       return;
     }
     const { draggingItemId } = dragState;
-    const sourceIdx = toDoList.items.findIndex(item => item.id === draggingItemId);
-    const targetIdx = toDoList.items.findIndex(item => item.id === itemId);
+    const sourceIdx = list.items.findIndex(item => item.id === draggingItemId);
+    const targetIdx = list.items.findIndex(item => item.id === itemId);
     if (sourceIdx !== -1 && targetIdx !== -1) {
       setToDoListAndSave({
-        ...toDoList,
-        items: moveItemInList(toDoList.items, sourceIdx, targetIdx)
+        ...list,
+        items: moveItemInList(list.items, sourceIdx, targetIdx)
       })
     }
-  }, [dragState, toDoList, setToDoListAndSave])
+  }, [dragState, getToDoList, setToDoListAndSave])
 
   const doneCount = toDoList ? toDoList.items.filter(item => item.isDone).length : 0;
   const totalCount = toDoList ? toDoList.items.length : 0;
@@ -272,6 +291,7 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
         {activeItemEditorState?.id==='add-top' && <input
           type="text"
           placeholder="Add an item"
+          aria-label="Add an item"
           ref={addItemTopInputRef}
           className={clsx(styles['todo-list-item-editor'], styles['todo-list-add-item-editor'])}
           onBlur={e=>addItemInputBlurHandler(e, true)}
@@ -306,6 +326,7 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
                       type="text"
                       ref={editItemInputRef}
                       className={clsx(styles['todo-list-item-editor'], styles['todo-list-edit-item-editor'])}
+                      aria-label="Edit item"
                       onBlur={e => editItemInputBlurHandler(e, item.id)}
                       onKeyDown={e => editItemInputKeyDownHandler(e, item.id)}
                       defaultValue={item.text}
@@ -318,6 +339,7 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
                 <ActionBar
                   actionBarItems={createDoneActionBarItems(item.id)}
                   className={styles['done-item-actionbar']}
+                  ariaLabel={`${item.text.trim().slice(0, 40) || 'Item'} actions`}
                 ></ActionBar>
               }
             </li>
@@ -326,6 +348,7 @@ function ToDoInner({widgetApi, settings, env}: WidgetReactComponentProps<Setting
         <input
           type="text"
           placeholder="Add an item"
+          aria-label="Add an item"
           ref={addItemBottomInputRef}
           className={clsx(styles['todo-list-item-editor'], styles['todo-list-add-item-editor'])}
           onBlur={e=>addItemInputBlurHandler(e, false)}

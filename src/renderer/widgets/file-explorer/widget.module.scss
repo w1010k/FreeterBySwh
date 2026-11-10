@@ -24,7 +24,7 @@
   background-color: var(--freeter-widgetBackground);
   border: 1px solid var(--freeter-textareaBorder);
   border-radius: 4px;
-  box-shadow: 0 2px 8px var(--freeter-shadow, rgba(0, 0, 0, 0.25));
+  box-shadow: 0 2px 8px var(--freeter-popupShadow);
 
   button {
     display: block;

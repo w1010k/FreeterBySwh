@@ -13,6 +13,7 @@ import { createDragWidgetFromWorktableLayoutUseCase } from '@/application/useCas
 import { createDropOnTopBarListUseCase } from '@/application/useCases/dragDrop/dropOnTopBarList';
 import { createDropOnWorktableLayoutUseCase } from '@/application/useCases/dragDrop/dropOnWorktableLayout';
 import { createResizeLayoutItemUseCase, createResizeLayoutItemEndUseCase, createResizeLayoutItemStartUseCase } from '@/application/useCases/worktable/resizeLayoutItem';
+import { createNudgeLayoutItemUseCase } from '@/application/useCases/worktable/nudgeLayoutItem';
 import { uuidv4IdGenerator } from '@/infra/idGenerator/uuidv4IdGenerator';
 import { createAppComponent } from '@/ui/components/app';
 import { createPaletteComponent } from '@/ui/components/palette';
@@ -90,6 +91,7 @@ import { createManageProjectsButtonComponent, createManageProjectsButtonViewMode
 import { createOpenProjectManagerUseCase } from '@/application/useCases/projectManager/openProjectManager';
 import { createAddWorkflowUseCase } from '@/application/useCases/workflowSwitcher/addWorkflow';
 import { createRenameWorkflowUseCase } from '@/application/useCases/workflowSwitcher/renameWorkflow';
+import { createMoveWorkflowUseCase } from '@/application/useCases/workflowSwitcher/moveWorkflow';
 import { createDeleteWorkflowUseCase } from '@/application/useCases/workflowSwitcher/deleteWorkflow';
 import { createOsDialogProvider } from '@/infra/dialogProvider/osDialogProvider';
 import { createDeleteWidgetUseCase } from '@/application/useCases/widget/deleteWidget';
@@ -138,6 +140,7 @@ import { createCloneWidgetToWidgetLayoutSubCase } from '@/application/useCases/w
 import { createCloneWidgetToWidgetListSubCase } from '@/application/useCases/shelf/subs/cloneWidgetToWidgetList';
 import { createAddWidgetToShelfUseCase } from '@/application/useCases/shelf/addWidgetToShelf';
 import { createSetShelfItemSizeUseCase } from '@/application/useCases/shelf/setShelfItemSize';
+import { createMoveShelfItemUseCase } from '@/application/useCases/shelf/moveShelfItem';
 import { createCreateWidgetSubCase } from '@/application/useCases/widget/subs/createWidget';
 import { createCreateWorkflowSubCase } from '@/application/useCases/workflow/subs/createWorkflow';
 import { createTopBarViewModelHook } from '@/ui/components/topBar/topBarViewModel';
@@ -264,6 +267,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
   const resizeLayoutItemUseCase = createResizeLayoutItemUseCase(deps);
   const resizeLayoutItemStartUseCase = createResizeLayoutItemStartUseCase(deps);
   const resizeLayoutItemEndUseCase = createResizeLayoutItemEndUseCase(deps);
+  const nudgeLayoutItemUseCase = createNudgeLayoutItemUseCase(deps);
 
   const deactivateWorkflowUseCase = createDeactivateWorkflowUseCase(deps);
   const initMemSaverUseCase = createInitMemSaverUseCase({
@@ -292,6 +296,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     deactivateWorkflowUseCase
   });
   const renameWorkflowUseCase = createRenameWorkflowUseCase(deps);
+  const moveWorkflowUseCase = createMoveWorkflowUseCase(deps);
   const openWorkflowSettingsUseCase = createOpenWorkflowSettingsUseCase(deps);
   const closeWorkflowSettingsUseCase = createCloseWorkflowSettingsUseCase(deps);
   const saveWorkflowSettingsUseCase = createSaveWorkflowSettingsUseCase(deps);
@@ -396,6 +401,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     switchProjectUseCase,
     switchWorkflowUseCase,
     showBrowserWindowUseCase,
+    dialogProvider: osDialogProvider,
   })
   const deleteWidgetUseCase = createDeleteWidgetUseCase({
     ...deps,
@@ -541,6 +547,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     createWidgetSubCase
   })
   const setShelfItemSizeUseCase = createSetShelfItemSizeUseCase(deps)
+  const moveShelfItemUseCase = createMoveShelfItemUseCase(deps)
   const pasteWidgetToShelfUseCase = createPasteWidgetToShelfUseCase({
     ...deps,
     cloneWidgetToWidgetListSubCase
@@ -628,11 +635,13 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     resizeLayoutItemUseCase,
     resizeLayoutItemStartUseCase,
     resizeLayoutItemEndUseCase,
+    nudgeLayoutItemUseCase,
     switchProjectUseCase,
     switchWorkflowUseCase,
     switchWorkflowByOffsetUseCase,
     addWorkflowUseCase,
     renameWorkflowUseCase,
+    moveWorkflowUseCase,
     openWorkflowSettingsUseCase,
     closeWorkflowSettingsUseCase,
     saveWorkflowSettingsUseCase,
@@ -702,6 +711,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     copyWidgetUseCase,
     addWidgetToShelfUseCase,
     setShelfItemSizeUseCase,
+    moveShelfItemUseCase,
     pasteWidgetToShelfUseCase,
     pasteWidgetToWorkflowUseCase,
     copyWorkflowUseCase,

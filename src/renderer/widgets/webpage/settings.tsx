@@ -223,7 +223,7 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
                   multiple tabs; leave it empty to use the page title.'
       >
         <SettingRow>
-          <input id="webpage-url" type="text" style={{flex: 2}} value={url} onChange={e => updateUrl(e.target.value, true)} onBlur={e=>updateUrl(e.target.value, false)} placeholder="Enter a URL" />
+          <input id="webpage-url" type="text" style={{flex: 2}} value={url} onChange={e => updateUrl(e.target.value, true)} onBlur={e=>updateUrl(e.target.value, false)} placeholder="https://example.com" />
           <input type="text" style={{flex: 1}} aria-label='Tab Name' value={urlName} onChange={e => updateUrlName(e.target.value, true)} onBlur={e=>updateUrlName(e.target.value, false)} placeholder="Tab name (optional)" />
         </SettingRow>
       </SettingBlock>
@@ -243,7 +243,7 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
               style={{flex: 2}}
               aria-label={'Tab URL ' + (i + 1)}
               value={tab.url}
-              placeholder='Enter a URL'
+              placeholder='https://example.com'
               onChange={e => updTab(i, { url: e.target.value }, true)}
               onBlur={e => updTab(i, { url: e.target.value }, false)}
             />
@@ -284,7 +284,7 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
               addTab();
               shouldFocusLastTabRef.current = true;
             }}
-            caption='Add a tab'
+            caption='Add Tab'
             primary={true}
           ></Button>
         </div>
@@ -330,7 +330,7 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
         <div>
           <Button
             onClick={_ => addAction()}
-            caption='Add an action'
+            caption='Add Action'
             primary={true}
           ></Button>
         </div>
@@ -339,7 +339,7 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
       <SettingBlock
         titleForId='webpage-session-scope'
         title='Session Scope'
-        moreInfo='When you login to a website, the widget stores the data in a session to keep you logged in. Session scope
+        moreInfo='When you log in to a website, the widget stores the data in a session to keep you logged in. Session scope
                   specifies how the session data should be shared between webpage widgets. By default, the Application scope
                   is set. This scope shares the session data between all webpage widgets. It enables you to login to a
                   website with one webpage widget and use the same account in all webpage widgets that have the Application
@@ -397,7 +397,7 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
         title='Inject CSS'
         moreInfo='Inject the following CSS style into the webpage.'
       >
-        <textarea id="webpage-inject-css" value={settings.injectedCSS} onChange={e => updateSettings({...settings, injectedCSS: e.target.value})} placeholder="Enter CSS"></textarea>
+        <textarea id="webpage-inject-css" value={settings.injectedCSS} onChange={e => updateSettings({...settings, injectedCSS: e.target.value})} placeholder="e.g. body { font-size: 16px; }"></textarea>
       </SettingBlock>
 
       <SettingBlock
@@ -405,7 +405,7 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
         title='Inject JS'
         moreInfo='Inject the following JS script into the webpage.'
       >
-        <textarea id="webpage-inject-js" value={injectedJs} onChange={e => updateInjectedJs(e.target.value, true)} onBlur={e=>updateInjectedJs(e.target.value, false)} placeholder="Enter JS"></textarea>
+        <textarea id="webpage-inject-js" value={injectedJs} onChange={e => updateInjectedJs(e.target.value, true)} onBlur={e=>updateInjectedJs(e.target.value, false)} placeholder="e.g. document.querySelector('header')?.remove();"></textarea>
       </SettingBlock>
 
       <SettingBlock
@@ -413,7 +413,7 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
         title='User Agent'
         moreInfo='Set the following User Agent string for the webpage.'
       >
-        <input id="webpage-user-agent" type="text" value={userAgent} onChange={e => updateUserAgent(e.target.value, true)} onBlur={e=>updateUserAgent(e.target.value, false)} placeholder="Enter a User Agent string" />
+        <input id="webpage-user-agent" type="text" value={userAgent} onChange={e => updateUserAgent(e.target.value, true)} onBlur={e=>updateUserAgent(e.target.value, false)} placeholder="e.g. Mozilla/5.0 (Windows NT 10.0; Win64; x64)" />
       </SettingBlock>
     </>
   )

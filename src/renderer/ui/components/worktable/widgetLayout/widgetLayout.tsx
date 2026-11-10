@@ -10,7 +10,8 @@ import {WidgetLayoutItemComponent} from '@/ui/components/worktable/widgetLayout/
 import WidgetLayoutItemGhost from '@/ui/components/worktable/widgetLayout/widgetLayoutItemGhost';
 import {WidgetLayoutProps, WidgetLayoutViewModel} from '@/ui/components/worktable/widgetLayout/widgetLayoutViewModel';
 import clsx from 'clsx';
-import {memo} from 'react';
+import {memo, useMemo, useState} from 'react';
+import {calcGridRowHeight, itemHUnitsToPx, itemYUnitsToPx} from '@/ui/components/worktable/widgetLayout/calcs';
 import styles from './widgetLayout.module.scss';
 
 type Deps = {
@@ -48,6 +49,16 @@ export function createWidgetLayoutComponent({
       onContextMenu,
     } = useWidgetLayoutViewModel(props);
 
+    // The scrollbar stays hidden (an upstream look, commit a8461d4), so a line at the bottom edge tells that widgets
+    // sit below it. From the layout data and the scroll position, not scrollHeight:
+    // item moves animate, so a measured scrollHeight lags. (The grid does not grow sideways: x + w <= cols.)
+    const [scrollTop, setScrollTop] = useState(0);
+    const rowHeightPx = calcGridRowHeight(viewportSize);
+    const contentBottomPx = useMemo(() => Math.max(0, ...viewLayoutItems.map(
+      item => itemYUnitsToPx(item.rect.y, rowHeightPx) + itemHUnitsToPx(item.rect.h, rowHeightPx)
+    )), [viewLayoutItems, rowHeightPx]);
+    const moreBelow = contentBottomPx > scrollTop + viewportSize.hPx + 1;
+
     return componentMounted.current ? (<>
       {isVisible && showNoWidgetsNote && (
         !isEditMode
@@ -68,6 +79,8 @@ export function createWidgetLayoutComponent({
         onDrop={onDrop}
         ref={viewportElRef as React.RefObject<HTMLDivElement | null>}
         onContextMenu={onContextMenu}
+        // Each scroll re-renders the layout; the items are memo'd, so they do not re-render.
+        onScroll={e => setScrollTop(e.currentTarget.scrollTop)}
         data-testid="widget-layout"
         {...{inert: !isVisible ? true : undefined}}
       >
@@ -101,6 +114,7 @@ export function createWidgetLayoutComponent({
           />
         ))}
       </div>
+      {isVisible && moreBelow && <div className={styles['more-below']} aria-hidden="true"/>}
     </>) : (
       <div
         className={styles.widgetLayout}

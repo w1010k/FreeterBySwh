@@ -3,6 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
+import { mockDialogProvider } from '@tests/infra/mocks/dialogProvider';
 import { ClipboardProvider } from '@/application/interfaces/clipboardProvider';
 import { DataStorageRenderer } from '@/application/interfaces/dataStorage';
 import { ProcessProvider } from '@/application/interfaces/processProvider';
@@ -96,6 +97,7 @@ async function setup(deletingSharedDataKeys = new Set<string>()) {
   const switchProjectUseCase = jest.fn();
   const switchWorkflowUseCase = jest.fn();
   const showBrowserWindowUseCase = jest.fn();
+  const dialogProvider = mockDialogProvider({ showMessageBox: jest.fn() }) as ReturnType<typeof mockDialogProvider> & { showMessageBox: jest.Mock };
 
   const [appStore] = await fixtureAppStore(fixtureAppState({}));
 
@@ -116,6 +118,7 @@ async function setup(deletingSharedDataKeys = new Set<string>()) {
     switchProjectUseCase,
     switchWorkflowUseCase,
     showBrowserWindowUseCase,
+    dialogProvider,
   });
   return {
     appStore,
@@ -133,6 +136,7 @@ async function setup(deletingSharedDataKeys = new Set<string>()) {
     switchProjectUseCase,
     switchWorkflowUseCase,
     showBrowserWindowUseCase,
+    dialogProvider,
 
     getWidgetApiUseCase
   }
@@ -147,6 +151,7 @@ describe('getWidgetApiUseCase()', () => {
       exposeApi: expect.any(Function),
       setDynamicTitle: expect.any(Function),
       logActivity: expect.any(Function),
+      confirm: expect.any(Function),
       revealWidget: expect.any(Function),
     }],
     [['clipboard'], {
@@ -156,6 +161,7 @@ describe('getWidgetApiUseCase()', () => {
       exposeApi: expect.any(Function),
       setDynamicTitle: expect.any(Function),
       logActivity: expect.any(Function),
+      confirm: expect.any(Function),
       revealWidget: expect.any(Function),
       clipboard: expect.any(Object)
     }],
@@ -166,6 +172,7 @@ describe('getWidgetApiUseCase()', () => {
       exposeApi: expect.any(Function),
       setDynamicTitle: expect.any(Function),
       logActivity: expect.any(Function),
+      confirm: expect.any(Function),
       revealWidget: expect.any(Function),
       dataStorage: expect.any(Object),
       shell: expect.any(Object)
@@ -177,6 +184,7 @@ describe('getWidgetApiUseCase()', () => {
       exposeApi: expect.any(Function),
       setDynamicTitle: expect.any(Function),
       logActivity: expect.any(Function),
+      confirm: expect.any(Function),
       revealWidget: expect.any(Function),
       icon: expect.any(Object)
     }],
@@ -489,6 +497,21 @@ describe('getWidgetApiUseCase()', () => {
     widgetApi.widgets.getWidgetsInCurrentWorkflow('widget-type');
     expect(getWidgetsInCurrentWorkflowUseCase).toHaveBeenCalledTimes(1);
     expect(getWidgetsInCurrentWorkflowUseCase).toHaveBeenCalledWith('widget-type');
+  })
+
+  it('confirm() asks through an OS message box and is true only for the OK button', async () => {
+    const noop = () => undefined;
+    const { getWidgetApiUseCase, dialogProvider } = await setup();
+    const widgetApi = getWidgetApiUseCase('W', false, noop, noop, noop, noop, noop, noop, []);
+
+    dialogProvider.showMessageBox.mockResolvedValueOnce({ response: 0 });
+    await expect(widgetApi.confirm('Delete 2 items?', 'Delete Items')).resolves.toBe(true);
+    expect(dialogProvider.showMessageBox).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'Delete 2 items?', buttons: ['Delete Items', 'Cancel'], cancelId: 1,
+    }));
+
+    dialogProvider.showMessageBox.mockResolvedValueOnce({ response: 1 });
+    await expect(widgetApi.confirm('Delete 2 items?', 'Delete Items')).resolves.toBe(false);
   })
 
   describe('revealWidget', () => {

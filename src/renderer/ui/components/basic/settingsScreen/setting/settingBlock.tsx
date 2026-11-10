@@ -23,8 +23,9 @@ export const SettingBlock = ({
       htmlFor={titleForId}
     >
       {title}
-      {moreInfo && <MoreInfo info={moreInfo} className={styles['more-info']}/>}
     </label>
+    {/* After the label, not in it: inside, its help text would join the name of the control the label names. */}
+    {moreInfo && <MoreInfo info={moreInfo} className={styles['more-info']}/>}
     <div>
       { children }
     </div>

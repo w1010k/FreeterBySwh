@@ -4,6 +4,7 @@
  */
 
 import { DialogProvider } from '@/application/interfaces/dialogProvider';
+import { confirmDialog } from '@/helpers/confirmDialog';
 import { AppStore } from '@/application/interfaces/store';
 import { DeactivateWorkflowUseCase } from '@/application/useCases/memSaver/deactivateWorkflow';
 import { deleteWorkflowsSubCase } from '@/application/useCases/workflow/subs/deleteWorkflows';
@@ -27,8 +28,7 @@ export function createDeleteWorkflowUseCase({
       const { currentProjectId } = state.ui.projectSwitcher;
       const currentProject = getOneFromEntityCollection(state.entities.projects, currentProjectId);
       if (currentProject) {
-        const dialogRes = await dialog.showMessageBox({ message: `Are you sure you want to delete the "${workflow.settings.name}" workflow?`, buttons: ['Ok', 'Cancel'], cancelId: 1, defaultId: 1, type: 'warning' })
-        if (dialogRes.response === 0) {
+        if (await confirmDialog(dialog, `Delete the "${workflow.settings.name}" workflow and all its widgets?`, 'Delete Workflow')) {
           state = deleteWorkflowsSubCase([workflowId], currentProjectId, state, deactivateWorkflowUseCase)
           appStore.set(state);
         }

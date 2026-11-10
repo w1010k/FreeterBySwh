@@ -96,6 +96,38 @@ async function setup(
 }
 
 describe('<WidgetLayout />', () => {
+  describe('bottom edge line', () => {
+    // A 1200x600 worktable: a row is 33.25px plus a 4px margin, so 16 rows fill 600px.
+    beforeEach(() => {
+      jest.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600);
+      jest.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1200);
+    });
+    afterEach(() => jest.restoreAllMocks());
+
+    it('shows while widgets sit below the visible area, until scrolled to their end', async () => {
+      const { comp } = await setup({
+        layoutItems: [fixtureWidgetLayoutItemA({ rect: { x: 0, y: 14, w: 4, h: 4 } })],
+      })
+      expect(comp.container.querySelector('.more-below')).toBeInTheDocument();
+
+      const layout = screen.getByTestId(widgetLayoutTestId);
+      layout.scrollTop = 40; // part of the widget is still below
+      fireEvent.scroll(layout);
+      expect(comp.container.querySelector('.more-below')).toBeInTheDocument();
+
+      layout.scrollTop = 100; // past its end (about 671px)
+      fireEvent.scroll(layout);
+      expect(comp.container.querySelector('.more-below')).not.toBeInTheDocument();
+    });
+
+    it('does not show when every widget fits the visible rows', async () => {
+      const { comp } = await setup({
+        layoutItems: [fixtureWidgetLayoutItemA({ rect: { x: 0, y: 12, w: 4, h: 4 } })],
+      })
+      expect(comp.container.querySelector('.more-below')).not.toBeInTheDocument();
+    });
+  });
+
   describe('when isVisible is true', () => {
     it('should be rendered with "is-visible" style', async () => {
       await setup({

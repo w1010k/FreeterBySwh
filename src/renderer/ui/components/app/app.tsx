@@ -8,10 +8,33 @@ import {UITheme} from '@/ui/components/app/uiTheme/uiTheme';
 import {InAppNote} from '@/ui/components/basic/inAppNote';
 import {SvgIcon} from '@/ui/components/basic/svgIcon';
 import clsx from 'clsx';
-import React, {useCallback, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import styles from './app.module.scss';
 import {AppViewModelHook} from './appViewModel';
 import './globals.scss';
+
+/**
+ * One modal screen of the stack. All but the top one are inert. The screens below turn inert when one opens, and that
+ * drops the focus to the body, so the layer moves the focus into its screen whenever it becomes the top one (opened, or
+ * raised over another), and gives it back to what opened it when it closes. A field the screen focused itself keeps it.
+ */
+function ModalLayer({isTop, children}: React.PropsWithChildren<{isTop: boolean}>) {
+  const ref = useRef<HTMLDivElement>(null);
+  // Read in the first render, before this layer commits and the screen below turns inert.
+  const [opener] = useState(() => document.activeElement);
+  useEffect(() => {
+    const el = ref.current;
+    if (isTop && el && !el.contains(document.activeElement)) {
+      el.querySelector<HTMLElement>('[role="dialog"]')?.focus();
+    }
+  }, [isTop]);
+  useEffect(() => () => {
+    if (opener instanceof HTMLElement && opener.isConnected && !opener.closest('[inert]')) {
+      opener.focus();
+    }
+  }, [opener]);
+  return <div ref={ref} data-testid="modal-screen" {...{inert: !isTop ? true : undefined}}>{children}</div>;
+}
 
 type Deps = {
   TopBar: React.FC;
@@ -107,9 +130,9 @@ export function createAppComponent({
         </div>
         {
           modalScreens.map(scr => (
-            scr && <div key={scr.id} data-testid="modal-screen" {...{inert: !scr.isLast ? true : undefined}}>
+            scr && <ModalLayer key={scr.id} isTop={scr.isLast}>
               {scr.comp}
-            </div>
+            </ModalLayer>
           ))
         }
         {isResizing && <div className={styles['resize-overlay']} data-testid="resize-overlay"/>}

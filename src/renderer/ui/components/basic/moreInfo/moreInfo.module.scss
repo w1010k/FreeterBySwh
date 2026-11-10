@@ -8,6 +8,27 @@
   height: 16px;
   line-height: 16px;
   display: inline-block;
+  position: relative;
+
+  // The help as text while focused by keyboard (the title tooltip shows on hover only).
+  &:focus-visible::after {
+    content: attr(data-info);
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 10;
+    width: max-content;
+    max-width: 280px;
+    padding: 6px 8px;
+    white-space: pre-line;
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: normal;
+    background: var(--freeter-componentBackground);
+    color: var(--freeter-componentColor);
+    border: 1px solid var(--freeter-componentBorder);
+    box-shadow: 0 1px 4px var(--freeter-popupShadow);
+  }
 }
 
 .more-info-icon {

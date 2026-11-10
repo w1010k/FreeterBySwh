@@ -5,6 +5,7 @@
 
 import { ActionBar } from '@/ui/components/basic/actionBar';
 import { SvgIcon } from '@/ui/components/basic/svgIcon';
+import { add14Svg, arrDown14Svg, close14Svg } from '@/ui/assets/images/appIcons';
 import { WidgetProps, WidgetViewModelHook } from '@/ui/components/widget/widgetViewModel';
 import styles from './widget.module.scss';
 import clsx from 'clsx';
@@ -41,6 +42,8 @@ export function createWidgetComponent({
     const headerTabsRef = useRef<HTMLDivElement>(null);
     const activeTabIdx = headerTabs?.active;
     const tabCount = headerTabs?.tabs.length;
+    // Names the tab list and the action bar, so several widgets' toolbars can be told apart.
+    const label = widgetName || 'Widget';
     useEffect(() => {
       const el = activeTabIdx !== undefined ? headerTabsRef.current?.children[activeTabIdx] : undefined;
       if (el && typeof el.scrollIntoView === 'function') {
@@ -55,7 +58,10 @@ export function createWidgetComponent({
     if (!WidgetComp) {
       return <div>
         <div>Unknown widget type</div>
-        {editMode && <ActionBar actionBarItems={actionBarItems}></ActionBar>}
+        {/* Removed widget types land here (docs/GUIDE.md); deleting is the way out. */}
+        {editMode
+          ? <ActionBar actionBarItems={actionBarItems} ariaLabel={`${label} actions`}></ActionBar>
+          : <div>This widget type is no longer available. Turn on Edit Mode to delete it.</div>}
       </div>
     }
 
@@ -67,31 +73,33 @@ export function createWidgetComponent({
       )
     }
 
+    // In edit mode the header is the drag handle, so tabs yield to the name.
+    const tabs = !editMode && headerTabs && headerTabs.tabs.length > 0 ? headerTabs : null;
     return <div
       className={clsx(styles.widget, dontShowActionBar && styles['dont-show-action-bar'])}
       data-widget-type={widget.type}
       onContextMenu={onContextMenuHandler}
     >
-      <div className={styles['widget-header']}>
-        {/* In edit mode the header is the drag handle, so tabs yield to the name. */}
-        {(!editMode && headerTabs && headerTabs.tabs.length > 0)
+      <div className={clsx(styles['widget-header'], tabs?.onAdd && styles['widget-header-with-tabs'])}>
+        {tabs
           ? <div className={styles['widget-header-tabs-bar']}>
             <div
               className={styles['widget-header-tabs']}
               role="tablist"
+              aria-label={`${label} tabs`}
               ref={headerTabsRef}
               onWheel={e => { e.currentTarget.scrollLeft += e.deltaY + e.deltaX; }}
             >
-              {headerTabs.tabs.map((tab, i) => {
-                const onClose = headerTabs.onClose;
+              {tabs.tabs.map((tab, i) => {
+                const onClose = tabs.onClose;
                 const tabButton = (
                   <button
                     key={i}
                     role="tab"
-                    aria-selected={i === headerTabs.active}
-                    title={tab.title}
-                    className={clsx(styles['widget-header-tab'], !onClose && i === headerTabs.active && styles['widget-header-tab-active'])}
-                    onClick={() => headerTabs.onSelect(i)}
+                    aria-selected={i === tabs.active}
+                    title={tab.title || tab.label}
+                    className={clsx(styles['widget-header-tab'], !onClose && i === tabs.active && styles['widget-header-tab-active'])}
+                    onClick={() => tabs.onSelect(i)}
                     onKeyDown={onClose ? e => {
                       if (e.key === 'Delete') {
                         onClose(i);
@@ -110,42 +118,43 @@ export function createWidgetComponent({
                 // A tab list holds tabs only: the x is a mouse target hidden from assistive tech, and the
                 // tab itself closes with Delete (aria-keyshortcuts).
                 return onClose
-                  ? <span key={i} role="none" className={clsx(styles['widget-header-tab-wrap'], i === headerTabs.active && styles['widget-header-tab-active'])}>
+                  ? <span key={i} role="none" className={clsx(styles['widget-header-tab-wrap'], i === tabs.active && styles['widget-header-tab-active'])}>
                       {tabButton}
                       <span
                         aria-hidden="true"
                         className={styles['widget-header-tab-close']}
                         title={`Close ${tab.label}`}
                         onClick={() => onClose(i)}
-                      >×</span>
+                      ><SvgIcon svg={close14Svg} className={styles['widget-header-tab-icon-btn']}/></span>
                     </span>
                   : tabButton;
               })}
             </div>
-            {headerTabs.onAdd && (
+            {tabs.onAdd && (
               <button
                 type="button"
                 className={styles['widget-header-tab-add']}
-                aria-label={headerTabs.addTitle ?? 'Add'}
-                title={headerTabs.addTitle ?? 'Add'}
-                onClick={headerTabs.onAdd}
-              >+</button>
+                aria-label={tabs.addTitle ?? 'Add'}
+                title={tabs.addTitle ?? 'Add'}
+                onClick={tabs.onAdd}
+              ><SvgIcon svg={add14Svg} className={styles['widget-header-tab-icon-btn']}/></button>
             )}
-            {headerTabs.onAdd && headerTabs.addMenu && headerTabs.addMenu.length > 0 && (
+            {tabs.onAdd && tabs.addMenu && tabs.addMenu.length > 0 && (
               <button
                 type="button"
-                className={styles['widget-header-tab-add']}
-                aria-label={`${headerTabs.addTitle ?? 'Add'}: choose`}
+                className={styles['widget-header-tab-add-menu']}
+                aria-label={`${tabs.addTitle ?? 'Add'}: choose`}
                 aria-haspopup="menu"
-                title={`${headerTabs.addTitle ?? 'Add'}: choose`}
+                title={`${tabs.addTitle ?? 'Add'}: choose`}
                 onClick={onAddMenuClick}
-              >▾</button>
+              ><SvgIcon svg={arrDown14Svg} className={styles['widget-header-tab-menu-icon']}/></button>
             )}
           </div>
-          : <div className={styles['widget-header-name']}>{widgetName}</div>}
+          : <div className={styles['widget-header-name']} title={widgetName}>{widgetName}</div>}
         <ActionBar
           actionBarItems={actionBarItems}
           className={styles['widget-header-action-bar']}
+          ariaLabel={`${label} actions`}
         ></ActionBar>
       </div>
       <div className={styles['widget-body']} data-widget-context="" {...{ inert: editMode ? true : undefined }}>

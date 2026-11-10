@@ -25,7 +25,7 @@
 
 .date {
   font-size: 11px;
-  opacity: 0.6;
+  color: var(--freeter-textSecondary);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -43,5 +43,5 @@
 }
 
 .count.is-today {
-  color: var(--freeter-primary60);
+  color: var(--freeter-accentText);
 }

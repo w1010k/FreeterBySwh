@@ -59,19 +59,23 @@ describe('AnalyticsPage', () => {
   it('Delete all asks first, then clears and refetches the same range', async () => {
     const { fetchMock } = setup();
     await screen.findByText('컴퓨터 사용 시간');
-    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete all' }));
+    fireEvent.click(screen.getByRole('button', { name: '사용 통계 모두 삭제' }));
+    // Cancel is focused, so Enter does not delete.
+    expect(screen.getByRole('button', { name: '취소' })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole('button', { name: '취소' }), { key: 'Escape' });
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '사용 통계 모두 삭제' })).toHaveFocus();
     expect(fetchMock).not.toHaveBeenCalledWith('api/clear', expect.anything());
 
     const eventsCalls = () => fetchMock.mock.calls.filter(([url]) => url.startsWith('api/events')).length;
     const before = eventsCalls();
-    fireEvent.click(screen.getByRole('button', { name: 'Delete all' }));
+    fireEvent.click(screen.getByRole('button', { name: '사용 통계 모두 삭제' }));
+    fireEvent.click(screen.getByRole('button', { name: '삭제' }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('api/clear', { method: 'POST' }));
     await waitFor(() => expect(eventsCalls()).toBe(before + 1));
     expect(await screen.findByText('컴퓨터 사용 시간')).toBeInTheDocument();
-    confirmSpy.mockRestore();
   });
 
   it('keeps the report on screen when Delete all fails', async () => {
@@ -79,13 +83,12 @@ describe('AnalyticsPage', () => {
     await screen.findByText('컴퓨터 사용 시간');
     const ok = fetchMock.getMockImplementation()!;
     fetchMock.mockImplementation(async (url: string) => (url === 'api/clear' ? { ok: false, json: async () => days } : ok(url)));
-    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete all' }));
+    fireEvent.click(screen.getByRole('button', { name: '사용 통계 모두 삭제' }));
+    fireEvent.click(screen.getByRole('button', { name: '삭제' }));
 
     expect(await screen.findByText(/삭제하지 못했습니다/)).toBeInTheDocument();
     expect(screen.getByText('컴퓨터 사용 시간')).toBeInTheDocument();
-    confirmSpy.mockRestore();
   });
 
   it('tells the user to reopen from Freeter when the server is gone', async () => {

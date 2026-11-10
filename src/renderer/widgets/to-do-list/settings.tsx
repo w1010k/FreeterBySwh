@@ -20,7 +20,7 @@ export function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactC
       <SettingBlock
         titleForId='to-do-list-done-to-bottom'
         title='When Item Completed'
-        moreInfo='Controls whether an item should be moved to the bottom of the to-do list when it marked as complete.'
+        moreInfo='Controls whether an item should be moved to the bottom of the to-do list when it is marked as complete.'
       >
         <div>
           <label>

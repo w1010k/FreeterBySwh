@@ -29,6 +29,7 @@ export function createAboutComponent({
           {id: 'close', caption: 'Close', primary: true, onClick: onCloseClick},
         ]}
         title="About Freeter-SWH"
+        onEscape={onCloseClick}
       >
         <div className={styles['about-left']}>
           <div className={styles['app-logo']}>

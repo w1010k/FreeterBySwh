@@ -28,6 +28,7 @@ export function createProjectSwitcherComponent({
 
     return (
       <select
+        aria-label="Project"
         value={currentProjectId}
         className={clsx(styles['project-switcher'], className)}
         disabled={noProjects}

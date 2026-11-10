@@ -24,7 +24,8 @@ $item-height: 32px;
   line-height: 18px;
   padding: 0 6px;
   text-align: right;
-  color: var(--freeter-componentColor60);
+  color: var(--freeter-textSecondary);
+  font-variant-numeric: tabular-nums;
   border-top: 1px solid var(--freeter-textareaBorder);
   user-select: none;
 }
@@ -47,13 +48,17 @@ $item-height: 32px;
     box-sizing: border-box;
     > span:last-child {
       white-space: pre-wrap;
-      overflow-wrap: break-word;
+      overflow-wrap: anywhere;
+      word-break: keep-all;
       min-width: 0;
     }
   }
   &.is-done:not(.is-editor) {
     text-decoration: line-through;
     opacity: 0.8;
+    label {
+      padding-right: 32px; // the Delete Item button (done-item-actionbar) shows over this end on hover
+    }
   }
   &.is-drop-area {
     background-color: var(--freeter-dropAreaBackground);

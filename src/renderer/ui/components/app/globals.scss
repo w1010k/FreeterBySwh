@@ -11,7 +11,7 @@ body {
 }
 
 body, select, a, input, textarea, button {
-  font-family: Roboto;
+  font-family: Roboto, 'Malgun Gothic', sans-serif;
   font-size: 14px;
 }
 
@@ -48,7 +48,8 @@ select {
 }
 
 textarea {
-  border: 1px solid var(--freeter-textareaBorder);
+  // The control edge (3:1 or more), as for inputs; the textareaBorder token also draws separator lines.
+  border: 1px solid var(--freeter-inputBorder);
   background-color: var(--freeter-textareaBackground);
   color: var(--freeter-textareaColor);
 }

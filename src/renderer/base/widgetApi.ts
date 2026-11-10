@@ -56,6 +56,8 @@ interface WidgetApiCommon {
    * Never pass secrets — text is stored as-is on disk (locally).
    */
   readonly logActivity: (type: TelemetryActivityType, payload?: TelemetryActivityPayload) => void;
+  /** Ask before an action that cannot be undone (an OS message box). Resolves true when the user picks `okLabel`. */
+  readonly confirm: (message: string, okLabel: string) => Promise<boolean>;
   /**
    * Bring this widget into view: switch to the project and workflow whose
    * layout holds it, then show and focus the app window. A shelf widget (always

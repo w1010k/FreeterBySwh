@@ -25,13 +25,13 @@ const strApplicationSettings = 'ApplicationSettings';
 const strAppManager = 'AppManager';
 const strWorktable = 'Worktable';
 const strAbout = 'About';
-const mockTopBar = () => <div>{strTopBar}</div>;
+const mockTopBar = () => <div>{strTopBar}<button>Open About</button></div>;
 const mockWidgetSettings = () => <div>{strWidgetSettings}</div>;
 const mockWorkflowSettings = () => <div>{strWorkflowSettings}</div>;
 const mockProjectManager = () => <div>{strProjectManager}</div>;
-const mockApplicationSettings = () => <div>{strApplicationSettings}</div>;
-const mockAppManager = () => <div>{strAppManager}</div>;
-const mockAbout = () => <div>{strAbout}</div>;
+const mockApplicationSettings = () => <div role="dialog" tabIndex={-1} aria-label={strApplicationSettings}>{strApplicationSettings}</div>;
+const mockAppManager = () => <div role="dialog" tabIndex={-1} aria-label={strAppManager}>{strAppManager}<input aria-label="App name" autoFocus/></div>;
+const mockAbout = () => <div role="dialog" tabIndex={-1} aria-label={strAbout}>{strAbout}</div>;
 const mockWorkflowSwitcher = () => <div>{strWorkflowSwitcher}</div>;
 const mockWorktable = () => <div>{strWorktable}</div>;
 
@@ -75,6 +75,47 @@ async function setup(
 }
 
 describe('<App />', () => {
+  it('keeps the focus on a field the top modal screen focused itself', async () => {
+    await setup(fixtureAppState({ ui: { modalScreens: fixtureModalScreens({ order: ['appManager'] }) } }));
+    expect(screen.getByLabelText('App name')).toHaveFocus();
+  });
+
+  it('moves the focus into the top modal screen when it opens and when it is raised over another', async () => {
+    const { appStore } = await setup(fixtureAppState({
+      ui: { modalScreens: fixtureModalScreens({ order: ['applicationSettings'] }) }
+    }));
+    expect(screen.getByRole('dialog', { name: strApplicationSettings })).toHaveFocus();
+    const setOrder = (order: ModalScreenId[]) => act(() => {
+      const state = appStore.get();
+      appStore.set({ ...state, ui: { ...state.ui, modalScreens: { ...state.ui.modalScreens, order } } });
+    });
+
+    setOrder(['applicationSettings', 'about']);
+    expect(screen.getByRole('dialog', { name: strAbout })).toHaveFocus();
+
+    setOrder(['about', 'applicationSettings']);
+    expect(screen.getByRole('dialog', { name: strApplicationSettings })).toHaveFocus();
+
+    // Closing the top one leaves the one below on top, and it takes the focus.
+    setOrder(['about']);
+    expect(screen.getByRole('dialog', { name: strAbout })).toHaveFocus();
+  });
+
+  it('gives the focus back to the button that opened a modal screen when it closes', async () => {
+    const { appStore } = await setup(fixtureAppState({}));
+    const setOrder = (order: ModalScreenId[]) => act(() => {
+      const state = appStore.get();
+      appStore.set({ ...state, ui: { ...state.ui, modalScreens: { ...state.ui.modalScreens, order } } });
+    });
+    screen.getByRole('button', { name: 'Open About' }).focus();
+
+    setOrder(['about']);
+    expect(screen.getByRole('dialog', { name: strAbout })).toHaveFocus();
+    setOrder([]);
+
+    expect(screen.getByRole('button', { name: 'Open About' })).toHaveFocus();
+  });
+
   it('should display TopBar', async () => {
     await setup(fixtureAppState({}));
     expect(screen.getByText(strTopBar)).toBeInTheDocument();

@@ -55,8 +55,8 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
     <>
       <SettingBlock
         titleForId='cmd0'
-        title='Command-Lines'
-        moreInfo='Specify the command-lines to run. Each command-line will be executed in a separate shell instance.'
+        title='Commands'
+        moreInfo='The commands to run. Each command runs in its own shell.'
       >
         {settings.cmds.map((cmd, i) => (
           <SettingRow key={i}>
@@ -65,7 +65,8 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
               id={'cmd'+i}
               type="text"
               value={cmd}
-              placeholder='Enter a command-line'
+              placeholder='e.g. npm run dev'
+              aria-label={`Command ${i + 1}`}
               onChange={e => updCmd(settings, i, e.target.value)}
             />
             <SettingActions
@@ -84,7 +85,7 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
               }, {
                 id: 'DELETE',
                 icon: delete14Svg,
-                title: 'Delete Command-line',
+                title: 'Delete Command',
                 doAction: async () => deleteCmd(settings, i)
               }]}
             />
@@ -96,7 +97,7 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
               addCmd(settings);
               triggerLastCmdFocus();
             }}
-            caption='Add a command-line'
+            caption='Add Command'
             primary={true}
           ></Button>
         </div>
@@ -104,8 +105,8 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
 
       <SettingBlock
         titleForId='cwd'
-        title='Working Directory'
-        moreInfo='Specify a directory path where the command-lines will be executed.'
+        title='Working Folder'
+        moreInfo='The folder the commands run in.'
       >
         <SettingRow>
           <input
@@ -113,13 +114,13 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
             type="text"
             value={settings.cwd}
             onChange={e => updCwd(settings, e.target.value)}
-            placeholder="Enter a directory path"
+            placeholder="The folder the commands run in"
           />
           <SettingActions
             actions={[{
               id: 'SELECT-DIR',
               icon: browse14Svg,
-              title: 'Select Directory',
+              title: 'Select Folder',
               doAction: async () => {
                 const pickedDir = await pickDir(settings.cwd);
                 if (pickedDir) {

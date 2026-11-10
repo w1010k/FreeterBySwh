@@ -13,13 +13,15 @@ export const ActionBar = memo(function ActionBar(props: ActionBarProps) {
   const {
     actionBarItems,
     onActionBarItemClick,
-    className
+    className,
+    ariaLabel
   } = useActionBarViewModel(props);
 
   return (
     actionBarItems.length>0 &&
     <ul
       role="toolbar"
+      aria-label={ariaLabel}
       className={clsx(
         styles['action-bar'],
         className

@@ -418,6 +418,40 @@ describe('<ProjectManager />', () => {
       expect(toggleDeletionInProjectManagerUseCase).toHaveBeenCalledWith(idB);
     })
 
+    it('should move a project up or down with its buttons, offering only the moves that exist', async () => {
+      const idA = 'P-A';
+      const idB = 'P-B';
+      const {updateProjectsOrderInProjectManagerUseCase} = await setup(fixtureAppState({
+        ui: {
+          modalScreens: fixtureModalScreens({
+            data: fixtureModalScreensData({
+              projectManager: fixtureProjectManager({
+                deleteProjectIds: {},
+                projects: {
+                  ...fixtureProjectAInColl({id: idA}),
+                  ...fixtureProjectBInColl({id: idB}),
+                },
+                projectIds: [idA, idB]
+              })
+            })
+          })
+        }
+      }));
+
+      const upButtons = screen.getAllByRole('button', {name: 'Move Up'});
+      const downButtons = screen.getAllByRole('button', {name: 'Move Down'});
+      expect(upButtons[0]).toBeDisabled();
+      expect(downButtons[1]).toBeDisabled();
+
+      fireEvent.click(downButtons[0]);
+
+      expect(updateProjectsOrderInProjectManagerUseCase).toHaveBeenCalledWith([idB, idA]);
+
+      // Not while searching: a move would go over hidden projects.
+      fireEvent.change(screen.getByRole('textbox', {name: /search projects/i}), {target: {value: 'PROJECT'}});
+      screen.getAllByRole('button', {name: /Move (Up|Down)/}).forEach(button => expect(button).toBeDisabled());
+    })
+
     it('should display projects on the list in the right order', async () => {
       const idA = 'P-A';
       const idB = 'P-B';
@@ -566,40 +600,40 @@ describe('<ProjectManager />', () => {
 
       const tabEls = screen.getAllByRole('tab');
 
-      expect(tabEls[0]).not.toHaveClass(classIsDropArea);
-      expect(tabEls[1]).not.toHaveClass(classIsDropArea);
-      expect(tabEls[2]).not.toHaveClass(classIsDropArea);
+      expect(tabEls[0].parentElement).not.toHaveClass(classIsDropArea);
+      expect(tabEls[1].parentElement).not.toHaveClass(classIsDropArea);
+      expect(tabEls[2].parentElement).not.toHaveClass(classIsDropArea);
 
       fireEvent.dragStart(tabEls[0]);
 
       fireEvent.dragEnter(tabEls[0]);
       fireEvent.dragOver(tabEls[0], {dataTransfer: {}});
-      expect(tabEls[0]).toHaveClass(classIsDropArea);
-      expect(tabEls[1]).not.toHaveClass(classIsDropArea);
-      expect(tabEls[2]).not.toHaveClass(classIsDropArea);
+      expect(tabEls[0].parentElement).toHaveClass(classIsDropArea);
+      expect(tabEls[1].parentElement).not.toHaveClass(classIsDropArea);
+      expect(tabEls[2].parentElement).not.toHaveClass(classIsDropArea);
       fireEvent.dragLeave(tabEls[0]);
 
       fireEvent.dragEnter(tabEls[1]);
       fireEvent.dragOver(tabEls[1], {dataTransfer: {}});
-      expect(tabEls[0]).not.toHaveClass(classIsDropArea);
-      expect(tabEls[1]).toHaveClass(classIsDropArea);
-      expect(tabEls[2]).not.toHaveClass(classIsDropArea);
+      expect(tabEls[0].parentElement).not.toHaveClass(classIsDropArea);
+      expect(tabEls[1].parentElement).toHaveClass(classIsDropArea);
+      expect(tabEls[2].parentElement).not.toHaveClass(classIsDropArea);
       fireEvent.dragLeave(tabEls[1]);
 
       fireEvent.dragEnter(tabEls[2]);
       fireEvent.dragOver(tabEls[2], {dataTransfer: {}});
-      expect(tabEls[0]).not.toHaveClass(classIsDropArea);
-      expect(tabEls[1]).not.toHaveClass(classIsDropArea);
-      expect(tabEls[2]).toHaveClass(classIsDropArea);
+      expect(tabEls[0].parentElement).not.toHaveClass(classIsDropArea);
+      expect(tabEls[1].parentElement).not.toHaveClass(classIsDropArea);
+      expect(tabEls[2].parentElement).toHaveClass(classIsDropArea);
       expect(updateProjectsOrderInProjectManagerUseCase).toHaveBeenCalledTimes( 0);
       fireEvent.drop(tabEls[2]);
       expect(updateProjectsOrderInProjectManagerUseCase).toHaveBeenCalledTimes( 1);
       expect(updateProjectsOrderInProjectManagerUseCase).toHaveBeenCalledWith([idB, idC, idA]);
       fireEvent.dragEnd(tabEls[0]);
 
-      expect(tabEls[0]).not.toHaveClass(classIsDropArea);
-      expect(tabEls[1]).not.toHaveClass(classIsDropArea);
-      expect(tabEls[2]).not.toHaveClass(classIsDropArea);
+      expect(tabEls[0].parentElement).not.toHaveClass(classIsDropArea);
+      expect(tabEls[1].parentElement).not.toHaveClass(classIsDropArea);
+      expect(tabEls[2].parentElement).not.toHaveClass(classIsDropArea);
     });
 
     it('should do nothing when dragging something from outside', async () => {
@@ -627,36 +661,36 @@ describe('<ProjectManager />', () => {
 
       const tabEls = screen.getAllByRole('tab');
 
-      expect(tabEls[0]).not.toHaveClass(classIsDropArea);
-      expect(tabEls[1]).not.toHaveClass(classIsDropArea);
-      expect(tabEls[2]).not.toHaveClass(classIsDropArea);
+      expect(tabEls[0].parentElement).not.toHaveClass(classIsDropArea);
+      expect(tabEls[1].parentElement).not.toHaveClass(classIsDropArea);
+      expect(tabEls[2].parentElement).not.toHaveClass(classIsDropArea);
 
       fireEvent.dragEnter(tabEls[0]);
       fireEvent.dragOver(tabEls[0], {dataTransfer: {}});
-      expect(tabEls[0]).not.toHaveClass(classIsDropArea);
-      expect(tabEls[1]).not.toHaveClass(classIsDropArea);
-      expect(tabEls[2]).not.toHaveClass(classIsDropArea);
+      expect(tabEls[0].parentElement).not.toHaveClass(classIsDropArea);
+      expect(tabEls[1].parentElement).not.toHaveClass(classIsDropArea);
+      expect(tabEls[2].parentElement).not.toHaveClass(classIsDropArea);
       fireEvent.dragLeave(tabEls[0]);
 
       fireEvent.dragEnter(tabEls[1]);
       fireEvent.dragOver(tabEls[1], {dataTransfer: {}});
-      expect(tabEls[0]).not.toHaveClass(classIsDropArea);
-      expect(tabEls[1]).not.toHaveClass(classIsDropArea);
-      expect(tabEls[2]).not.toHaveClass(classIsDropArea);
+      expect(tabEls[0].parentElement).not.toHaveClass(classIsDropArea);
+      expect(tabEls[1].parentElement).not.toHaveClass(classIsDropArea);
+      expect(tabEls[2].parentElement).not.toHaveClass(classIsDropArea);
       fireEvent.dragLeave(tabEls[1]);
 
       fireEvent.dragEnter(tabEls[2]);
       fireEvent.dragOver(tabEls[2], {dataTransfer: {}});
-      expect(tabEls[0]).not.toHaveClass(classIsDropArea);
-      expect(tabEls[1]).not.toHaveClass(classIsDropArea);
-      expect(tabEls[2]).not.toHaveClass(classIsDropArea);
+      expect(tabEls[0].parentElement).not.toHaveClass(classIsDropArea);
+      expect(tabEls[1].parentElement).not.toHaveClass(classIsDropArea);
+      expect(tabEls[2].parentElement).not.toHaveClass(classIsDropArea);
       expect(updateProjectsOrderInProjectManagerUseCase).toHaveBeenCalledTimes( 0);
       fireEvent.drop(tabEls[2]);
       expect(updateProjectsOrderInProjectManagerUseCase).toHaveBeenCalledTimes( 0);
 
-      expect(tabEls[0]).not.toHaveClass(classIsDropArea);
-      expect(tabEls[1]).not.toHaveClass(classIsDropArea);
-      expect(tabEls[2]).not.toHaveClass(classIsDropArea);
+      expect(tabEls[0].parentElement).not.toHaveClass(classIsDropArea);
+      expect(tabEls[1].parentElement).not.toHaveClass(classIsDropArea);
+      expect(tabEls[2].parentElement).not.toHaveClass(classIsDropArea);
     });
 
   })

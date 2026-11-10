@@ -42,6 +42,7 @@ export function createProjectManagerComponent({
       projectAddedTrigger,
       deleteProjectAction,
       duplicateProjectAction,
+      moveProjectAction,
     } = useProjectManagerViewModel();
 
     if (renderProjectManager) {
@@ -62,6 +63,7 @@ export function createProjectManagerComponent({
             deleteProjectAction={deleteProjectAction}
             deleteProjectIds={deleteProjectIds}
             duplicateProjectAction={duplicateProjectAction}
+            moveProjectAction={moveProjectAction}
           ></ProjectManagerList>
         </div>
         <div className={clsx(settingsScreenStyles['settings-screen-panel'], styles['settings-editor'])}>

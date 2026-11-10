@@ -44,6 +44,13 @@
   (`src/renderer/base/state/actions/modalScreens.ts`).
 - `ui.modalScreens.order`는 스택이다. 마지막 화면만 조작할 수 있고, 나머지 화면과 main screen은 `inert`다 (`createAppComponent`,
   `src/renderer/ui/components/app/app.tsx`).
+- 키보드와 스크린 리더 [fork #103]: `ModalScreen`은 `role="dialog"`, `aria-modal`, 제목 `h2`가 이름이다. 맨 위 화면이 바뀌면 (열기, 다른 화면 위로
+  올리기) `app.tsx`의 `ModalLayer`가 포커스를 그 화면으로 옮긴다 (아래 화면이 `inert`가 되면 포커스가 body로 떨어진다). 화면 안에서 스스로
+  포커스한 칸은 그대로 둔다. 화면 내용이 데이터를 기다려 한 렌더 늦게 마운트되면 `ModalScreen`이 마운트 때 스스로 포커스한다. 닫으면 `ModalLayer`가
+  첫 렌더 때 기억한 opener로 포커스를 돌려준다 (`inert` 안이면 건너뛴다). Esc는 `window`의 keydown으로 받아 맨 위 화면만 `onEscape`를 실행한다.
+  지금은 About만 쓴다 (Close). 설정 화면에는 연결하지 않는다: Cancel은 확인 없이 초안을 버리므로, 칸에서 Esc를 누른 사용자가 편집을 모두 잃는다. Esc를
+  직접 처리한 칸은 `preventDefault`로 넘기지 않고, IME 조합 중의 Esc와 누르고 있는 키의 반복도 넘기지 않는다. 한계: `<webview>` 안 (Webpage 미리보기)의 키는 창에 오지 않고,
+  hover 때만 보이는 action bar의 버튼으로 연 화면은 닫을 때 그 버튼이 숨어 있으면 포커스가 body로 간다.
 - 결과: 설정 화면에서 바꾼 값은 OK 전까지 앱에 반영되지 않는다. 예: 사용 통계 동의, 워크플로우 바 너비 입력칸.
 
 #### 영속 범위
@@ -206,6 +213,9 @@
   `switchWorkflowByOffsetUseCase(±1)`. 끝에서 처음으로 순환하고 workflow가 2개 미만이면 무시한다. 포커스가 `<webview>` 안이면 main이
   `before-input-event`로 키를 잡아 `ipcSwitchWorkflowByOffsetChannel`로 보낸다.
 - 추가: `addWorkflowUseCase(posByWorkflowId?)` → 새 workflow를 지정 위치에 넣고 현재 workflow로 만든다 → 탭이 이름 편집 모드로 들어간다.
+- 끌지 않는 이동 [fork #103]: 편집 모드 탭 메뉴의 Move Left/Right (세로 바는 Up/Down) → `moveWorkflowUseCase(projectId, workflowId, ±1)`. 같은
+  방식으로 셸프 항목 메뉴 → `moveShelfItemUseCase`, 위젯의 편집 모드 메뉴와 More Actions의 Move·Resize → `nudgeLayoutItemUseCase(workflowId, widgetId,
+  {x|y|w|h})` (한 칸, 드래그와 같은 `moveLayoutItem`·`resizeLayoutItemByEdges`), Projects·Apps 목록 항목의 위·아래 버튼 → 기존 `update*OrderIn*Manager`.
 - 삭제 (`deleteWorkflowsSubCase`): workflow의 위젯 엔티티 제거 → 현재 workflow였으면 같은 위치의 다음 workflow로 이동 → Memory Saver 비활성화.
 - 붙여넣기: `cloneWorkflowSubCase`가 항목마다 `cloneWidgetSubCase` (위젯 데이터 폴더 복사 포함)를 호출한다. 이름은 `generateCopyName`이 중복을 피한다.
 - 탭 드래그는 편집 모드에서만 시작한다. drop 시 같은 프로젝트면 순서를 바꾼다. `dropOnWorkflowSwitcherUseCase`에 다른 프로젝트로 옮기는 분기도 있으나, 탭 바가 현재 프로젝트만 보여
@@ -220,6 +230,11 @@
 | 팔레트 (왼쪽)                          | 편집 모드, 현재 workflow 있음, 편집 토글이 왼쪽                                            |
 | 팔레트 (오른쪽)                        | 편집 모드, 현재 workflow 있음, 왼쪽 팔레트 아님, 편집 토글이 오른쪽이거나 상단 바가 숨겨짐 |
 | 팔레트 `dropUp`                        | 바가 아래이거나, 세로 바에서 팔레트가 탭 목록 뒤에 있음 [fork #45 후속]                    |
+
+- 팔레트 키보드 [fork #103]: 목록 (Add, Paste)은 CSS hover/focus 드롭다운이다 (트리거는 `:focus-visible ~ section`: 마우스로 클릭한 트리거는 목록을 붙잡지 않는다. 열린 목록은 `:has(:focus-visible)`로 유지: `:focus-within`이면 마우스로 클릭한 항목이 포커스를 가져 클릭 뒤에도 목록이 열려 있다). DOM 순서를
+  Add 트리거, Add 목록, Paste 트리거, Paste 목록으로 두어 Tab이 트리거에서 그 목록의 검색칸과 항목으로 이어진다. 항목 (`li`)은 `tabIndex=0`이고
+  Enter·Space가 클릭과 같다 (`paletteItem.tsx`, 키 반복과 수정 키 조합은 제외). 트리거에서 Enter·Space는 목록 안 (검색칸)으로 들어간다. Esc는 포커스를 빼서 목록을 닫는다 (IME 조합 중 제외). 마우스 클릭·드래그·우클릭 뒤에는 항목이 포커스를 놓는다 (숨은 채 포커스가 남으면 다음 Enter가 위젯을 또 추가한다). `:has()` 안에 `:has()`를 넣지 않는다 (무효라 규칙 전체가 버려진다). 한계: 항목마다 Tab stop이고
+  (roving tabindex 아님), Paste 트리거에서 Shift+Tab하면 닫힌 Add 목록을 건너뛴다.
 
 상태: `entities.workflows`, `Project.workflowIds`, `Project.currentWorkflowId`, `ui.copy.workflows`,
 `ui.dragDrop.from.workflowSwitcher`, `ui.dragDrop.over.workflowSwitcher`.
@@ -245,6 +260,10 @@
 - `layoutPadding`과 `.layout-item:after` spacer (`widgetLayout.module.scss`)는 같은 값을 유지한다 (두 파일에 서로 참조하는 주석, CHANGES #34
   후속).
 - worktable 크기는 `useElementRect`로 잰다. 창 크기 변화 없이 바 위치나 너비가 바뀌어도 `ResizeObserver`가 다시 잰다 [fork #45].
+- 스크롤바는 숨긴다 (`display: none`, upstream 커밋 a8461d4). 대신 보이는 영역 아래에 위젯이 있으면 아래 가장자리에 4px 줄 (`.more-below`)을
+  그린다. `scrollHeight`를 재지 않고 항목 rect의 픽셀 끝 (`itemYUnitsToPx + itemHUnitsToPx`)과 `scrollTop + viewport 높이`를 비교한다 (항목
+  이동은 transition이라 잰 `scrollHeight`가 늦다). 격자는 가로로 늘지 않으므로 (`x + w <= cols`) 세로만 본다. 최대화된 위젯이 있으면 `:has(.is-maximized) + .more-below`로 숨긴다 (`+`: 다른 workflow의
+  레이아웃과 섞이지 않게) [fork #103].
 
 #### 배치, 충돌, 이동, 리사이즈
 
@@ -319,7 +338,7 @@
 
 | use case                       | 트리거                                                                       | 위치      |
 |--------------------------------|------------------------------------------------------------------------------|-----------|
-| `addWidgetToWorkflowUseCase`   | 팔레트 항목 클릭, worktable 우클릭 Add Widget, 팔레트 우클릭 Add to Workflow | 첫 빈자리 |
+| `addWidgetToWorkflowUseCase`   | 팔레트 항목 클릭 (키보드: Enter·Space), worktable 우클릭 Add Widget, 팔레트 우클릭 Add to Workflow | 첫 빈자리 |
 | `addWidgetToShelfUseCase`      | 팔레트 우클릭 Add to Shelf, 셸프 우클릭 Add Widget                           | 셸프 목록 |
 | `dropOnWorktableLayoutUseCase` | 팔레트 → worktable 드래그                                                    | drop 좌표 |
 | `dropOnTopBarListUseCase`      | 팔레트 → 셸프 드래그                                                         | drop 위치 |
@@ -383,7 +402,7 @@
 - 표시 조건: 편집 모드이고 현재 workflow가 있을 때. 위치는 상단 바 (`PalettePropsPos.TopBar`) 또는 워크플로우 바 (`PalettePropsPos.TabBar`).
 - 항목 클릭 → 현재 workflow에 추가 또는 붙여넣기. 드래그 → `dragWidgetFromPaletteUseCase({ widgetTypeId })` 또는 `({ widgetCopyId })`. 우클릭 →
   Add/Paste to Workflow, Add/Paste to Shelf.
-- 검색: 컴포넌트 로컬 state로 이름을 필터한다. `:focus-within` 규칙이 입력 중 드롭다운을 열어 둔다 [fork #74].
+- 검색: 컴포넌트 로컬 state로 이름을 필터한다. `:has(:focus-visible)` 규칙이 입력 중 드롭다운을 열어 둔다 [fork #74, #103에서 `:focus-within`에서 바꿈].
 - 드롭다운 섹션은 `.palette` 기준 absolute로 뜨고, `dropUp`이면 위로 펼친다 [fork #45 후속]. 위로 펼칠 때는 `max-height`가 `min(500px, 60vh)`라
   최소 높이 (600px) 창에서도 검색창이 창 위로 잘리지 않는다 (`palette.module.scss`의 `.palette.drop-up .palette-section`).
 - 드래그가 시작되면 (`ui.dragDrop.from` 존재) 섹션을 숨긴다.
@@ -470,11 +489,11 @@
 | File | Settings (`CmdOrCtrl+,`), Open Data Folder [fork #5], Quit                                                                                                                                                                              |
 | Edit | Enable/Disable Edit Mode (`CmdOrCtrl+E`), undo, redo, cut, copy, paste, selectAll                                                                                                                                                       |
 | View | Appearance (전체 화면, 메뉴 바, 상단 바, 프로젝트 전환기 위치, 편집 토글 위치), Next/Previous Workflow (`CmdOrCtrl+Tab`, `CmdOrCtrl+Shift+Tab`) [fork #6], Analytics (`CmdOrCtrl+Shift+A`) [fork #62 #87], Manage Projects, Manage Apps |
-| Help | Twitter, Community, Feature Requests, Report Issues, Check for updates, About Freeter-SWH [fork #1]                                                                                                                                     |
+| Help | Original Freeter on Twitter·Community·Feature Requests·Bug Reports·Downloads, About Freeter-SWH [fork #1, #103]                                                                                                                                     |
 | Dev  | dev 모드 (`isDevMode`)에서만: reload, forceReload, toggleDevTools                                                                                                                                                                       |
 
 - 메뉴는 로딩이 끝난 뒤 `editMode`, `menuBar`, `topBar`, `projectSwitcher.pos`, `editTogglePos`가 바뀔 때마다 다시 만든다.
-- Help의 외부 링크와 Check for updates (`https://freeter.io/v2/download`)는 upstream 주소 그대로다.
+- Help의 외부 링크와 Downloads (`https://freeter.io/v2/download`)는 upstream 주소 그대로라서, 이름에 "Original Freeter"를 붙인다 (이전 "Check for updates"는 이 포크의 업데이트를 확인하는 것처럼 읽혔다) [fork #103].
 - 트레이 메뉴: 프로젝트마다 항목 하나 (현재 프로젝트는 radio). 클릭 → `showBrowserWindowUseCase()` → `switchProjectUseCase(id)`.
 
 컨텍스트 메뉴 진입점:
@@ -668,6 +687,9 @@
 - 값: `src/renderer/ui/components/app/uiTheme/themes/light.ts`, `dark.ts`의 객체. `UITheme` 컴포넌트가 키마다 `--freeter-<key>` CSS
   변수를 `document.documentElement`에 쓴다.
 - 포크 변경: `widgetLayoutItemResizingOpacity` 0.5 → 0.8 [fork #43].
+- 글자색 키 `textSecondary`, `accentText`, `dangerText` [fork #103]: 두 테마 모두 배경 대비 4.5:1 이상인 불투명 색이다. `componentColor60`,
+  `primary60` 같은 알파 단계의 숫자는 hex 알파 (0x60 = 37.6%)라서 글자에 쓰면 3:1 아래로 떨어진다. 알파 단계는 채움과 선에만 쓴다.
+  `inAppNoteColor`도 `textSecondary`와 같은 값이다.
 
 ### 공용 hook과 기본 컴포넌트
 

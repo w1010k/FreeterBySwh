@@ -110,6 +110,7 @@ function QueryRow({ entry, mode, widgetApi, historyListId, onSubmitted }: QueryR
         className={styles['web-query-input']}
         type='text'
         placeholder={descr}
+        aria-label={descr || 'Query'}
         value={typedQuery}
         list={historyListId}
         onChange={(e) => setTypedQuery(e.target.value)}

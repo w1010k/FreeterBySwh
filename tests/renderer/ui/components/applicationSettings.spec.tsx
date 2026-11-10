@@ -222,7 +222,7 @@ describe('<ApplicationSettings />', () => {
       const {updateApplicationSettingsUseCase} = await setup(fixtureAppState({
         ui: { modalScreens: fixtureModalScreens({ data: fixtureModalScreensData({ applicationSettings: fixtureApplicationSettings({ appConfig }) }) }) }
       }));
-      const select = screen.getByRole('combobox', {name: /^AI actions: always allow$/i});
+      const select = screen.getByRole('combobox', {name: /^AI Actions: Always Allow$/i});
       expect(select).toHaveValue('0');
       await userEvent.selectOptions(select, 'On');
       expect(updateApplicationSettingsUseCase).toHaveBeenCalledWith({...appConfig, aiAlwaysAllow: true});

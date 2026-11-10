@@ -4,9 +4,10 @@
  */
 
  .timer-button, .timer-run-screen-mmss {
-  font-family: 'Roboto Condensed';
+  font-family: 'Roboto Condensed', 'Malgun Gothic', sans-serif;
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums; // the countdown does not shift each second
  }
 
  .timer-run-screen {
@@ -16,7 +17,9 @@
   height: 100%;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  // A small widget scrolls to its buttons instead of cutting them off on both sides.
+  justify-content: safe center;
+  overflow: auto;
 }
 
 .timer-run-screen-mmss {
@@ -25,5 +28,7 @@
 
 .timer-run-buttons {
   display: flex;
+  flex-wrap: wrap; // Pause and Reset stack in a narrow widget
+  justify-content: center;
   gap: 6px;
 }

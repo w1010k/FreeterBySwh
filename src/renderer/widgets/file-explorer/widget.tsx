@@ -203,9 +203,9 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     return createPortal(
       <div className={styles['menu']} style={menuPos} data-file-tree-context-menu-root="true">
         <button onClick={() => { shell.openPath(abs); if (!isDir) { widgetApi.logActivity('file_open', { text: basenameOf(abs), detail: abs }); } context.close(); }}>{openLabel}</button>
-        {!isDir && <button onClick={() => { shell.openPath(dirnameOf(abs)); context.close(); }}>Open containing folder</button>}
+        {!isDir && <button onClick={() => { shell.openPath(dirnameOf(abs)); context.close(); }}>Open Containing Folder</button>}
         <button onClick={() => { clipboard.writeText(abs); context.close(); }}>Copy Path</button>
-        <button onClick={() => { clipboard.writeText(basenameOf(abs)); context.close(); }}>Copy name</button>
+        <button onClick={() => { clipboard.writeText(basenameOf(abs)); context.close(); }}>Copy Name</button>
       </div>,
       document.body
     );
@@ -236,7 +236,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
         enabled: true,
         icon: collapseAllSvg,
         id: 'COLLAPSE-ALL',
-        title: 'Collapse all',
+        title: 'Collapse All',
         doAction: async () => collapseAll()
       }
     ]);

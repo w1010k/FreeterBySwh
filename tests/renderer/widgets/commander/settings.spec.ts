@@ -14,18 +14,18 @@ describe('Commander Widget Settings', () => {
     const settings = fixtureSettings({ cmds: ['cmd1', 'cmd2'], cwd: 'some/dir' });
     setupSettingsSut(settingsEditorComp, settings);
 
-    const cmdLineInputs = screen.getByText('Command-Lines').parentElement!.querySelectorAll('input');
+    const cmdLineInputs = screen.getByText('Commands').parentElement!.querySelectorAll('input');
     expect(cmdLineInputs.length).toBe(2);
     expect(cmdLineInputs[0]).toHaveValue(settings.cmds[0]);
     expect(cmdLineInputs[1]).toHaveValue(settings.cmds[1]);
-    expect(screen.getByRole('textbox', { name: /working directory/i })).toHaveValue(settings.cwd);
+    expect(screen.getByRole('textbox', { name: /working folder/i })).toHaveValue(settings.cwd);
   })
 
   it('should allow to update "cmds" setting with text inputs', async () => {
     const testCmds = ['cmd1', 'cmd2'];
     const settings = fixtureSettings({ cmds: testCmds });
     const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
-    const cmdLineInputs = screen.getByText('Command-Lines').parentElement!.querySelectorAll('input');
+    const cmdLineInputs = screen.getByText('Commands').parentElement!.querySelectorAll('input');
     const testInput = cmdLineInputs[1];
 
     await userEvent.type(testInput, ' test');
@@ -37,7 +37,7 @@ describe('Commander Widget Settings', () => {
     const testCmds = ['cmd1', 'cmd2'];
     const settings = fixtureSettings({ cmds: testCmds });
     const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
-    const btn = screen.getByRole('button', { name: 'Add a command-line' });
+    const btn = screen.getByRole('button', { name: 'Add Command' });
 
     await userEvent.click(btn);
 
@@ -48,7 +48,7 @@ describe('Commander Widget Settings', () => {
     const testCmds = ['cmd1', 'cmd2', 'cmd3'];
     const settings = fixtureSettings({ cmds: testCmds });
     const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
-    const btn = screen.queryAllByRole('button', { name: 'Delete Command-line' })[1];
+    const btn = screen.queryAllByRole('button', { name: 'Delete Command' })[1];
 
     await userEvent.click(btn);
 
@@ -73,7 +73,7 @@ describe('Commander Widget Settings', () => {
     const testCwd = 'test/dir';
     const settings = fixtureSettings({ cwd: testCwd });
     const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
-    const testInput = screen.getByRole('textbox', { name: /working directory/i });
+    const testInput = screen.getByRole('textbox', { name: /working folder/i });
 
     await userEvent.type(testInput, '/subdir');
 
@@ -92,7 +92,7 @@ describe('Commander Widget Settings', () => {
         }
       }
     });
-    const btn = screen.getByRole('button', { name: /select directory/i });
+    const btn = screen.getByRole('button', { name: /select folder/i });
 
     await userEvent.click(btn);
 

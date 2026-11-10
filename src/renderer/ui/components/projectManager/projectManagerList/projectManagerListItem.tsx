@@ -25,11 +25,9 @@ export function ProjectManagerListItem(props: ProjectManagerListItemProps) {
   } = useProjectManagerListItemViewModel(props);
 
   return (
-    <a
-      className={clsx(styles['project-list-item'], isDropArea && styles['is-drop-area'])}
-      role="tab"
-      href=""
-      aria-selected={isCurrent}
+    // The tab holds only the name: a tab's content is presentational, so the action buttons sit next to it, not in it.
+    <div
+      className={clsx(styles['project-list-item'], isCurrent && styles['is-current'], isDropArea && styles['is-drop-area'])}
       draggable={true}
       onClick={onClickHandler}
       onDragStart={onDragStartHandler}
@@ -39,13 +37,18 @@ export function ProjectManagerListItem(props: ProjectManagerListItemProps) {
       onDragOver={onDragOverHandler}
       onDrop={onDropHandler}
     >
-      <div
+      <a
         className={styles['project-list-item-name']}
-      >{name}</div>
+        role="tab"
+        href=""
+        aria-selected={isCurrent}
+        draggable={false}
+      >{name}</a>
       <ActionBar
         actionBarItems={actionBarItems}
+        ariaLabel={`${name} actions`}
         className={clsx(styles['project-list-item-action-bar'], hasDeletionMark && styles['always-visible'])}
       ></ActionBar>
-    </a>
+    </div>
   )
 }

@@ -156,6 +156,13 @@ export function createAppManagerViewModelHook({
 
     const deleteAppAction: AppManagerListItemAppAction = useCallback((appId) => toggleDeletionInAppManagerUseCase(appId), [])
 
+    const moveAppAction = useCallback((appId: EntityId, offset: -1 | 1) => {
+      const idx = appIds ? appIds.indexOf(appId) : -1;
+      if (appIds && idx !== -1 && idx + offset >= 0 && idx + offset < appIds.length) {
+        updateAppsOrderInAppManagerUseCase(moveItemInList(appIds, idx, idx + offset));
+      }
+    }, [appIds])
+
     const duplicateAppAction: AppManagerListItemAppAction = useCallback((appId) => duplicateAppInAppManagerUseCase(appId), [])
 
 
@@ -170,6 +177,7 @@ export function createAppManagerViewModelHook({
       appAddedTrigger,
       deleteAppAction,
       duplicateAppAction,
+      moveAppAction,
       updateSettings,
       onOkClick,
       onCancelClick,

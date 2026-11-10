@@ -21,11 +21,11 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     ? <Button
         onClick={runCommands}
         iconSvg={execCommandSvg}
-        title={`Execute Command-line${cmds.length>1 ? 's' : ''}`}
+        title={`Run Command${cmds.length>1 ? 's' : ''}`}
         size='Fill'
       />
     : <div className={styles['not-configured']}>
-      No command-lines configured. Add command-lines in the widget settings.
+      No commands set. Add commands in the widget settings.
     </div>
 }
 

@@ -36,7 +36,7 @@ export function createOpenAnalyticsUseCase({
     try {
       await openAnalyticsInBrowser(getTelemetryEntitiesUseCase());
     } catch {
-      await dialogProvider.showMessageBox({ type: 'warning', message: 'Analytics 페이지를 열지 못했습니다.' });
+      await dialogProvider.showMessageBox({ type: 'warning', message: 'Could not open Analytics. Choose View > Analytics again. If it still fails, check that a default browser is set.' });
     }
   }
 }

@@ -30,7 +30,7 @@ function WidgetComp({settings}: WidgetReactComponentProps<Settings>) {
         });
         return (
           <div key={entry.id} className={styles['entry']}>
-            {entry.label !== '' && <div className={styles['label']}>{entry.label}</div>}
+            {entry.label !== '' && <div className={styles['label']} title={entry.label}>{entry.label}</div>}
             <div className={styles['time']}>{time}</div>
             {date && <div className={styles['date']}>{date}</div>}
           </div>

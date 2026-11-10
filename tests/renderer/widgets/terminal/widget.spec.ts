@@ -5,6 +5,7 @@
 
 import { act, screen, waitFor } from '@testing-library/react';
 import { forgetTerminalSession, widgetComp, resetTerminalSessions } from '@/widgets/terminal/widget';
+import { terminalThemes } from '@/widgets/terminal/theme';
 import { createSettingsState, Settings } from '@/widgets/terminal/settings';
 import { setupWidgetSut } from '@tests/widgets/setupSut';
 import { ActionBarItems } from '@/widgets/appModules';
@@ -15,13 +16,13 @@ import { markRevealedByAi, resetAiActivity } from '@/base/ai/aiActivity';
 // xterm needs a real canvas/DOM layout; the widget is tested against a stand-in.
 const terms: FakeTerminal[] = [];
 class FakeTerminal {
-  options: { fontSize?: number };
+  options: { fontSize?: number; theme?: { background?: string }; minimumContrastRatio?: number };
   cols = 80;
   rows = 24;
   written: string[] = [];
   disposed = false;
   private input?: (d: string) => void;
-  constructor(o: { fontSize?: number } = {}) {
+  constructor(o: { fontSize?: number; theme?: { background?: string }; minimumContrastRatio?: number } = {}) {
     this.options = { ...o };
     terms.push(this);
   }
@@ -529,6 +530,15 @@ describe('Terminal widget', () => {
     expect(openExternalUrl).not.toHaveBeenCalled();
     linkClicks[0](new MouseEvent('click', { ctrlKey: true }), 'https://example.com');
     expect(openExternalUrl).toHaveBeenCalledWith('https://example.com');
+  });
+
+  it('draws in the light or dark colors of the app theme', async () => {
+    const { pty } = setupPty();
+    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, sharedState: { uiTheme: { themeId: 'dark' } } });
+    await waitFor(() => expect(terms).toHaveLength(1));
+    expect(terms[0].options.theme).toBe(terminalThemes.dark);
+    // Readable on any background a program sets.
+    expect(terms[0].options.minimumContrastRatio).toBe(4.5);
   });
 
   it('zooms with Ctrl+= / Ctrl+- / Ctrl+wheel and goes back to the font size setting with Ctrl+0 (keys not sent to the shell)', async () => {

@@ -30,8 +30,9 @@
   padding: 30px 36px;
   box-sizing: border-box;
   overflow: auto;
+  overscroll-behavior: contain;
   h2, h3 {
-    font-family: 'Roboto Condensed';
+    font-family: 'Roboto Condensed', 'Malgun Gothic', sans-serif;
     text-align: center;
   }
   h2 {
@@ -40,7 +41,7 @@
   }
   h3 {
     font-size: 26px;
-    font-weight: 300;
+    font-weight: 400;
   }
   p {
     font-size: 14px;

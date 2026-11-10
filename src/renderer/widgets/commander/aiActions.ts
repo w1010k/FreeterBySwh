@@ -8,7 +8,7 @@ import { createTriggerAiAction, nonEmptyStrings } from '@/widgets/aiTrigger';
 
 export const commanderAiActions: WidgetAiAction[] = [createTriggerAiAction({
   name: 'runCommands',
-  description: 'Run the widget\'s command lines in a terminal (same as clicking it).',
+  description: 'Run the widget\'s commands in a terminal (same as clicking it).',
   apiKey: 'runCommands',
   // Every command is shown: the user is approving exactly what will run.
   describe: (widgetName, settings) => {

@@ -43,6 +43,7 @@ async function setup(
   const openWidgetSettingsUseCase = jest.fn();
   const addWidgetToShelfUseCase = jest.fn();
   const setShelfItemSizeUseCase = jest.fn();
+  const moveShelfItemUseCase = jest.fn();
   const pasteWidgetToShelfUseCase = jest.fn();
   const showContextMenuUseCase = jest.fn();
 
@@ -55,6 +56,7 @@ async function setup(
     dropOnTopBarListUseCase,
     addWidgetToShelfUseCase,
     setShelfItemSizeUseCase,
+    moveShelfItemUseCase,
     pasteWidgetToShelfUseCase,
     showContextMenuUseCase,
   })

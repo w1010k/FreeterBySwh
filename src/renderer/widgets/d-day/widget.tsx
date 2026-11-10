@@ -28,7 +28,7 @@ function WidgetComp({settings}: WidgetReactComponentProps<Settings>) {
         const res = entry.date ? formatDDay(entry.date, now) : null;
         const dateLine = settings.showDate ? formatDateWithWeekday(entry.date) : null;
         return (
-          <div key={entry.id} className={styles['entry']} title={entry.date || undefined}>
+          <div key={entry.id} className={styles['entry']} title={[entry.label, entry.date].filter(Boolean).join('\n') || undefined}>
             <div className={styles['row']}>
               <span className={styles['label']}>{entry.label || '(No label)'}</span>
               <span className={clsx(styles['count'], res?.isToday && styles['is-today'])}>

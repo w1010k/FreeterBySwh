@@ -155,6 +155,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
       onClick={start}
       caption={totalMmss}
       title='Start'
+      aria-label={`Start ${totalMmss}`}
       size='Fill'
       className={styles['timer-button']}
     />

@@ -71,8 +71,10 @@ async function setup({
     }
   );
 
+  const nudgeLayoutItemUseCase = Object.assign(jest.fn(), { canNudge: jest.fn(() => true) });
   const useWidgetViewModel = createWidgetViewModelHook({
     useAppState,
+    nudgeLayoutItemUseCase,
     openWidgetSettingsUseCase,
     deleteWidgetUseCase,
     showWidgetContextMenuUseCase,
@@ -98,6 +100,7 @@ async function setup({
     showWidgetContextMenuUseCase,
     showContextMenuUseCase,
     getWidgetApiUseCase,
+    nudgeLayoutItemUseCase,
   }
 }
 
@@ -305,6 +308,37 @@ describe('<Widget />', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'New Tab: choose' }));
     expect(showContextMenuUseCase).toHaveBeenCalledWith(addMenu);
+  })
+
+  it('should name the tab list and the action bar, and show a cut tab label in full on hover', async () => {
+    await setup({
+      appState: fixtureAppState({
+        entities: {
+          widgetTypes: {
+            ...fixtureWidgetTypeAInColl({
+              id: widgetTypeId1,
+              widgetComp: {
+                type: 'react',
+                Comp: ({widgetApi}) => {
+                  useEffect(() => {
+                    widgetApi.setHeaderTabs({ tabs: [{label: 'A long shell title'}], active: 0, onSelect: jest.fn(), onAdd: jest.fn() });
+                    widgetApi.updateActionBar([fixtureActionBarItemA()]);
+                  }, [widgetApi])
+                  return <></>;
+                }
+              } as WidgetReactComponent
+            }),
+          }
+        }
+      }),
+      widget: fixtureWidgetA({ type: widgetTypeId1, coreSettings: { name: 'Shells' } }),
+    });
+
+    expect(screen.getByRole('tablist', { name: 'Shells tabs' })).toBeInTheDocument();
+    expect(screen.getByRole('toolbar', { name: 'Shells actions' })).toBeInTheDocument();
+    expect(screen.getByRole('tab')).toHaveAttribute('title', 'A long shell title');
+    // The flex header layout (tabs, +, the action bar in one row) hangs on this class.
+    expect(screen.getByRole('tablist').closest('.widget-header')).toHaveClass('widget-header-with-tabs');
   })
 
   it('should show no + or x for tabs that only switch (a webpage)', async () => {
@@ -1007,6 +1041,7 @@ describe('<Widget />', () => {
     });
 
     expect(screen.getByText('Unknown widget type')).toBeInTheDocument()
+    expect(screen.getByText(/Turn on Edit Mode to delete it/)).toBeInTheDocument();
 
     expect(screen.queryByTestId(testId1)).not.toBeInTheDocument();
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
@@ -1077,6 +1112,40 @@ describe('<Widget />', () => {
     });
 
     expect(screen.getByText(testEnvProjectId)).toBeInTheDocument();
+  })
+
+  it('should offer Move and Resize in edit mode for a workflow widget, one grid cell per step', async () => {
+    const env = fixtureWidgetEnvAreaWorkflow({ workflowId: 'WF' });
+    const { showContextMenuUseCase, nudgeLayoutItemUseCase } = await setup({
+      appState: fixtureAppState({
+        entities: { widgetTypes: { ...fixtureWidgetTypeAInColl({ id: widgetTypeId1 }) } },
+        ui: { editMode: true }
+      }),
+      env,
+      widget: fixtureWidgetA({ id: widgetId, type: widgetTypeId1 }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /more actions/i }));
+    const items = showContextMenuUseCase.mock.calls.at(-1)?.[0] as { label?: string; submenu?: { label?: string; doAction?: () => Promise<void> }[] }[];
+    await items.find(item => item.label === 'Move')!.submenu!.find(item => item.label === 'Left')!.doAction!();
+    await items.find(item => item.label === 'Resize')!.submenu!.find(item => item.label === 'Taller')!.doAction!();
+
+    expect(nudgeLayoutItemUseCase).toHaveBeenNthCalledWith(1, 'WF', widgetId, { x: -1 });
+    expect(nudgeLayoutItemUseCase).toHaveBeenNthCalledWith(2, 'WF', widgetId, { h: 1 });
+  })
+
+  it('should offer no Move or Resize for a shelf widget', async () => {
+    const { showContextMenuUseCase } = await setup({
+      appState: fixtureAppState({
+        entities: { widgetTypes: { ...fixtureWidgetTypeAInColl({ id: widgetTypeId1 }) } },
+        ui: { editMode: true }
+      }),
+      widget: fixtureWidgetA({ id: widgetId, type: widgetTypeId1 }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /more actions/i }));
+    const items = showContextMenuUseCase.mock.calls.at(-1)?.[0] as { label?: string }[];
+    expect(items.map(item => item.label)).not.toContain('Move');
   })
 
   it('should have access to the current settings state', async () => {

@@ -108,11 +108,11 @@ export function createWidgetLayoutViewModelHook({
     curWorkflowId: EntityId,
   ) => MenuItems = (widgetTypes, copiedWidgets, curWorkflowId) => [{
     enabled: true,
-    label: 'Add Widget...',
+    label: 'Add Widget',
     submenu: buildAddMenuItems(widgetTypes, curWorkflowId)
   }, {
     enabled: true,
-    label: 'Paste Widget...',
+    label: 'Paste Widget',
     submenu: buildPasteMenuItems(copiedWidgets, curWorkflowId)
   }]
 

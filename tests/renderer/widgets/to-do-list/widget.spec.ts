@@ -42,6 +42,29 @@ describe('To-Do List Widget', () => {
     expect(exposeApi).toHaveBeenLastCalledWith({});
   });
 
+  it('Delete Completed Items keeps an item added while the confirm dialog was open', async () => {
+    const exposeApi = jest.fn();
+    const setContextMenuFactory = jest.fn();
+    const api: { current?: { todo: { set(s: ToDoListState): void } } } = {};
+    const confirm = jest.fn(async () => {
+      // Another writer (here the AI api) adds an item while the dialog is open.
+      act(() => api.current!.todo.set({ items: [{ id: 1, isDone: true, text: 'Done' }, { id: 2, isDone: false, text: 'Added' }], nextItemId: 3 }));
+      return true;
+    });
+    const testState: ToDoListState = { items: [{ id: 1, isDone: true, text: 'Done' }], nextItemId: 2 };
+    setupToDoListWidgetSut(fixtureSettings({}), {
+      mockWidgetApi: { exposeApi, setContextMenuFactory, confirm, dataStorage: { getJson: jest.fn().mockResolvedValue(testState), setJson: jest.fn() } }
+    });
+    await screen.findByText('Done');
+    api.current = exposeApi.mock.calls.at(-1)?.[0];
+    const items = setContextMenuFactory.mock.calls.at(-1)?.[0]('', {}) as { label?: string; doAction?: () => Promise<void> }[];
+
+    await act(async () => { await items.find(item => item.label === 'Delete Completed Items')!.doAction!(); });
+
+    expect(screen.queryByText('Done')).not.toBeInTheDocument();
+    expect(screen.getByText('Added')).toBeInTheDocument();
+  });
+
   it('AI setDone does what the checkbox does, usage log included', async () => {
     const exposeApi = jest.fn();
     const logActivity = jest.fn();

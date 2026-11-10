@@ -11,6 +11,8 @@ import { clickActionBarItemUseCase } from '@/application/useCases/actionBar/clic
 export interface ActionBarProps {
   actionBarItems: ActionBarItems;
   className?: string;
+  /** Tells several toolbars on one screen apart. */
+  ariaLabel?: string;
 }
 
 export function useActionBarViewModel(props: ActionBarProps) {

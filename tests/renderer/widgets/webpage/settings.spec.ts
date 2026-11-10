@@ -130,7 +130,7 @@ describe('Webpage Widget Settings', () => {
     const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
     const user = userEvent.setup({ delay: null });
 
-    await user.click(screen.getByRole('button', { name: /add a tab/i }));
+    await user.click(screen.getByRole('button', { name: /add tab/i }));
     expect(getSettings()).toEqual({
       ...settings,
       tabs: [{ url: 'https://a/', name: '' }, { url: '', name: '' }]
@@ -193,7 +193,7 @@ describe('Webpage Widget Settings', () => {
     const { fireEvent, userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
     const user = userEvent.setup({ delay: null });
 
-    await user.click(screen.getByRole('button', { name: /add an action/i }));
+    await user.click(screen.getByRole('button', { name: /add action/i }));
     expect(getSettings()).toEqual({ ...settings, customActions: [{ name: '', js: '' }] });
 
     const jsInput = screen.getByRole('textbox', { name: /action js 1/i });

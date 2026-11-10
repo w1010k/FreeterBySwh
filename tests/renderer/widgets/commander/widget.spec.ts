@@ -28,24 +28,24 @@ describe('Commander Widget', () => {
   it('should render a "not configured" note, if cmds is empty', () => {
     setupCommanderWidgetSut(fixtureSettings({ cmds: [] }));
 
-    expect(screen.getByText(/no command-lines configured/i)).toBeInTheDocument();
+    expect(screen.getByText(/no commands set/i)).toBeInTheDocument();
   })
   it('should render a "not configured" note, if all cmds are empty strings', () => {
     setupCommanderWidgetSut(fixtureSettings({ cmds: ['', ''] }));
 
-    expect(screen.getByText(/no command-lines configured/i)).toBeInTheDocument();
+    expect(screen.getByText(/no commands set/i)).toBeInTheDocument();
   })
 
-  it('should render a button with "Execute Command-line" title, if cmds has only one non-empty string', () => {
+  it('should render a button with "Run Command" title, if cmds has only one non-empty string', () => {
     setupCommanderWidgetSut(fixtureSettings({ cmds: ['', 'cmd1'] }));
 
-    expect(screen.getByRole('button', { name: /execute Command-line/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /run Command/i })).toBeInTheDocument();
   })
 
-  it('should render a button with "Execute Command-lines" title, if cmds has multiple non-empty string', () => {
+  it('should render a button with "Run Commands" title, if cmds has multiple non-empty string', () => {
     setupCommanderWidgetSut(fixtureSettings({ cmds: ['', 'cmd1', 'cmd2'] }));
 
-    expect(screen.getByRole('button', { name: /execute Command-lines/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /run Commands/i })).toBeInTheDocument();
   })
 
   it('should call execCmdLines with non-empty cmds and cwd, when clicking the execute button', async () => {
@@ -61,7 +61,7 @@ describe('Commander Widget', () => {
       }
     );
 
-    await userEvent.click(screen.getByRole('button', { name: /execute Command-lines/i }))
+    await userEvent.click(screen.getByRole('button', { name: /run Commands/i }))
 
     expect(execCmdLines).toHaveBeenCalledTimes(1);
     expect(execCmdLines).toHaveBeenCalledWith(['cmd1', 'cmd2'], 'some/dir');
@@ -80,7 +80,7 @@ describe('Commander Widget', () => {
       }
     );
 
-    await userEvent.click(screen.getByRole('button', { name: /execute Command-lines/i }))
+    await userEvent.click(screen.getByRole('button', { name: /run Commands/i }))
 
     expect(execCmdLines).toHaveBeenCalledTimes(1);
     expect(execCmdLines).toHaveBeenCalledWith(['cmd1', 'cmd2'], undefined);

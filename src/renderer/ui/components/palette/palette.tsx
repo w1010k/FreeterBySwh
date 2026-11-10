@@ -53,8 +53,23 @@ export function createPaletteComponent({
       ? widgetTypes
       : widgetTypes.filter(item => item.name.toLowerCase().includes(query));
 
+    const closeOnEscape = (e: React.KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented && !e.nativeEvent.isComposing && !e.repeat && e.target instanceof HTMLElement) {
+        e.preventDefault();
+        e.target.blur();
+      }
+    };
+    // Enter or Space on a trigger goes into its (already open) section.
+    const enterSection = (e: React.KeyboardEvent<HTMLElement>) => {
+      if ((e.key === 'Enter' || e.key === ' ') && !e.repeat && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
+        e.preventDefault();
+        e.currentTarget.nextElementSibling?.querySelector<HTMLElement>('input, [tabindex="0"]')?.focus();
+      }
+    };
+
     return (
       <div
+        onKeyDown={closeOnEscape}
         className={clsx(
           styles.palette,
           hideSections && styles['hide-sections'],
@@ -64,11 +79,12 @@ export function createPaletteComponent({
         )}
       >
         {/* The sections are CSS hover/focus dropdowns; the spans are their
-            triggers (focus also opens them — see the :focus rules in scss). */}
-        <span className={clsx(styles['palette-tab'], styles['palette-tab-add'])} tabIndex={0} role="button"
+            triggers (focus also opens them: see the :focus rules in scss).
+            Each trigger comes right before its section, so Tab goes from it
+            into the open section (search, items) before the next trigger.
+            Escape closes an open one by taking the focus out of it. */}
+        <span className={clsx(styles['palette-tab'], styles['palette-tab-add'])} tabIndex={0} role="button" onKeyDown={enterSection}
               aria-haspopup="true">Add Widget</span>
-        <span className={clsx(styles['palette-tab'], styles['palette-tab-paste'])} tabIndex={0} role="button"
-              aria-haspopup="true">Paste Widget</span>
         <div
           data-testid="palette-add"
           className={clsx(styles['palette-section'], styles['palette-section-add'])}
@@ -98,6 +114,8 @@ export function createPaletteComponent({
           </ul>
           {visibleWidgetTypes.length === 0 && <div className={styles['palette-sectionnote']}>No widgets found</div>}
         </div>
+        <span className={clsx(styles['palette-tab'], styles['palette-tab-paste'])} tabIndex={0} role="button" onKeyDown={enterSection}
+              aria-haspopup="true">Paste Widget</span>
         {
           copiedWidgets.length > 0
             ? <ul

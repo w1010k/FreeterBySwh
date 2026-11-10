@@ -59,7 +59,8 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
             id={'file-explorer-path' + i}
             type='text'
             value={path}
-            placeholder='Enter a folder path'
+            placeholder='A folder to show, e.g. Documents'
+            aria-label={`Folder ${i + 1}`}
             onChange={e => updPath(i, e.target.value)}
           />
           <SettingActions
@@ -100,7 +101,7 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
             addPath();
             shouldFocusLastPathRef.current = true;
           }}
-          caption='Add a folder path'
+          caption='Add Folder'
           primary={true}
         ></Button>
       </div>

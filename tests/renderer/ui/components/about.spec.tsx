@@ -64,6 +64,14 @@ describe('<About />', () => {
     expect(closeAboutUseCase).toHaveBeenCalledTimes( 1);
   })
 
+  it('should close with Escape', async () => {
+    const {closeAboutUseCase} = await setup();
+
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+
+    expect(closeAboutUseCase).toHaveBeenCalledTimes(1);
+  })
+
   it('should display the version info returned by getAboutInfoUseCase', async () => {
     const browserVer = 'TEST-BROWSER-VER';
     const builtAt = 'TEST-BUILT-AT';

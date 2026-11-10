@@ -158,7 +158,7 @@ describe('Note Widget', () => {
     setupNoteWidgetSut();
 
     await waitFor(() => {
-      expect(screen.getByText('Loading Note...')).toBeInTheDocument();
+      expect(screen.getByText('Loading note…')).toBeInTheDocument();
       expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     })
   })
@@ -167,12 +167,12 @@ describe('Note Widget', () => {
     setupNoteWidgetSut();
 
     await waitFor(() => {
-      expect(screen.getByText('Loading Note...')).toBeInTheDocument();
+      expect(screen.getByText('Loading note…')).toBeInTheDocument();
       expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     })
 
     await waitFor(() => {
-      expect(screen.queryByText('Loading Note...')).not.toBeInTheDocument();
+      expect(screen.queryByText('Loading note…')).not.toBeInTheDocument();
       expect(screen.getByRole('textbox')).toBeInTheDocument();
     })
   })

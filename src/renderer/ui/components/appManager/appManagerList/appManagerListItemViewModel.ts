@@ -6,12 +6,14 @@
 import { ActionBarItems } from '@/base/actionBar';
 import { App } from '@/base/app';
 import { EntityId } from '@/base/entity';
-import { delete14Svg, duplicate14Svg } from '@/ui/assets/images/appIcons';
+import { arrDown14Svg, arrUp14Svg, delete14Svg, duplicate14Svg } from '@/ui/assets/images/appIcons';
 import { DragEvent, MouseEvent, useCallback, useMemo } from 'react';
 
 export type AppManagerListItemOnMouseEvent = (evt: MouseEvent<HTMLElement>, appId: EntityId) => void;
 export type AppManagerListItemOnDragEvent = (evt: DragEvent<HTMLElement>, appId: EntityId) => void;
 export type AppManagerListItemAppAction = (itemId: EntityId) => void;
+/** One place up (-1) or down (1): the keyboard and button way to do what dragging an item does. */
+export type AppManagerListItemMoveAction = (itemId: EntityId, offset: -1 | 1) => void;
 
 export interface AppManagerListItemProps {
   app: App;
@@ -27,6 +29,9 @@ export interface AppManagerListItemProps {
   onDrop: AppManagerListItemOnDragEvent;
   deleteAppAction: AppManagerListItemAppAction;
   duplicateAppAction: AppManagerListItemAppAction;
+  moveAppAction: AppManagerListItemMoveAction;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
 }
 
 export function useAppManagerListItemViewModel(props: AppManagerListItemProps) {
@@ -37,6 +42,9 @@ export function useAppManagerListItemViewModel(props: AppManagerListItemProps) {
     app,
     deleteAppAction,
     duplicateAppAction,
+    moveAppAction,
+    canMoveUp,
+    canMoveDown,
     isDropArea,
     onDragEnd,
     onDragEnter,
@@ -80,7 +88,36 @@ export function useAppManagerListItemViewModel(props: AppManagerListItemProps) {
     onDrop(evt, id);
   }, [id, onDrop])
 
+  // The list re-renders in the new order; keep the keyboard focus on the button pressed (the same DOM node, moved),
+  // or on the item once that button turns disabled at an end of the list.
+  const moveKeepingFocus = useCallback((offset: -1 | 1) => {
+    const pressed = document.activeElement;
+    moveAppAction(id, offset);
+    setTimeout(() => {
+      if (pressed instanceof HTMLButtonElement && pressed.isConnected) {
+        // The item (the draggable row) holds the tab next to its action bar.
+        (pressed.disabled ? pressed.closest('[draggable]')?.querySelector<HTMLElement>('[role="tab"]') : pressed)?.focus();
+      }
+    });
+  }, [id, moveAppAction])
+
   const actionBarItems = useMemo<ActionBarItems>(() => [{
+    enabled: canMoveUp,
+    icon: arrUp14Svg,
+    id: 'MOVE-APP-UP',
+    title: 'Move Up',
+    doAction: async () => {
+      moveKeepingFocus(-1);
+    }
+  }, {
+    enabled: canMoveDown,
+    icon: arrDown14Svg,
+    id: 'MOVE-APP-DOWN',
+    title: 'Move Down',
+    doAction: async () => {
+      moveKeepingFocus(1);
+    }
+  }, {
     enabled: true,
     icon: duplicate14Svg,
     id: 'DUPLICATE-APP',
@@ -97,7 +134,7 @@ export function useAppManagerListItemViewModel(props: AppManagerListItemProps) {
     doAction: async () => {
       deleteAppAction(id);
     }
-  }], [hasDeletionMark, id, deleteAppAction, duplicateAppAction])
+  }], [hasDeletionMark, id, deleteAppAction, duplicateAppAction, moveKeepingFocus, canMoveUp, canMoveDown])
 
   return {
     name,

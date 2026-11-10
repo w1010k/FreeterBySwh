@@ -23,11 +23,12 @@ export type { ContextMenuEvent } from '@/ui/types/events';
 export type { List } from '@/base/list';
 export type { SettingActionsProps, SettingBlockProps, SettingRowProps } from '@/ui/components/basic/settingsScreen/setting';
 
-export { arrDown14Svg, arrUp14Svg, browse14Svg, delete14Svg, manage14Svg } from '@/ui/assets/images/appIcons';
+export { arrDown14Svg, arrUp14Svg, browse14Svg, close14Svg, delete14Svg, manage14Svg } from '@/ui/assets/images/appIcons';
 
 export { mapIdListToEntityList } from '@/base/entityList';
 export { getEntitiesArrayFromEntityCollection } from '@/base/entityCollection';
 export { addItemToList, moveItemInList, removeItemFromList } from '@/base/list';
 export { ActionBar } from '@/ui/components/basic/actionBar';
 export { Button } from '@/ui/components/basic/button';
+export { SvgIcon } from '@/ui/components/basic/svgIcon';
 export { SettingActions, SettingBlock, SettingRow } from '@/ui/components/basic/settingsScreen/setting';

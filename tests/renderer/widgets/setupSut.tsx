@@ -24,6 +24,9 @@ function setupSut<T>(
     },
     sharedDataKeys: {
       sharedDataKeys: {}
+    },
+    uiTheme: {
+      themeId: 'light'
     }
   }
 
@@ -102,6 +105,7 @@ export function setupWidgetSut<T>(reactComp: ReactComponent<WidgetReactComponent
     exposeApi: mockWidgetApi.exposeApi || jest.fn(),
     setDynamicTitle: mockWidgetApi.setDynamicTitle || jest.fn(),
     logActivity: mockWidgetApi.logActivity || jest.fn(),
+    confirm: mockWidgetApi.confirm || jest.fn(async () => false),
     revealWidget: mockWidgetApi.revealWidget || jest.fn(),
     clipboard: {
       writeBookmark: jest.fn(),

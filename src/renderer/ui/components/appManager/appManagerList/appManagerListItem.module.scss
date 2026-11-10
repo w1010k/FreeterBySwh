@@ -6,7 +6,6 @@
 .app-list-item {
   display: flex;
   width: 100%;
-  outline-offset: -2px;
   color: var(--freeter-appManagerListItemColor);
   background-color: var(--freeter-appManagerListItemBackground);
   border: 1px solid transparent;
@@ -17,7 +16,7 @@
     color: var(--freeter-appManagerListItemHoverColor);
     background-color: var(--freeter-appManagerListItemHoverBackground);
   }
-  &[aria-selected="true"] {
+  &.is-current {
     color: var(--freeter-appManagerListItemSelectedColor);
     background-color: var(--freeter-appManagerListItemSelectedBackground);
   }
@@ -28,6 +27,9 @@
 
 .app-list-item-name {
   flex: 1;
+  outline-offset: -2px; // the focusable tab; the ring stays inside the row
+  color: inherit;
+  text-decoration: none;
   text-align: left;
   padding: 0 12px;
   overflow: hidden;

@@ -27,6 +27,7 @@ import { Workflow } from '@/base/workflow';
 import { WorkflowEntityDeps } from '@/base/state/entities';
 import { PasteWorkflowUseCase } from '@/application/useCases/workflowSwitcher/pasteWorkflow';
 import { CopyWorkflowUseCase } from '@/application/useCases/workflow/copyWorkflow';
+import { MoveWorkflowUseCase } from '@/application/useCases/workflowSwitcher/moveWorkflow';
 
 type Deps = {
   useAppState: UseAppState;
@@ -43,6 +44,7 @@ type Deps = {
   showContextMenuUseCase: ShowContextMenuUseCase;
   copyWorkflowUseCase: CopyWorkflowUseCase;
   pasteWorkflowUseCase: PasteWorkflowUseCase;
+  moveWorkflowUseCase: MoveWorkflowUseCase;
 }
 
 export function createWorkflowSwitcherViewModelHook({
@@ -60,6 +62,7 @@ export function createWorkflowSwitcherViewModelHook({
   showContextMenuUseCase,
   copyWorkflowUseCase,
   pasteWorkflowUseCase,
+  moveWorkflowUseCase,
 }: Deps) {
   function buildPasteMenuItems(
     copiedWorkflows: EntityList<CopiedEntitiesItem<Workflow, WorkflowEntityDeps>>,
@@ -79,7 +82,7 @@ export function createWorkflowSwitcherViewModelHook({
     showContextMenuUseCase([
       {
         enabled: true,
-        label: 'Paste Workflow...',
+        label: 'Paste Workflow',
         submenu: buildPasteMenuItems(copiedWorkflows)
       }
     ])
@@ -100,7 +103,7 @@ export function createWorkflowSwitcherViewModelHook({
     enabled: true,
     icon: more14Svg,
     id: 'MORE-ACTIONS',
-    title: 'More Actions...',
+    title: 'More Actions',
     doAction: async () => {
       showMoreActions(copiedWorkflows);
     }
@@ -157,7 +160,7 @@ export function createWorkflowSwitcherViewModelHook({
     enabled: true,
     icon: more14Svg,
     id: 'MORE-ACTIONS',
-    title: 'More Actions...',
+    title: 'More Actions',
     doAction: async () => {
       showMoreActionsForItem(id, setItemIdInEditNameMode);
     }
@@ -175,11 +178,28 @@ export function createWorkflowSwitcherViewModelHook({
 
   const contextMenuItemsViewMode: MenuItems = [];
 
+  // Moving a tab without dragging it (keyboard: the context menu key), in Edit Mode as dragging. Up and down on a side bar.
+  const createMoveMenuItems = (projectId: EntityId, workflowIds: ReadonlyArray<EntityId>, id: EntityId, vertical: boolean): MenuItems => {
+    const idx = workflowIds.indexOf(id);
+    return [{
+      enabled: idx > 0,
+      label: vertical ? 'Move Up' : 'Move Left',
+      doAction: async () => moveWorkflowUseCase(projectId, id, -1)
+    }, {
+      enabled: idx > -1 && idx < workflowIds.length - 1,
+      label: vertical ? 'Move Down' : 'Move Right',
+      doAction: async () => moveWorkflowUseCase(projectId, id, 1)
+    }, {
+      type: 'separator'
+    }];
+  }
+
   const createItemContextMenuItemsEditMode: (
     id: EntityId,
     setItemIdInEditNameMode: (id: string | undefined) => void,
-    copiedWorkflows: EntityList<CopiedEntitiesItem<Workflow, WorkflowEntityDeps>>
-  ) => MenuItems = (id, setItemIdInEditNameMode, copiedWorkflows) => [{
+    copiedWorkflows: EntityList<CopiedEntitiesItem<Workflow, WorkflowEntityDeps>>,
+    moveItems: MenuItems
+  ) => MenuItems = (id, setItemIdInEditNameMode, copiedWorkflows, moveItems) => [{
     enabled: true,
     label: 'Rename Workflow',
     doAction: async () => {
@@ -201,7 +221,7 @@ export function createWorkflowSwitcherViewModelHook({
     }
   }, {
     type: 'separator'
-  }, {
+  }, ...moveItems, {
     enabled: true,
     label: 'Copy Workflow',
     doAction: async () => {
@@ -209,7 +229,7 @@ export function createWorkflowSwitcherViewModelHook({
     }
   }, {
     enabled: true,
-    label: 'Paste Workflow...',
+    label: 'Paste Workflow',
     submenu: buildPasteMenuItems(copiedWorkflows, id)
   }, {
     type: 'separator'
@@ -385,12 +405,18 @@ export function createWorkflowSwitcherViewModelHook({
 
 
     const onItemContextMenu = useCallback((e: MouseEvent<HTMLElement>, itemId: EntityId) => {
+      const vertical = workflowBarPos === 'left' || workflowBarPos === 'right';
       const contextMenuItems: MenuItems =
         isEditMode
-          ? createItemContextMenuItemsEditMode(itemId, setItemIdInEditNameMode, copiedWorkflows)
+          ? createItemContextMenuItemsEditMode(
+            itemId,
+            setItemIdInEditNameMode,
+            copiedWorkflows,
+            createMoveMenuItems(currentProjectId, workflowIds ?? [], itemId, vertical)
+          )
           : createItemContextMenuItemsViewMode(itemId);
       showContextMenuUseCase(contextMenuItems);
-    }, [copiedWorkflows, isEditMode])
+    }, [copiedWorkflows, isEditMode, currentProjectId, workflowIds, workflowBarPos])
 
     const showPrjSwitcherLeft = prjSwitcherPos === ProjectSwitcherPos.TabBarLeft;
     const showPrjSwitcherRight = prjSwitcherPos === ProjectSwitcherPos.TabBarRight;

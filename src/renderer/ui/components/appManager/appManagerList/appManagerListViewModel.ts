@@ -6,7 +6,7 @@
 import { App } from '@/base/app';
 import { EntityId } from '@/base/entity';
 import { EntityList } from '@/base/entityList';
-import { AppManagerListItemAppAction, AppManagerListItemOnDragEvent, AppManagerListItemOnMouseEvent } from '@/ui/components/appManager/appManagerList/appManagerListItemViewModel';
+import { AppManagerListItemMoveAction, AppManagerListItemAppAction, AppManagerListItemOnDragEvent, AppManagerListItemOnMouseEvent } from '@/ui/components/appManager/appManagerList/appManagerListItemViewModel';
 import { MouseEvent } from 'react';
 
 export interface AppManagerListProps {
@@ -16,6 +16,7 @@ export interface AppManagerListProps {
   deleteAppIds: Record<EntityId, boolean>;
   deleteAppAction: AppManagerListItemAppAction;
   duplicateAppAction: AppManagerListItemAppAction;
+  moveAppAction: AppManagerListItemMoveAction;
   onListItemClick: AppManagerListItemOnMouseEvent;
   onListItemDragStart: AppManagerListItemOnDragEvent;
   onListItemDragEnd: AppManagerListItemOnDragEvent;

@@ -55,6 +55,7 @@ async function setup(
   const showContextMenuUseCase = jest.fn();
   const copyWorkflowUseCase = jest.fn();
   const pasteWorkflowUseCase = jest.fn();
+  const moveWorkflowUseCase = jest.fn();
 
   const useWorkflowSwitcherViewModel = createWorkflowSwitcherViewModelHook({
     useAppState,
@@ -71,6 +72,7 @@ async function setup(
     showContextMenuUseCase,
     copyWorkflowUseCase,
     pasteWorkflowUseCase,
+    moveWorkflowUseCase,
   })
   const WorkflowSwitcher = createWorkflowSwitcherComponent({
     useWorkflowSwitcherViewModel,
@@ -97,6 +99,7 @@ async function setup(
     renameWorkflowUseCase,
     deleteWorkflowUseCase,
     showContextMenuUseCase,
+    moveWorkflowUseCase,
   }
 }
 
@@ -458,7 +461,7 @@ describe('<WorkflowSwitcher />', () => {
         }
       }));
 
-      expect(screen.queryByRole('textbox', { name: /^name$/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('textbox', { name: /^workflow name$/i })).not.toBeInTheDocument();
     })
 
     it('should display and focus the Name input field with a value=name in the current (added) tab, when adding a new workflow', async () => {
@@ -488,7 +491,7 @@ describe('<WorkflowSwitcher />', () => {
         name: /Add Workflow/i
       }));
 
-      const nameInput: HTMLInputElement = screen.getByRole('textbox', { name: /^name$/i });
+      const nameInput: HTMLInputElement = screen.getByRole('textbox', { name: /^workflow name$/i });
       expect(screen.getAllByRole('tab')[2].parentElement).toContainElement(nameInput);
       expect(nameInput).toHaveValue('Workflow 3');
       expect(nameInput).toHaveFocus();
@@ -521,7 +524,7 @@ describe('<WorkflowSwitcher />', () => {
 
       fireEvent.click(elNonCurTab);
 
-      expect(screen.queryByRole('textbox', { name: /^name$/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('textbox', { name: /^workflow name$/i })).not.toBeInTheDocument();
     })
     it('should not display the Name input field, when clicking the current tab ane edit mode is off', async () => {
       const idP = 'P';
@@ -550,7 +553,7 @@ describe('<WorkflowSwitcher />', () => {
 
       fireEvent.click(elCurTab);
 
-      expect(screen.queryByRole('textbox', { name: /^name$/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('textbox', { name: /^workflow name$/i })).not.toBeInTheDocument();
     })
     it('should display and focus the Name input field with a value=name, when clicking the current tab ane edit mode is on', async () => {
       const idP = 'P';
@@ -579,7 +582,7 @@ describe('<WorkflowSwitcher />', () => {
 
       fireEvent.click(elCurTab);
 
-      const nameInput: HTMLInputElement = screen.getByRole('textbox', { name: /^name$/i });
+      const nameInput: HTMLInputElement = screen.getByRole('textbox', { name: /^workflow name$/i });
       expect(elCurTab.parentElement).toContainElement(nameInput);
       expect(nameInput).toHaveValue('Workflow 2');
       expect(nameInput).toHaveFocus();
@@ -613,9 +616,9 @@ describe('<WorkflowSwitcher />', () => {
       }));
 
       act(()=> {
-        screen.getByRole('textbox', { name: /^name$/i }).blur();
+        screen.getByRole('textbox', { name: /^workflow name$/i }).blur();
       })
-      expect(screen.queryByRole('textbox', { name: /^name$/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('textbox', { name: /^workflow name$/i })).not.toBeInTheDocument();
     })
 
     it('should remove the Name input field, when the user presses Enter', async () => {
@@ -645,9 +648,9 @@ describe('<WorkflowSwitcher />', () => {
         name: /Add Workflow/i
       }));
 
-      fireEvent.keyDown(screen.getByRole('textbox', { name: /^name$/i }), {key: 'Enter', code: 'Enter', charCode: 13})
+      fireEvent.keyDown(screen.getByRole('textbox', { name: /^workflow name$/i }), {key: 'Enter', code: 'Enter', charCode: 13})
 
-      expect(screen.queryByRole('textbox', { name: /^name$/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('textbox', { name: /^workflow name$/i })).not.toBeInTheDocument();
     })
 
     it('should not remove the Name input field, when the user presses non-Enter', async () => {
@@ -677,9 +680,9 @@ describe('<WorkflowSwitcher />', () => {
         name: /Add Workflow/i
       }));
 
-      fireEvent.keyDown(screen.getByRole('textbox', { name: /^name$/i }), {key: 'A', code: 'KeyA'})
+      fireEvent.keyDown(screen.getByRole('textbox', { name: /^workflow name$/i }), {key: 'A', code: 'KeyA'})
 
-      expect(screen.queryByRole('textbox', { name: /^name$/i })).toBeInTheDocument();
+      expect(screen.queryByRole('textbox', { name: /^workflow name$/i })).toBeInTheDocument();
     })
 
     it('should call the rename workflow usecase with right params, when typing into Name input field', async () => {
@@ -710,7 +713,7 @@ describe('<WorkflowSwitcher />', () => {
         name: /Add Workflow/i
       }));
 
-      const nameInput: HTMLInputElement = screen.getByRole('textbox', { name: /^name$/i });
+      const nameInput: HTMLInputElement = screen.getByRole('textbox', { name: /^workflow name$/i });
 
       await userEvent.type(nameInput, addToName);
 

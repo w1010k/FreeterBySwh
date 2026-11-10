@@ -19,7 +19,7 @@ export const SettingsScreen = ({
 }: SettingsScreenProps) => (
   <ModalScreen
     buttons={[
-      {id: 'ok', caption: 'Ok', primary: true, onClick: onOkClick},
+      {id: 'ok', caption: 'OK', primary: true, onClick: onOkClick},
       {id: 'cancel', caption: 'Cancel', onClick: onCancelClick},
     ]}
     className={className}

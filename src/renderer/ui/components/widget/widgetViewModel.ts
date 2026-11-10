@@ -3,9 +3,10 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
+import { LayoutItemNudge, NudgeLayoutItemUseCase } from '@/application/useCases/worktable/nudgeLayoutItem';
 import { ShowWidgetContextMenuUseCase } from '@/application/useCases/widget/showWidgetContextMenu';
 import { entityStateActions } from '@/base/state/actions';
-import { Widget, WidgetContextMenuFactory, WidgetEnv, getWidgetDisplayName } from '@/base/widget';
+import { Widget, WidgetContextMenuFactory, WidgetEnv, WidgetMenuItem, getWidgetDisplayName } from '@/base/widget';
 import { ActionBarItem, ActionBarItems } from '@/base/actionBar';
 import { WidgetHeaderTabs } from '@/base/widgetApi';
 import { UseAppState } from '@/ui/hooks/appState';
@@ -26,6 +27,7 @@ import { LogTelemetryActivityUseCase } from '@/application/useCases/telemetry/lo
 
 type Deps = {
   useAppState: UseAppState;
+  nudgeLayoutItemUseCase: NudgeLayoutItemUseCase;
   showContextMenuUseCase: ShowContextMenuUseCase;
   showWidgetContextMenuUseCase: ShowWidgetContextMenuUseCase;
   getWidgetApiUseCase: GetWidgetApiUseCase;
@@ -57,6 +59,7 @@ function getContextId(el: HTMLElement): string {
 
 export function createWidgetViewModelHook({
   useAppState,
+  nudgeLayoutItemUseCase,
   showContextMenuUseCase,
   showWidgetContextMenuUseCase,
   getWidgetApiUseCase,
@@ -67,6 +70,29 @@ export function createWidgetViewModelHook({
   setWidgetDynamicTitleUseCase,
   logTelemetryActivityUseCase,
 }: Deps) {
+  // Moving and resizing a workflow widget without dragging it (keyboard: the context menu key, or More Actions).
+  // One grid cell per step.
+  const createLayoutMenuItems = (id: EntityId, env: WidgetEnv): WidgetMenuItem[] => {
+    if (env.area !== 'workflow') {
+      return [];
+    }
+    // Read when the menu opens; a step that would change nothing (an edge, the minimum size) is disabled.
+    const step = (label: string, nudge: LayoutItemNudge): WidgetMenuItem => ({
+      label,
+      enabled: nudgeLayoutItemUseCase.canNudge(env.workflowId, id, nudge),
+      doAction: async () => nudgeLayoutItemUseCase(env.workflowId, id, nudge),
+    });
+    return [{
+      label: 'Move',
+      submenu: [step('Left', { x: -1 }), step('Right', { x: 1 }), step('Up', { y: -1 }), step('Down', { y: 1 })]
+    }, {
+      label: 'Resize',
+      submenu: [step('Wider', { w: 1 }), step('Narrower', { w: -1 }), step('Taller', { h: 1 }), step('Shorter', { h: -1 })]
+    }, {
+      type: 'separator'
+    }];
+  };
+
   function showMoreActions(
     id: EntityId,
     env: WidgetEnv,
@@ -91,6 +117,7 @@ export function createWidgetViewModelHook({
       {
         type: 'separator'
       },
+      ...createLayoutMenuItems(id, env),
       {
         enabled: true,
         label: 'Delete Widget',
@@ -120,7 +147,7 @@ export function createWidgetViewModelHook({
     enabled: true,
     icon: more14Svg,
     id: 'MORE-ACTIONS',
-    title: 'More Actions...',
+    title: 'More Actions',
     doAction: async () => {
       showMoreActions(id, env);
     }
@@ -156,7 +183,7 @@ export function createWidgetViewModelHook({
     }
   }, {
     type: 'separator'
-  }, {
+  }, ...createLayoutMenuItems(id, env), {
     enabled: true,
     label: 'Delete Widget',
     doAction: async () => {

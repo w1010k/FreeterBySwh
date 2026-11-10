@@ -26,6 +26,11 @@
     margin-top: -1px;
   }
 
+  // The list overlaps the bar's top border by 1px (so the open tab merges into it); the opaque Add bar starts below it.
+  .workflow-switcher-action-bar {
+    margin-top: 1px;
+  }
+
   .workflow-switcher-item {
     margin-top: 0;
   }
@@ -125,6 +130,7 @@
   .workflow-switcher-item-button {
     white-space: normal;
     overflow-wrap: anywhere;
+    word-break: keep-all;
   }
 
   // Let the project select give up width before the Manage Projects button gets
@@ -174,21 +180,38 @@
 
   &.is-drop-area {
     background-color: var(--freeter-workflowSwitcherDropAreaBackground);
+    // The sticky Add bar is opaque: it shows the drop highlight over the bar color too.
+    .workflow-switcher-action-bar {
+      background: linear-gradient(var(--freeter-workflowSwitcherDropAreaBackground), var(--freeter-workflowSwitcherDropAreaBackground)),
+        var(--freeter-workflowSwitcherBackground);
+    }
   }
 
   &:not(:hover)::-webkit-scrollbar {
     display: none;
   }
+  // A tab scrolled into view (keyboard focus) stops clear of the sticky Add bar at the end.
+  scroll-padding-inline-end: 160px;
+  scroll-padding-block-end: 40px;
 }
 
 .workflow-switcher-action-bar {
   height: 36px;
-  margin: 0 24px 0 12px;
+  // Padding, not margin: the sticky bar's own background then covers the gaps too, so no tab shows through them.
+  margin: 0;
   min-width: 100px;
-  padding: 0;
+  padding: 0 24px 0 12px;
+  box-sizing: content-box;
 
+  // Add Workflow stays in view when the tabs overflow and scroll: right after the last tab, or at the end of the bar.
+  position: sticky;
+  right: 0;
+  bottom: 0;
+  flex-shrink: 0;
+  background-color: var(--freeter-workflowSwitcherBackground);
+  // Alone (a project with no workflows yet): the space before it as before (it was margin plus padding).
   &:first-child {
-    padding-left: 12px;
+    padding-left: 24px;
   }
 }
 

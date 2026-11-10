@@ -35,7 +35,7 @@ describe('Link Opener Widget Settings', () => {
     const testUrls = ['test://url1', 'test://url2'];
     const settings = fixtureSettings({ urls: testUrls });
     const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
-    const btn = screen.getByRole('button', { name: 'Add a URL' });
+    const btn = screen.getByRole('button', { name: 'Add URL' });
 
     await userEvent.click(btn);
 

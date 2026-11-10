@@ -11,6 +11,8 @@ export interface MessageBoxConfig {
   checkboxLabel?: string;
   checkboxChecked?: boolean;
   cancelId?: number;
+  /** Windows: show custom button labels as buttons, not command links. */
+  noLink?: boolean;
 }
 
 export interface MessageBoxResult {

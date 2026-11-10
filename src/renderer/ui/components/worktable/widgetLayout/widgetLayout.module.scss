@@ -11,6 +11,21 @@
   right: 0;
 }
 
+// Shown while widgets sit below the bottom edge (see widgetLayout.tsx).
+.more-below {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px; // the layout padding (calcs.ts); over a widget that crosses the edge it covers 4px of its cut-off part
+  background: var(--freeter-scrollbarThumb);
+  pointer-events: none;
+}
+// A maximized widget covers the view and the worktable cannot scroll.
+.widgetLayout:has(.is-maximized) + .more-below {
+  display: none;
+}
+
 .widgetLayout {
   overflow: scroll;
   visibility: hidden;
@@ -63,8 +78,11 @@
 
 .layout-item {
   position: absolute;
-  transition: all 100ms ease;
-  // transition-property: transform;
+  // Only the move and the size glide; borders, opacity and theme colors change at once.
+  transition: transform 100ms ease, width 100ms ease, height 100ms ease;
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
   border: 1px solid var(--freeter-widgetLayoutItemBorder);
   border-radius: 4px;
   box-sizing: border-box;
@@ -110,7 +128,6 @@
     // transform: none !important;
     // width: auto !important;
     // height: auto !important;
-    transition: all 100ms ease;
     z-index: 1;
     box-shadow: 0 0 8px 0 var(--freeter-widgetLayoutItemShadow);
   }

@@ -21,6 +21,7 @@ const widgetType: WidgetType<Settings> = {
   settingsEditorComp,
   widgetComp,
   requiresApi: ['pty', 'shell'],
+  requiresState: ['uiTheme'],
   runsPrograms: true,
   onDeleted: forgetTerminalSession
 }

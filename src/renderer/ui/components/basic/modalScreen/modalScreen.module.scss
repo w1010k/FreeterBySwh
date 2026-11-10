@@ -12,6 +12,11 @@
   bottom: 0;
   background-color: var(--freeter-modalScreenBackground);
   color: var(--freeter-modalScreenColor);
+  // Focused only to start the keyboard focus inside the dialog (Tab goes on to its controls); a ring around the
+  // whole window would mark no control.
+  &:focus-visible {
+    outline: none;
+  }
 }
 
 .modal-screen-header {
@@ -26,9 +31,9 @@
   align-items: center;
   > h2 {
     flex-grow: 1;
-    font-family: 'Roboto Condensed';
+    font-family: 'Roboto Condensed', 'Malgun Gothic', sans-serif;
     font-size: 24px;
-    font-weight: 300;
+    font-weight: 400;
     padding-left: 36px;
   }
   > div {

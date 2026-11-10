@@ -7,6 +7,7 @@
   padding: 30px 36px;
   box-sizing: border-box;
   overflow: auto;
+  overscroll-behavior: contain;
   &:not(:hover)::-webkit-scrollbar{
     display: none;
   }
@@ -21,11 +22,11 @@
       box-sizing: border-box;
       font-weight: 500;
       display: inline-block;
-      .more-info {
-        vertical-align: middle;
-        margin-left: 12px;
-        margin-top: -2px;
-      }
+    }
+    > .more-info {
+      vertical-align: middle;
+      margin-left: 12px;
+      margin-top: -2px;
     }
     > div > * {
       margin-top: 12px;

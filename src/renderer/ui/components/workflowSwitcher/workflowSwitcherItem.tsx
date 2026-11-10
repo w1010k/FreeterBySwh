@@ -61,7 +61,7 @@ export function WorkflowSwitcherItem (props: WorkflowSwitcherItemProps) {
           onChange={onNameChangeHandler}
           onKeyDown={onNameKeyDownHandler}
           type="text"
-          title="name"
+          title="Workflow name"
         /> :
         <ActionBar
           actionBarItems={actionBarItems}

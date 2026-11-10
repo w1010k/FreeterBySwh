@@ -6,6 +6,7 @@
 import { AppState } from '@/base/state/app';
 import { EntitiesState } from '@/base/state/entities';
 import { UiState } from '@/base/state/ui';
+import { UiThemeId, sanitizeUiThemeId } from '@/base/uiTheme';
 
 export interface SharedState {
   readonly apps: {
@@ -14,6 +15,10 @@ export interface SharedState {
   };
   readonly sharedDataKeys: {
     sharedDataKeys: EntitiesState['sharedDataKeys'];
+  };
+  /** For a widget that draws its own colors (Terminal): light or dark. */
+  readonly uiTheme: {
+    themeId: UiThemeId;
   };
 }
 
@@ -31,6 +36,9 @@ const sharedStateSliceFactories: SharedStateSliceFactories = {
   }),
   sharedDataKeys: appState => ({
     sharedDataKeys: appState.entities.sharedDataKeys,
+  }),
+  uiTheme: appState => ({
+    themeId: sanitizeUiThemeId(appState.ui.appConfig.uiTheme),
   }),
 }
 
@@ -64,7 +72,7 @@ function shallowEqualSlice(a: object, b: object): boolean {
  * re-renders the widget even when its shared slices are untouched.
  *
  * This compares each slice's own fields by reference (a 2-level shallow). Every shared source
- * (entities.apps, entities.sharedDataKeys, ui.apps.appIds) is updated immutably — its reference
+ * (entities.apps, entities.sharedDataKeys, ui.apps.appIds, ui.appConfig.uiTheme) is updated immutably — its reference
  * changes iff its content changes — so this re-renders exactly when the shared data changes and
  * never serves stale data, while skipping renders caused by unrelated state changes.
  */

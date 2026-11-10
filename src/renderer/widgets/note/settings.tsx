@@ -140,6 +140,7 @@ function SettingsEditorComp({settings, settingsApi, sharedState}: SettingsEditor
             <input
               type='text'
               placeholder='Key name (e.g. Shopping list)'
+              aria-label='New key name'
               value={newKeyName}
               onChange={e => setNewKeyName(e.target.value)}
               onKeyDown={e => {
