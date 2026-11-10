@@ -8,7 +8,7 @@ import { electronIpcRenderer } from '@/infra/mainApi/mainApi';
 import { createSubscribers } from '@/infra/subscribers/subscribers';
 import {
   IpcPtyBufferArgs, IpcPtyBufferRes, IpcPtyCreateArgs, IpcPtyCreateRes, IpcPtyKillArgs, IpcPtyKillRes, IpcPtyResizeArgs, IpcPtyResizeRes,
-  IpcPtyWriteArgs,
+  IpcPtyShellsArgs, IpcPtyShellsRes, IpcPtyWriteArgs, ipcPtyShellsChannel,
   ipcPtyBufferChannel, ipcPtyCreateChannel, ipcPtyDataChannel, ipcPtyExitChannel, ipcPtyKillChannel, ipcPtyResizeChannel, ipcPtyTitleChannel, ipcPtyWriteChannel
 } from '@common/ipc/channels';
 
@@ -57,5 +57,6 @@ export function createPtyProvider(): PtyProvider {
       };
     },
     onExit: (id, fn) => exitSubs.add(id, fn),
+    shells: () => electronIpcRenderer.invoke<IpcPtyShellsArgs, IpcPtyShellsRes>(ipcPtyShellsChannel),
   };
 }

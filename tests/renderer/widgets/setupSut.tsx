@@ -159,6 +159,7 @@ export function setupWidgetSut<T>(reactComp: ReactComponent<WidgetReactComponent
       onData: jest.fn(() => () => undefined),
       onExit: jest.fn(() => () => undefined),
       onTitle: jest.fn(() => () => undefined),
+      shells: jest.fn(async () => []),
       ...mockWidgetApi.pty
     }
   };

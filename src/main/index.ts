@@ -141,6 +141,9 @@ import {createHeadlessMirror} from '@/infra/terminal/headlessMirror';
 import {randomBytes, randomUUID} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {homedir} from 'node:os';
+import {existsSync, readFileSync} from 'node:fs';
+import {detectShells} from '@/infra/terminal/detectShells';
+import {ShellOption} from '@common/ipc/channels';
 import {expandEnvVars, mergePath, parseRegPath} from '@/infra/env/windowsPath';
 import {createAiActionBridge} from '@/application/ai/aiActionBridge';
 import {createConfirmAiActionUseCase} from '@/application/useCases/ai/confirmAiAction';
@@ -444,6 +447,30 @@ if (!app.requestSingleInstanceLock()) {
     import('node-pty').then(m => {
       nodePty = m;
     }, err => console.error('Terminals unavailable: node-pty failed to load', err));
+    // Found when first needed (a new tab, the shell menu), so app start does not wait for it; the PATH merge above
+    // comes first, so PowerShell 7 on the user's PATH is found.
+    let shellList: ShellOption[] | undefined;
+    const shells = () => shellList ??= detectShells({
+      platform: process.platform,
+      env: process.env,
+      exists: existsSync,
+      readFile: p => {
+        try {
+          return readFileSync(p, 'utf8');
+        } catch {
+          return undefined;
+        }
+      },
+      // Each installed distribution has a subkey here.
+      hasWslDistro: () => {
+        try {
+          const out = execFileSync('reg', ['query', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Lxss'], {encoding: 'utf8', windowsHide: true, timeout: 5000});
+          return /\\Lxss\\\{/.test(out);
+        } catch {
+          return false;
+        }
+      },
+    });
     const terminalHost = createTerminalHost({
       spawnPty: (shell, o) => {
         if (!nodePty) {
@@ -451,7 +478,7 @@ if (!app.requestSingleInstanceLock()) {
         }
         return nodePty.spawn(shell, [], {name: 'xterm-256color', ...o});
       },
-      defaultShell: process.platform === 'win32' ? 'powershell.exe' : (process.env.SHELL || '/bin/bash'),
+      defaultShell: () => (process.platform === 'win32' ? shells()[0].shell : (process.env.SHELL || '/bin/bash')),
       defaultCwd: homedir(),
       env: ptyEnv,
       emitData: (id, data, seq) => sendToAppWindow(ipcPtyDataChannel, id, data, seq),
@@ -555,7 +582,7 @@ if (!app.requestSingleInstanceLock()) {
       ...createOsActivityControllers({setOsMonitoringUseCase}),
       ...createAnalyticsControllers({openAnalyticsInBrowserUseCase}),
       ...createAiControllers({aiActionBridge, confirmAiActionUseCase}),
-      ...createPtyControllers({terminalHost})
+      ...createPtyControllers({terminalHost, shells})
     ])
     const ptyInput = createPtyInputListener({terminalHost});
     ipcMain.on(ptyInput.channel, ptyInput.listener);

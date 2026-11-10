@@ -75,9 +75,10 @@ function setup() {
   const exits: [string, number][] = [];
   let n = 0;
   const mirrors: FakeMirror[] = [];
+  const defaultShell = jest.fn(() => 'powershell.exe');
   const host = createTerminalHost({
     spawnPty,
-    defaultShell: 'powershell.exe',
+    defaultShell,
     defaultCwd: 'C:/Users/me',
     env: { PATH: 'P', FREETER_AI_ORIGIN: 'terminal' },
     emitData: (id, d, seq) => {
@@ -94,11 +95,20 @@ function setup() {
       return m;
     },
   });
-  return { host, ptys, spawnPty, data, exits, mirrors, seqs, titles };
+  return { host, ptys, spawnPty, data, exits, mirrors, seqs, titles, defaultShell };
 }
 
 describe('createTerminalHost', () => {
   afterEach(() => jest.useRealTimers());
+
+  it('looks for the default shell only when a shell starts without one (not at app start)', () => {
+    const { host, defaultShell } = setup();
+    expect(defaultShell).not.toHaveBeenCalled();
+    host.create({ cols: 80, rows: 24, shell: 'cmd.exe' });
+    expect(defaultShell).not.toHaveBeenCalled();
+    host.create({ cols: 80, rows: 24 });
+    expect(defaultShell).toHaveBeenCalledTimes(1);
+  });
 
   it('starts the default shell with the given size, folder and env, then runs the start command', () => {
     const { host, ptys, spawnPty } = setup();
@@ -186,7 +196,7 @@ describe('createTerminalHost', () => {
   it('starts no shell when its screen copy cannot be made (no shell is left that nothing can end)', () => {
     const { host, spawnPty } = setup();
     const broken = createTerminalHost({
-      spawnPty, defaultShell: 'sh', defaultCwd: '/', env: {}, emitData: jest.fn(), emitExit: jest.fn(), emitTitle: jest.fn(), newId: () => 'x', batchMs: 16,
+      spawnPty, defaultShell: () => 'sh', defaultCwd: '/', env: {}, emitData: jest.fn(), emitExit: jest.fn(), emitTitle: jest.fn(), newId: () => 'x', batchMs: 16,
       createMirror: () => { throw new Error('no mirror'); },
     });
     expect(broken.create({ cols: 80, rows: 24 })).toEqual({ ok: false, message: 'no mirror' });

@@ -15,12 +15,14 @@ import { markRevealedByAi, resetAiActivity } from '@/base/ai/aiActivity';
 // xterm needs a real canvas/DOM layout; the widget is tested against a stand-in.
 const terms: FakeTerminal[] = [];
 class FakeTerminal {
+  options: { fontSize?: number };
   cols = 80;
   rows = 24;
   written: string[] = [];
   disposed = false;
   private input?: (d: string) => void;
-  constructor() {
+  constructor(o: { fontSize?: number } = {}) {
+    this.options = { ...o };
     terms.push(this);
   }
   addons: unknown[] = [];
@@ -55,7 +57,7 @@ class FakeTerminal {
     this.disposed = true;
   }
 }
-jest.mock('@xterm/xterm', () => ({ Terminal: jest.fn().mockImplementation(() => new FakeTerminal()) }));
+jest.mock('@xterm/xterm', () => ({ Terminal: jest.fn().mockImplementation((o: { fontSize?: number }) => new FakeTerminal(o)) }));
 jest.mock('@xterm/addon-fit', () => ({ FitAddon: jest.fn().mockImplementation(() => ({ fit: jest.fn() })) }));
 const webgls: { lost?: () => void; disposed: boolean }[] = [];
 class FakeWebgl {
@@ -72,6 +74,14 @@ class FakeWebgl {
   }
 }
 jest.mock('@xterm/addon-webgl', () => ({ WebglAddon: jest.fn().mockImplementation(() => new FakeWebgl()) }));
+/** The link addon's click handler, per view. */
+const linkClicks: ((e: MouseEvent, uri: string) => void)[] = [];
+jest.mock('@xterm/addon-web-links', () => ({
+  WebLinksAddon: jest.fn().mockImplementation((fn: (e: MouseEvent, uri: string) => void) => {
+    linkClicks.push(fn);
+    return {};
+  })
+}));
 
 function setupPty(createRes: { ok: true; terminalId: string } | { ok: false; message: string } = { ok: true, terminalId: 'T1' }) {
   const data = new Map<string, (d: string, seq?: number) => void>();
@@ -95,6 +105,7 @@ function setupPty(createRes: { ok: true; terminalId: string } | { ok: false; mes
       exits.set(id, fn);
       return () => exits.delete(id);
     }),
+    shells: jest.fn(async () => [{ label: 'PowerShell 7', shell: 'C:/pwsh/pwsh.exe' }, { label: 'Command Prompt', shell: 'cmd.exe' }]),
   };
   const title = (id: string, t: string) => titleFns.forEach(fn => fn(id, t));
   return { pty, data, exits, title };
@@ -104,6 +115,7 @@ const settings = (s: Partial<Settings> = {}) => createSettingsState(s);
 
 beforeEach(() => {
   terms.length = 0;
+  linkClicks.length = 0;
   resetTerminalSessions();
   resetAiActivity();
 });
@@ -455,6 +467,46 @@ describe('Terminal widget', () => {
       expect(pty.kill).toHaveBeenCalledWith('T2');
     });
 
+    it('the menu next to + opens a tab with a shell found on this computer, and Restart Shell keeps that shell', async () => {
+      const { pty } = setupPty();
+      let n = 0;
+      pty.create.mockImplementation(async () => ({ ok: true as const, terminalId: `T${++n}` }));
+      let header: WidgetHeaderTabs | null = null;
+      let items: ActionBarItems = [];
+      setupWidgetSut(widgetComp, settings({ shell: 'bash' }), {
+        mockWidgetApi: { pty, setHeaderTabs: (t: WidgetHeaderTabs | null) => { header = t; }, updateActionBar: (i: ActionBarItems) => { items = i; } }
+      });
+      const tabs = () => header as WidgetHeaderTabs | null;
+      await waitFor(() => expect(tabs()?.addMenu?.map(i => i.label)).toEqual(['PowerShell 7', 'Command Prompt']));
+      await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(1));
+      await act(async () => { await tabs()?.addMenu?.[1].doAction?.(); });
+      await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(2));
+      expect(pty.create).toHaveBeenLastCalledWith(expect.objectContaining({ shell: 'cmd.exe' }));
+      expect(tabs()?.active).toBe(1);
+      await act(async () => { items.find(i => i.id === 'RESTART')?.doAction(); });
+      await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(3));
+      expect(pty.create).toHaveBeenLastCalledWith(expect.objectContaining({ shell: 'cmd.exe' }));
+      await act(async () => { tabs()?.onAdd?.(); }); // + uses the setting
+      await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(4));
+      expect(pty.create).toHaveBeenLastCalledWith(expect.objectContaining({ shell: 'bash' }));
+    });
+
+    it('asks main for the shell list once (it does not change), and a view that mounts again has the menu at once', async () => {
+      const { pty } = setupPty();
+      let header: WidgetHeaderTabs | null = null;
+      const setHeaderTabs = (t: WidgetHeaderTabs | null) => {
+        header = t;
+      };
+      const menu = () => (header as WidgetHeaderTabs | null)?.addMenu;
+      const first = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty, setHeaderTabs }, widgetId: 'W1' });
+      await waitFor(() => expect(menu()).toHaveLength(2));
+      first.comp.unmount();
+      header = null;
+      setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty, setHeaderTabs }, widgetId: 'W2' });
+      expect(menu()).toHaveLength(2);
+      expect(pty.shells).toHaveBeenCalledTimes(1);
+    });
+
     it('names a tab by the title its shell sets, also while another tab is shown (and once per new title)', async () => {
       const { pty, tabs, title, headerCalls } = setupTabs();
       await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(1));
@@ -466,6 +518,90 @@ describe('Terminal widget', () => {
       act(() => title('T1', 'Claude Code'));
       expect(headerCalls()).toBe(calls); // the same title again draws nothing
     });
+  });
+
+  it('opens a link in the browser on Ctrl+click only (a plain click selects text, as in Windows Terminal)', async () => {
+    const { pty } = setupPty();
+    const openExternalUrl = jest.fn(async () => undefined);
+    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty, shell: { openExternalUrl } } });
+    await waitFor(() => expect(linkClicks).toHaveLength(1));
+    linkClicks[0](new MouseEvent('click'), 'https://example.com');
+    expect(openExternalUrl).not.toHaveBeenCalled();
+    linkClicks[0](new MouseEvent('click', { ctrlKey: true }), 'https://example.com');
+    expect(openExternalUrl).toHaveBeenCalledWith('https://example.com');
+  });
+
+  it('zooms with Ctrl+= / Ctrl+- / Ctrl+wheel and goes back to the font size setting with Ctrl+0 (keys not sent to the shell)', async () => {
+    const { pty } = setupPty();
+    setupWidgetSut(widgetComp, settings({ fontSize: 14 }), { mockWidgetApi: { pty } });
+    await waitFor(() => expect(terms[0].keyHandler).toBeDefined());
+    const term = terms[0];
+    expect(term.options.fontSize).toBe(14);
+    const key = (k: Partial<KeyboardEvent>) => act(() => { expect(term.keyHandler?.({ type: 'keydown', ctrlKey: true, ...k } as KeyboardEvent)).toBe(false); });
+    key({ key: '=' });
+    key({ key: '+', shiftKey: true });
+    expect(term.options.fontSize).toBe(16);
+    key({ key: '-' });
+    expect(term.options.fontSize).toBe(15);
+    const host = document.querySelector('canvas')?.parentElement as HTMLElement;
+    const wheel = new WheelEvent('wheel', { deltaY: -100, ctrlKey: true, bubbles: true, cancelable: true });
+    act(() => { host.dispatchEvent(wheel); });
+    expect(wheel.defaultPrevented).toBe(true); // no page zoom
+    expect(term.options.fontSize).toBe(16);
+    act(() => { host.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, bubbles: true })); }); // a plain wheel scrolls
+    expect(term.options.fontSize).toBe(16);
+    // A touchpad pinch sends many small steps: one size per notch's distance, not one per event.
+    const pinch = (deltaY: number) => host.dispatchEvent(new WheelEvent('wheel', { deltaY, ctrlKey: true, bubbles: true, cancelable: true }));
+    act(() => {
+      for (let i = 0; i < 9; i++) {
+        pinch(10);
+      }
+    });
+    expect(term.options.fontSize).toBe(16);
+    act(() => { pinch(10); });
+    expect(term.options.fontSize).toBe(15);
+    act(() => { host.dispatchEvent(new WheelEvent('wheel', { deltaX: 100, ctrlKey: true, bubbles: true, cancelable: true })); }); // sideways: no zoom
+    expect(term.options.fontSize).toBe(15);
+    expect(term.keyHandler?.({ type: 'keydown', ctrlKey: true, shiftKey: true, key: '_' } as KeyboardEvent)).toBe(true); // Ctrl+_ still sends ^_
+    key({ key: '0' });
+    expect(term.options.fontSize).toBe(14);
+  });
+
+  it('zooms out from the size shown when the zoom went past the largest size (one Ctrl+- always shows a change)', async () => {
+    const { pty } = setupPty();
+    setupWidgetSut(widgetComp, settings({ fontSize: 46 }), { mockWidgetApi: { pty } });
+    await waitFor(() => expect(terms[0].keyHandler).toBeDefined());
+    const key = (k: string) => act(() => { terms[0].keyHandler?.({ type: 'keydown', ctrlKey: true, key: k } as KeyboardEvent); });
+    for (let i = 0; i < 5; i++) {
+      key('=');
+    }
+    expect(terms[0].options.fontSize).toBe(48);
+    key('-');
+    expect(terms[0].options.fontSize).toBe(47);
+  });
+
+  it('forgets the zoom of a deleted widget', async () => {
+    const { pty } = setupPty();
+    const first = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    await waitFor(() => expect(terms[0].keyHandler).toBeDefined());
+    act(() => { terms[0].keyHandler?.({ type: 'keydown', ctrlKey: true, key: '=' } as KeyboardEvent); });
+    first.comp.unmount();
+    forgetTerminalSession('W1');
+    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    await waitFor(() => expect(terms).toHaveLength(2));
+    expect(terms[1].options.fontSize).toBe(13);
+  });
+
+  it('keeps the zoom for the widget when the view mounts again (another tab, Memory Saver)', async () => {
+    const { pty } = setupPty();
+    pty.buffer.mockResolvedValue({ screen: '', seq: 0 });
+    const first = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    await waitFor(() => expect(terms[0].keyHandler).toBeDefined());
+    act(() => { terms[0].keyHandler?.({ type: 'keydown', ctrlKey: true, key: '=' } as KeyboardEvent); });
+    first.comp.unmount();
+    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    await waitFor(() => expect(terms).toHaveLength(2));
+    expect(terms[1].options.fontSize).toBe(14);
   });
 
   it('has only Restart Shell in the action bar (no button types commands into the shell)', async () => {

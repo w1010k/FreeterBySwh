@@ -249,7 +249,7 @@ main은 `did-attach-webview`에서 guest마다 아래를 건다.
 - main → renderer 요청-응답은 AI 제어에만 있다. main이 `ai-action-request` 알림을 `[reqId, req]`로 보내고, renderer (`init.ts`)가 실행 뒤
   `ai-action-response` invoke로 `[reqId, res]`를 돌려준다. main `createAiActionBridge`가 `reqId`별로 150초 기다리고, 늦은 응답은 버린다. 쓰기 확인은
   renderer가 `ai-confirm` invoke로 main에 요청한다 [fork #99]
-- 앱 안 터미널: renderer가 `pty-create/resize/buffer/kill`을 invoke하고 키 입력은 `pty-write`로 send하며, main이 `pty-data`, `pty-exit` 알림을 보낸다. Terminal 위젯은 `pty` 위젯 API 모듈로 쓴다 [fork #100]
+- 앱 안 터미널: renderer가 `pty-create/resize/buffer/kill/shells`를 invoke하고 키 입력은 `pty-write`로 send하며, main이 `pty-data`, `pty-exit` 알림을 보낸다. Terminal 위젯은 `pty` 위젯 API 모듈로 쓴다 [fork #100]
 
 #### 검증과 preload
 
@@ -412,7 +412,7 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 | systemStats          | CPU 사용률 (직전 호출 대비, 전체·코어별), 메모리, 시스템 드라이브 사용량, 가동 시간, Freeter 프로세스 합계 CPU·메모리 [fork #98]                                           | `infra/systemStatsProvider/systemStatsProvider.ts`                                                                                             | [fork #60]                      |
 | download             | 모든 session의 다운로드를 지정 폴더로 저장, 이름 충돌 시 ` (n)`                                                                                                             | `infra/downloads/downloadManager.ts` (`resolveUniqueSavePath`)                                                                                 | [fork #41]                      |
 | ai                   | AI 제어 서버 (named pipe/Unix 소켓, 줄 단위 JSON-RPC, 토큰), renderer로 요청 전달, 쓰기 확인 상자 (120초 abort, 한 번에 하나)                                                | `infra/aiControlServer/`, `application/ai/aiActionBridge.ts`, `useCases/ai/confirmAiAction.ts`, `controllers/ai.ts`, CLI는 `cli/`               | [fork #99]                      |
-| terminal (pty)       | 앱 안 터미널: node-pty로 셸 실행, 출력 16ms 묶음 전송 (조용하던 뒤 첫 조각은 바로), 터미널마다 화면 사본 (`@xterm/headless` + `addon-serialize`, 스크롤백 1000줄, 다시 붙을 때 그리기용; `infra/terminal/headlessMirror.ts`; 직렬화와 크기 변경은 앞선 출력의 해석이 끝난 뒤), 입력은 `send`로 받아 바로 셸에 씀 (`createPtyInputListener`). 셸 env에 AI 제어 endpoint와 설치본의 `freeter` 래퍼 폴더 | `application/terminal/terminalHost.ts`, `controllers/pty.ts`. node-pty는 지연 로딩 (`index.ts`)                                          | [fork #99]                      |
+| terminal (pty)       | 앱 안 터미널: node-pty로 셸 실행, 출력 16ms 묶음 전송 (조용하던 뒤 첫 조각은 바로), 터미널마다 화면 사본 (`@xterm/headless` + `addon-serialize`, 스크롤백 1000줄, 다시 붙을 때 그리기용; `infra/terminal/headlessMirror.ts`; 직렬화와 크기 변경은 앞선 출력의 해석이 끝난 뒤), 입력은 `send`로 받아 바로 셸에 씀 (`createPtyInputListener`). 셸 env에 AI 제어 endpoint와 설치본의 `freeter` 래퍼 폴더. 이 PC의 셸 목록은 처음 필요할 때 한 번 찾고 (`infra/terminal/detectShells.ts`; 앱 시작 뒤, PATH를 합친 뒤라서 사용자 PATH의 pwsh도 찾는다), Windows 기본 셸은 그 첫 항목 (PowerShell 7이 있으면 pwsh) | `application/terminal/terminalHost.ts`, `controllers/pty.ts`. node-pty는 지연 로딩 (`index.ts`)                                          | [fork #99]                      |
 
 infra 전용 구성: `infra/protocolHandler/` (`freeter-file` 스킴 등록) [upstream], `infra/ipcMain/` [upstream],
 `infra/httpAuth/` [fork #71], `infra/permissions/` (세션 권한 처리기) [fork #88].

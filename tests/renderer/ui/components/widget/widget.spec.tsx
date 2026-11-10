@@ -279,6 +279,34 @@ describe('<Widget />', () => {
     expect(onClose).toHaveBeenLastCalledWith(0);
   })
 
+  it('should show a menu of what + can add, next to +, when the widget gives one', async () => {
+    const addMenu = [{ label: 'PowerShell 7' }, { label: 'Command Prompt' }];
+    const { showContextMenuUseCase } = await setup({
+      appState: fixtureAppState({
+        entities: {
+          widgetTypes: {
+            ...fixtureWidgetTypeAInColl({
+              id: widgetTypeId1,
+              widgetComp: {
+                type: 'react',
+                Comp: ({widgetApi}) => {
+                  useEffect(() => {
+                    widgetApi.setHeaderTabs({ tabs: [{label: 'Shell 1'}], active: 0, onSelect: jest.fn(), onAdd: jest.fn(), addTitle: 'New Tab', addMenu });
+                  }, [widgetApi])
+                  return <></>;
+                }
+              } as WidgetReactComponent
+            }),
+          }
+        }
+      }),
+      widget: fixtureWidgetA({ type: widgetTypeId1 }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'New Tab: choose' }));
+    expect(showContextMenuUseCase).toHaveBeenCalledWith(addMenu);
+  })
+
   it('should show no + or x for tabs that only switch (a webpage)', async () => {
     await setup({
       appState: fixtureAppState({

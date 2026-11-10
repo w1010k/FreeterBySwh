@@ -85,7 +85,7 @@
 - **컨텍스트 메뉴**: 편집 모드는 셸의 고정 메뉴, 보기 모드는 위젯이 `setContextMenuFactory`로 등록한 팩토리를 쓴다. 팩토리의 `contextId` 인자는 이벤트 대상에서 가장 가까운
   조상의 `data-widget-context` 값이다 (`getContextId`). 위젯 본문 div가 `data-widget-context=""`를 갖는다.
 - **편집 모드 본문**: `inert`로 상호작용을 막는다 [upstream]. 리사이즈나 드래그 중에는 액션바를 숨긴다 (`dontShowActionBar`).
-- **헤더 탭**: 위젯이 `setHeaderTabs`로 탭을 넘기고 편집 모드가 아니면, 헤더가 이름 대신 탭 바를 그린다. 선택적으로 `onAdd` (탭 끝의 +, 이름은 `addTitle`)와 `onClose` (탭마다 x; 버튼 안에 버튼을 둘 수 없어 탭과 x를 `widget-header-tab-wrap`으로 나란히 둔다)를 넘긴다. 숨은 스크롤바 대신 세로 휠을 가로 스크롤로 바꾸고, 활성 탭을
+- **헤더 탭**: 위젯이 `setHeaderTabs`로 탭을 넘기고 편집 모드가 아니면, 헤더가 이름 대신 탭 바를 그린다. 선택적으로 `onAdd` (탭 끝의 +, 이름은 `addTitle`), `addMenu` (+ 옆 ▾가 띄우는 OS 메뉴)와 `onClose` (탭마다 x; 버튼 안에 버튼을 둘 수 없어 탭과 x를 `widget-header-tab-wrap`으로 나란히 둔다)를 넘긴다. 숨은 스크롤바 대신 세로 휠을 가로 스크롤로 바꾸고, 활성 탭을
   `scrollIntoView`로 보이게 한다 [fork #67 #69].
 - **오류 격리**: 셸은 `WidgetComp`를 `WidgetErrorBoundary` (`widgetErrorBoundary.tsx`)로 감싼다 (본문과 미리보기 모두). 렌더나 effect에서 난 오류는 그
   위젯만 `role="alert"` 안내와 Retry 버튼으로 바꾼다. `resetKey`는 `widget.settings`라서 설정을 저장하면 다시 시도한다 [fork #92].
@@ -126,7 +126,7 @@
 | `icon`        | `getFileIcon(path, bypassCache?)`, `getFavicon(url, bypassCache?)`       | main `iconProvider`. 세션 동안 성공·실패 결과를 Map에 캐시, 동시 요청 공유  | [fork #21]                  |
 | `fs`          | `readDir(dirPath, opts?)`, `getHomeDir()` | main `fsProvider`. `includeHidden`, `includeSizes` 옵션. 전용 텍스트 읽기·쓰기·mtime API는 #96에서 제거 | [fork #31 #32 #91]          |
 | `systemStats` | `getStats()`                                                             | main `systemStatsProvider` (`node:os`, `fs.statfsSync`, `app.getAppMetrics`). CPU%는 직전 호출과의 누적 시간 차이 | [fork #60 #98]              |
-| `pty` | `create`, `write`, `resize`, `kill`, `buffer`, `onData`, `onExit` | main `terminalHost` (node-pty). 앱 단위 provider 하나를 모든 위젯이 나눠 쓴다 | [fork #99 #100] |
+| `pty` | `create`, `write`, `resize`, `kill`, `buffer`, `onData`, `onExit`, `onTitle`, `shells` | main `terminalHost` (node-pty). 앱 단위 provider 하나를 모든 위젯이 나눠 쓴다 | [fork #99 #100] |
 
 모듈별 배선 위치 (IPC 채널은 모두 `src/common/ipc/channels.ts`):
 
@@ -299,7 +299,7 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
 | `link-opener`    | Link Opener    | 1×1     | shell, icon                            |                | 없음                                                                   | [upstream, fork #21 #22 #72 #75 변경]        |
 | `note`           | Note           | 2×2     | clipboard, dataStorage                 | sharedDataKeys | `note`                                                                 | [upstream, fork #8 #10 #39 #40 #50 #72 변경] |
 | `system-monitor` | System Monitor | 3×3     | systemStats                            |                | 없음                                                                   | [fork #60 #98]                               |
-| `terminal`       | Terminal       | 4×3     | pty                                    |                | 없음                                                                   | [fork #100]                                  |
+| `terminal`       | Terminal       | 4×3     | pty, shell                             |                | 없음                                                                   | [fork #100 #102]                             |
 | `timer`          | Timer          | 1×1     | dataStorage                            |                | `state`                                                                | [upstream, fork #54 #72 #73 변경]            |
 | `to-do-list`     | To-Do List     | 4×2     | dataStorage                            |                | `todo` (프로젝트 공유)                                                 | [upstream, fork #9 #18 #26 #40 #50 #63 변경] |
 | `web-query`      | Web Query      | 4×2     | shell, widgets, dataStorage            |                | `history`                                                              | [upstream, fork #46 #47 #59 #66 변경]        |
@@ -493,8 +493,11 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
 #### Terminal (`terminal`)
 
 - **역할**: 위젯 안의 셸 [fork #100]. xterm.js로 그리고 (화면이 열린 다음 프레임에 `@xterm/addon-webgl`; 실패하거나 WebGL 컨텍스트를 잃으면 DOM 렌더러. 뷰가 닫힐 때 `WEBGL_lose_context`로 컨텍스트를 돌려준다: 애드온은 돌려주지 않고, Chromium은 몇 개만 두고 가장 오래된 것을 잃게 한다) main의 node-pty 셸과 `pty` 모듈로 주고받는다. 키 입력은 `pty.write`가 응답 없는 `send`로 보낸다.
-- **설정**: `shell` (빈 값은 플랫폼 기본), `cwd` (빈 값은 사용자 홈, main `terminalHost`의 `defaultCwd`), `startCommand` (셸 시작 뒤 입력). 바뀐 설정은 Restart Shell 뒤 적용된다.
+- **설정**: `shell` (빈 값은 플랫폼 기본: Windows는 PowerShell 7이 있으면 pwsh, 없으면 Windows PowerShell), `cwd` (빈 값은 사용자 홈, main `terminalHost`의 `defaultCwd`), `startCommand` (셸 시작 뒤 입력), `fontSize` (기본 13, 6~48, `clampFontSize`). `fontSize`는 바로 적용되고, 나머지는 Restart Shell 뒤 적용된다.
 - **탭**: 헤더 탭으로 셸을 여러 개 연다 (+로 추가, x로 닫기; 마지막 탭에는 x가 없다). 모듈 수준 `tabsByWidget`이 위젯별 탭 (세션 키: 첫 탭은 위젯 id, 나머지는 `<위젯 id>#<n>`)과 선택한 탭을 가져, 다시 마운트해도 탭이 그대로다. 화면은 선택한 탭만 그리고 (`LiveTerminal`을 세션 키로 다시 마운트), 다른 탭의 셸은 main에서 계속 돈다. 탭 이름은 셸이 정한 제목 (main의 화면 사본이 받는 OSC 제목, `pty.onTitle`; 보이지 않는 탭도 바뀐다), 없으면 `Shell <n>`. 탭 x는 보조 기술에서 숨긴 마우스용이고, 탭 자체가 Delete로 닫힌다 (탭 목록에는 탭만 둔다). 위젯 삭제는 모든 탭의 셸을 끝낸다. "항상 허용" 작업이 띄운 Terminal의 대기는 첫 탭에만 적용한다. 탭 목록은 앱을 다시 시작하면 하나로 돌아간다.
+- **셸 선택**: + 옆 ▾ 메뉴는 `pty.shells()` (main이 처음 필요할 때 한 번 찾은 목록: PowerShell 7, Windows PowerShell, 명령 프롬프트, Git Bash, 배포판이 있을 때의 WSL; 그 밖의 OS는 `$SHELL`과 `/etc/shells`를 이름마다 하나, 셸 아닌 항목 제외)를 보여 주고 (renderer는 모듈 수준 `shellsAsked`로 한 번만 묻는다), 고른 셸로 탭을 연다. 모듈 수준 `shellByKey`가 그 탭의 셸을 기억해 Restart Shell도 같은 셸로 시작한다. +와 메뉴 밖의 탭은 설정의 `shell`을 쓴다. Git Bash는 인자 없이 띄운다 (로그인 셸 아님) [fork #102].
+- **링크**: `@xterm/addon-web-links`. 출력의 URL은 Ctrl+클릭 (Mac은 Cmd+클릭)일 때만 `shell.openExternalUrl`로 연다. 그냥 클릭은 글 선택이다 (Windows Terminal과 같다) [fork #102].
+- **확대·축소**: Ctrl+= / Ctrl++ / Ctrl+- / Ctrl+휠 (휠 거리 `WHEEL_STEP` 100px마다 한 단계, 가로 휠 무시), Ctrl+0은 `fontSize`로 복귀. 한 단계는 지금 보이는 크기에서 움직인다. `^_`는 Ctrl+Shift+-로 셸에 간다. 위젯을 지우면 `zoomByWidget` 항목도 지운다. 위젯은 자기 설정을 바꾸지 못하므로 확대 정도는 모듈 수준 `zoomByWidget` (설정 크기와의 차이)에 앱 세션 동안만 둔다. 모든 탭에 적용되고, 다시 마운트해도 유지된다. 휠은 화면 상자의 capture 리스너가 xterm 스크롤과 페이지 확대보다 먼저 막는다. 크기가 바뀌면 `term.options.fontSize`를 바꾸고 `fit` 뒤 셸에 크기를 보낸다 [fork #102].
 - **수명**: 모듈 수준 `sessionByWidget` (세션 키 → 터미널 id) 때문에 셸은 언마운트 뒤에도 돈다. 다시 마운트하면 먼저 구독하고 `pty.buffer`로 main의 화면 사본 (headless xterm을 직렬화한 ANSI와 담은 마지막 출력 번호)을 그린 뒤, 기다리는 동안 온 출력 중 번호가 더 큰 것만 그린다. Ctrl+V는 붙여넣기, 선택이 있을 때의 Ctrl+C는 복사로 브라우저에 넘긴다 (`attachCustomKeyEventHandler`). 위젯을 지우면 `onDeleted` (`forgetTerminalSession`)가 셸을 끝낸다.
 - **액션 바**: `RESTART`만 있다. 셸에 명령을 입력하는 버튼 (Start Claude Code, Start Codex)은 지웠다: node-pty는 Windows에서 앞에 있는 프로그램을 알려 주지 않아, 출력으로 셸 프롬프트를 추측하면 실행 중인 Claude Code에 입력될 수 있었다 (2026-11-09).
 - **끝난 셸**: `exitedWidgets`에 남아, 화면이 다시 붙어도 새 셸을 띄우지 않는다 (Restart Shell만).

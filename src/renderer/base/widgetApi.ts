@@ -9,7 +9,8 @@ import { ActionBarItems } from './actionBar';
 import { ProcessInfo } from '@common/base/process';
 import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
 import { SystemStats } from '@common/base/systemStats';
-import { IpcPtyCreateArgs, IpcPtyCreateRes } from '@common/ipc/channels';
+import { IpcPtyCreateArgs, IpcPtyCreateRes, ShellOption } from '@common/ipc/channels';
+import { MenuItems } from '@common/base/menu';
 import { OpenDialogResult, OpenDirDialogConfig, OpenFileDialogConfig } from '@common/base/dialog';
 import { TelemetryActivityPayload, TelemetryActivityType } from '@common/base/telemetry';
 
@@ -32,6 +33,8 @@ export interface WidgetHeaderTabs {
   /** Given: a + after the tabs adds one (e.g. a Terminal's new shell); `addTitle` names it. */
   onAdd?: () => void;
   addTitle?: string;
+  /** Given: a button next to + shows these choices (e.g. which shell a new tab runs). */
+  addMenu?: MenuItems;
   /** Given: each tab has an x that closes it. */
   onClose?: (index: number) => void;
 }
@@ -84,6 +87,8 @@ export interface WidgetApiPty {
   onExit(terminalId: string, fn: (exitCode: number) => void): () => void;
   /** The titles any shell sets (e.g. Claude Code's), shown tab or not. */
   onTitle(fn: (terminalId: string, title: string) => void): () => void;
+  /** The shells found on this computer; the first is the default. */
+  shells(): Promise<ShellOption[]>;
 }
 
 interface WidgetApiModules {

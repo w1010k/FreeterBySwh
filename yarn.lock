@@ -2255,6 +2255,11 @@
   resolved "https://registry.yarnpkg.com/@xterm/addon-serialize/-/addon-serialize-0.14.0.tgz#70c9f6dcd4632b086a0aa0deafd0e26e7482843b"
   integrity sha512-uteyTU1EkrQa2Ux6P/uFl2fzmXI46jy5uoQMKEOM0fKTyiW7cSn0WrFenHm5vO5uEXX/GpwW/FgILvv3r0WbkA==
 
+"@xterm/addon-web-links@0.12.0":
+  version "0.12.0"
+  resolved "https://registry.yarnpkg.com/@xterm/addon-web-links/-/addon-web-links-0.12.0.tgz#bc34ae46f4c12012256d451ac2b9be791c0b6bfa"
+  integrity sha512-4Smom3RPyVp7ZMYOYDoC/9eGJJJqYhnPLGGqJ6wOBfB8VxPViJNSKdgRYb8NpaM6YSelEKbA2SStD7lGyqaobw==
+
 "@xterm/addon-webgl@0.19.0":
   version "0.19.0"
   resolved "https://registry.yarnpkg.com/@xterm/addon-webgl/-/addon-webgl-0.19.0.tgz#02533c3f7c0af3ac9a44bbb095cbd47d48e90c25"

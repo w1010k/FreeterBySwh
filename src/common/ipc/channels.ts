@@ -283,6 +283,12 @@ export type IpcPtyBufferArgs = [terminalId: string];
 /** The screen copy and the number of the last output chunk it covers. */
 export type IpcPtyBufferRes = { screen: string; seq: number } | undefined;
 
+/** A shell a new terminal tab can run (found on this computer). */
+export interface ShellOption { label: string; shell: string }
+export const ipcPtyShellsChannel = makeIpcChannelName('pty-shells');
+export type IpcPtyShellsArgs = [];
+export type IpcPtyShellsRes = ShellOption[];
+
 export const ipcPtyKillChannel = makeIpcChannelName('pty-kill');
 export type IpcPtyKillArgs = [terminalId: string];
 export type IpcPtyKillRes = void;

@@ -216,6 +216,12 @@ export function createWidgetViewModelHook({
       showWidgetContextMenuUseCase(widget.id, contextMenuFactory, getContextId(<HTMLElement>event.target), event.nativeEvent.contextData);
     }, [contextMenuFactoryViewMode, editMode, env, widget.id]);
 
+    const addMenu = headerTabs?.addMenu;
+    const onAddMenuClick = useCallback(() => {
+      if (addMenu) {
+        showContextMenuUseCase(addMenu);
+      }
+    }, [addMenu]);
 
     return {
       editMode,
@@ -229,6 +235,7 @@ export function createWidgetViewModelHook({
       sharedState,
       dontShowActionBar,
       onContextMenuHandler,
+      onAddMenuClick,
     }
   }
 

@@ -355,7 +355,7 @@
 #### 헤더, 액션바, 컨텍스트 메뉴
 
 - 헤더 이름 우선순위: `coreSettings.name` → `ui.widgetDynamicTitles[widgetId]` [fork #11] → 타입 이름.
-- 보기 모드에서 위젯이 `setHeaderTabs`로 탭을 주면 이름 대신 탭 목록을 그린다 (Webpage 탭 [fork #67]). `onAdd`를 주면 탭 끝에 +, `onClose`를 주면 탭마다 x를 그린다 (Terminal 탭 [fork #100]).
+- 보기 모드에서 위젯이 `setHeaderTabs`로 탭을 주면 이름 대신 탭 목록을 그린다 (Webpage 탭 [fork #67]). `onAdd`를 주면 탭 끝에 +, `onClose`를 주면 탭마다 x를 그린다 (Terminal 탭 [fork #100]). `onAdd`와 함께 `addMenu` (메뉴 항목)를 주면 + 옆에 ▾를 그리고, 누르면 OS 메뉴 (`showContextMenuUseCase`)로 띄운다 (Terminal 셸 선택 [fork #102]).
 - 편집 모드 액션바: Widget Settings, Delete Widget, More Actions. More 메뉴에도 Widget Settings, Copy Widget, Delete Widget이
   있다 [fork #58]. 작은 위젯에서 bar가 잘려도 접근할 수 있게 하려는 것이다.
 - 보기 모드 액션바: 위젯이 `updateActionBar`로 준 항목 + 최대화 버튼 (`maximizable`일 때).

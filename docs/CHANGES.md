@@ -3807,6 +3807,28 @@ Spreadsheet 위젯을 제거했다. Add Widget 목록에서 사라지고, 이미
 - **수정**: `src/renderer/widgets/index.ts`, `src/renderer/base/state/ui.ts` (팔레트), `src/renderer/application/useCases/ai/actions/widgetActions.ts`, `jest.config.js` (src 안 spec이 없어져 renderer `roots`에서 `src/renderer/` 제거)
 - **테스트**: `tests/renderer/widgets/theme.spec.ts` (Spreadsheet 전용이던 테마 변수 검사를 모든 위젯 SCSS로 넓힘), `tests/renderer/application/useCases/ai/actions/widgetActions.spec.ts`
 
+## 102. Terminal 셸 선택, 링크, 확대·축소 *(2026-11-10)*
+
+Terminal 위젯의 헤더에서 + 옆 ▾를 누르면 이 PC에서 찾은 셸 목록이 메뉴로 뜬다 (Windows: PowerShell 7, Windows PowerShell, 명령 프롬프트, Git Bash, WSL 중 있는 것). 고른 셸로 새 탭이 열리고, 그 탭의 Restart Shell도 같은 셸로 시작한다. +는 전처럼 설정의 셸로 탭을 연다. 설정의 Shell이 비어 있으면 Windows는 PowerShell 7 (`pwsh.exe`)이 있을 때 그것을 쓰고, 없으면 전처럼 Windows PowerShell을 쓴다. 출력의 URL은 Ctrl+클릭으로 기본 브라우저에서 연다. 그냥 클릭은 글 선택이다 (Windows Terminal과 같다). 설정 화면에서 Shell과 Start Folder 칸의 회색 안내 문구가 서로 바뀌어 있던 것도 바로잡았다.
+
+확대·축소: Ctrl+= (또는 Ctrl++), Ctrl+-, Ctrl+마우스 휠로 글자 크기를 바꾸고, Ctrl+0으로 설정의 Font Size로 돌아간다 (Windows Terminal과 같다). 바꾼 크기는 위젯의 모든 탭에 적용되고 앱을 닫을 때까지 유지된다. 기본 크기는 새 설정 Font Size (기본 13, 6~48)이고, 바꾸면 셸을 다시 시작하지 않아도 바로 적용된다.
+
+- main은 셸 목록이 처음 필요할 때 (기본 셸로 탭을 열거나 ▾ 메뉴를 그릴 때) 한 번 찾는다. 앱 시작은 기다리지 않는다. 레지스트리 PATH를 합친 뒤라서 (`infra/terminal/detectShells.ts`). PowerShell 7은 PATH와 `Program Files\PowerShell\7`, Git Bash는 `Program Files`, `Program Files (x86)`, `%LOCALAPPDATA%\Programs`의 `Git\bin\bash.exe`, WSL은 `System32\wsl.exe`가 있고 설치된 배포판이 있을 때 (`HKCU\...\Lxss`의 하위 키; `wsl.exe`는 Windows 11에 기본으로 있다). 그 밖의 OS는 `$SHELL`과 `/etc/shells` 중 있는 파일을 이름마다 하나씩 (merged-/usr의 `/bin/bash`와 `/usr/bin/bash`), tmux·screen·rbash 같은 셸 아닌 항목은 뺀다. ▾ 메뉴의 목록은 renderer가 한 번만 받아 둔다. 목록은 새 IPC `pty-shells`와 위젯 API `pty.shells()`로 넘긴다.
+- 헤더 탭 API에 `addMenu` (메뉴 항목)를 더했다. 헤더가 ▾를 그리고 기존 OS 메뉴 (`showContextMenuUseCase`)로 띄운다.
+- 확대·축소는 모듈 수준 `zoomByWidget` (위젯별, 설정 크기와의 차이)에 둔다. 위젯은 자기 설정을 바꾸지 못하므로 (설정 화면만 바꾼다) 저장하지 않는다. 키는 xterm의 `attachCustomKeyEventHandler`, 휠은 화면 상자에서 capture 단계로 받아 xterm의 스크롤과 페이지 확대보다 먼저 막는다. 크기를 바꾸면 `fit` 뒤 셸에 새 크기를 보낸다. Ctrl+-는 셸에 `^_`로 가지 않는다 (Windows Terminal과 같다). `^_` (readline·emacs의 undo, nano의 줄 이동)는 Ctrl+Shift+- (Ctrl+_)로 보낸다. Ctrl+휠은 휠 거리 100px (마우스 한 칸)마다 한 단계라서, 작은 이벤트를 많이 보내는 터치패드 핀치도 한 번에 끝까지 가지 않는다. 가로 휠은 확대·축소하지 않는다. 확대·축소는 지금 보이는 크기에서 한 단계 움직인다 (최대 크기를 넘게 올렸거나 기본 크기를 바꾼 뒤에도 한 번 누르면 바로 바뀐다). Font Size 칸은 입력 중에 범위로 자르지 않고, 범위 안의 값만 저장한다.
+- 링크는 `@xterm/addon-web-links` 0.12.0. 위젯의 `requiresApi`에 `shell`을 더해 `openExternalUrl`로 연다.
+
+**까다로웠던 포인트**
+
+- 감지는 PATH를 합친 뒤에 해야 한다. 설치 프로그램이 띄운 앱은 사용자 PATH가 없어서, 먼저 감지하면 PATH에만 있는 pwsh를 놓친다.
+- 알려진 설치 폴더만 본다. 다른 곳에 설치한 셸은 설정의 Shell 칸으로 쓸 수 있다. Git Bash는 인자 없이 띄우므로 로그인 셸이 아니다 (`~/.bashrc`는 읽는다).
+
+**수정 파일**
+
+- **신규**: `src/main/infra/terminal/detectShells.ts`, 의존성 `@xterm/addon-web-links`
+- **수정**: `src/common/ipc/channels.ts`, `src/main/controllers/pty.ts`, `src/main/index.ts`, `src/renderer/base/widgetApi.ts`, `src/renderer/infra/ptyProvider/ptyProvider.ts`, `src/renderer/ui/components/widget/{widget.tsx,widgetViewModel.ts}`, `src/renderer/widgets/terminal/{index.ts,settings.tsx,widget.tsx}`
+- **테스트**: `tests/main/infra/terminal/detectShells.spec.ts`, `tests/main/controllers/pty.spec.ts`, `tests/renderer/widgets/terminal/{widget,settings}.spec.ts`, `tests/renderer/ui/components/widget/widget.spec.tsx`
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

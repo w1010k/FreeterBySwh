@@ -32,6 +32,7 @@ export function createWidgetComponent({
       sharedState,
       dontShowActionBar,
       onContextMenuHandler,
+      onAddMenuClick,
     } = useWidgetViewModel(props);
 
     // The tab bar hides its scrollbar (26px header), so overflowed tabs need
@@ -129,6 +130,16 @@ export function createWidgetComponent({
                 title={headerTabs.addTitle ?? 'Add'}
                 onClick={headerTabs.onAdd}
               >+</button>
+            )}
+            {headerTabs.onAdd && headerTabs.addMenu && headerTabs.addMenu.length > 0 && (
+              <button
+                type="button"
+                className={styles['widget-header-tab-add']}
+                aria-label={`${headerTabs.addTitle ?? 'Add'}: choose`}
+                aria-haspopup="menu"
+                title={`${headerTabs.addTitle ?? 'Add'}: choose`}
+                onClick={onAddMenuClick}
+              >▾</button>
             )}
           </div>
           : <div className={styles['widget-header-name']}>{widgetName}</div>}

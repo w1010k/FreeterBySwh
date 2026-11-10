@@ -43,7 +43,8 @@ export interface TerminalSnapshot {
 
 type Deps = {
   spawnPty: (shell: string, o: { cwd?: string; cols: number; rows: number; env: Record<string, string> }) => PtyProcess;
-  defaultShell: string;
+  /** Looked for when a shell starts without one (not at app start). */
+  defaultShell: () => string;
   /** A shell with no folder set starts here (Freeter's own folder can be system32 when the installer started it). */
   defaultCwd: string;
   /** Includes FREETER_AI_ENDPOINT / FREETER_AI_ORIGIN so `freeter` works in the shell. */
@@ -102,7 +103,7 @@ export function createTerminalHost({ spawnPty, defaultShell, defaultCwd, env, em
         return { ok: false, message: err instanceof Error ? err.message : String(err) };
       }
       try {
-        pty = spawnPty(o.shell || defaultShell, { cwd: o.cwd || defaultCwd, cols: o.cols, rows: o.rows, env });
+        pty = spawnPty(o.shell || defaultShell(), { cwd: o.cwd || defaultCwd, cols: o.cols, rows: o.rows, env });
       } catch (err) {
         mirror.dispose();
         return { ok: false, message: err instanceof Error ? err.message : String(err) };

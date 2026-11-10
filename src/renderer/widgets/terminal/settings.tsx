@@ -3,16 +3,24 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
+import { useState } from 'react';
 import { CreateSettingsState, ReactComponent, SettingsEditorReactComponentProps, SettingBlock } from '@/widgets/appModules';
 
 export interface Settings {
-  /** Shell program; empty = the platform default (PowerShell on Windows, $SHELL elsewhere). */
+  /** Shell program; empty = the platform default (PowerShell 7 if found, else Windows PowerShell, on Windows; $SHELL elsewhere). */
   shell: string;
   /** Start folder; empty = the user's home folder. */
   cwd: string;
   /** Typed into the shell when it starts, e.g. "claude". */
   startCommand: string;
+  /** The base font size; Ctrl+= / Ctrl+- / Ctrl+wheel zoom from it for the app session, Ctrl+0 goes back. */
+  fontSize: number;
 }
+
+export const FONT_SIZE_MIN = 6;
+export const FONT_SIZE_MAX = 48;
+const FONT_SIZE_DEFAULT = 13;
+export const clampFontSize = (n: number) => Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, Math.round(n)));
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
@@ -20,17 +28,20 @@ export const createSettingsState: CreateSettingsState<Settings> = (settings) => 
   shell: str(settings.shell),
   cwd: str(settings.cwd),
   startCommand: str(settings.startCommand),
+  fontSize: typeof settings.fontSize === 'number' && Number.isFinite(settings.fontSize) ? clampFontSize(settings.fontSize) : FONT_SIZE_DEFAULT,
 })
 
 function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponentProps<Settings>) {
   const {updateSettings} = settingsApi;
+  // What is typed: "2" on the way to "20" is not clamped to 6. A size in range is saved; leaving the box shows the saved one.
+  const [fontSizeText, setFontSizeText] = useState<string | null>(null);
   return (
     <>
-      <SettingBlock titleForId='terminal-shell' title='Shell' moreInfo='Program to run, e.g. pwsh.exe, cmd.exe, bash. Empty: PowerShell on Windows, your $SHELL elsewhere.'>
-        <input type="text" id="terminal-shell" value={settings.shell} placeholder="(your home folder)" onChange={e => updateSettings({ ...settings, shell: e.target.value })}/>
+      <SettingBlock titleForId='terminal-shell' title='Shell' moreInfo='Program to run, e.g. pwsh.exe, cmd.exe, bash. Empty: PowerShell 7 on Windows when installed (else Windows PowerShell), your $SHELL elsewhere. The menu next to + in the widget opens a tab with another shell.'>
+        <input type="text" id="terminal-shell" value={settings.shell} placeholder="(default)" onChange={e => updateSettings({ ...settings, shell: e.target.value })}/>
       </SettingBlock>
       <SettingBlock titleForId='terminal-cwd' title='Start Folder'>
-        <input type="text" id="terminal-cwd" value={settings.cwd} placeholder="(default)" onChange={e => updateSettings({ ...settings, cwd: e.target.value })}/>
+        <input type="text" id="terminal-cwd" value={settings.cwd} placeholder="(your home folder)" onChange={e => updateSettings({ ...settings, cwd: e.target.value })}/>
       </SettingBlock>
       <SettingBlock
         titleForId='terminal-start-command'
@@ -39,7 +50,28 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
       >
         <input type="text" id="terminal-start-command" value={settings.startCommand} onChange={e => updateSettings({ ...settings, startCommand: e.target.value })}/>
       </SettingBlock>
-      <p>Changes apply when the shell restarts (Restart Shell in the action bar).</p>
+      <SettingBlock
+        titleForId='terminal-font-size'
+        title='Font Size'
+        moreInfo='In the terminal, Ctrl+= and Ctrl+- (or Ctrl+mouse wheel) zoom until Freeter closes; Ctrl+0 goes back to this size.'
+      >
+        <input
+          type="number"
+          id="terminal-font-size"
+          min={FONT_SIZE_MIN}
+          max={FONT_SIZE_MAX}
+          value={fontSizeText ?? settings.fontSize}
+          onChange={e => {
+            setFontSizeText(e.target.value);
+            const n = Number(e.target.value);
+            if (e.target.value !== '' && Number.isInteger(n) && n >= FONT_SIZE_MIN && n <= FONT_SIZE_MAX) {
+              updateSettings({ ...settings, fontSize: n });
+            }
+          }}
+          onBlur={() => setFontSizeText(null)}
+        />
+      </SettingBlock>
+      <p>The font size applies at once. Other changes apply when the shell restarts (Restart Shell in the action bar).</p>
     </>
   )
 }

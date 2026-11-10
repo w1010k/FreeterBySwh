@@ -88,7 +88,8 @@ async function setup(deletingSharedDataKeys = new Set<string>()) {
   }
 
   const ptyProvider: jest.MockedObject<PtyProvider> = {
-    create: jest.fn(), write: jest.fn(), resize: jest.fn(), kill: jest.fn(), buffer: jest.fn(), onData: jest.fn(), onExit: jest.fn(), onTitle: jest.fn()
+    create: jest.fn(), write: jest.fn(), resize: jest.fn(), kill: jest.fn(), buffer: jest.fn(), onData: jest.fn(),
+    onExit: jest.fn(), onTitle: jest.fn(), shells: jest.fn()
   }
 
   const getWidgetsInCurrentWorkflowUseCase = jest.fn();

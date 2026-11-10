@@ -20,7 +20,7 @@ const widgetType: WidgetType<Settings> = {
   createSettingsState,
   settingsEditorComp,
   widgetComp,
-  requiresApi: ['pty'],
+  requiresApi: ['pty', 'shell'],
   runsPrograms: true,
   onDeleted: forgetTerminalSession
 }
