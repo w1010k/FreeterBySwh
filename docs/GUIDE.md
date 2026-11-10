@@ -170,7 +170,7 @@ Markdown Editor, Pomodoro, Stopwatch, AI Chat, Spreadsheet는 제거되었습니
 |---|---|---|
 | **Calculator** | 버튼·키보드 입력 사칙연산 계산기 | 잠깐 계산할 때 |
 | **System Monitor** | 내 컴퓨터의 CPU (코어별 포함)·RAM·시스템 드라이브·Freeter 자체 사용량, 배터리, 가동 시간 실시간 표시 | 무거운 작업 중 자원을 곁눈질할 때 |
-| **Terminal** | 위젯 안에서 PowerShell 같은 셸 실행. 헤더의 +로 탭 (셸)을 더 열고 x로 닫음. + 옆 ▾로 PowerShell 7, 명령 프롬프트, Git Bash, WSL 등 이 PC에 있는 셸을 골라 탭을 엶. 출력의 링크는 Ctrl+클릭으로 엶. Ctrl+= / Ctrl+- / Ctrl+휠로 확대·축소, Ctrl+0으로 원래 크기 (설정의 Font Size). 그 안에서 Claude Code·Codex를 실행할 수 있음 (설정의 시작 명령에 `claude`를 넣으면 셸과 함께 시작) | 작업판 옆에서 명령을 치거나 AI 에이전트를 돌릴 때 |
+| **Terminal** | 위젯 안에서 PowerShell 같은 셸 실행. 헤더의 +로 탭 (셸)을 더 열고 x로 닫음. + 옆 ▾로 PowerShell 7, 명령 프롬프트, Git Bash, WSL 등 이 PC에 있는 셸을 골라 탭을 엶. 출력의 링크는 Ctrl+클릭으로 엶. Ctrl+= / Ctrl+- / Ctrl+휠로 확대·축소, Ctrl+0으로 원래 크기 (설정의 Font Size). 색은 설정의 Theme (Dark, Light, 앱 테마를 따르는 Follow App; 기본 Dark). 그 안에서 Claude Code·Codex를 실행할 수 있음 (설정의 시작 명령에 `claude`를 넣으면 셸과 함께 시작) | 작업판 옆에서 명령을 치거나 AI 에이전트를 돌릴 때 |
 
 > 각 위젯의 포크 추가 기능(자동 아이콘, 동적 타이틀, 단축키 등)의 자세한 내역은 [`docs/CHANGES.md`](CHANGES.md)에 정리돼 있습니다.
 

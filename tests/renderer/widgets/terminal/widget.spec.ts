@@ -532,11 +532,27 @@ describe('Terminal widget', () => {
     expect(openExternalUrl).toHaveBeenCalledWith('https://example.com');
   });
 
-  it('draws in the light or dark colors of the app theme', async () => {
+  it('draws in the Theme setting colors: Dark by default, or the app theme with Follow App', async () => {
     const { pty } = setupPty();
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, sharedState: { uiTheme: { themeId: 'dark' } } });
+    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, sharedState: { uiTheme: { themeId: 'light' } } });
     await waitFor(() => expect(terms).toHaveLength(1));
     expect(terms[0].options.theme).toBe(terminalThemes.dark);
+    resetTerminalSessions();
+    setupWidgetSut(widgetComp, settings({ theme: 'app' }), { mockWidgetApi: { pty }, sharedState: { uiTheme: { themeId: 'light' } }, widgetId: 'W2' });
+    await waitFor(() => expect(terms).toHaveLength(2));
+    expect(terms[1].options.theme).toBe(terminalThemes.light);
+  });
+
+  it('applies a Theme change to the open terminal at once (no restart)', async () => {
+    const { pty } = setupPty();
+    const { setSettings } = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, sharedState: { uiTheme: { themeId: 'dark' } } });
+    await waitFor(() => expect(terms).toHaveLength(1));
+    expect(terms[0].options.theme).toBe(terminalThemes.dark);
+
+    setSettings(settings({ theme: 'light' }));
+
+    await waitFor(() => expect(terms[0].options.theme).toBe(terminalThemes.light));
+    expect(terms).toHaveLength(1);
     // Readable on any background a program sets.
     expect(terms[0].options.minimumContrastRatio).toBe(4.5);
   });

@@ -9,8 +9,8 @@ import { setupSettingsSut } from '@tests/widgets/setupSut'
 
 describe('Terminal Widget Settings', () => {
   it('fills missing or wrong-typed values with empty strings (the defaults)', () => {
-    expect(createSettingsState({})).toEqual({ shell: '', cwd: '', startCommand: '', fontSize: 13 });
-    expect(createSettingsState({ shell: 3, cwd: 'C:/w', startCommand: null } as never)).toEqual({ shell: '', cwd: 'C:/w', startCommand: '', fontSize: 13 });
+    expect(createSettingsState({})).toEqual({ shell: '', cwd: '', startCommand: '', fontSize: 13, theme: 'dark' });
+    expect(createSettingsState({ shell: 3, cwd: 'C:/w', startCommand: null } as never)).toEqual({ shell: '', cwd: 'C:/w', startCommand: '', fontSize: 13, theme: 'dark' });
   });
 
   it('keeps the font size a whole number from 6 to 48', () => {
@@ -33,6 +33,18 @@ describe('Terminal Widget Settings', () => {
     userEvent.tab();
     await waitFor(() => expect(input).toHaveValue(20)); // out of range: the size stays
     expect(getSettings()).toMatchObject({ fontSize: 20 });
+  });
+
+  it('keeps a known theme and falls back to Dark (the color before this setting existed)', () => {
+    expect(createSettingsState({ theme: 'app' }).theme).toBe('app');
+    expect(createSettingsState({ theme: 'light' }).theme).toBe('light');
+    expect(createSettingsState({ theme: 'neon' } as never).theme).toBe('dark');
+  });
+
+  it('picks the theme', async () => {
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, createSettingsState({}));
+    userEvent.selectOptions(screen.getByRole('combobox', { name: /theme/i }), 'Follow App');
+    await waitFor(() => expect(getSettings()).toMatchObject({ theme: 'app' }));
   });
 
   it('edits the start command', async () => {

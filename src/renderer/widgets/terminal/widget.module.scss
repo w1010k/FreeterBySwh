@@ -19,7 +19,7 @@
 
 .error {
   padding: 8px;
-  color: var(--freeter-dangerText);
+  // The color is the terminal palette's red (inline in widget.tsx): it sits on the terminal background, not the app's.
   font-size: 0.9em;
 }
 

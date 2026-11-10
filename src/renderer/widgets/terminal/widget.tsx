@@ -399,7 +399,7 @@ function LiveTerminal({widgetId, theme, sessionKey, settings, widgetApi}: LiveTe
 
   return (
     <div className={styles['terminal']} style={{ background: theme.background }}>
-      {error && <div role="alert" className={styles['error']}>The shell could not start: {error}</div>}
+      {error && <div role="alert" className={styles['error']} style={{ color: theme.red }}>The shell could not start: {error}</div>}
       <div ref={hostRef} className={styles['host']}/>
     </div>
   );
@@ -482,8 +482,8 @@ function TerminalTabs({id, settings, widgetApi, sharedState}: WidgetReactCompone
 
   const tabs = tabsOf(id);
   const sessionKey = tabs.keys[Math.min(tabs.active, tabs.keys.length - 1)];
-  // The app's light or dark theme (the terminal draws its own colors).
-  const theme = terminalThemes[sharedState.uiTheme.themeId];
+  // The terminal draws its own colors: the Theme setting, or the app's light or dark theme (Follow App).
+  const theme = terminalThemes[settings.theme === 'app' ? sharedState.uiTheme.themeId : settings.theme];
   return <LiveTerminal key={sessionKey} widgetId={id} theme={theme} sessionKey={sessionKey} settings={settings} widgetApi={widgetApi}/>;
 }
 

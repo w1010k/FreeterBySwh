@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react';
+import type { UiThemeId } from '@/base/uiTheme';
 import { CreateSettingsState, ReactComponent, SettingsEditorReactComponentProps, SettingBlock } from '@/widgets/appModules';
 
 export interface Settings {
@@ -15,7 +16,18 @@ export interface Settings {
   startCommand: string;
   /** The base font size; Ctrl+= / Ctrl+- / Ctrl+wheel zoom from it for the app session, Ctrl+0 goes back. */
   fontSize: number;
+  /** The terminal's colors: the app theme's, or always light or dark. */
+  theme: TerminalThemeSetting;
 }
+
+/** A fixed palette (a key of terminalThemes, the app theme ids) or 'app' (follow the app theme). */
+export type TerminalThemeSetting = UiThemeId | 'app';
+// A Record over the type: adding a theme id fails to compile until it has a name here.
+const terminalThemeNames: Record<TerminalThemeSetting, string> = { dark: 'Dark', light: 'Light', app: 'Follow App' };
+export const terminalThemeSettings = Object.keys(terminalThemeNames) as TerminalThemeSetting[];
+// Dark: the terminal was always dark before it had this setting, so saved widgets keep that.
+const THEME_DEFAULT: TerminalThemeSetting = 'dark';
+const isTerminalThemeSetting = (v: unknown): v is TerminalThemeSetting => terminalThemeSettings.includes(v as TerminalThemeSetting);
 
 export const FONT_SIZE_MIN = 6;
 export const FONT_SIZE_MAX = 48;
@@ -29,6 +41,7 @@ export const createSettingsState: CreateSettingsState<Settings> = (settings) => 
   cwd: str(settings.cwd),
   startCommand: str(settings.startCommand),
   fontSize: typeof settings.fontSize === 'number' && Number.isFinite(settings.fontSize) ? clampFontSize(settings.fontSize) : FONT_SIZE_DEFAULT,
+  theme: isTerminalThemeSetting(settings.theme) ? settings.theme : THEME_DEFAULT,
 })
 
 function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponentProps<Settings>) {
@@ -71,7 +84,12 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
           onBlur={() => setFontSizeText(null)}
         />
       </SettingBlock>
-      <p>The font size applies at once. Other changes apply when the shell restarts (Restart Shell in the action bar).</p>
+      <SettingBlock titleForId='terminal-theme' title='Theme' moreInfo='The colors of the terminal. Follow App uses the light or dark theme set in the application settings.'>
+        <select id="terminal-theme" value={settings.theme} onChange={e => updateSettings({ ...settings, theme: e.target.value as TerminalThemeSetting })}>
+          {terminalThemeSettings.map(id => <option key={id} value={id}>{terminalThemeNames[id]}</option>)}
+        </select>
+      </SettingBlock>
+      <p>The font size and the theme apply at once. Other changes apply when the shell restarts (Restart Shell in the action bar).</p>
     </>
   )
 }

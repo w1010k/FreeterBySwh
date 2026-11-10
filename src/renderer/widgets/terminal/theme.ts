@@ -7,7 +7,8 @@ import type { ITheme } from '@xterm/xterm';
 import type { UiThemeId } from '@/base/uiTheme';
 
 /**
- * The terminal's colors for the app's light and dark themes. The ANSI colors keep their usual meaning (white is light,
+ * The terminal's light and dark colors, keyed by the app theme ids. The Theme setting picks one (Dark by default), or the
+ * app theme's with Follow App. The ANSI colors keep their usual meaning (white is light,
  * black is dark); readable text on any of them comes from xterm's `minimumContrastRatio` (widget.tsx), which moves a
  * cell's text color away from its actual background. The palettes still start every text color at 4.5:1 or more on the
  * default background where they can (tests/renderer/widgets/terminal/theme.spec.ts).

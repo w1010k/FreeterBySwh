@@ -497,10 +497,11 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
 
 #### Terminal (`terminal`)
 
-- **색**: xterm은 앱 CSS 변수를 쓰지 않고 자기 색으로 그린다. `requiresState: ['uiTheme']`로 앱 테마를 받아 `theme.ts`의 light·dark 팔레트를
+- **색**: xterm은 앱 CSS 변수를 쓰지 않고 자기 색으로 그린다. 설정 `theme` (`dark` 기본, `light`, `app`; 잘못된 값은 `dark`)이 팔레트를 고르고, `app`이면
+  `requiresState: ['uiTheme']`로 받은 앱 테마를 따른다. `dark`가 기본인 이유: 이 설정 전의 위젯은 늘 어두웠다. `theme.ts`의 light·dark 팔레트를
   `term.options.theme`에 넣고, 테마가 바뀌면 바로 바꾼다. `minimumContrastRatio: 4.5`로 프로그램이 정한 배경 위의 글자도 읽힌다. 팔레트의 글자색도 기본 배경 대비 4.5:1 이상이다 (`tests/renderer/widgets/terminal/theme.spec.ts`) [fork #103].
 - **역할**: 위젯 안의 셸 [fork #100]. xterm.js로 그리고 (화면이 열린 다음 프레임에 `@xterm/addon-webgl`; 실패하거나 WebGL 컨텍스트를 잃으면 DOM 렌더러. 뷰가 닫힐 때 `WEBGL_lose_context`로 컨텍스트를 돌려준다: 애드온은 돌려주지 않고, Chromium은 몇 개만 두고 가장 오래된 것을 잃게 한다) main의 node-pty 셸과 `pty` 모듈로 주고받는다. 키 입력은 `pty.write`가 응답 없는 `send`로 보낸다.
-- **설정**: `shell` (빈 값은 플랫폼 기본: Windows는 PowerShell 7이 있으면 pwsh, 없으면 Windows PowerShell), `cwd` (빈 값은 사용자 홈, main `terminalHost`의 `defaultCwd`), `startCommand` (셸 시작 뒤 입력), `fontSize` (기본 13, 6~48, `clampFontSize`). `fontSize`는 바로 적용되고, 나머지는 Restart Shell 뒤 적용된다.
+- **설정**: `shell` (빈 값은 플랫폼 기본: Windows는 PowerShell 7이 있으면 pwsh, 없으면 Windows PowerShell), `cwd` (빈 값은 사용자 홈, main `terminalHost`의 `defaultCwd`), `startCommand` (셸 시작 뒤 입력), `fontSize` (기본 13, 6~48, `clampFontSize`), `theme` (아래 **색**). `fontSize`와 `theme`은 바로 적용되고, 나머지는 Restart Shell 뒤 적용된다.
 - **탭**: 헤더 탭으로 셸을 여러 개 연다 (+로 추가, x로 닫기; 마지막 탭에는 x가 없다). 모듈 수준 `tabsByWidget`이 위젯별 탭 (세션 키: 첫 탭은 위젯 id, 나머지는 `<위젯 id>#<n>`)과 선택한 탭을 가져, 다시 마운트해도 탭이 그대로다. 화면은 선택한 탭만 그리고 (`LiveTerminal`을 세션 키로 다시 마운트), 다른 탭의 셸은 main에서 계속 돈다. 탭 이름은 셸이 정한 제목 (main의 화면 사본이 받는 OSC 제목, `pty.onTitle`; 보이지 않는 탭도 바뀐다), 없으면 `Shell <n>`. 탭 x는 보조 기술에서 숨긴 마우스용이고, 탭 자체가 Delete로 닫힌다 (탭 목록에는 탭만 둔다). 위젯 삭제는 모든 탭의 셸을 끝낸다. "항상 허용" 작업이 띄운 Terminal의 대기는 첫 탭에만 적용한다. 탭 목록은 앱을 다시 시작하면 하나로 돌아간다.
 - **셸 선택**: + 옆 ▾ 메뉴는 `pty.shells()` (main이 처음 필요할 때 한 번 찾은 목록: PowerShell 7, Windows PowerShell, 명령 프롬프트, Git Bash, 배포판이 있을 때의 WSL; 그 밖의 OS는 `$SHELL`과 `/etc/shells`를 이름마다 하나, 셸 아닌 항목 제외)를 보여 주고 (renderer는 모듈 수준 `shellsAsked`로 한 번만 묻는다), 고른 셸로 탭을 연다. 모듈 수준 `shellByKey`가 그 탭의 셸을 기억해 Restart Shell도 같은 셸로 시작한다. +와 메뉴 밖의 탭은 설정의 `shell`을 쓴다. Git Bash는 인자 없이 띄운다 (로그인 셸 아님) [fork #102].
 - **링크**: `@xterm/addon-web-links`. 출력의 URL은 Ctrl+클릭 (Mac은 Cmd+클릭)일 때만 `shell.openExternalUrl`로 연다. 그냥 클릭은 글 선택이다 (Windows Terminal과 같다) [fork #102].
