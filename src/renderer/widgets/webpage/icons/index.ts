@@ -18,6 +18,7 @@ import volumeOnSvg from './volume-on.svg';
 import volumeOffSvg from './volume-off.svg';
 import searchSvg from './search.svg';
 import runScriptSvg from './run-script.svg';
+import translateSvg from './translate.svg';
 
 export {
   backSvg,
@@ -34,5 +35,6 @@ export {
   volumeOnSvg,
   volumeOffSvg,
   searchSvg,
-  runScriptSvg
+  runScriptSvg,
+  translateSvg
 }

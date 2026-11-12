@@ -25,6 +25,10 @@
   background: var(--freeter-componentBackground);
   color:  var(--freeter-componentColor);
 }
+// Translate Page failure: same chip as Loading, in the error color so it reads apart from "Translating...".
+.translate-failed {
+  color: var(--freeter-dangerText);
+}
 .tabs-panes {
   position: absolute;
   inset: 0;

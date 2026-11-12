@@ -3861,6 +3861,40 @@ Terminal 위젯의 헤더에서 + 옆 ▾를 누르면 이 PC에서 찾은 셸 �
 - **수정**: `src/renderer/base/widgetApi.ts`, `src/renderer/application/useCases/widget/getWidgetApi.ts`, `src/renderer/base/state/shared.ts` (`uiTheme` 슬라이스), `src/renderer/application/useCases/{widget/deleteWidget,workflowSwitcher/deleteWorkflow,appMenu/initAppMenu}.ts`, `src/common/base/dialog.ts` (`noLink`), `src/renderer/index.ejs`, `src/renderer/ui/components/{app,applicationSettings,projectManager,appManager,workflowSwitcher,topBar/shelf}/*`, 위젯 10여 개의 `settings.tsx`·`widget.tsx`·`widget.module.scss` (commander, file-explorer, file-opener, link-opener, web-query, timer, terminal 포함), `src/renderer/init.ts`, `src/renderer/application/useCases/analytics/openAnalytics.ts`, `src/renderer/ui/components/{widget,palette,projectSwitcher,about,basic/{actionBar,modalScreen,settingsScreen},worktable/widgetLayout}/*`, `src/renderer/ui/components/app/uiTheme/themes/{light,dark}.ts`, `src/renderer/widgets/{calculator,clock,d-day,note,to-do-list,webpage}/*`, `src/renderer/analyticsPage/*`, `src/renderer/widgets/system-monitor/widget.module.scss`, `src/renderer/widgets/appModules.ts` (`SvgIcon`, `close14Svg`)
 - **테스트**: `tests/renderer/application/useCases/{workflowSwitcher/moveWorkflow,shelf/moveShelfItem,worktable/nudgeLayoutItem}.spec.ts` (신규), `tests/renderer/widgets/to-do-list/contextMenu.spec.ts` (신규), `tests/renderer/ui/components/basic/modalScreen.spec.tsx` (신규), `tests/renderer/ui/components/basic/names.spec.tsx` (신규), `tests/renderer/widgets/terminal/theme.spec.ts` (신규), `tests/renderer/ui/components/app/uiTheme/contrast.spec.ts` (신규: 두 테마의 글자 4.5:1, 컨트롤 경계 3:1을 계산해 지킨다), `tests/renderer/widgets/to-do-list/widget.spec.ts`, `tests/renderer/ui/components/widget/widget.spec.tsx`, `tests/renderer/ui/components/worktable/widgetLayout.spec.tsx`, `tests/renderer/application/useCases/widget/getWidgetApi.spec.ts`, `tests/renderer/widgets/setupSut.tsx`
 
+## 104. Webpage 페이지 번역 *(2026-11-12)*
+
+Webpage 위젯의 action bar에 번역 버튼 ("文A" 아이콘, 툴팁 Translate to Korean)이 생겼다. 오른쪽 클릭 메뉴에도 같은 항목이 있다. 누르면 페이지의 글자가 그 자리에서 한국어로 바뀐다. 레이아웃, 링크, 이미지, 스타일은 그대로다. 번역이 켜진 동안 버튼은 눌린 모양 (`aria-pressed`, Edit Mode 토글과 같은 스타일)으로 보이고, 다시 누르면 원문으로 돌아간다. 메뉴 항목은 눌린 모양이 없어서 이름이 Show original로 바뀐다. 실패 알림은 오류 색 (`--freeter-dangerText`)으로 보인다. 생성형 AI는 쓰지 않는다: 크롬 번역과 같은 Google 번역 서버를 쓴다.
+
+- 번역은 탭 (webview)마다 따로 켠다. 켠 동안 같은 origin (scheme, host, port) 안에서 다른 페이지로 가면 새 페이지도 번역한다. 다른 origin으로 가면 번역이 꺼진다 (`www.`나 하위 도메인이 달라도 다르다): 이후의 사내 페이지나 로그인 페이지 글자를 묻지 않고 밖으로 보내지 않기 위해서다. 번역 도중 페이지가 바뀌어도 다른 origin의 글자는 보내지 않는다. origin이 없는 페이지 (file:, data:)는 URL 전체로 비교한다.
+- 페이지가 나중에 그리는 글자 (SPA의 새 화면, 무한 스크롤, 채팅)도 번역한다. 페이지가 글자를 바꾸면 0.5초 조용해진 뒤 (계속 바뀌는 페이지는 2초 안에) 새 글자만 번역한다.
+- 코드 (`code`, `pre`, `kbd`, `samp`), 입력란 (`input`, `textarea`, `select`, contenteditable), `script`·`style`, SVG·MathML, `translate="no"`·`.notranslate` 아래 글자는 번역하지 않는다. 한 덩어리가 4000자를 넘는 글자도 그대로 둔다.
+- 번역 중에는 왼쪽 아래에 "Translating..."이 보인다. 서버 오류, 응답 없음 (15초), 로딩 중이 아닌 페이지의 스크립트 오류이면 페이지를 원문으로 되돌리고 "Couldn’t translate this page"를 4초 보여 준다.
+- 한 번 번역한 문장은 앱이 켜져 있는 동안 main이 기억한다 (최대 5000개). 같은 글자를 다시 쓰는 페이지는 요청을 다시 보내지 않는다.
+- 한 번에 최대 20묶음 (글자 노드 약 10000개)까지 번역한다. 그보다 긴 페이지의 나머지는 페이지 글자가 다시 바뀔 때 이어서 번역한다.
+- 번역할 글자는 Google 서버 (`translate.googleapis.com`)로 간다. 크롬 번역과 같은 조건이다.
+
+구조:
+
+- **페이지 쪽** (`src/renderer/widgets/webpage/translate.ts`): `executeJavaScript`로 넣는 세 스크립트. collect는 `TreeWalker`로 글자 노드를 모아 한 묶음 (최대 500개, 50000자)을 돌려주고 `window.__freeterTranslate.pending`에 둔다. apply는 그 노드의 `nodeValue`만 바꾼다 (HTML로 넣지 않는다). 노드 앞뒤 공백은 직접 보존한다. restore는 바꾼 노드 중 페이지가 그 뒤 건드리지 않은 노드만 원문으로 돌린다. 첫 collect가 `MutationObserver`를 붙이고, 글자가 생기면 `console.log` 표식 (`TRANSLATE_MUTATION_MARKER`)으로 위젯에 알린다 (확대·찾기와 같은 신호 방식).
+- **위젯** (`widget.tsx`): `runTranslate`가 collect → `widgetApi.translate.translateTexts` → apply를 묶음이 빌 때까지 (최대 20번) 돈다. webview마다 한 번에 하나만 돌고, 도는 중에 온 요청 (새 페이지, 새 글자)은 `again`으로 이어서 돈다.
+- **main** (`translate-texts` IPC): `translateTextsUseCase`가 입력을 검사하고 (문자열 배열, 500개, 합계 50000자, 하나 4000자 상한; `src/common/base/translate.ts`), `translateProvider`가 Google 무료 엔드포인트 (`translate_a/t?client=gtx`)에 POST한다. 요청은 Electron `net.fetch`라서 시스템 프록시를 따른다. 100문장 또는 본문 40KB씩 나눠 동시에 보낸다. 500문장 (각 약 60자)을 잰 결과, 5개 동시 요청은 120~190ms, 차례로 보내면 510~750ms, 한 요청은 170ms~3.3초였다 (2026-11-12). 새 위젯 API 모듈 `translate`를 Webpage의 `requiresApi`에 넣었다.
+
+**까다로웠던 포인트**
+
+- Google 번역 웹사이트 위젯 (`element.js`)을 페이지에 넣는 방식은 버렸다. 페이지의 CSP가 외부 스크립트를 막는 사이트 (GitHub 등)에서 동작하지 않는다. 크롬은 분리된 실행 공간 (isolated world)에서 돌려 CSP를 피하지만, 그 안에서도 스크립트가 `<script>` 태그를 만들면 페이지 쪽에서 실행되어 다시 막힌다 (추정). 요청을 main에서 보내면 CSP와 CORS가 상관없다.
+- 서비스는 입력을 HTML로 읽는다. `<b>` 같은 글자가 사라지므로 `format=html`로 보내며 `&`, `<`, `>`를 escape하고, 응답의 엔티티 (`&quot;` 등)를 풀어서 넣는다. 앞뒤 공백은 잘라서 돌려주므로 노드의 앞뒤 공백을 따로 붙인다 (안 그러면 인라인 요소 사이 단어가 붙는다).
+- 많은 사이트가 배포판에서 `console.log`를 빈 함수로 바꾼다. 그러면 신호가 오지 않아 나중에 그린 글자가 번역되지 않는다. dom-ready에서 `console.log`를 먼저 잡아 두고 (`translateLogCaptureJs`) 신호에 쓴다.
+- 페이지가 떼었다가 다시 붙이는 노드 (탭 패널, 가상 목록)도 원문으로 돌려야 한다. 그래서 바꾼 노드 목록 (`done`)에서 떨어진 노드를 지우지 않는다. 대신 오래 켜 둔 페이지는 지워진 글자 노드를 Show original이나 페이지 이동 때까지 붙잡는다.
+- apply가 바꾼 글자도 `MutationObserver`에 잡힌다. apply 끝에 `takeRecords()`로 버려야 번역이 끝없이 반복되지 않는다. 숫자만 바뀌는 변화 (시계, 카운터)는 신호를 보내지 않는다.
+- 번역 서버가 실패하면 일부만 번역된 페이지를 남기지 않고 원문으로 돌린다. 사용자가 이미 끈 뒤에 늦게 온 실패는 알리지 않는다.
+- 실제 webview에서 사이트별 동작은 확인하지 못했다 (작업 환경에서 Electron 창을 띄울 수 없었다). 페이지 스크립트는 jsdom에서, 서버 응답 형태는 실제 엔드포인트에서 확인했다 (2026-11-12).
+
+**수정 파일**
+
+- **신규**: `src/common/base/translate.ts`, `src/main/application/interfaces/translateProvider.ts`, `src/main/application/useCases/translate/translateTexts.ts`, `src/main/controllers/translate.ts`, `src/main/infra/translateProvider/translateProvider.ts`, `src/renderer/application/interfaces/translateProvider.ts`, `src/renderer/infra/translateProvider/translateProvider.ts`, `src/renderer/widgets/webpage/translate.ts`, `src/renderer/widgets/webpage/icons/translate.svg`
+- **수정**: `src/common/ipc/channels.ts`, `src/main/index.ts`, `src/renderer/base/widgetApi.ts`, `src/renderer/application/useCases/widget/getWidgetApi.ts`, `src/renderer/init.ts`, `src/renderer/widgets/webpage/{index.ts,widget.tsx,actionBar.ts,contextMenu.ts,actions.ts,icons/index.ts}`
+- **테스트**: `tests/main/infra/translateProvider/translateProvider.spec.ts`, `tests/main/application/useCases/translate/translateTexts.spec.ts`, `tests/main/controllers/translate.spec.ts`, `tests/renderer/widgets/webpage/translate.spec.ts` (신규), `tests/renderer/widgets/webpage/{widget,actionBar}.spec.ts`, `tests/renderer/widgets/setupSut.tsx`, `tests/renderer/application/useCases/widget/getWidgetApi.spec.ts`
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

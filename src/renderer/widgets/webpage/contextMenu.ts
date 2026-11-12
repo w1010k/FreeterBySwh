@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { canGoBack, canGoForward, canGoHome, copyCurrentAddress, copyLinkAddress, goBack, goForward, goHome, hardReload, labelAutoReloadStart, labelAutoReloadStop, labelCopy, labelCopyCurrentAddress, labelCopyImageAddress, labelCopyLinkAddress, labelCut, labelDevTools, labelGoBack, labelGoForward, labelGoHome, labelHardReload, labelOpenInBrowser, labelOpenLinkInBrowser, labelPaste, labelPasteAsPlainText, labelPrintPage, labelRedo, labelReload, labelSaveAs, labelSaveImageAs, labelSaveLinkAs, labelSelectAll, labelUndo, labelZoom, openCurrentInBrowser, openDevTools, openLinkInBrowser, printPage, reload, saveLink, savePage, zoomPage } from './actions';
+import { canGoBack, canGoForward, canGoHome, copyCurrentAddress, copyLinkAddress, goBack, goForward, goHome, hardReload, labelAutoReloadStart, labelAutoReloadStop, labelCopy, labelCopyCurrentAddress, labelCopyImageAddress, labelCopyLinkAddress, labelCut, labelDevTools, labelGoBack, labelGoForward, labelGoHome, labelHardReload, labelOpenInBrowser, labelOpenLinkInBrowser, labelPaste, labelPasteAsPlainText, labelPrintPage, labelRedo, labelReload, labelSaveAs, labelSaveImageAs, labelSaveLinkAs, labelSelectAll, labelShowOriginal, labelTranslatePage, labelUndo, labelZoom, openCurrentInBrowser, openDevTools, openLinkInBrowser, printPage, reload, saveLink, savePage, zoomPage } from './actions';
 import { WidgetApi, WidgetContextMenuFactory, WidgetMenuItem } from '@/widgets/appModules';
 import { ContextMenuParams } from 'electron';
 
@@ -21,7 +21,9 @@ export function createContextMenuFactory(
   homeUrl: string,
   autoReload: number,
   autoReloadStopped: boolean,
-  setAutoReloadStopped: (val: boolean) => void
+  setAutoReloadStopped: (val: boolean) => void,
+  translated = false,
+  onToggleTranslate?: () => void
 ): WidgetContextMenuFactory {
   return (_contextId, contextData) => {
     const items: WidgetMenuItem[] = []
@@ -70,7 +72,12 @@ export function createContextMenuFactory(
         }, {
           label: labelZoom,
           submenu: zoomItems
-        }, {
+        },
+        ...(onToggleTranslate ? [{
+          doAction: async () => onToggleTranslate(),
+          label: translated ? labelShowOriginal : labelTranslatePage
+        }] : []),
+        {
           type: 'separator'
         }, {
           doAction: async () => openCurrentInBrowser(elWebview, widgetApi),

@@ -9,6 +9,7 @@ import { DataStorageRenderer } from '@/application/interfaces/dataStorage';
 import { ProcessProvider } from '@/application/interfaces/processProvider';
 import { TerminalProvider } from '@/application/interfaces/terminalProvider';
 import { SystemStatsProvider } from '@/application/interfaces/systemStatsProvider';
+import { TranslateProvider } from '@/application/interfaces/translateProvider';
 import { PtyProvider } from '@/application/interfaces/ptyProvider';
 import { createGetWidgetApiUseCase } from '@/application/useCases/widget/getWidgetApi';
 import { ActionBarItems } from '@/base/actionBar';
@@ -88,6 +89,10 @@ async function setup(deletingSharedDataKeys = new Set<string>()) {
     getStats: jest.fn()
   }
 
+  const translateProvider: jest.MockedObject<TranslateProvider> = {
+    translateTexts: jest.fn()
+  }
+
   const ptyProvider: jest.MockedObject<PtyProvider> = {
     create: jest.fn(), write: jest.fn(), resize: jest.fn(), kill: jest.fn(), buffer: jest.fn(), onData: jest.fn(),
     onExit: jest.fn(), onTitle: jest.fn(), shells: jest.fn()
@@ -113,6 +118,7 @@ async function setup(deletingSharedDataKeys = new Set<string>()) {
     deletingSharedDataKeys,
     terminalProvider,
     systemStatsProvider,
+    translateProvider,
     ptyProvider,
     getWidgetsInCurrentWorkflowUseCase,
     switchProjectUseCase,

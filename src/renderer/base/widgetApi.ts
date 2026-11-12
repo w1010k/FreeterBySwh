@@ -153,6 +153,10 @@ interface WidgetApiModules {
     /** Current system CPU usage (%) and RAM used/total (bytes). */
     getStats: () => Promise<SystemStats>;
   }
+  readonly translate: {
+    /** Machine-translates page text (Webpage widget). Same order and length as `texts`; rejects on failure. */
+    translateTexts: (texts: string[]) => Promise<string[]>;
+  }
   /** In-app terminals: shells in pseudo-terminals run by the main process. */
   readonly pty: WidgetApiPty;
 }

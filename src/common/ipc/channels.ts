@@ -244,6 +244,11 @@ export const ipcGetSystemStatsChannel = makeIpcChannelName('get-system-stats');
 export type IpcGetSystemStatsArgs = [];
 export type IpcGetSystemStatsRes = SystemStats;
 
+/** Machine-translate page text for the Webpage widget's Translate Page. Same order and length as `texts`. */
+export const ipcTranslateTextsChannel = makeIpcChannelName('translate-texts');
+export type IpcTranslateTextsArgs = [texts: string[]];
+export type IpcTranslateTextsRes = string[];
+
 /** main → renderer: run an AI control request. The renderer answers on `ai-action-response`. */
 export const ipcAiActionRequestChannel = makeIpcChannelName('ai-action-request');
 export type IpcAiActionRequestArgs = [reqId: number, req: AiRpcRequest];

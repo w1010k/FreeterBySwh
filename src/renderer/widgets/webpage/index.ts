@@ -22,7 +22,7 @@ const widgetType: WidgetType<Settings> = {
   createSettingsState,
   settingsEditorComp,
   widgetComp,
-  requiresApi: ['clipboard', 'shell', 'process', 'dataStorage'],
+  requiresApi: ['clipboard', 'shell', 'process', 'dataStorage', 'translate'],
   // Scripts and CSS run in the page with the user's login (CSS can send data out through url());
   // a URL, and the user agent sent with every request, can carry what the agent read to any site. The session settings
   // decide whose logins (cookies) the page runs with.

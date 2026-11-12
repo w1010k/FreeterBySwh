@@ -203,6 +203,28 @@ describe('Webpage action bar', () => {
     expect(onFind).toHaveBeenCalledTimes(1);
   })
 
+  it('should include TRANSLATE after FIND only when a translate toggle is provided, pressed while translated', async () => {
+    const onToggleTranslate = jest.fn();
+    const noop = () => undefined;
+    const { elWebview, widgetApi } = setupMocks();
+    const make = (translated: boolean, toggle?: () => void) =>
+      createActionBarItems(elWebview, widgetApi, 'https://x', 0, false, noop, false, noop, noop, [], translated, toggle);
+    expect(make(false).find(item => item.id === 'TRANSLATE')).toBeUndefined();
+
+    const items = make(false, onToggleTranslate);
+    const ids = items.map(item => item.id);
+    expect(ids.indexOf('TRANSLATE')).toBe(ids.indexOf('FIND') + 1);
+    const translateItem = items.find(item => item.id === 'TRANSLATE')!;
+    expect(translateItem.title).toBe('Translate to Korean');
+    expect(translateItem.pressed).toBe(false);
+    await translateItem.doAction();
+    expect(onToggleTranslate).toHaveBeenCalledTimes(1);
+
+    const translated = make(true, onToggleTranslate).find(item => item.id === 'TRANSLATE')!;
+    expect(translated.pressed).toBe(true);
+    expect(translated.title).toBe('Translate to Korean');
+  })
+
   it('should reset zoom to 100% and reload when RELOAD is invoked', async () => {
     const { elWebview, widgetApi } = setupMocks('https://x', 2);
     const items = createActionBarItems(elWebview, widgetApi, 'https://x', 0, false, () => undefined);

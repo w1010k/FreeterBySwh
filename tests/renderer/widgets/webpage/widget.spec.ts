@@ -9,6 +9,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { fixtureSettings } from './fixtures';
 import { WidgetEnv, EntityId } from '@/widgets/appModules';
+import { TRANSLATE_MUTATION_MARKER, translateApplyJs, translateCollectJs, translateRestoreJs } from '@/widgets/webpage/translate';
 
 function setupWebpageWidgetSut(settings: Settings, optional?: SetupWidgetSutOptional) {
   const { comp, ...rest } = setupWidgetSut(widgetComp, settings, optional);
@@ -180,6 +181,175 @@ describe('Webpage Widget', () => {
 
       expect(NOTIFICATION_CLICK_MARKER).toMatch(/^__FREETER_WEBPAGE_NOTIFICATION_CLICK_[0-9a-z]+__$/);
       expect(revealWidget).not.toHaveBeenCalled();
+    })
+  })
+
+  describe('translate page', () => {
+    // A guest page with one text: the first collect returns it, later collects find nothing new.
+    function setupTranslate(translateTexts: jest.Mock) {
+      const updateActionBar = jest.fn();
+      const sut = setupWebpageWidgetSut(fixtureSettings({ url: 'https://x/' }), { mockWidgetApi: { updateActionBar, translate: { translateTexts } } });
+      let pendingTexts = ['Hello'];
+      const executeJavaScript = jest.fn(async (js: string) => {
+        if (js === translateCollectJs) {
+          const texts = pendingTexts;
+          pendingTexts = [];
+          return texts;
+        }
+        return undefined;
+      });
+      Object.assign(sut.webview, {
+        executeJavaScript,
+        insertCSS: jest.fn(async () => 'css-key'),
+        removeInsertedCSS: jest.fn(),
+        setAudioMuted: jest.fn(),
+        stopFindInPage: jest.fn(),
+        getWebContentsId: jest.fn(() => 1),
+        getURL: jest.fn(() => 'https://x/'),
+        getTitle: jest.fn(() => ''),
+        canGoBack: jest.fn(() => false),
+        canGoForward: jest.fn(() => false),
+        isLoading: jest.fn(() => false),
+        getZoomFactor: jest.fn(() => 1),
+      });
+      act(() => { sut.webview.dispatchEvent(new Event('dom-ready')); });
+      const translateItem = () => {
+        type Item = { id: string; title: string; pressed?: boolean; doAction: () => Promise<void> };
+        const items = updateActionBar.mock.calls[updateActionBar.mock.calls.length - 1][0] as Item[];
+        return items.find(item => item.id === 'TRANSLATE')!;
+      };
+      const addText = (texts: string[]) => { pendingTexts = texts; };
+      return { ...sut, executeJavaScript, translateItem, addText };
+    }
+
+    it('translates the page text through the widget API and puts it back on Show original', async () => {
+      const translateTexts = jest.fn(async (texts: string[]) => texts.map(t => `KO:${t}`));
+      const { executeJavaScript, translateItem } = setupTranslate(translateTexts);
+      expect(translateItem().pressed).toBe(false);
+
+      await act(async () => { await translateItem().doAction(); });
+
+      await waitFor(() => expect(executeJavaScript).toHaveBeenCalledWith(translateApplyJs(['KO:Hello'])));
+      expect(translateTexts).toHaveBeenCalledWith(['Hello']);
+      expect(translateItem().pressed).toBe(true);
+      await waitFor(() => expect(screen.queryByText('Translating...')).not.toBeInTheDocument());
+
+      await act(async () => { await translateItem().doAction(); });
+
+      expect(executeJavaScript).toHaveBeenCalledWith(translateRestoreJs);
+      expect(translateItem().pressed).toBe(false);
+    })
+
+    it('puts the page back and shows a message when the translation service fails', async () => {
+      const translateTexts = jest.fn(async () => { throw new Error('429'); });
+      const { executeJavaScript, translateItem } = setupTranslate(translateTexts);
+
+      await act(async () => { await translateItem().doAction(); });
+
+      expect(await screen.findByText('Couldn’t translate this page')).toHaveClass('translate-failed');
+      expect(executeJavaScript).toHaveBeenCalledWith(translateRestoreJs);
+      expect(translateItem().pressed).toBe(false);
+    })
+
+    it('translates new text the page reports, and a new page on dom-ready, while translation is on', async () => {
+      const translateTexts = jest.fn(async (texts: string[]) => texts.map(t => `KO:${t}`));
+      const { webview, translateItem, addText } = setupTranslate(translateTexts);
+      await act(async () => { await translateItem().doAction(); });
+      await waitFor(() => expect(translateTexts).toHaveBeenCalledTimes(1));
+
+      addText(['Later']);
+      act(() => { webview.dispatchEvent(Object.assign(new Event('console-message'), { message: TRANSLATE_MUTATION_MARKER })); });
+      await waitFor(() => expect(translateTexts).toHaveBeenLastCalledWith(['Later']));
+
+      addText(['Next page']);
+      act(() => { webview.dispatchEvent(new Event('dom-ready')); });
+      await waitFor(() => expect(translateTexts).toHaveBeenLastCalledWith(['Next page']));
+    })
+
+    it('turns translation off when the webview opens a page on another site', async () => {
+      const translateTexts = jest.fn(async (texts: string[]) => texts);
+      const { webview, translateItem, addText } = setupTranslate(translateTexts);
+      await act(async () => { await translateItem().doAction(); });
+      await waitFor(() => expect(translateTexts).toHaveBeenCalledTimes(1));
+
+      (webview as unknown as { getURL: () => string }).getURL = () => 'https://intranet.example/';
+      addText(['Private']);
+      act(() => { webview.dispatchEvent(new Event('dom-ready')); });
+      await act(async () => { await Promise.resolve(); });
+
+      expect(translateTexts).toHaveBeenCalledTimes(1);
+      expect(translateItem().pressed).toBe(false);
+    })
+
+    it('does not report a failure for a request the user already cancelled', async () => {
+      let rejectRequest: (e: Error) => void = () => undefined;
+      const translateTexts = jest.fn(() => new Promise<string[]>((_res, rej) => { rejectRequest = rej; }));
+      const { translateItem } = setupTranslate(translateTexts);
+      await act(async () => { await translateItem().doAction(); });
+      await waitFor(() => expect(translateTexts).toHaveBeenCalledTimes(1));
+
+      await act(async () => { await translateItem().doAction(); });
+      await act(async () => { rejectRequest(new Error('late')); await Promise.resolve(); });
+
+      expect(screen.queryByText('Couldn’t translate this page')).not.toBeInTheDocument();
+      expect(translateItem().pressed).toBe(false);
+    })
+
+    it('sends nothing once the webview has moved to another origin during a run', async () => {
+      const translateTexts = jest.fn(async (texts: string[]) => texts);
+      const { webview, translateItem, executeJavaScript } = setupTranslate(translateTexts);
+      // The collect runs on the new page: the webview navigated after translation was turned on.
+      executeJavaScript.mockImplementation(async (js: string) => {
+        if (js === translateCollectJs) {
+          (webview as unknown as { getURL: () => string }).getURL = () => 'https://intranet.example/';
+          return ['Secret'];
+        }
+        return undefined;
+      });
+
+      await act(async () => { await translateItem().doAction(); });
+      await waitFor(() => expect(executeJavaScript).toHaveBeenCalledWith(translateCollectJs));
+
+      expect(translateTexts).not.toHaveBeenCalled();
+    })
+
+    it('reports a failure when the page script fails while the page is not loading', async () => {
+      const translateTexts = jest.fn(async (texts: string[]) => texts);
+      const { executeJavaScript, translateItem } = setupTranslate(translateTexts);
+      executeJavaScript.mockImplementation(async (js: string) => {
+        if (js === translateCollectJs) {
+          throw new Error('guest crashed');
+        }
+        return undefined;
+      });
+
+      await act(async () => { await translateItem().doAction(); });
+
+      expect(await screen.findByText('Couldn’t translate this page')).toBeInTheDocument();
+      expect(translateItem().pressed).toBe(false);
+    })
+
+    it('does not retry forever when the service keeps failing while the page keeps changing', async () => {
+      const translateTexts = jest.fn(async () => { throw new Error('timeout'); });
+      const { webview, translateItem } = setupTranslate(translateTexts);
+
+      await act(async () => {
+        await translateItem().doAction();
+        webview.dispatchEvent(Object.assign(new Event('console-message'), { message: TRANSLATE_MUTATION_MARKER }));
+      });
+
+      expect(await screen.findByText('Couldn’t translate this page')).toBeInTheDocument();
+      expect(translateTexts).toHaveBeenCalledTimes(1);
+    })
+
+    it('ignores the page signal while translation is off', async () => {
+      const translateTexts = jest.fn(async (texts: string[]) => texts);
+      const { webview } = setupTranslate(translateTexts);
+
+      act(() => { webview.dispatchEvent(Object.assign(new Event('console-message'), { message: TRANSLATE_MUTATION_MARKER })); });
+      await act(async () => { await Promise.resolve(); });
+
+      expect(translateTexts).not.toHaveBeenCalled();
     })
   })
 

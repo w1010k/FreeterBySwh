@@ -636,6 +636,14 @@
 - 규칙: 사용자 JS나 주입 스크립트를 실행하는 모든 `executeJavaScript` 호출에 `.catch`를 붙인다.
 - 근거: CHANGES #69 후속, #70, `src/renderer/widgets/webpage/widget.tsx`
 
+#### 번역 스크립트의 자기 변경과 공백
+
+- 출처: `[fork #104]`
+- 증상: (회피) 번역 결과를 넣으면 `MutationObserver`가 그 변경을 다시 신호로 보내 번역이 끝없이 반복될 수 있다. Google은 앞뒤 공백을 잘라 돌려주고, 입력을 HTML로 읽어 `<b>` 같은 글자를 지운다.
+- 원인: 자기 변경도 mutation record가 된다. 엔드포인트는 입력을 HTML로 해석한다.
+- 규칙: apply 끝에 `takeRecords()`로 자기 변경 기록을 버린다. 노드의 앞뒤 공백은 페이지 쪽에서 따로 붙인다. 요청은 `format=html`에 `&`, `<`, `>`를 escape해 보내고 응답 엔티티를 푼다. 번역 서비스 실패를 알리기 전에 사용자가 이미 껐는지 (`translatedRef`) 확인한다.
+- 근거: CHANGES #104, `src/renderer/widgets/webpage/translate.ts`, `src/main/infra/translateProvider/translateProvider.ts`
+
 ### 단축키와 포커스
 
 #### 워크플로우 전환 단축키의 두 경로

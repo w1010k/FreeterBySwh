@@ -154,6 +154,10 @@ export function setupWidgetSut<T>(reactComp: ReactComponent<WidgetReactComponent
       getStats: jest.fn(),
       ...mockWidgetApi.systemStats
     },
+    translate: {
+      translateTexts: jest.fn(async (texts: string[]) => texts),
+      ...mockWidgetApi.translate
+    },
     pty: {
       create: jest.fn(async () => ({ ok: true as const, terminalId: 'TERM-ID' })),
       write: jest.fn(),

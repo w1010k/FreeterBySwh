@@ -18,6 +18,23 @@ import { WebpageExposedApi } from '@/widgets/interfaces';
 import { WEBPAGE_ZOOM_EVENT, WebpageZoomEventDetail } from '@/widgets/webpage/zoomEvents';
 import { WEBPAGE_GO_HOME_EVENT, WebpageGoHomeEventDetail } from '@/widgets/webpage/homeEvents';
 import { volumeOffSvg, volumeOnSvg } from '@/widgets/webpage/icons';
+import { TRANSLATE_MUTATION_MARKER, translateApplyJs, translateCollectJs, translateLogCaptureJs, translateRestoreJs } from '@/widgets/webpage/translate';
+
+// Translate Page: batches per run. Each batch is one collect → translate → apply round (see translate.ts); the cap
+// bounds a page that keeps adding text while it is being translated.
+// ponytail: a page with more than 20 × 500 text nodes keeps the rest untranslated until its text changes again.
+const translateMaxRounds = 20;
+
+// The origin (scheme, host, port) translation was turned on for. Pages without one (file:, data:, about:) compare by
+// their whole URL, so two different local files never count as the same place.
+function translateScope(url: string): string {
+  try {
+    const { origin } = new URL(url);
+    return origin === 'null' ? url : origin;
+  } catch {
+    return url;
+  }
+}
 
 // Injected into each webview on dom-ready. Intercepts Ctrl/Cmd + wheel before
 // the guest page sees it (`capture: true, passive: false` — passive must be
@@ -224,6 +241,114 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
     }
   }, [findOpen])
 
+  // Translate Page. The flag lives in this component, so each tab's webview translates on its own. The ref mirrors it
+  // for the async rounds and the dom-ready handler. The flag survives navigation within the origin where the user
+  // turned it on; a page on another origin turns it off, so a later intranet or logged-in page is not sent out unasked.
+  const [translated, setTranslated] = useState(false);
+  const translatedRef = useRef(false);
+  const translateOriginRef = useRef('');
+  const [translateStatus, setTranslateStatus] = useState<'idle' | 'busy' | 'failed'>('idle');
+  // One run at a time per webview. A request that arrives during a run (new page, new text) sets `again`; a
+  // user-started request sets `showStatus`, so the status shows even when it joins a background run.
+  const translateRunRef = useRef({ busy: false, again: false, showStatus: false });
+  const runTranslate = useCallback(async (showStatus: boolean) => {
+    const run = translateRunRef.current;
+    if (showStatus) {
+      run.showStatus = true;
+      setTranslateStatus('busy');
+    }
+    if (run.busy) {
+      run.again = true;
+      return;
+    }
+    run.busy = true;
+    // Resolves true when the translation service failed while translation was still on. Rejects when executeJavaScript
+    // fails, which is normal while the page navigates (dom-ready then asks for a new run).
+    const rounds = async () => {
+      for (let round = 0; round < translateMaxRounds && translatedRef.current; round++) {
+        const el = webviewRef.current;
+        if (!el) {
+          return false;
+        }
+        const texts: unknown = await el.executeJavaScript(translateCollectJs);
+        // The webview may have moved to another origin since dom-ready: send nothing from it. dom-ready turns it off.
+        if (!Array.isArray(texts) || texts.length === 0 || !translatedRef.current
+          || translateScope(el.getURL()) !== translateOriginRef.current) {
+          return false;
+        }
+        let out: string[];
+        try {
+          // The page made this list; main validates it at the IPC boundary.
+          out = await widgetApi.translate.translateTexts(texts as string[]);
+        } catch {
+          // Not a failure to report when the user turned translation off meanwhile.
+          return translatedRef.current;
+        }
+        if (!translatedRef.current) {
+          return false;
+        }
+        await el.executeJavaScript(translateApplyJs(out));
+      }
+      return false;
+    };
+    let failed = false;
+    try {
+      do {
+        run.again = false;
+        try {
+          failed = await rounds();
+        } catch {
+          // A navigation is expected; a script error on a page that is not loading (a crashed guest) is a failure.
+          let loading = false;
+          try {
+            loading = webviewRef.current?.isLoading() ?? false;
+          } catch {
+            // Webview detached: treat as navigation.
+            loading = true;
+          }
+          failed = !loading && translatedRef.current;
+        }
+      } while (run.again && !failed && translatedRef.current);
+    } finally {
+      run.busy = false;
+    }
+    const shown = run.showStatus;
+    run.showStatus = false;
+    if (failed) {
+      // Put the page back so a failure never leaves it half translated, and say so.
+      translatedRef.current = false;
+      setTranslated(false);
+      setTranslateStatus('failed');
+      webviewRef.current?.executeJavaScript(translateRestoreJs).catch(() => undefined);
+    } else if (shown) {
+      setTranslateStatus('idle');
+    }
+  }, [widgetApi]);
+  const toggleTranslate = useCallback(() => {
+    const el = webviewRef.current;
+    if (!el) {
+      return;
+    }
+    if (translatedRef.current) {
+      translatedRef.current = false;
+      setTranslated(false);
+      setTranslateStatus('idle');
+      el.executeJavaScript(translateRestoreJs).catch(() => undefined);
+    } else {
+      translatedRef.current = true;
+      translateOriginRef.current = translateScope(el.getURL());
+      setTranslated(true);
+      void runTranslate(true);
+    }
+  }, [runTranslate]);
+  useEffect(() => {
+    if (translateStatus !== 'failed') {
+      return undefined;
+    }
+    const t = setTimeout(() => setTranslateStatus('idle'), 4000);
+    return () => clearTimeout(t);
+  }, [translateStatus]);
+
   const refreshActions = useCallback(
     () => updateActionBar(
       createActionBarItems(
@@ -236,10 +361,13 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
         audioMuted,
         toggleMute,
         openFind,
-        customActions
+        customActions,
+        translated,
+        toggleTranslate
       )
     ),
-    [autoReload, autoReloadStopped, updateActionBar, url, webviewIsReady, widgetApi, audioMuted, toggleMute, openFind, customActions]
+    [autoReload, autoReloadStopped, updateActionBar, url, webviewIsReady, widgetApi, audioMuted, toggleMute, openFind, customActions,
+      translated, toggleTranslate]
   );
 
   const injectCSSInDOM = useCallback(
@@ -276,12 +404,14 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
         url,
         autoReload,
         autoReloadStopped,
-        setAutoReloadStopped
+        setAutoReloadStopped,
+        translated,
+        toggleTranslate
       )
     )
 
     return undefined;
-  }, [setContextMenuFactory, webviewIsReady, widgetApi, url, autoReload, autoReloadStopped])
+  }, [setContextMenuFactory, webviewIsReady, widgetApi, url, autoReload, autoReloadStopped, translated, toggleTranslate])
 
   useEffect(() => {
     const webviewEl = webviewRef.current;
@@ -409,6 +539,18 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
       webviewEl.executeJavaScript(findKeyInjectionJs).catch(() => undefined);
       // Report notification clicks so the widget can bring itself into view.
       webviewEl.executeJavaScript(notificationClickInjectionJs).catch(() => undefined);
+      // Keep the page's console.log before the page can silence it; the translation signal uses it later.
+      webviewEl.executeJavaScript(translateLogCaptureJs).catch(() => undefined);
+      // A new page on the same origin is translated too; a page on another origin turns translation off.
+      if (translatedRef.current) {
+        if (translateScope(webviewEl.getURL()) === translateOriginRef.current) {
+          void runTranslate(true);
+        } else {
+          translatedRef.current = false;
+          setTranslated(false);
+          setTranslateStatus('idle');
+        }
+      }
       // webviewEl.classList.add('is-bg-visible');
     }
     const handleDidFinishLoad = () => {
@@ -426,6 +568,13 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
     const handleConsoleMessage = (e: Electron.ConsoleMessageEvent) => {
       if (e.message && e.message.startsWith(FIND_KEY_MARKER)) {
         openFind();
+        return;
+      }
+      // New or changed text on a translated page. A page that fakes the marker only gets its own text translated again.
+      if (e.message && e.message.startsWith(TRANSLATE_MUTATION_MARKER)) {
+        if (translatedRef.current) {
+          void runTranslate(false);
+        }
         return;
       }
       if (e.message && e.message.startsWith(NOTIFICATION_CLICK_MARKER)) {
@@ -467,7 +616,7 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
       webviewEl.removeEventListener('did-finish-load', handleDidFinishLoad);
       webviewEl.removeEventListener('console-message', handleConsoleMessage);
           };
-  }, [injectCSSInDOM, injectedCSS, injectedJS, refreshActions, openFind, revealWidget, onSelectTab, tabIdx]);
+  }, [injectCSSInDOM, injectedCSS, injectedJS, refreshActions, openFind, revealWidget, onSelectTab, tabIdx, runTranslate]);
 
   // Keyboard zoom (CmdOrCtrl + = / - / 0) is routed from the main process
   // through `init.ts` as a window CustomEvent; we match our own
@@ -640,6 +789,9 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
       }}>Retry</button>
     </div>}
     {isLoading && <div className={styles['loading']}>Loading...</div>}
+    {!isLoading && translateStatus !== 'idle' && <div className={`${styles['loading']}${translateStatus === 'failed' ? ` ${styles['translate-failed']}` : ''}`} role="status">
+      {translateStatus === 'busy' ? 'Translating...' : 'Couldn’t translate this page'}
+    </div>}
   </>
 }
 

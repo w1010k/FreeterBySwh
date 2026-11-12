@@ -58,6 +58,7 @@ import { createFsProvider } from '@/infra/fsProvider/fsProvider';
 import { createIconProvider } from '@/infra/iconProvider/iconProvider';
 import { createProcessProvider } from '@/infra/processProvider/processProvider';
 import { createSystemStatsProvider } from '@/infra/systemStatsProvider/systemStatsProvider';
+import { createTranslateProvider } from '@/infra/translateProvider/translateProvider';
 import { createPtyProvider } from '@/infra/ptyProvider/ptyProvider';
 import { createInitWidgetDeleteHooksUseCase } from '@/application/useCases/widget/initWidgetDeleteHooks';
 import { createGetWidgetApiUseCase } from '@/application/useCases/widget/getWidgetApi';
@@ -367,6 +368,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
   });
   const terminalProvider = createTerminalProvider();
   const systemStatsProvider = createSystemStatsProvider();
+  const translateProvider = createTranslateProvider();
   const ptyProvider = createPtyProvider();
 
   // Local usage telemetry collector — created here in the composition root so it
@@ -396,6 +398,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     deletingSharedDataKeys,
     terminalProvider,
     systemStatsProvider,
+    translateProvider,
     ptyProvider,
     getWidgetsInCurrentWorkflowUseCase,
     switchProjectUseCase,

@@ -686,6 +686,16 @@
 - 버린 대안: 예외 없이 전부 허용 (위 위험), 대화별 10분 허용 (사용자가 항상 허용을 원함), 출처별 허용 (출처가 달라도 위험은 같다).
 - 근거: `src/renderer/application/useCases/ai/runAiRequest.ts`, `src/renderer/base/ai/aiAction.ts`, `src/renderer/base/widgetType.ts`
 
+#### D78. 페이지 번역은 글자 노드 교체 + main의 Google 요청
+
+- 상태: 유효
+- 출처: `[fork #104]`
+- 결정: Webpage 번역은 페이지에 넣은 스크립트가 글자 노드를 모으고 (`nodeValue`만 바꾼다), 번역 요청은 main이 Google 무료 엔드포인트 (`translate_a/t?client=gtx`)로 보낸다. 대상 언어는 한국어 고정이다. 켠 사이트와 다른 origin의 페이지가 열리면 번역을 끈다.
+- 이유: 대표 요구는 "크롬처럼 보이는 글자가 그 자리에서 바뀌고, 생성형 AI 없이, 빠르게"였다 (2026-11-12). 크롬 번역 기능은 Chromium이 아닌 크롬 제품 코드라 Electron에 없다. main에서 요청하면 페이지의 CSP와 CORS가 상관없다. 측정한 응답은 150문장에 약 200ms였다.
+- 버린 대안: Google 번역 웹사이트 위젯 (`element.js`) 주입 (사용자에게 처음 제안한 방식. CSP가 외부 스크립트를 막는 사이트에서 실패하고, 작업 환경에서 실제 webview로 검증할 수 없었다), isolated world 실행 (`executeJavaScriptInIsolatedWorld`. 스크립트가 만든 `<script>` 태그는 페이지 쪽에서 실행되어 여전히 막힐 것으로 추정), 유료 Cloud Translation API (키와 비용), LLM 번역 (사용자가 원하지 않음, 느림), 번역 주소로 다시 열기 (로그인 페이지 불가).
+- 한계: 비공식 엔드포인트라 Google이 바꾸거나 막으면 번역이 실패한다 (페이지는 원문으로 돌아간다). 번역할 글자가 Google로 간다. iframe, shadow DOM, `title`·`placeholder`·`alt` 속성은 번역하지 않는다. 한 run은 20묶음 (글자 노드 약 10000개)까지다. 바꾼 노드는 페이지가 떼어도 restore용으로 붙잡는다. 글자 변화 신호마다 문서 전체를 다시 훑는다 (계속 바뀌는 큰 페이지에서 느려지면 mutation record의 하위 트리만 훑는다).
+- 근거: `src/renderer/widgets/webpage/translate.ts`, `src/renderer/widgets/webpage/widget.tsx`, `src/main/infra/translateProvider/translateProvider.ts`
+
 #### D72. AI 쓰기 확인은 main의 OS 메시지 상자
 
 - 상태: 유효

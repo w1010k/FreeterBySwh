@@ -14,6 +14,7 @@ import { WidgetApiExposeApiHandler, WidgetApiLogActivityHandler, WidgetApiModule
 import { ObjectManager } from '@common/base/objectManager';
 import { TerminalProvider } from '@/application/interfaces/terminalProvider';
 import { SystemStatsProvider } from '@/application/interfaces/systemStatsProvider';
+import { TranslateProvider } from '@/application/interfaces/translateProvider';
 import { PtyProvider } from '@/application/interfaces/ptyProvider';
 import { GetWidgetsInCurrentWorkflowUseCase } from '@/application/useCases/widget/widgetApiWidgets/getWidgetsInCurrentWorkflow';
 import { AppStore } from '@/application/interfaces/store';
@@ -64,6 +65,7 @@ interface Deps {
   iconProvider: IconProvider;
   terminalProvider: TerminalProvider;
   systemStatsProvider: SystemStatsProvider;
+  translateProvider: TranslateProvider;
   ptyProvider: PtyProvider;
   getWidgetsInCurrentWorkflowUseCase: GetWidgetsInCurrentWorkflowUseCase;
   switchProjectUseCase: SwitchProjectUseCase;
@@ -83,6 +85,7 @@ function _createWidgetApiFactory({
   deletingSharedDataKeys,
   terminalProvider,
   systemStatsProvider,
+  translateProvider,
   ptyProvider,
   getWidgetsInCurrentWorkflowUseCase,
   switchProjectUseCase,
@@ -241,6 +244,9 @@ function _createWidgetApiFactory({
       }),
       systemStats: () => ({
         getStats: () => systemStatsProvider.getStats()
+      }),
+      translate: () => ({
+        translateTexts: (texts) => translateProvider.translateTexts(texts)
       }),
       pty: () => ptyProvider
     }

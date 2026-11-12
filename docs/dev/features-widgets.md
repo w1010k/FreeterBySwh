@@ -131,6 +131,7 @@
 | `icon`        | `getFileIcon(path, bypassCache?)`, `getFavicon(url, bypassCache?)`       | main `iconProvider`. 세션 동안 성공·실패 결과를 Map에 캐시, 동시 요청 공유  | [fork #21]                  |
 | `fs`          | `readDir(dirPath, opts?)`, `getHomeDir()` | main `fsProvider`. `includeHidden`, `includeSizes` 옵션. 전용 텍스트 읽기·쓰기·mtime API는 #96에서 제거 | [fork #31 #32 #91]          |
 | `systemStats` | `getStats()`                                                             | main `systemStatsProvider` (`node:os`, `fs.statfsSync`, `app.getAppMetrics`). CPU%는 직전 호출과의 누적 시간 차이 | [fork #60 #98]              |
+| `translate` | `translateTexts(texts)` | main `translateProvider` (`net.fetch`로 Google `translate_a/t` POST). 입력 상한은 `src/common/base/translate.ts` | [fork #104] |
 | `pty` | `create`, `write`, `resize`, `kill`, `buffer`, `onData`, `onExit`, `onTitle`, `shells` | main `terminalHost` (node-pty). 앱 단위 provider 하나를 모든 위젯이 나눠 쓴다 | [fork #99 #100] |
 
 모듈별 배선 위치 (IPC 채널은 모두 `src/common/ipc/channels.ts`):
@@ -146,6 +147,7 @@
 | `icon`                 | `src/renderer/infra/iconProvider/`                    | `src/main/controllers/icon.ts`              | `src/main/infra/iconProvider/`                                         |
 | `fs`                   | `src/renderer/infra/fsProvider/`                      | `src/main/controllers/fs.ts`                | `src/main/infra/fsProvider/`                                           |
 | `systemStats`          | `src/renderer/infra/systemStatsProvider/`             | `src/main/controllers/systemStats.ts`       | `src/main/infra/systemStatsProvider/`                                  |
+| `translate`            | `src/renderer/infra/translateProvider/`               | `src/main/controllers/translate.ts`         | `src/main/infra/translateProvider/`                                    |
 | `widgets`              | 없음 (renderer store만 읽음)                          | 없음                                        | 없음                                                                   |
 | `pty`                  | `src/renderer/infra/ptyProvider/`                     | `src/main/controllers/pty.ts`               | `src/main/application/terminal/terminalHost.ts`                        |
 
@@ -308,7 +310,7 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
 | `timer`          | Timer          | 1×1     | dataStorage                            |                | `state`                                                                | [upstream, fork #54 #72 #73 변경]            |
 | `to-do-list`     | To-Do List     | 4×2     | dataStorage                            |                | `todo` (프로젝트 공유)                                                 | [upstream, fork #9 #18 #26 #40 #50 #63 변경] |
 | `web-query`      | Web Query      | 4×2     | shell, widgets, dataStorage            |                | `history`                                                              | [upstream, fork #46 #47 #59 #66 변경]        |
-| `webpage`        | Webpage        | 4×2     | clipboard, shell, process, dataStorage |                | `activeTab` (멀티탭일 때)                                              | [upstream, fork 다수 변경]                   |
+| `webpage`        | Webpage        | 4×2     | clipboard, shell, process, dataStorage, translate |                | `activeTab` (멀티탭일 때)                                              | [upstream, fork 다수 변경]                   |
 
 - 모든 위젯 폴더에는 `index.ts`, `settings.tsx`, `widget.tsx`, `icons/`가 있다.
 - upstream 위젯 8종의 upstream 시점 minSize (16×8 격자): Commander·File Opener·Link Opener 1×1, Timer 1×2, Web Query 2×1,
@@ -321,7 +323,7 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
 - **역할**: `<webview>`로 웹 페이지를 위젯 안에 띄운다. 포크 변경이 가장 많은 위젯이다.
 - **파일**: `widget.tsx`(`Webview` 컴포넌트, 멀티탭 래퍼 `WidgetComp`), `settings.tsx`, `actionBar.ts`(`createActionBarItems`),
   `contextMenu.ts`(`createContextMenuFactory`), `actions.ts`(라벨 상수와 동작 함수), `partition.ts`(`createPartition`),
-  `zoomEvents.ts`, `homeEvents.ts`.
+  `zoomEvents.ts`, `homeEvents.ts`, `translate.ts`(번역 페이지 스크립트).
 - **설정**: `url`, `urlName`, `tabs: {url, name}[]`, `customActions: {name, js}[]`, `sessionScope`(`app`/`prj`/`wfl`/
   `wgt`, 기본 `prj`), `sessionPersist`(`persist`/`temp`, 기본 `persist`), `autoReload`(초, 0이면 끔), `injectedCSS`,
   `injectedJS`, `userAgent`.
@@ -338,9 +340,17 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
   활성화한다. 비활성 탭도 `revealWidget`은 실제 함수를 받는다 (no-op 대상이 아님). 마커에는 앱 실행마다 바뀌는 난수가 붙는다. 페이지가 고정 문자열을
   로그로 찍어 클릭을 위조하지 못하게 하기 위해서다. Service Worker의 `showNotification` 알림은 클릭이 페이지에 오지 않아 다루지 않는다.
 - **액션바 순서** (`createActionBarItems`의 반환 배열): `HOME`, `BACK`, `FORWARD`, `AUTO-RELOAD`(`autoReload > 0`일 때), `RELOAD`,
-  `ZOOM-OUT`, `ZOOM-IN`, `FIND`, `CUSTOM-ACTION-<i>`(JS가 빈 항목 제외), `MUTE`, `COPY-URL`, `OPEN-IN-BROWSER`. webview가 없거나
-  시작 URL이 비면 빈 배열이다. `FIND`와 `MUTE`는 콜백 (`onFind`, `onToggleMute`)이 주어질 때만 생긴다. 툴팁에 단축키를 붙이고 수정자 표기는
+  `ZOOM-OUT`, `ZOOM-IN`, `FIND`, `TRANSLATE`, `CUSTOM-ACTION-<i>`(JS가 빈 항목 제외), `MUTE`, `COPY-URL`, `OPEN-IN-BROWSER`. webview가
+  없거나 시작 URL이 비면 빈 배열이다. `FIND`, `TRANSLATE`, `MUTE`는 콜백 (`onFind`, `onToggleTranslate`, `onToggleMute`)이 주어질 때만 생긴다. 툴팁에 단축키를 붙이고 수정자 표기는
   `process.getProcessInfo().isMac`으로 고른다 [fork #23 #24 #28 #29 #35 #36 #70].
+- **페이지 번역** [fork #104]: 액션바 `TRANSLATE`와 컨텍스트 메뉴 항목이 `toggleTranslate`를 부른다. 액션바 항목은 `pressed: translated`로 상태를 보이고
+  이름은 고정한다 (`aria-pressed`와 바뀌는 이름이 겹치면 뜻이 거꾸로 읽힌다). 메뉴 항목은 이름을 Show original로 바꾼다. 켜면 `runTranslate`가
+  `translateCollectJs` → `widgetApi.translate.translateTexts` → `translateApplyJs(out)`를 묶음이 빌 때까지 (최대 `translateMaxRounds` 20번)
+  돈다. 페이지 스크립트 (`translate.ts`)는 글자 노드의 `nodeValue`만 바꾸고 상태를 `window.__freeterTranslate`에 둔다. 첫 collect가
+  `MutationObserver`를 붙이고, 글자가 생기면 0.5초 조용한 뒤 (최대 2초) `TRANSLATE_MUTATION_MARKER`를 로그로 보내 다음 run을 부른다. 끄면
+  `translateRestoreJs`. 상태 (`translated`, `translatedRef`)는 `Webview` 컴포넌트마다 있다 (탭마다 따로). 켠 origin과 다른 페이지가 dom-ready되면
+  꺼지고, round마다 보내기 전에 `translateScope(getURL())`을 다시 비교한다. dom-ready에서 `translateLogCaptureJs`로 페이지의 `console.log`를 먼저 잡는다.
+  main `translateProvider`는 문장별 결과를 최대 5000개 기억한다. 번역 서비스가 실패하면 페이지를 원문으로 돌리고 "Couldn’t translate this page"를 4초 보인다. 결정은 decisions.md D78.
 - **줌**: 프리셋 사다리 `zoomLevels`(25%~500%)와 `zoomStepIn`/`zoomStepOut`/`zoomReset`. 액션바 RELOAD만 줌을 100%로 되돌린 뒤 새로고침하고,
   F5·Ctrl/Cmd+R·컨텍스트 메뉴 새로고침은 줌을 유지한다 [fork #24 #29].
 - **키보드 단축키** (webview 포커스 시, `src/main/infra/browserWindow/browserWindow.ts`의 `did-attach-webview` →

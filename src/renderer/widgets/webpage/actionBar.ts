@@ -4,8 +4,8 @@
  */
 
 import { ActionBarItem, ActionBarItems } from '@/base/actionBar';
-import { canGoBack, canGoForward, canGoHome, canReload, copyCurrentAddress, goBack, goForward, goHome, labelAutoReloadStart, labelAutoReloadStop, labelCopyCurrentAddress, labelFindInPage, labelGoBack, labelGoForward, labelGoHome, labelMuteAudio, labelOpenInBrowser, labelReload, labelUnmuteAudio, labelZoomIn, labelZoomOut, openCurrentInBrowser, reload, zoomReset, zoomStepIn, zoomStepOut } from './actions';
-import { backSvg, copyUrlSvg, forwardSvg, homeSvg, openInBrowserSvg, reloadSvg, reloadStartSvg, reloadStopSvg, runScriptSvg, searchSvg, volumeOffSvg, volumeOnSvg, zoomInSvg, zoomOutSvg } from './icons';
+import { canGoBack, canGoForward, canGoHome, canReload, copyCurrentAddress, goBack, goForward, goHome, labelAutoReloadStart, labelAutoReloadStop, labelCopyCurrentAddress, labelFindInPage, labelGoBack, labelGoForward, labelGoHome, labelMuteAudio, labelOpenInBrowser, labelReload, labelTranslatePage, labelUnmuteAudio, labelZoomIn, labelZoomOut, openCurrentInBrowser, reload, zoomReset, zoomStepIn, zoomStepOut } from './actions';
+import { backSvg, copyUrlSvg, forwardSvg, homeSvg, openInBrowserSvg, reloadSvg, reloadStartSvg, reloadStopSvg, runScriptSvg, searchSvg, translateSvg, volumeOffSvg, volumeOnSvg, zoomInSvg, zoomOutSvg } from './icons';
 import { WidgetApi } from '@/base/widgetApi';
 import { CustomActionSettings } from './settings';
 
@@ -21,7 +21,9 @@ export function createActionBarItems(
   audioMuted = false,
   onToggleMute?: () => void,
   onFind?: () => void,
-  customActions: CustomActionSettings[] = []
+  customActions: CustomActionSettings[] = [],
+  translated = false,
+  onToggleTranslate?: () => void
 ): ActionBarItems {
   if (!elWebview || !homeUrl) {
     return []
@@ -105,6 +107,16 @@ export function createActionBarItems(
       id: 'FIND',
       title: withKeys(labelFindInPage, `${mod}+F`),
       doAction: async () => onFind()
+    }] : []),
+    ...(onToggleTranslate ? [{
+      enabled: true,
+      icon: translateSvg,
+      id: 'TRANSLATE',
+      // A toggle button: the pressed style shows the state, so the name stays the same (a name that flips with
+      // aria-pressed reads backwards to screen readers). The context menu, which has no pressed state, switches labels.
+      title: labelTranslatePage,
+      pressed: translated,
+      doAction: async () => onToggleTranslate()
     }] : []),
     // Bookmarklet-style user actions: run a JS snippet on the current page.
     ...customActions

@@ -63,6 +63,7 @@ import {
   createSetTextInTelemetryDataStorageUseCase
 } from '@/application/useCases/telemetryDataStorage/setTextInTelemetryDataStorage';
 import {createExecCmdLinesInTerminalUseCase} from '@/application/useCases/terminal/execCmdLinesInTerminal';
+import {createTranslateTextsUseCase} from '@/application/useCases/translate/translateTexts';
 import {createInitTrayUseCase} from '@/application/useCases/tray/initTray';
 import {createSetTrayMenuUseCase} from '@/application/useCases/tray/setTrayMenu';
 import {createClearWidgetDataStorageUseCase} from '@/application/useCases/widgetDataStorage/clearWidgetDataStorage';
@@ -98,6 +99,7 @@ import {createShellControllers} from '@/controllers/shell';
 import {createSystemStatsControllers} from '@/controllers/systemStats';
 import {createTelemetryDataStorageControllers} from '@/controllers/telemetryDataStorage';
 import {createTerminalControllers} from '@/controllers/terminal';
+import {createTranslateControllers} from '@/controllers/translate';
 import {createTrayMenuControllers} from '@/controllers/trayMenu';
 import {createWidgetDataStorageControllers} from '@/controllers/widgetDataStorage';
 import {createWindowStateStorage} from '@/data/windowStateStorage';
@@ -124,6 +126,7 @@ import {createProcessProvider} from '@/infra/processProvider/processProvider';
 import {registerAppFileProtocol} from '@/infra/protocolHandler/registerAppFileProtocol';
 import {createShellProvider} from '@/infra/shellProvider/shellProvider';
 import {createSystemStatsProvider} from '@/infra/systemStatsProvider/systemStatsProvider';
+import {createTranslateProvider} from '@/infra/translateProvider/translateProvider';
 import {createTrayProvider} from '@/infra/trayProvider/trayProvider';
 import {createObjectManager} from '@common/base/objectManager';
 import {parseSharedStorageId} from '@common/base/sharedStorageId';
@@ -132,7 +135,7 @@ import {withJson} from '@common/infra/dataStorage/withJson';
 import {hostFreeterApp, schemeFreeterFile} from '@common/infra/network';
 import {ipcOsActivityEventChannel} from '@common/ipc/channels';
 import {channelPrefix} from '@common/ipc/ipc';
-import {app, BrowserWindow as ElectronBrowserWindow, dialog as electronDialog, powerMonitor} from 'electron';
+import {app, BrowserWindow as ElectronBrowserWindow, dialog as electronDialog, net, powerMonitor} from 'electron';
 import {delimiter as pathDelimiter, join} from 'node:path';
 import type * as NodePty from 'node-pty';
 import {createTerminalHost, prependPath} from '@/application/terminal/terminalHost';
@@ -503,6 +506,10 @@ if (!app.requestSingleInstanceLock()) {
     const systemStatsProvider = createSystemStatsProvider(() => app.getAppMetrics());
     const getSystemStatsUseCase = createGetSystemStatsUseCase({systemStatsProvider});
 
+    // net.fetch (not Node fetch) so requests follow the system proxy, as company networks often require.
+    const translateProvider = createTranslateProvider((url, init) => net.fetch(url, init));
+    const translateTextsUseCase = createTranslateTextsUseCase({translateProvider});
+
     const dialogProvider = createDialogProvider();
     const dialogShowMessageBoxUseCase = createShowMessageBoxUseCase({dialogProvider});
     const showOpenFileDialogUseCase = createShowOpenFileDialogUseCase({dialogProvider});
@@ -551,6 +558,7 @@ if (!app.requestSingleInstanceLock()) {
       ...createFsControllers({readDirUseCase, getHomeDirUseCase, getImageDataUrlUseCase}),
       ...createProcessControllers({getProcessInfoUseCase}),
       ...createSystemStatsControllers({getSystemStatsUseCase}),
+      ...createTranslateControllers({translateTextsUseCase}),
       ...createDialogControllers({
         showMessageBoxUseCase: dialogShowMessageBoxUseCase,
         showOpenDirDialogUseCase,
