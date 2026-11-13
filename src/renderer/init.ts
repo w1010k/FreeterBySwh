@@ -171,6 +171,7 @@ import {
   ipcGoHomeWebpageChannel,
   ipcSharedDataChangedChannel,
   ipcSwitchWorkflowByOffsetChannel,
+  ipcWebpageWindowBlockedChannel,
   ipcZoomWebpageChannel
 } from '@common/ipc/channels';
 import { createAiControlProvider } from '@/infra/aiControlProvider/aiControlProvider';
@@ -184,6 +185,7 @@ import { createWidgetTypeAiActions } from '@/application/useCases/ai/actions/wid
 import { AiRpcRequest } from '@common/ai/protocol';
 import { WEBPAGE_ZOOM_EVENT, WebpageZoomEventDetail } from '@/widgets/webpage/zoomEvents';
 import { WEBPAGE_GO_HOME_EVENT, WebpageGoHomeEventDetail } from '@/widgets/webpage/homeEvents';
+import { WEBPAGE_WINDOW_BLOCKED_EVENT, WebpageWindowBlockedEventDetail } from '@/widgets/webpage/windowBlockedEvents';
 import { SHARED_DATA_CHANGED_EVENT, SharedDataChangedEventDetail } from '@/base/sharedDataEvents';
 import { startTelemetry } from '@/application/telemetry/startTelemetry';
 import { createTelemetryCollector } from '@/application/telemetry/telemetryCollector';
@@ -909,6 +911,15 @@ export async function init() {
       && (direction === 'in' || direction === 'out' || direction === 'reset')) {
       const detail: WebpageZoomEventDetail = { webContentsId, direction };
       window.dispatchEvent(new CustomEvent(WEBPAGE_ZOOM_EVENT, { detail }));
+    }
+  });
+
+  // A webview page's request that main did not open (a new window, an app link): the matching Webpage widget shows a
+  // notice.
+  electronIpcRenderer.on(ipcWebpageWindowBlockedChannel, (webContentsId, url, reason) => {
+    if (typeof webContentsId === 'number' && typeof url === 'string' && (reason === 'popupLimit' || reason === 'scheme')) {
+      const detail: WebpageWindowBlockedEventDetail = { webContentsId, url, reason };
+      window.dispatchEvent(new CustomEvent(WEBPAGE_WINDOW_BLOCKED_EVENT, { detail }));
     }
   });
 

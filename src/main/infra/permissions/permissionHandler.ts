@@ -4,7 +4,7 @@
  */
 
 import { isAllowedExternalUrl } from '@common/helpers/isAllowedExternalUrl';
-import { app, session as electronSession, Session } from 'electron';
+import { app, session as electronSession, Session, WebContents } from 'electron';
 
 /**
  * Decides one session permission request. Only `openExternal` is filtered: a
@@ -28,10 +28,17 @@ export function shouldGrantPermission(permission: string, externalURL: string | 
  * download manager). A session holds a single handler: another
  * `setPermissionRequestHandler` call on the same session would replace this one.
  */
-export function registerPermissionHandler(): void {
+export function registerPermissionHandler(onExternalDenied: (webContents: WebContents, url: string) => void): void {
   const attach = (ses: Session) => {
-    ses.setPermissionRequestHandler((_webContents, permission, callback, details) => {
-      callback(shouldGrantPermission(permission, 'externalURL' in details ? details.externalURL : undefined));
+    ses.setPermissionRequestHandler((webContents, permission, callback, details) => {
+      const externalURL = 'externalURL' in details ? details.externalURL : undefined;
+      const granted = shouldGrantPermission(permission, externalURL);
+      // A page in its own frame (`location.href = 'zoommtg:...'`, an iframe): the Webpage widget tells the user, who may
+      // open a meeting or chat app link from there.
+      if (!granted && permission === 'openExternal' && externalURL) {
+        onExternalDenied(webContents, externalURL);
+      }
+      callback(granted);
     });
   };
   attach(electronSession.defaultSession);

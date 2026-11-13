@@ -171,6 +171,17 @@
 - 이유: 단일 탭 브라우저처럼 쓰려는 사용자에게 매번 뜨는 팝업 창이 번거로웠다.
 - 근거: CHANGES #3
 
+#### D81. 열지 않은 새 창은 알리고, 앱 링크는 사용자 클릭으로만 연다
+
+- 상태: 유효
+- 출처: `[fork #109]`
+- 결정: 빈 주소 (`''`, `about:blank`) 새 창은 앱 안 팝업으로 연다. 열지 않은 새 창 요청은 위젯 위 알림 바로 알린다. 회의·채팅 앱 링크 (`zoommtg:`, `zoomus:`, `msteams:`, `slack:`, `webex:`, `tel:`)와 한도에 걸린 웹 팝업은 알림 바의 버튼을 누를 때만 연다.
+- 이유: 사용자가 Webpage 위젯에서 "팝업 차단을 해제할 알림이 안 뜬다"고 보고했다 (2026-11-13). 재현하니 빈 창 요청이 조용히 버려져 페이지가 `null`을 받았다. D58이 막은 앱 링크도 알림 없이 사라져, Zoom의 "Launch Meeting" 같은 버튼이 고장처럼 보였다.
+- 버린 대안: 사이트별 "항상 허용" 설정 (재현된 원인은 위 두 경우였고, 필요해지면 추가), 모든 앱 프로토콜에 버튼 (프로그램 실행·로컬 파일 열기로 이어지는 스킴이 있다), 브라우저로 보낸 새 탭도 알리기 (정상 동작이라 소음).
+- 안전장치: 버튼은 알림이 뜬 뒤 0.5초가 지나야 눌린다 (페이지가 알림을 커서 아래 띄워 두 번째 클릭을 받는 것 방지). 알림이 떠 있는 동안과 닫은 뒤 3초 동안 새 요청은 무시한다. 같은 frame 이동으로 여는 앱 링크 (세션 `openExternal` 권한)도 같은 경로로 알린다.
+- 한계: 빈 창으로 여는 "새 탭" 링크 (`window.open().location = url`)도 앱 안 팝업이 된다. 열린 창을 계속 쓰는 흐름 (로그인, 결제)과 구분할 방법이 없어, 버려지는 것보다 열리는 쪽을 택했다.
+- 근거: `src/main/infra/browserWindow/windowOpenPolicy.ts`, `src/renderer/widgets/webpage/windowBlockedEvents.ts`, CHANGES #109
+
 #### D18. 새 탭과 팝업의 열기 위치 분리
 
 - 상태: 유효
@@ -181,7 +192,7 @@
   유효하다.
 - 버린 대안: 모든 요청을 외부로 보내기 (초기 구현, OAuth가 깨져 되돌림). webview에 preload를 주입해 `<a>` 클릭 가로채기 (Chromium이 같은 프레임 이동과 새 창 요청을 이미
   분리하므로 과함).
-- 보완: D58 (외부로 보내는 URL의 스킴 제한), D60 (내부 팝업 제한과 앱 창의 새 창 거부)
+- 보완: D58 (외부로 보내는 URL의 스킴 제한), D60 (내부 팝업 제한과 앱 창의 새 창 거부), D81 (빈 창, 열지 않은 요청 알림)
 - 근거: CHANGES #13, `src/main/infra/browserWindow/browserWindow.ts`
 
 #### D60. 내부 팝업 제한과 앱 창의 새 창 거부
@@ -202,7 +213,7 @@
 - 출처: `[fork #88]`
 - 결정: Webpage 위젯의 게스트 페이지에서 온 URL은 스킴이 `http:`, `https:`, `mailto:`일 때만 OS로 넘긴다. 검사 함수는 `isAllowedExternalUrl`이다. 적용 위치는 앱 코드의
   4곳 (새 탭 분기, `Ctrl+T` 분기, `openCurrentInBrowser`, `openLinkInBrowser`)과, 같은 프레임 이동을 받는 세션 권한 처리기 (`registerPermissionHandler`의
-  `openExternal` 판정)다. 허용되지 않은 스킴은 알림 없이 무시한다.
+  `openExternal` 판정)다. 허용되지 않은 스킴은 무시한다. 새 탭 분기에서 막힌 요청은 위젯 알림 바로 알린다 (D81).
 - 이유: `sanitizeUrl`은 스킴을 거르지 않아서 `file:` URL과 앱 프로토콜 URL이 OS에 닿는 코드 경로가 있었다. 같은 프레임 이동은 세션 권한 요청으로 처리되는데, Electron은
   처리기가 없으면 모든 권한 요청을 자동 승인한다. `mailto:`는 메일 앱만 열고 코드를 실행하지 않으며, 막으면 지금 되는 메일 링크가 사라진다.
 - 버린 대안: `sanitizeUrl`이나 main `openExternalUrlUseCase`에서 제한 (Link Opener의 앱 딥링크처럼 사용자가 등록한 주소까지 막힘). `http`, `https`만 허용 (메일 링크

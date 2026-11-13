@@ -5,12 +5,13 @@
 
 // Only the pure decision is under test; stub the module-level electron import
 // so importing the module doesn't require a real Electron environment.
+const mockSetHandler = jest.fn();
 jest.mock('electron', () => ({
   app: { on: () => undefined },
-  session: { defaultSession: { setPermissionRequestHandler: () => undefined } },
+  session: { defaultSession: { setPermissionRequestHandler: (h: unknown) => mockSetHandler(h) } },
 }), { virtual: true });
 
-import { shouldGrantPermission } from '@/infra/permissions/permissionHandler';
+import { registerPermissionHandler, shouldGrantPermission } from '@/infra/permissions/permissionHandler';
 
 describe('shouldGrantPermission()', () => {
   it('should grant openExternal for web and mail urls', () => {
@@ -27,5 +28,34 @@ describe('shouldGrantPermission()', () => {
   it('should keep granting every other permission, as Electron does by default', () => {
     expect(shouldGrantPermission('notifications', undefined)).toBe(true);
     expect(shouldGrantPermission('media', undefined)).toBe(true);
+  });
+});
+
+describe('registerPermissionHandler()', () => {
+  function setup() {
+    const onExternalDenied = jest.fn();
+    registerPermissionHandler(onExternalDenied);
+    const handler = mockSetHandler.mock.calls[mockSetHandler.mock.calls.length - 1][0];
+    return { handler, onExternalDenied };
+  }
+
+  it('reports an app link the page navigated to, so the widget can show it', () => {
+    const { handler, onExternalDenied } = setup();
+    const wc = { id: 7 };
+    const callback = jest.fn();
+
+    handler(wc, 'openExternal', callback, { externalURL: 'zoommtg://zoom.us/j/1' });
+
+    expect(callback).toHaveBeenCalledWith(false);
+    expect(onExternalDenied).toHaveBeenCalledWith(wc, 'zoommtg://zoom.us/j/1');
+  });
+
+  it('does not report granted requests or other permissions', () => {
+    const { handler, onExternalDenied } = setup();
+
+    handler({}, 'openExternal', jest.fn(), { externalURL: 'https://x.test/' });
+    handler({}, 'media', jest.fn(), {});
+
+    expect(onExternalDenied).not.toHaveBeenCalled();
   });
 });

@@ -8,10 +8,14 @@ import {GetWindowStateUseCase} from '@/application/useCases/browserWindow/getWin
 import {SetWindowStateUseCase} from '@/application/useCases/browserWindow/setWindowState';
 import {sanitizeUrl} from '@common/helpers/sanitizeUrl';
 import {isAllowedExternalUrl} from '@common/helpers/isAllowedExternalUrl';
+import {decideWindowOpen} from '@/infra/browserWindow/windowOpenPolicy';
 import {
   ipcAppFocusChangedChannel,
   ipcGoHomeWebpageChannel,
   ipcSwitchWorkflowByOffsetChannel,
+  ipcWebpageWindowBlockedChannel,
+  IpcWebpageWindowBlockedReason,
+  maxPopupsPerGuest,
   ipcZoomWebpageChannel,
   IpcZoomWebpageDirection
 } from '@common/ipc/channels';
@@ -41,9 +45,24 @@ const reUrlsRequiringOriginalUA: RegExp[] = [
   /^https?:\/\/(?:[a-z0-9-_]*\.)+google.com\/?/i // Google Apps
 ]
 
-const rePopupFeatures = /\bpopup\b/i;
-// Upper bound on in-app popups open at once under one Webpage widget guest.
-const maxPopupsPerGuest = 5;
+// The Webpage widget webview a page belongs to: the webview itself, or the webview under which a popup was opened.
+const guestIdOf = new WeakMap<Electron.WebContents, number>();
+// The app page, which shows the notices.
+let appPage: Electron.WebContents | null = null;
+// Longer URLs (data:) are reported without the URL: the notice then has no button.
+const maxReportedUrl = 32768;
+
+/**
+ * Tells the Webpage widget that a request of its page was not opened: a new window (decideWindowOpen) or an app link
+ * the page navigated to (the session permission handler). Pages that are not a widget's are ignored.
+ */
+export function reportBlockedRequest(source: Electron.WebContents, url: string, reason: IpcWebpageWindowBlockedReason): void {
+  const guestId = guestIdOf.get(source);
+  if (guestId === undefined || !appPage || appPage.isDestroyed()) {
+    return;
+  }
+  appPage.send(ipcWebpageWindowBlockedChannel, guestId, url.length > maxReportedUrl ? '' : url, reason);
+}
 
 // Title for an in-app popup: the origin of the page it shows, or the full URL
 // when there is no real origin (about:blank, data:).
@@ -172,6 +191,7 @@ export function createRendererWindow(
   // The app page never opens windows itself. Without this, a middle-click or
   // Shift+click on an in-app link would open a child window that inherits the
   // app's preload, i.e. a second page with full IPC access.
+  appPage = win.webContents;
   win.webContents.setWindowOpenHandler(() => ({action: 'deny'}));
 
   // set original user-agent for urls requiring it
@@ -184,36 +204,23 @@ export function createRendererWindow(
     }
   })
 
-  // Split new-window requests from a guest (a <webview>, or an in-app popup it
-  // opened) into two branches:
-  //   - "new tab" intents (`<a target="_blank">`, plain `window.open(url)`,
-  //     middle-click, Ctrl/Cmd+click) → send to the user's default browser so
-  //     Freeter doesn't swallow links meant to "escape" the widget.
-  //   - real popups (`window.open(url, '', 'popup,width=X,height=Y')`,
-  //     disposition 'new-window') → keep as an in-app BrowserWindow. OAuth
-  //     / login flows rely on `window.opener.postMessage(...)` to return the
-  //     result to the opener, which only works when both live in the same
-  //     Electron process.
-  // Same-frame navigation (regular link clicks, JS redirects, form submits,
-  // back/forward) bypasses this handler entirely and stays in the widget.
-  // Popups get the same handler, so a nested window.open or target=_blank is
-  // routed the same way instead of opening more unmanaged windows.
-  // `popups` is shared by a guest and every popup under it, and caps how many
-  // in-app popups that tree has open at once, so a page can't flood the screen.
-  const attachWindowOpenHandler = (opener: Electron.WebContents, popups: {open: number}) => {
+  // New-window requests from a guest (a <webview>, or an in-app popup it opened) are decided by `decideWindowOpen`:
+  // the default browser, an in-app popup, or blocked. Same-frame navigation (regular link clicks, JS redirects, form
+  // submits, back/forward) bypasses this handler entirely and stays in the widget. Popups get the same handler, so a
+  // nested window.open or target=_blank is routed the same way instead of opening more unmanaged windows.
+  // `popups` is shared by a guest and every popup under it. `guestId` is the widget's webview: a blocked request is
+  // reported to it (also from a popup), and the widget shows what happened.
+  const attachWindowOpenHandler = (opener: Electron.WebContents, popups: {open: number}, guestId: number) => {
     opener.setWindowOpenHandler(({url, disposition, features}) => {
-      const isRealPopup = disposition === 'new-window' || rePopupFeatures.test(features);
-      if (!isRealPopup) {
-        const sanitUrl = sanitizeUrl(url);
-        // `url` comes from the guest page (a target="_blank" link or
-        // window.open), so only web and mail schemes are handed to the OS;
-        // any other scheme is dropped together with the denied window.
-        if (sanitUrl && isAllowedExternalUrl(sanitUrl)) {
-          shell.openExternal(sanitUrl);
-        }
+      const decision = decideWindowOpen({url, disposition, features, openPopups: popups.open, maxPopups: maxPopupsPerGuest});
+      if (decision.kind === 'external') {
+        shell.openExternal(decision.url);
         return {action: 'deny'};
       }
-      if (popups.open >= maxPopupsPerGuest) {
+      if (decision.kind === 'blocked') {
+        // The page sees `null` from window.open; without this the user saw nothing (or the page's own "pop-up blocked").
+        // The widget decides from the URL's scheme whether its notice offers a button (windowBlockedEvents.ts).
+        reportBlockedRequest(opener, url, decision.reason);
         return {action: 'deny'};
       }
       const {height, width, x, y} = win.getBounds();
@@ -229,7 +236,9 @@ export function createRendererWindow(
         minimizable: false,
         icon,
         parent: win,
-        title: popupTitle(url),
+        // An empty popup shows what its opener writes into it (same origin), so it carries the opener's origin, not
+        // the app name: a page must not pass its content off as an app window.
+        title: popupTitle(url === '' || url === 'about:blank' ? opener.getURL() : url),
         // Pinned explicitly instead of inherited from the opener, so a popup
         // never ends up with node, a preload or <webview> by accident.
         webPreferences: {
@@ -248,6 +257,7 @@ export function createRendererWindow(
     });
     opener.on('did-create-window', (popup) => {
       popups.open++;
+      guestIdOf.set(popup.webContents, guestId);
       popup.on('closed', () => { popups.open--; });
       // The popup has no address bar and carries the app icon, so its title shows
       // the site's origin and the page can't replace it. Otherwise a page could
@@ -258,7 +268,7 @@ export function createRendererWindow(
           popup.setTitle(popupTitle(navUrl));
         }
       });
-      attachWindowOpenHandler(popup.webContents, popups);
+      attachWindowOpenHandler(popup.webContents, popups, guestId);
     });
   };
 
@@ -364,7 +374,8 @@ export function createRendererWindow(
       }
     });
 
-    attachWindowOpenHandler(wc, {open: 0});
+    guestIdOf.set(wc, wc.id);
+    attachWindowOpenHandler(wc, {open: 0}, wc.id);
   })
 
   // Route mouse back/forward buttons to the <webview> directly under the cursor.

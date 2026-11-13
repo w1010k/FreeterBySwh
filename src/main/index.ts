@@ -127,6 +127,7 @@ import {createIconProvider} from '@/infra/iconProvider/iconProvider';
 import {createIpcMain} from '@/infra/ipcMain/ipcMain';
 import {createIpcMainEventValidator} from '@/infra/ipcMain/ipcMainEventValidator';
 import {registerPermissionHandler} from '@/infra/permissions/permissionHandler';
+import {reportBlockedRequest} from '@/infra/browserWindow/browserWindow';
 import {createForegroundWindowReader} from '@/infra/osActivity/foregroundWindow';
 import {createAnalyticsServer} from '@/infra/analyticsServer/analyticsServer';
 import {createProcessProvider} from '@/infra/processProvider/processProvider';
@@ -309,7 +310,7 @@ if (!app.requestSingleInstanceLock()) {
     // Stop web pages from launching app protocols through session permission
     // requests (Electron grants all of them by default). Registered before any
     // window/webview so its session-created listener catches partition sessions.
-    registerPermissionHandler();
+    registerPermissionHandler((webContents, url) => reportBlockedRequest(webContents, url, 'scheme'));
 
     const appDataDir = join(app.getPath('appData'), dataDirName, 'freeter-data');
     // Restore Data writes this file and restarts the app; the restore runs here, before any data is read.

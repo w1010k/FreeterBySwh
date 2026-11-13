@@ -134,6 +134,12 @@ export type IpcSwitchWorkflowByOffsetArgs = [offset: number];
 export type IpcSwitchWorkflowByOffsetRes = void;
 
 export type IpcZoomWebpageDirection = 'in' | 'out' | 'reset';
+/** main → app page: a guest's new-window request was not opened. Args: guest webContentsId, url, reason. */
+export const ipcWebpageWindowBlockedChannel = makeIpcChannelName('webpage-window-blocked');
+export type IpcWebpageWindowBlockedReason = 'popupLimit' | 'scheme';
+/** In-app popups open at once under one Webpage widget webview (main enforces it; the notice names it). */
+export const maxPopupsPerGuest = 5;
+
 export const ipcZoomWebpageChannel = makeIpcChannelName('zoom-webpage');
 export type IpcZoomWebpageArgs = [webContentsId: number, direction: IpcZoomWebpageDirection];
 export type IpcZoomWebpageRes = void;

@@ -10,6 +10,7 @@ import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { fixtureSettings } from './fixtures';
 import { WidgetEnv, EntityId } from '@/widgets/appModules';
 import { TRANSLATE_MUTATION_MARKER, translateApplyJs, translateCollectJs, translateRestoreJs } from '@/widgets/webpage/translate';
+import { WEBPAGE_WINDOW_BLOCKED_EVENT } from '@/widgets/webpage/windowBlockedEvents';
 
 function setupWebpageWidgetSut(settings: Settings, optional?: SetupWidgetSutOptional) {
   const { comp, ...rest } = setupWidgetSut(widgetComp, settings, optional);
@@ -182,6 +183,106 @@ describe('Webpage Widget', () => {
       expect(NOTIFICATION_CLICK_MARKER).toMatch(/^__FREETER_WEBPAGE_NOTIFICATION_CLICK_[0-9a-z]+__$/);
       expect(revealWidget).not.toHaveBeenCalled();
     })
+  })
+
+  describe('blocked new-window notice', () => {
+    function setupBlocked() {
+      const openExternalUrl = jest.fn();
+      const sut = setupWebpageWidgetSut(fixtureSettings({ url: 'https://x/' }), { mockWidgetApi: { shell: { openExternalUrl } } });
+      Object.assign(sut.webview, {
+        getWebContentsId: jest.fn(() => 7),
+        getURL: jest.fn(() => 'https://x/'),
+        getTitle: jest.fn(() => ''),
+        canGoBack: jest.fn(() => false),
+        canGoForward: jest.fn(() => false),
+        isLoading: jest.fn(() => false),
+        getZoomFactor: jest.fn(() => 1),
+        executeJavaScript: jest.fn(async () => undefined),
+        insertCSS: jest.fn(async () => 'k'),
+        removeInsertedCSS: jest.fn(),
+        setAudioMuted: jest.fn(),
+        stopFindInPage: jest.fn(),
+      });
+      act(() => { sut.webview.dispatchEvent(new Event('dom-ready')); });
+      const block = (webContentsId: number, url: string, reason: string) => act(() => {
+        window.dispatchEvent(new CustomEvent(WEBPAGE_WINDOW_BLOCKED_EVENT, { detail: { webContentsId, url, reason } }));
+      });
+      return { ...sut, openExternalUrl, block };
+    }
+
+    afterEach(() => jest.useRealTimers());
+
+    it('offers to open a meeting app link that the page could not open, and opens it on click only', () => {
+      jest.useFakeTimers();
+      const { block, openExternalUrl } = setupBlocked();
+
+      block(7, 'zoommtg://zoom.us/join?confno=1', 'scheme');
+
+      expect(screen.getByRole('status')).toHaveTextContent('This page wants to open an app (zoommtg: link).');
+      expect(openExternalUrl).not.toHaveBeenCalled();
+      act(() => { jest.advanceTimersByTime(500); });
+      fireEvent.click(screen.getByRole('button', { name: 'Open zoommtg: link' }));
+      expect(openExternalUrl).toHaveBeenCalledWith('zoommtg://zoom.us/join?confno=1');
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+
+    it('ignores clicks on its button right after it appears (a double-click the page set up)', () => {
+      jest.useFakeTimers();
+      const { block, openExternalUrl } = setupBlocked();
+
+      block(7, 'zoommtg://zoom.us/', 'scheme');
+      fireEvent.click(screen.getByRole('button', { name: 'Open zoommtg: link' }));
+
+      expect(screen.getByRole('button', { name: 'Open zoommtg: link' })).toBeDisabled();
+      expect(openExternalUrl).not.toHaveBeenCalled();
+    });
+
+    it('keeps the first notice (no address swap under the click) and ignores repeats for a while after Close', () => {
+      jest.useFakeTimers();
+      const { block } = setupBlocked();
+
+      block(7, 'zoommtg://zoom.us/first', 'scheme');
+      block(7, 'msteams:/second', 'scheme');
+      expect(screen.getByRole('button', { name: 'Open zoommtg: link' })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Close notice' }));
+      block(7, 'zoommtg://zoom.us/again', 'scheme');
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+
+      act(() => { jest.advanceTimersByTime(3000); });
+      block(7, 'zoommtg://zoom.us/later', 'scheme');
+      expect(screen.getByRole('status')).toBeInTheDocument();
+    });
+
+    it('only reports a link it does not open, such as file:', () => {
+      const { block } = setupBlocked();
+
+      block(7, 'file:///C:/Windows/notepad.exe', 'scheme');
+
+      expect(screen.getByRole('status')).toHaveTextContent('This page tried to open a file: link. Freeter does not open it from a page.');
+      expect(screen.queryByRole('button', { name: /^Open/ })).not.toBeInTheDocument();
+    });
+
+    it('ignores a notice for another widget\'s webview', () => {
+      const { block } = setupBlocked();
+
+      block(8, 'zoommtg://zoom.us/', 'scheme');
+
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+
+    it('closes with its button, and when the page navigates', () => {
+      const { block, webview } = setupBlocked();
+      block(7, 'https://idp.test/', 'popupLimit');
+      expect(screen.getByRole('button', { name: 'Open in browser' })).toBeInTheDocument();
+
+      act(() => { webview.dispatchEvent(new Event('did-navigate')); });
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+
+      block(7, 'https://idp.test/', 'popupLimit');
+      fireEvent.click(screen.getByRole('button', { name: 'Close notice' }));
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
   })
 
   describe('translate page', () => {

@@ -424,6 +424,14 @@
 - 규칙: main → renderer 알림은 앱 창에만 보낸다 (`index.ts` `sendToAppWindow`).
 - 근거: `src/main/index.ts` `sendToAppWindow`, `src/main/controllers/sharedDataStorage.ts`
 
+#### 앱 링크가 막히는 두 경로
+
+- 출처: `[fork #88 #109]`
+- 증상: 새 창 처리 (`setWindowOpenHandler`)에만 알림을 붙였더니, Zoom 참가 페이지처럼 `location.href = 'zoommtg:…'`로 여는 링크는 여전히 조용히 막혔다 (리뷰에서 발견).
+- 원인: 페이지가 자기 frame이나 iframe을 앱 링크로 옮기면 새 창 처리를 거치지 않고 세션의 `openExternal` 권한 요청이 된다.
+- 규칙: 게스트 페이지의 앱 링크 처리는 두 곳 (`decideWindowOpen`, `registerPermissionHandler`)을 함께 본다. 알림은 둘 다 `reportBlockedRequest`로 보낸다.
+- 근거: `src/main/infra/browserWindow/browserWindow.ts`, `src/main/infra/permissions/permissionHandler.ts`, CHANGES #109
+
 #### 위젯 안 오른쪽 클릭과 위젯 틀 메뉴
 
 - 출처: `[fork #105]`

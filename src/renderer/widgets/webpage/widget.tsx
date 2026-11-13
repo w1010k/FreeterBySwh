@@ -16,6 +16,7 @@ import { createPartition } from '@/widgets/webpage/partition';
 import { canGoHome, goHome, reload, setAudioMuted, zoomReset, zoomStepIn, zoomStepOut } from '@/widgets/webpage/actions';
 import { WebpageExposedApi } from '@/widgets/interfaces';
 import { WEBPAGE_ZOOM_EVENT, WebpageZoomEventDetail } from '@/widgets/webpage/zoomEvents';
+import { describeBlockedWindow, WEBPAGE_WINDOW_BLOCKED_EVENT, WebpageWindowBlockedEventDetail } from '@/widgets/webpage/windowBlockedEvents';
 import { WEBPAGE_GO_HOME_EVENT, WebpageGoHomeEventDetail } from '@/widgets/webpage/homeEvents';
 import { volumeOffSvg, volumeOnSvg } from '@/widgets/webpage/icons';
 import { TRANSLATE_MUTATION_MARKER, translateApplyJs, translateCollectJs, translateLogCaptureJs, translateRestoreJs } from '@/widgets/webpage/translate';
@@ -174,6 +175,14 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
   const [cssInDom, setCssInDom] = useState<[string, string]|null>(null);
   const [audioMuted, setAudioMutedState] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
+  // A request of this page that main did not open (a new window, an app link): shown until closed or the next page.
+  const [blockedWindow, setBlockedWindow] = useState<WebpageWindowBlockedEventDetail | null>(null);
+  // The notice's button works only after a short delay: the page can make the notice appear under the pointer, and
+  // the second click of a double-click must not open an app (the same guard Chrome uses on such prompts).
+  const [armedNotice, setArmedNotice] = useState<WebpageWindowBlockedEventDetail | null>(null);
+  const blockedArmed = blockedWindow !== null && armedNotice === blockedWindow;
+  // After Close, the page's repeats are ignored for a while, so a page can't keep the bar over the page.
+  const blockedQuietUntilRef = useRef(0);
   const [findQuery, setFindQuery] = useState('');
   const [findResult, setFindResult] = useState<{ active: number; total: number }>({ active: 0, total: 0 });
   const findInputRef = useRef<HTMLInputElement>(null);
@@ -558,6 +567,8 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
     }
     const handleDidNavigate = () => {
       refreshActions();
+      // The notice was about the page that is gone.
+      setBlockedWindow(null);
     }
     const handleDidFrameNavigate = () => {
       refreshActions();
@@ -651,6 +662,39 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
     window.addEventListener(WEBPAGE_ZOOM_EVENT, onZoom);
     return () => window.removeEventListener(WEBPAGE_ZOOM_EVENT, onZoom);
   }, [webviewIsReady]);
+
+  useEffect(() => {
+    if (!webviewIsReady) {
+      return undefined;
+    }
+    let myId: number | null = null;
+    try {
+      myId = webviewRef.current?.getWebContentsId() ?? null;
+    } catch {
+      return undefined;
+    }
+    const onBlocked = (e: Event) => {
+      const detail = (e as CustomEvent<WebpageWindowBlockedEventDetail>).detail;
+      if (detail && detail.webContentsId === myId && Date.now() >= blockedQuietUntilRef.current) {
+        // The first notice stays: a later request can't swap the address under the user's click.
+        setBlockedWindow(prev => prev ?? detail);
+      }
+    };
+    window.addEventListener(WEBPAGE_WINDOW_BLOCKED_EVENT, onBlocked);
+    return () => window.removeEventListener(WEBPAGE_WINDOW_BLOCKED_EVENT, onBlocked);
+  }, [webviewIsReady]);
+  useEffect(() => {
+    if (!blockedWindow) {
+      return undefined;
+    }
+    const timer = setTimeout(() => setArmedNotice(blockedWindow), 500);
+    return () => clearTimeout(timer);
+  }, [blockedWindow]);
+  const closeBlockedNotice = useCallback(() => {
+    blockedQuietUntilRef.current = Date.now() + 3000;
+    setBlockedWindow(null);
+  }, []);
+  const blockedNotice = blockedWindow ? describeBlockedWindow(blockedWindow) : null;
 
   // Alt+Home routed from main → init.ts; match the action bar's "Go to start
   // page" by skipping when we're already on the home URL (canGoHome guards
@@ -766,6 +810,18 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
         <SvgIcon svg={arrDown14Svg} className={styles['find-btn-icon']}/>
       </button>
       <button className={styles['find-btn']} title="Close (Esc)" aria-label="Close find" onClick={closeFind}>
+        <SvgIcon svg={close14Svg} className={styles['find-btn-icon']}/>
+      </button>
+    </div>}
+    {blockedNotice && <div className={styles['window-blocked']} role="status" title={blockedWindow?.url}>
+      <span className={styles['window-blocked-text']}>{blockedNotice.text}</span>
+      {blockedNotice.action && <button className={styles['window-blocked-open']} disabled={!blockedArmed} onClick={() => {
+        if (blockedNotice.action) {
+          widgetApi.shell.openExternalUrl(blockedNotice.action.url);
+        }
+        closeBlockedNotice();
+      }}>{blockedNotice.action.label}</button>}
+      <button className={styles['find-btn']} title="Close" aria-label="Close notice" onClick={closeBlockedNotice}>
         <SvgIcon svg={close14Svg} className={styles['find-btn-icon']}/>
       </button>
     </div>}

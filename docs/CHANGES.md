@@ -4010,6 +4010,46 @@ File 메뉴에 **Back Up Data…**와 **Restore Data…**가 생겼다. PC를 �
 - **수정**: `src/common/ipc/channels.ts`, `src/main/index.ts`, `src/renderer/application/useCases/appMenu/initAppMenu.ts`, `src/renderer/init.ts`
 - **테스트**: `tests/main/infra/appDataBackup/appDataBackup.spec.ts`, `tests/main/application/useCases/appDataBackup/appDataBackupUseCases.spec.ts` (신규), `tests/renderer/application/useCases/appMenu/initAppMenu.spec.ts`
 
+## 109. Webpage 위젯의 새 창 요청 처리 보완 *(2026-11-13)*
+
+Webpage 위젯 안 페이지가 새 창을 열려고 했는데 열리지 않으면, 이제 위젯 위에 알림 바가 뜬다. 빈 창을 먼저 열고 나중에 주소를 넣는 사이트 (로그인, 결제, 인쇄 흐름)는 앱 안 팝업으로 동작한다.
+
+- **빈 창**: `window.open('', '_blank')`나 `about:blank`로 여는 창은 앱 안 팝업으로 연다. 전에는 기본 브라우저로 보낼 주소가 없어 조용히 버렸고, 페이지는 `null`을 받았다. 일부 사이트는 이때 "팝업이 차단되었습니다"를 띄운다. 빈 팝업의 제목은 연 페이지의 origin이다 (페이지가 써 넣은 내용이 앱 창처럼 보이지 않게).
+- **알림 바**: 아래 두 경우에 위젯 위쪽에 알림 바가 뜬다. 닫기 버튼으로 닫거나, 페이지가 이동하면 사라진다.
+  - 페이지가 앱 링크를 열려고 할 때. 새 탭 요청이든, 자기 화면이나 iframe을 앱 링크로 이동하든 (`location.href = 'zoommtg:…'`, Zoom·Teams 참가 페이지가 흔히 쓰는 방식) 같다. Zoom (`zoommtg:`, `zoomus:`), Teams (`msteams:`), Slack (`slack:`), Webex (`webex:`), 전화 (`tel:`) 링크는 **Open <스킴> link** 버튼으로 사용자가 직접 열 수 있다. 그 밖의 스킴 (`file:`, `ms-*`, `search-ms:` 등)은 알리기만 한다.
+  - 팝업 5개 한도: 웹 주소면 **Open in browser** 버튼으로 기본 브라우저에서 연다.
+- 기본 브라우저로 보내는 새 탭 링크는 전처럼 알림 없이 브라우저로 간다.
+- 알림 바의 열기 버튼은 바가 뜬 뒤 0.5초가 지나야 눌린다. 알림 바가 떠 있는 동안 페이지의 새 요청은 무시하고 (주소 바꿔치기 방지), 닫은 뒤 3초 동안도 무시한다 (계속 다시 띄우기 방지).
+- 한계: 빈 창으로 여는 "새 탭" 링크 (`window.open().location = url`)도 기본 브라우저가 아니라 앱 안 팝업으로 열린다. 페이지가 열린 창을 계속 쓰려는지 링크만 열려는지 구분할 방법이 없어서, 열리는 쪽을 택했다 (D81).
+
+재현 (로컬 테스트 페이지, 개발 앱의 Webpage 위젯, 사용자 클릭 없이 실행):
+
+| 시험 | 수정 전 | 수정 후 |
+|---|---|---|
+| `window.open('', '_blank')` 후 주소 지정 | `null` | 앱 안 팝업 |
+| `window.open('about:blank', '_blank', 'width=…')` | 앱 안 팝업 | 앱 안 팝업 |
+| `window.open('zoommtg://…')` | `null` (알림 없음) | `null` + 알림 바 |
+| `location.href = 'zoommtg://…'` (리뷰 후 추가) | 알림 없음 | 알림 바 (화면 캡처로 확인) |
+
+구조:
+
+- main `infra/browserWindow/windowOpenPolicy.ts` `decideWindowOpen`이 새 창 요청을 판정한다 (`external`, `popup`, `blocked`). `attachWindowOpenHandler`는 판정대로 실행하고, `blocked`면 `reportBlockedRequest`가 앱 화면에 `webpage-window-blocked` (`[webview webContentsId, url, reason]`)를 보낸다. 같은 함수를 세션 권한 처리기 (`registerPermissionHandler`의 콜백)도 쓴다: 페이지가 자기 frame을 앱 링크로 옮기면 `openExternal` 권한 요청이 오고, 거절할 때 알린다. 팝업 안에서 막힌 요청도 위젯의 webview id로 보낸다 (`guestIdOf`). 32KB가 넘는 URL은 빈 문자열로 보내 버튼 없이 알린다.
+- 팝업 한도 (`maxPopupsPerGuest`)는 `common/ipc/channels.ts`에 두고 main과 알림 문구가 같이 쓴다.
+- renderer `init.ts`가 이를 `WEBPAGE_WINDOW_BLOCKED_EVENT`로 다시 보내고, id가 같은 Webpage 위젯이 알림 바를 그린다 (줌·홈 이벤트와 같은 방식). 문구와 버튼은 `windowBlockedEvents.ts` `describeBlockedWindow`가 정한다.
+- 버튼은 기존 위젯 API `shell.openExternalUrl`을 쓴다. 이 API는 스킴을 검사하지 않으므로 (Link Opener의 앱 링크용), 무엇을 열지는 `describeBlockedWindow`만 정한다. 원문 대신 파싱한 주소 (`URL.href`)를 연다. 열 수 있는 앱 링크 목록은 `isOpenableAppLink` (`common/helpers/isAllowedExternalUrl.ts`)다.
+
+**까다로웠던 포인트**
+
+- 앱 링크는 #88에서 페이지가 스스로 열지 못하게 막은 것이다. 페이지가 여는 경로는 그대로 막고, 사용자가 알림 바의 버튼을 누를 때만 연다 (크롬의 "외부 프로그램 열기" 확인과 같은 모델). 버튼 문구에 스킴을 그대로 보여 준다. 목록 밖의 앱 프로토콜은 프로그램을 실행하거나 로컬 파일을 열 수 있어 (`ms-msdt:` 등) 버튼을 주지 않는다.
+- 코드 리뷰에서 고친 것: 같은 frame의 앱 링크 이동은 알림이 없었다, 페이지가 알림을 커서 아래 띄워 두 번째 클릭으로 앱을 열 수 있었다 (0.5초 잠금), 알림 반복과 주소 바꿔치기, 2048자에서 자른 주소를 버튼이 열었다, 한도 5의 하드코딩.
+- 사용자 클릭이 있는 경우는 직접 눌러 보지 않았다. 판정 함수가 사용자 제스처를 보지 않으므로 결과는 같을 것으로 본다 (D60: Electron이 판정 정보를 주지 않는다).
+
+**수정 파일**
+
+- **신규**: `src/main/infra/browserWindow/windowOpenPolicy.ts`, `src/renderer/widgets/webpage/windowBlockedEvents.ts`
+- **수정**: `src/main/infra/browserWindow/browserWindow.ts`, `src/main/infra/permissions/permissionHandler.ts`, `src/main/index.ts`, `src/common/ipc/channels.ts`, `src/common/helpers/isAllowedExternalUrl.ts`, `src/renderer/init.ts`, `src/renderer/widgets/webpage/{widget.tsx,widget.module.scss}`
+- **테스트**: `tests/main/infra/browserWindow/windowOpenPolicy.spec.ts`, `tests/renderer/widgets/webpage/windowBlockedEvents.spec.ts` (신규), `tests/renderer/widgets/webpage/widget.spec.ts`, `tests/main/infra/permissions/permissionHandler.spec.ts`
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

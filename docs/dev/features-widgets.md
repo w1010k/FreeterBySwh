@@ -368,7 +368,9 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor)은 `widget
 | Ctrl/Cmd+F                                     | guest 주입 스크립트 → `console-message` → 찾기 바                                                                                     | [fork #36] |
 
 - **링크와 팝업**: `setWindowOpenHandler`가 새 탭 성격 요청 (`target="_blank"`, 기능 문자열 없는 `window.open`)은 기본 브라우저로, 팝업 성격 요청은 앱 내부
-  창으로 보낸다. 팝업 판정식은 `disposition === 'new-window'` 또는 features 문자열의 `popup` 단어 (`rePopupFeatures`)다. OAuth 팝업의
+  창으로 보낸다. 판정은 `windowOpenPolicy.ts` `decideWindowOpen`이다. 팝업은 `disposition === 'new-window'`, features 문자열의 `popup` 단어, 빈 주소
+  (`''`, `about:blank`)다 [fork #109]. 열지 않은 요청 (웹·메일이 아닌 새 탭, 팝업 5개 한도)은 `webpage-window-blocked`로 위젯에 알려 알림 바를 띄운다
+  (`windowBlockedEvents.ts`; 회의·채팅 앱 링크와 웹 주소는 버튼으로 열 수 있다) [fork #109]. OAuth 팝업의
   `window.opener` 통신을 살리기 위해서다 [fork #3 #13]. 내부 팝업은 게스트마다 동시에 5개까지 열리고, 제목은 페이지 origin으로 고정된다. 팝업 안에서 여는 창도 같은
   판정을 거친다 [fork #90]. HTTP 인증 창은 페이지 이동과 proxy 인증에만 뜬다 [fork #71 #90]. 외부로 보내는 URL은 스킴이 `http`, `https`, `mailto`일 때만 넘긴다. 이 검사는 액션바와 우클릭 메뉴의
   "Open in web browser", "Open link in web browser" (`actions.ts`)에도 있다. 같은 프레임 이동으로 여는 앱 프로토콜은 main의 세션 권한 처리기가 같은 규칙으로 막는다 [fork #88] ([pitfalls.md](pitfalls.md)의 "게스트 URL의 스킴 검사"). 마우스 X1/X2 버튼은 커서 아래 webview를 대상으로 뒤로/앞으로 이동한다 [fork #4]. 모두 main 코드다.
