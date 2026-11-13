@@ -4,9 +4,90 @@
  */
 
 .root {
+  display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100%;
+
+  // Focused only to keep Ctrl+F working after the search box closes; it is not a control of its own.
+  &:focus {
+    outline: none;
+  }
+}
+
+.tree {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.search {
+  flex: none;
+  padding: 4px;
+}
+
+.search-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 3px 6px;
+  color: var(--freeter-inputColor);
+  background-color: var(--freeter-inputBackground);
+  border: 1px solid var(--freeter-inputBorder);
+  border-radius: 4px;
+}
+
+.results {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.hit {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 2px 6px;
+  cursor: default;
+  white-space: nowrap;
+
+  @media (hover: hover) {
+    &:hover {
+      background-color: var(--freeter-componentColor10);
+    }
+  }
+}
+
+.hit-selected,
+.hit-selected:hover {
+  background-color: var(--freeter-primary20);
+}
+
+.hit-name {
+  flex: none;
+}
+
+.hit-location {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.6;
+}
+
+.search-status {
+  flex: none;
+  padding: 2px 6px;
+  opacity: 0.7;
+
+  &:empty {
+    display: none;
+  }
 }
 
 .message {

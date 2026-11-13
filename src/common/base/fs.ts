@@ -35,3 +35,28 @@ export interface ReadDirOptions {
    */
   includeSizes?: boolean;
 }
+
+export interface FsSearchOptions {
+  /** Include dot-prefixed entries, as `ReadDirOptions.includeHidden`. Defaults to `true`. */
+  includeHidden?: boolean;
+}
+
+/** A file or folder whose name contains the query. */
+export interface FsSearchHit {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  /** Index of the searched root the hit is under. */
+  rootIndex: number;
+  /** The folders between that root and the hit, `/`-separated; `''` for a hit directly in the root. */
+  folder: string;
+}
+
+export interface FsSearchResult {
+  hits: FsSearchHit[];
+  /**
+   * The limit the search stopped at, or null when it searched everything. `results`: more matches may exist (a longer
+   * query helps). `scanned`: some folders were not searched at all (a longer query does not help).
+   */
+  limit: 'results' | 'scanned' | null;
+}

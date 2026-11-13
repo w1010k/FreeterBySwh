@@ -46,6 +46,7 @@ async function setup(deletingSharedDataKeys = new Set<string>()) {
   });
   const fsProvider = mockFsProvider({
     readDir: jest.fn(),
+    search: jest.fn(),
     getHomeDir: jest.fn()
   });
   const iconProvider = mockIconProvider({
@@ -452,6 +453,8 @@ describe('getWidgetApiUseCase()', () => {
     const opts = { includeHidden: false, includeSizes: false };
     widgetApi.fs.readDir('/some/dir', opts);
     expect(fsProvider.readDir).toHaveBeenLastCalledWith('/some/dir', opts);
+    widgetApi.fs.search(['/a'], 'q', { includeHidden: false });
+    expect(fsProvider.search).toHaveBeenLastCalledWith(['/a'], 'q', { includeHidden: false });
 
     widgetApi.fs.getHomeDir();
     expect(fsProvider.getHomeDir).toHaveBeenCalledTimes(1);

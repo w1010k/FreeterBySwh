@@ -118,3 +118,15 @@ export function humanFileSize(bytes: number): string {
   } while (value >= 1024 && unit < units.length - 1);
   return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
 }
+
+/**
+ * Where a search hit is, for its result row: the root's tree name and the folders below it (e.g.
+ * `Documents/2026/reports`). Main works out `folder` with the OS path rules.
+ */
+export function hitLocation(hit: { rootIndex: number; folder: string }, roots: readonly BuiltEntry[]): string {
+  const root = roots[hit.rootIndex];
+  if (!root) {
+    return '';
+  }
+  return hit.folder === '' ? root.key : `${root.key}/${hit.folder}`;
+}

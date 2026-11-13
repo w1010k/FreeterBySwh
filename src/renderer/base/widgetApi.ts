@@ -7,7 +7,7 @@ import { EntityId } from '@/base/entity';
 import { WidgetContextMenuFactory } from '@/base/widget';
 import { ActionBarItems } from './actionBar';
 import { ProcessInfo } from '@common/base/process';
-import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
+import { FsDirEntry, FsSearchOptions, FsSearchResult, ReadDirOptions } from '@common/base/fs';
 import { SystemStats } from '@common/base/systemStats';
 import { IpcPtyCreateArgs, IpcPtyCreateRes, ShellOption } from '@common/ipc/channels';
 import { MenuItems } from '@common/base/menu';
@@ -140,6 +140,11 @@ interface WidgetApiModules {
      * per-file size collection (`includeSizes: false`) for faster reads.
      */
     readDir: (dirPath: string, opts?: ReadDirOptions) => Promise<FsDirEntry[]>;
+    /**
+     * Find files and folders under `roots` (all subfolders) whose name contains `query`, ignoring case. Stops at a
+     * limit and then reports `truncated`.
+     */
+    search: (roots: string[], query: string, opts?: FsSearchOptions) => Promise<FsSearchResult>;
     /** Resolve the OS home directory (default root for file browsing). */
     getHomeDir: () => Promise<string>;
   };

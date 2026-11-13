@@ -218,4 +218,182 @@ describe('File Explorer Widget', () => {
 
     expect(openPath).not.toHaveBeenCalled();
   })
+
+  describe('search', () => {
+    const hits = [
+      { name: 'report.txt', path: '/home/user/Documents/2026/report.txt', isDirectory: false, rootIndex: 0, folder: '2026' },
+      { name: 'reports', path: '/home/user/Documents/reports', isDirectory: true, rootIndex: 0, folder: '' },
+    ];
+
+    function setupSearch(search: jest.Mock = jest.fn(async () => ({ hits, limit: null }))) {
+      jest.useFakeTimers();
+      const openPath = jest.fn(async () => '');
+      const logActivity = jest.fn();
+      const updateActionBar = jest.fn();
+      setupSut(fixtureSettings({ paths: ['/home/user/Documents'], showHiddenFiles: false }), {
+        mockWidgetApi: { fs: { search }, shell: { openPath }, logActivity, updateActionBar }
+      });
+      return { search, openPath, logActivity, updateActionBar };
+    }
+    const typeQuery = async (text: string) => {
+      fireEvent.change(screen.getByRole('combobox', { name: 'Search in folders' }), { target: { value: text } });
+      await act(async () => { jest.advanceTimersByTime(250); });
+    };
+
+    afterEach(() => jest.useRealTimers());
+
+    it('turns off the tree library search (it breaks Korean typing and sees only expanded folders)', () => {
+      setupSearch();
+
+      expect(pierreTreesReact.useFileTree).toHaveBeenCalledWith(expect.objectContaining({ search: false }));
+    });
+
+    it('opens the search box with Ctrl+F and searches every configured folder after typing pauses', async () => {
+      const { search } = setupSearch();
+
+      fireEvent.keyDown(screen.getByTestId('file-tree'), { key: 'f', ctrlKey: true });
+      const input = screen.getByRole('combobox', { name: 'Search in folders' });
+      expect(input).toHaveFocus();
+
+      await typeQuery(' 보고서 ');
+
+      expect(search).toHaveBeenCalledTimes(1);
+      expect(search).toHaveBeenCalledWith(['/home/user/Documents'], '보고서', { includeHidden: false });
+      expect(screen.getAllByRole('option').map(o => o.textContent)).toEqual(['report.txtDocuments/2026', 'reports/Documents']);
+    });
+
+    it('opens the search box from the action bar', async () => {
+      const { updateActionBar } = setupSearch();
+
+      const item = updateActionBar.mock.calls.at(-1)![0].find((i: { id: string }) => i.id === 'SEARCH');
+      await act(async () => { await item.doAction(); });
+
+      expect(screen.getByRole('combobox', { name: 'Search in folders' })).toBeInTheDocument();
+    });
+
+    it('keeps the typed text while an IME composes, and ignores Enter that ends the composition', async () => {
+      const { openPath } = setupSearch();
+      fireEvent.keyDown(screen.getByTestId('file-tree'), { key: 'f', ctrlKey: true });
+      await typeQuery('보고');
+      const input = screen.getByRole('combobox', { name: 'Search in folders' });
+
+      fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+
+      expect(input).toHaveValue('보고');
+      expect(openPath).not.toHaveBeenCalled();
+    });
+
+    it('moves the selection with the arrow keys and opens it with Enter', async () => {
+      const { openPath, logActivity } = setupSearch();
+      fireEvent.keyDown(screen.getByTestId('file-tree'), { key: 'f', ctrlKey: true });
+      await typeQuery('rep');
+      const input = screen.getByRole('combobox', { name: 'Search in folders' });
+
+      fireEvent.keyDown(input, { key: 'ArrowDown' });
+      expect(screen.getAllByRole('option')[1]).toHaveAttribute('aria-selected', 'true');
+      fireEvent.keyDown(input, { key: 'Enter' });
+
+      expect(openPath).toHaveBeenCalledWith('/home/user/Documents/reports');
+      expect(logActivity).not.toHaveBeenCalled();
+    });
+
+    it('opens a file hit on double-click and records it', async () => {
+      const { openPath, logActivity } = setupSearch();
+      fireEvent.keyDown(screen.getByTestId('file-tree'), { key: 'f', ctrlKey: true });
+      await typeQuery('rep');
+
+      fireEvent.doubleClick(screen.getAllByRole('option')[0]);
+
+      expect(openPath).toHaveBeenCalledWith('/home/user/Documents/2026/report.txt');
+      expect(logActivity).toHaveBeenCalledWith('file_open', { text: 'report.txt', detail: '/home/user/Documents/2026/report.txt' });
+    });
+
+    it('says when nothing matches, and which limit the search stopped at', async () => {
+      const search = jest.fn()
+        .mockResolvedValueOnce({ hits: [], limit: null })
+        .mockResolvedValueOnce({ hits, limit: 'results' })
+        .mockResolvedValueOnce({ hits: [], limit: 'scanned' });
+      setupSearch(search);
+      fireEvent.keyDown(screen.getByTestId('file-tree'), { key: 'f', ctrlKey: true });
+
+      await typeQuery('zzz');
+      expect(screen.getByRole('status')).toHaveTextContent('No matches.');
+
+      await typeQuery('rep');
+      expect(screen.getByRole('status')).toHaveTextContent('Showing the first 2 matches. Type more to narrow the search.');
+
+      // Stopped at the scan limit with no hits: not "No matches" (the file may be in a folder not searched).
+      await typeQuery('deep');
+      expect(screen.getByRole('status')).toHaveTextContent(/^Stopped early: .*Register smaller folders/);
+    });
+
+    it('keeps the last list while the next search runs, and runs one search at a time', async () => {
+      let resolveSecond: (v: unknown) => void = () => undefined;
+      const search = jest.fn()
+        .mockResolvedValueOnce({ hits, limit: null })
+        .mockReturnValueOnce(new Promise(r => { resolveSecond = r; }))
+        .mockResolvedValueOnce({ hits: [], limit: null });
+      setupSearch(search);
+      fireEvent.keyDown(screen.getByTestId('file-tree'), { key: 'f', ctrlKey: true });
+      await typeQuery('rep');
+
+      await typeQuery('repo');
+      expect(screen.getAllByRole('option')).toHaveLength(2);
+      expect(screen.getByRole('status')).toHaveTextContent('Searching…');
+
+      // Still waiting for 'repo': 'repor' is not sent yet.
+      await typeQuery('repor');
+      expect(search).toHaveBeenCalledTimes(2);
+
+      // 'repo' answers late and is dropped; then only 'repor' is sent.
+      await act(async () => { resolveSecond({ hits: [hits[0]], limit: null }); });
+      expect(search).toHaveBeenCalledTimes(3);
+      expect(search).toHaveBeenLastCalledWith(['/home/user/Documents'], 'repor', { includeHidden: false });
+      expect(screen.getByRole('status')).toHaveTextContent('No matches.');
+    });
+
+    it('keeps focus in the search box when a result row is clicked', async () => {
+      setupSearch();
+      fireEvent.keyDown(screen.getByTestId('file-tree'), { key: 'f', ctrlKey: true });
+      await typeQuery('rep');
+
+      const row = screen.getAllByRole('option')[1];
+      // fireEvent returns false when the handler prevented the default (the focus move).
+      expect(fireEvent.mouseDown(row)).toBe(false);
+      fireEvent.click(row);
+
+      expect(row).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('shows only the answer for the latest query', async () => {
+      let resolveFirst: (v: unknown) => void = () => undefined;
+      const search = jest.fn()
+        .mockReturnValueOnce(new Promise(r => { resolveFirst = r; }))
+        .mockResolvedValueOnce({ hits: [hits[1]], limit: null });
+      setupSearch(search);
+      fireEvent.keyDown(screen.getByTestId('file-tree'), { key: 'f', ctrlKey: true });
+
+      await typeQuery('re');
+      await typeQuery('reports');
+      await act(async () => { resolveFirst({ hits, limit: null }); });
+
+      expect(screen.getAllByRole('option')).toHaveLength(1);
+    });
+
+    it('closes with Escape and shows the tree again', async () => {
+      setupSearch();
+      fireEvent.keyDown(screen.getByTestId('file-tree'), { key: 'f', ctrlKey: true });
+      await typeQuery('rep');
+
+      fireEvent.keyDown(screen.getByRole('combobox', { name: 'Search in folders' }), { key: 'Escape' });
+
+      expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+      expect(screen.getByTestId('file-tree')).toBeVisible();
+
+      // Focus stays in the widget, so Ctrl+F opens the search again.
+      fireEvent.keyDown(document.activeElement!, { key: 'f', ctrlKey: true });
+      expect(screen.getByRole('combobox', { name: 'Search in folders' })).toHaveFocus();
+    });
+  });
 })

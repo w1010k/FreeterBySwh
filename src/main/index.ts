@@ -23,6 +23,7 @@ import {createSetDownloadDirUseCase} from '@/application/useCases/download/setDo
 import {createGetHomeDirUseCase} from '@/application/useCases/fs/getHomeDir';
 import {createGetImageDataUrlUseCase} from '@/application/useCases/fs/getImageDataUrl';
 import {createReadDirUseCase} from '@/application/useCases/fs/readDir';
+import {createSearchFilesUseCase} from '@/application/useCases/fs/searchFiles';
 import {createSetMainShortcutUseCase} from '@/application/useCases/globalShortcut/setMainShortcut';
 import {createGetFaviconUseCase} from '@/application/useCases/icon/getFavicon';
 import {createGetFileIconUseCase} from '@/application/useCases/icon/getFileIcon';
@@ -499,6 +500,7 @@ if (!app.requestSingleInstanceLock()) {
 
     const fsProvider = createFsProvider();
     const readDirUseCase = createReadDirUseCase({fsProvider});
+    const searchFilesUseCase = createSearchFilesUseCase({fsProvider});
     const getHomeDirUseCase = createGetHomeDirUseCase({fsProvider});
     const getImageDataUrlUseCase = createGetImageDataUrlUseCase({fsProvider});
 
@@ -557,7 +559,7 @@ if (!app.requestSingleInstanceLock()) {
       ...createContextMenuControllers({popupContextMenuUseCase}),
       ...createClipboardControllers({writeBookmarkIntoClipboardUseCase, writeTextIntoClipboardUseCase}),
       ...createShellControllers({openExternalUrlUseCase, openPathUseCase, openAppUseCase, openAppDataDirUseCase}),
-      ...createFsControllers({readDirUseCase, getHomeDirUseCase, getImageDataUrlUseCase}),
+      ...createFsControllers({readDirUseCase, getHomeDirUseCase, getImageDataUrlUseCase, searchFilesUseCase}),
       ...createProcessControllers({getProcessInfoUseCase}),
       ...createSystemStatsControllers({getSystemStatsUseCase}),
       ...createTranslateControllers({translateTextsUseCase}),

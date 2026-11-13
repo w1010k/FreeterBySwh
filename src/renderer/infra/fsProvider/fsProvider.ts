@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { IpcFsReadDirArgs, ipcFsReadDirChannel, IpcFsReadDirRes, IpcFsGetHomeDirArgs, ipcFsGetHomeDirChannel, IpcFsGetHomeDirRes, IpcFsGetImageDataUrlArgs, ipcFsGetImageDataUrlChannel, IpcFsGetImageDataUrlRes } from '@common/ipc/channels';
+import { IpcFsSearchArgs, ipcFsSearchChannel, IpcFsSearchRes, IpcFsReadDirArgs, ipcFsReadDirChannel, IpcFsReadDirRes, IpcFsGetHomeDirArgs, ipcFsGetHomeDirChannel, IpcFsGetHomeDirRes, IpcFsGetImageDataUrlArgs, ipcFsGetImageDataUrlChannel, IpcFsGetImageDataUrlRes } from '@common/ipc/channels';
 import { electronIpcRenderer } from '@/infra/mainApi/mainApi';
 import { FsProvider } from '@/application/interfaces/fsProvider';
 
@@ -12,6 +12,12 @@ export function createFsProvider(): FsProvider {
     readDir: (dirPath, opts) => electronIpcRenderer.invoke<IpcFsReadDirArgs, IpcFsReadDirRes>(
       ipcFsReadDirChannel,
       dirPath,
+      opts
+    ),
+    search: (roots, query, opts) => electronIpcRenderer.invoke<IpcFsSearchArgs, IpcFsSearchRes>(
+      ipcFsSearchChannel,
+      roots,
+      query,
       opts
     ),
     getHomeDir: () => electronIpcRenderer.invoke<IpcFsGetHomeDirArgs, IpcFsGetHomeDirRes>(

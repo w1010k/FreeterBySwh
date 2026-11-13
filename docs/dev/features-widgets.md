@@ -129,7 +129,7 @@
 | `terminal`    | `execCmdLines(cmdLines, cwd?)`                                           | main `execCmdLinesInTerminal`이 OS별 기본 터미널을 분리 프로세스로 실행     | [upstream]                  |
 | `widgets`     | `getWidgetsInCurrentWorkflow(typeId)`                                    | 현재 프로젝트의 현재 워크플로우에 있는 해당 타입 위젯의 `{id, name, api}`   | [upstream]                  |
 | `icon`        | `getFileIcon(path, bypassCache?)`, `getFavicon(url, bypassCache?)`       | main `iconProvider`. 세션 동안 성공·실패 결과를 Map에 캐시, 동시 요청 공유  | [fork #21]                  |
-| `fs`          | `readDir(dirPath, opts?)`, `getHomeDir()` | main `fsProvider`. `includeHidden`, `includeSizes` 옵션. 전용 텍스트 읽기·쓰기·mtime API는 #96에서 제거 | [fork #31 #32 #91]          |
+| `fs`          | `readDir(dirPath, opts?)`, `search(roots, query, opts?)`, `getHomeDir()` | main `fsProvider`. `includeHidden`, `includeSizes` 옵션. `search`는 하위 폴더 이름 검색 (한도 있음). 전용 텍스트 읽기·쓰기·mtime API는 #96에서 제거 | [fork #31 #32 #91 #105]     |
 | `systemStats` | `getStats()`                                                             | main `systemStatsProvider` (`node:os`, `fs.statfsSync`, `app.getAppMetrics`). CPU%는 직전 호출과의 누적 시간 차이 | [fork #60 #98]              |
 | `translate` | `translateTexts(texts)` | main `translateProvider` (`net.fetch`로 Google `translate_a/t` POST). 입력 상한은 `src/common/base/translate.ts` | [fork #104] |
 | `pty` | `create`, `write`, `resize`, `kill`, `buffer`, `onData`, `onExit`, `onTitle`, `shells` | main `terminalHost` (node-pty). 앱 단위 provider 하나를 모든 위젯이 나눠 쓴다 | [fork #99 #100] |
@@ -301,7 +301,7 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
 | `clock`          | Clock          | 3×2     | 없음                                   |                | 없음                                                                   | [fork #56]                                   |
 | `commander`      | Commander      | 1×1     | terminal                               |                | 없음                                                                   | [upstream, fork #75 변경]                    |
 | `d-day`          | D-Day          | 3×2     | 없음                                   |                | 없음                                                                   | [fork #51]                                   |
-| `file-explorer`  | File Explorer  | 2×2     | fs, shell, clipboard                   |                | 없음                                                                   | [fork #31 #32 #37 #61 #75]                   |
+| `file-explorer`  | File Explorer  | 2×2     | fs, shell, clipboard                   |                | 없음                                                                   | [fork #31 #32 #37 #61 #75 #105]              |
 | `file-opener`    | File Opener    | 1×1     | shell, icon                            | apps           | 없음                                                                   | [upstream, fork #21 #22 #63 #75 변경]        |
 | `link-opener`    | Link Opener    | 1×1     | shell, icon                            |                | 없음                                                                   | [upstream, fork #21 #22 #72 #75 변경]        |
 | `note`           | Note           | 2×2     | clipboard, dataStorage                 | sharedDataKeys | `note`                                                                 | [upstream, fork #8 #10 #39 #40 #50 #72 변경] |
@@ -453,7 +453,7 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
 #### File Explorer (`file-explorer`)
 
 - **역할**: 등록한 즐겨찾기 폴더들을 트리로 탐색하고, 파일을 더블클릭하면 OS 기본 앱으로 연다 [fork #31].
-- **파일**: `widget.tsx`, `treeModel.ts`(`buildRootEntries`, `buildEntryPaths`, `basenameOf`, `dirnameOf`,
+- **파일**: `widget.tsx`, `treeModel.ts`(`buildRootEntries`, `buildEntryPaths`, `basenameOf`, `dirnameOf`, `hitLocation`,
   `humanFileSize`, `toTreePath`, `toMapKey`), `settings.tsx`.
 - **설정**: `paths: List<string>`, `showFileSize`(기본 켬), `showHiddenFiles`(기본 끔) [fork #31 #32].
 - **트리 라이브러리**: `@pierre/trees`(beta, ESM 전용). 경로 문자열로 행을 식별하고 후행 `/`로 디렉터리를 표시한다. 트리 키는 이름 기반 상대 POSIX 경로이고,
@@ -461,7 +461,12 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
 - **동작**: 폴더는 펼칠 때만 `fs.readDir`로 읽는다 (lazy). 읽은 자식은 `model.batch`로 한 번에 추가한다. 하나씩 `add`하면 항목마다 트리 전체 투영을 다시 계산해
   큰 폴더에서 O(N²)이 된다. 루트는 등록 순서를 유지하고 (`preparePresortedFileTreeInput`), 자식은 라이브러리 기본 정렬을 따른다.
   읽기 실패 폴더는 다음 펼침에서 재시도한다. 숨김 판정은 이름이 `.`으로 시작하는지만 본다.
-- **액션바와 메뉴**: `REFRESH`(캐시 비우고 다시 읽기), `COLLAPSE-ALL`(캐시 유지, 접기만) [fork #61]. 우클릭 메뉴는 라이브러리 `renderContextMenu`를
+- **검색**: 라이브러리 검색은 끈다 (`search: false`). `Ctrl/Cmd+F`나 `SEARCH` 버튼이 트리 위에 자체 `<input>`을 연다. 입력이 250ms 멈추면
+  `fs.search(roots, query)`로 main이 등록 폴더 전체를 너비 우선으로 찾는다 (단계마다 16개씩 동시에 읽기, 결과 200개와 확인 항목 50,000개 한도,
+  링크 폴더는 들어가지 않음, 겹치는 폴더는 한 번만). 결과의 `limit`이 멈춘 한도를, `folder`가 등록 폴더 아래 위치를 알린다. 위젯은 검색을 한 번에
+  하나만 보내고 (`searchRunRef` 대기열), 새 결과가 올 때까지 이전 목록을 둔다. 결과는 `listbox` 목록이고 위치 글자는 `hitLocation`이 만든다.
+  Enter·더블클릭으로 열고 `Esc`로 닫는다 (포커스는 위젯 루트로). 검색 중에는 트리를 `hidden`으로 숨겨 펼침 상태를 유지한다 [fork #105].
+- **액션바와 메뉴**: `SEARCH`(검색창 열기) [fork #105], `REFRESH`(캐시 비우고 다시 읽기), `COLLAPSE-ALL`(캐시 유지, 접기만) [fork #61]. 우클릭 메뉴는 라이브러리 `renderContextMenu`를
   `document.body` 포털로 그린다: Open / Open in File Explorer, Open containing folder (파일), Copy Path, Copy
   name [fork #31 #37].
 - **기타**: 파일 열기 시 `file_open` 기록 [fork #63], 설정의 경로 순서 변경 [fork #75].
@@ -471,7 +476,8 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
   - 위젯 타일이 `transform`으로 배치되므로 `position: fixed` 메뉴는 타일 기준으로 어긋난다. 포털로 빼고 `data-file-tree-context-menu-root="true"`를 붙인다
     (CHANGES #31).
   - 즐겨찾기 재빌드 중 늦게 끝난 lazy 읽기는 `loadEpoch`로 버린다. 재빌드 effect는 배열 identity 대신 문자열 `pathsKey`에 의존한다 (CHANGES #31).
-  - 검색은 펼친 노드만 대상이고, 라이브러리 입력이 IME 조합을 가드하지 않아 한글 입력이 깨질 수 있다 (CHANGES #31).
+  - 라이브러리 검색은 펼친 노드만 대상이고 입력이 IME 조합을 가드하지 않아 한글이 깨졌다 (CHANGES #31). 그래서 끄고 자체 검색을 쓴다 (CHANGES #105).
+  - 검색창 keydown은 `isComposing`이면 무시한다. 한글 조합을 끝내는 Enter가 결과를 열면 안 된다.
 
 #### File Opener (`file-opener`)
 

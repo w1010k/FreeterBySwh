@@ -5,10 +5,12 @@
 
 import collapseAllSvg from './collapse-all.svg';
 import refreshSvg from './refresh.svg';
+import searchSvg from './search.svg';
 import widgetSvg from './widget.svg';
 
 export {
   collapseAllSvg,
   refreshSvg,
+  searchSvg,
   widgetSvg
 }

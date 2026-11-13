@@ -197,6 +197,8 @@ Freeter는 자유 소프트웨어이며, [라이선스][license] 조건에 따�
 
 104. Webpage 페이지 번역 - action bar나 오른쪽 클릭 메뉴의 Translate to Korean으로 페이지 글자를 그 자리에서 한국어로 바꾸고 (Google 번역, 생성형 AI 아님), 나중에 나타나는 글자도 번역하며, Show original로 원문으로 돌림 (다른 도메인으로 가면 번역이 꺼짐). *(2026-11-12)*
 
+105. File Explorer 하위 폴더 검색 - `Ctrl+F`나 Search 버튼으로 등록 폴더의 모든 하위 폴더에서 파일·폴더 이름을 찾고 (한글 입력 가능), 결과 목록에서 바로 엶. *(2026-11-13)*
+
 부가적으로 OS 노출 라벨 (트레이 툴팁, 윈도우 타이틀, 앱 메뉴, About 모달 등)도 **Freeter-SWH**로 일괄 교체해서 원본과 혼동되지 않게 했습니다.
 
 [home]: https://freeter.io/

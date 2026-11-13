@@ -139,6 +139,7 @@ export function setupWidgetSut<T>(reactComp: ReactComponent<WidgetReactComponent
     },
     fs: {
       readDir: jest.fn(async () => []),
+      search: jest.fn(async () => ({ hits: [], limit: null })),
       getHomeDir: jest.fn(async () => ''),
       ...mockWidgetApi.fs
     },

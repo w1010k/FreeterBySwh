@@ -3,12 +3,28 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { basenameOf, buildEntryPaths, buildRootEntries, dedupeKey, dirnameOf, humanFileSize, toMapKey, toTreePath } from '@/widgets/file-explorer/treeModel';
+import { basenameOf, buildEntryPaths, buildRootEntries, dedupeKey, dirnameOf, hitLocation, humanFileSize, toMapKey, toTreePath } from '@/widgets/file-explorer/treeModel';
 import { FsDirEntry } from '@common/base/fs';
 
 const entry = (name: string, isDirectory: boolean, path: string, size = 0): FsDirEntry => ({ name, isDirectory, path, size });
 
 describe('file-explorer treeModel', () => {
+  describe('hitLocation()', () => {
+    const roots = buildRootEntries(['C:\\Users\\me\\Documents\\', '/home/me/src']).entries;
+
+    it('names the root and the folders below it, with / separators', () => {
+      expect(hitLocation({ rootIndex: 0, folder: '2026/q3' }, roots)).toBe('Documents/2026/q3');
+    });
+
+    it('names only the root for a hit directly in it', () => {
+      expect(hitLocation({ rootIndex: 1, folder: '' }, roots)).toBe('src');
+    });
+
+    it('is empty for an unknown root', () => {
+      expect(hitLocation({ rootIndex: 5, folder: 'a' }, roots)).toBe('');
+    });
+  });
+
   describe('toMapKey()', () => {
     it('should strip a trailing slash', () => {
       expect(toMapKey('foo/')).toBe('foo');

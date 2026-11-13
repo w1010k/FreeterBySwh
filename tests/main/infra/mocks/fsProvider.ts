@@ -7,6 +7,7 @@ import { FsProvider } from '@/application/interfaces/fsProvider';
 
 const fsProvider: FsProvider = {
   readDir: jest.fn(async () => []),
+  search: jest.fn(async () => ({ hits: [], limit: null })),
   getHomeDir: jest.fn(() => ''),
   getImageDataUrl: jest.fn(async () => null),
 }

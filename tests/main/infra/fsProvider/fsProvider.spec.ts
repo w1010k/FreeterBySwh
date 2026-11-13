@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -20,6 +20,131 @@ afterEach(async () => {
 })
 
 describe('FsProvider', () => {
+  describe('search()', () => {
+    const limits = { includeHidden: true, maxResults: 200, maxScanned: 50000 };
+    const names = (hits: { path: string }[]) => hits.map(h => h.path.slice(dirPath.length + 1).replace(/\\/g, '/')).sort();
+
+    it('finds files and folders in every subfolder whose name contains the query, ignoring case', async () => {
+      await mkdir(join(dirPath, 'a', 'b', 'Report'), { recursive: true });
+      await writeFile(join(dirPath, 'a', 'b', 'Report', 'q3-REPORT.txt'), '');
+      await writeFile(join(dirPath, 'a', 'other.txt'), '');
+      const provider = createFsProvider();
+
+      const res = await provider.search([dirPath], 'report', limits);
+
+      expect(names(res.hits)).toEqual(['a/b/Report', 'a/b/Report/q3-REPORT.txt']);
+      expect(res.hits.find(h => h.name === 'Report')).toMatchObject({ isDirectory: true, rootIndex: 0, folder: 'a/b' });
+      expect(res.hits.find(h => h.name === 'q3-REPORT.txt')).toMatchObject({ folder: 'a/b/Report' });
+      expect(res.limit).toBeNull();
+    });
+
+    it('matches a Korean name stored decomposed (NFD, as macOS does) with an NFC query', async () => {
+      await writeFile(join(dirPath, '\u1112\u1161\u11ab\u1100\u1173\u11af.txt'), '');
+      const provider = createFsProvider();
+
+      const res = await provider.search([dirPath], '한글', limits);
+
+      expect(res.hits).toHaveLength(1);
+    });
+
+    it('tells which root each hit is under', async () => {
+      const second = join(dirPath, 'second');
+      await mkdir(join(dirPath, 'first'));
+      await mkdir(second);
+      await writeFile(join(second, 'x.txt'), '');
+      const provider = createFsProvider();
+
+      const res = await provider.search([join(dirPath, 'first'), second], 'x', limits);
+
+      expect(res.hits).toEqual([{ name: 'x.txt', path: join(second, 'x.txt'), isDirectory: false, rootIndex: 1, folder: '' }]);
+    });
+
+    it('skips dot-prefixed entries and their contents when includeHidden is false', async () => {
+      await mkdir(join(dirPath, '.git'));
+      await writeFile(join(dirPath, '.git', 'match'), '');
+      await writeFile(join(dirPath, '.match'), '');
+      await writeFile(join(dirPath, 'match'), '');
+      const provider = createFsProvider();
+
+      const res = await provider.search([dirPath], 'match', { ...limits, includeHidden: false });
+
+      expect(names(res.hits)).toEqual(['match']);
+    });
+
+    it('stops at maxResults and reports the results limit', async () => {
+      await Promise.all(['m1', 'm2', 'm3'].map(n => writeFile(join(dirPath, n), '')));
+      const provider = createFsProvider();
+
+      const res = await provider.search([dirPath], 'm', { ...limits, maxResults: 2 });
+
+      expect(res.hits).toHaveLength(2);
+      expect(res.limit).toBe('results');
+    });
+
+    it('stops at maxScanned and reports the scan limit, also with no hits', async () => {
+      await mkdir(join(dirPath, 'deep'));
+      await writeFile(join(dirPath, 'deep', 'match'), '');
+      await Promise.all(['a', 'b', 'c'].map(n => writeFile(join(dirPath, n), '')));
+      const provider = createFsProvider();
+
+      // 4 entries at the top level use up the limit before 'deep' is read.
+      const res = await provider.search([dirPath], 'match', { ...limits, maxScanned: 4 });
+
+      expect(res.hits).toEqual([]);
+      expect(res.limit).toBe('scanned');
+    });
+
+    it('searches the shallow levels of every root before going deeper', async () => {
+      const r1 = join(dirPath, 'r1');
+      const r2 = join(dirPath, 'r2');
+      await mkdir(join(r1, 'd1', 'd2'), { recursive: true });
+      await writeFile(join(r1, 'd1', 'd2', 'match-deep'), '');
+      await mkdir(r2);
+      await writeFile(join(r2, 'match-top'), '');
+      const provider = createFsProvider();
+
+      const res = await provider.search([r1, r2], 'match', { ...limits, maxResults: 1 });
+
+      expect(res.hits.map(h => h.name)).toEqual(['match-top']);
+    });
+
+    it('does not enter a symlinked folder (no loops)', async () => {
+      await mkdir(join(dirPath, 'real'));
+      await writeFile(join(dirPath, 'real', 'match'), '');
+      try {
+        await symlink(join(dirPath, 'real'), join(dirPath, 'link'), 'junction');
+      } catch {
+        return; // No permission to create links here: nothing to check.
+      }
+      const provider = createFsProvider();
+
+      const res = await provider.search([dirPath], 'match', limits);
+
+      expect(names(res.hits)).toEqual(['real/match']);
+    });
+
+    it('skips folders it cannot read and searches the rest', async () => {
+      await writeFile(join(dirPath, 'match'), '');
+      const provider = createFsProvider();
+
+      const res = await provider.search([join(dirPath, 'missing'), dirPath], 'match', limits);
+
+      expect(res.hits).toEqual([{ name: 'match', path: join(dirPath, 'match'), isDirectory: false, rootIndex: 1, folder: '' }]);
+    });
+
+    it('reads a folder reached from overlapping roots once, under the deeper root', async () => {
+      const docs = join(dirPath, 'Docs');
+      await mkdir(join(docs, 'sub'), { recursive: true });
+      await writeFile(join(docs, 'sub', 'match'), '');
+      const provider = createFsProvider();
+
+      // The same folder twice, and a folder inside another root.
+      const res = await provider.search([dirPath, docs, dirPath + '/'], 'match', limits);
+
+      expect(res.hits).toEqual([{ name: 'match', path: join(docs, 'sub', 'match'), isDirectory: false, rootIndex: 1, folder: 'sub' }]);
+    });
+  });
+
   describe('readDir()', () => {
     it('should list files and subdirectories with name, absolute path and isDirectory flag', async () => {
       await writeFile(join(dirPath, 'file.txt'), 'hello');

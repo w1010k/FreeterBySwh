@@ -3896,6 +3896,44 @@ Webpage 위젯의 action bar에 번역 버튼 ("文A" 아이콘, 툴팁 Translat
 - **수정**: `src/common/ipc/channels.ts`, `src/main/index.ts`, `src/renderer/base/widgetApi.ts`, `src/renderer/application/useCases/widget/getWidgetApi.ts`, `src/renderer/init.ts`, `src/renderer/widgets/webpage/{index.ts,widget.tsx,actionBar.ts,contextMenu.ts,actions.ts,icons/index.ts}`
 - **테스트**: `tests/main/infra/translateProvider/translateProvider.spec.ts`, `tests/main/application/useCases/translate/translateTexts.spec.ts`, `tests/main/controllers/translate.spec.ts`, `tests/renderer/widgets/webpage/translate.spec.ts` (신규), `tests/renderer/widgets/webpage/{widget,actionBar}.spec.ts`, `tests/renderer/widgets/setupSut.tsx`, `tests/renderer/application/useCases/widget/getWidgetApi.spec.ts`
 
+## 105. File Explorer 하위 폴더 검색 *(2026-11-13)*
+
+File Explorer의 검색이 펼치지 않은 하위 폴더까지 찾는다. 검색창에서 한글을 입력해도 글자가 깨지지 않는다.
+
+- `Ctrl+F` 또는 action bar의 Search 버튼 (돋보기)을 누르면 트리 위에 검색창이 열린다. 입력이 0.25초 멈추면 등록한 폴더 전체 (모든 하위 폴더)에서 이름에 검색어가 들어간 파일과 폴더를 찾는다. 대소문자는 구분하지 않는다.
+- 결과는 트리 대신 목록으로 보인다. 각 줄은 이름과 위치 (`Documents/2026/q3`처럼 등록 폴더 이름부터)를 보여 준다. 위·아래 화살표로 고르고 Enter나 더블클릭으로 연다. 파일은 기본 앱으로, 폴더는 탐색기로 열린다. `Esc`를 누르면 검색창이 닫히고 트리로 돌아간다.
+- 결과는 200개까지 보여 준다. 이 한도에 걸리면 "Showing the first N matches. Type more to narrow the search."라고 알린다.
+- 디스크 작업을 제한하려고 한 번에 50,000개 항목까지만 확인한다. 이 한도에 걸리면 결과가 0개여도 "No matches." 대신 "Stopped early: ... Register smaller folders to search everything."이라고 알린다. 검색어를 늘려도 확인하는 항목은 같으므로 좁히라고 안내하지 않는다.
+- 다음 검색 결과가 올 때까지 이전 결과 목록을 그대로 두고 "Searching…"을 보여 준다 (목록이 깜빡이지 않음).
+- "Show hidden files" 설정을 따른다. 끈 상태에서는 `.`으로 시작하는 항목과 그 안을 찾지 않는다.
+
+구조:
+
+- main `fsProvider.search`가 등록 폴더들을 얕은 단계부터 차례로 (너비 우선) 읽는다. `node_modules`처럼 깊고 큰 폴더가 한도를 다 쓰기 전에 모든 등록 폴더의 위쪽 단계를 먼저 본다. 같은 단계의 폴더는 16개씩 동시에 읽는다. 이름과 검색어는 NFC로 맞추고 소문자로 비교한다.
+- 결과의 `limit`은 멈춘 한도 (`results`, `scanned`, 없으면 null)다. 결과마다 등록 폴더 아래 위치 (`folder`)를 main이 `path.relative`로 계산해 보낸다.
+- 겹치는 등록 폴더 (`C:\Work`와 `C:\Work\Docs`, 같은 폴더 두 번)는 폴더마다 한 번만 읽는다. 같은 파일이 두 번 나오지 않는다.
+- 위젯은 검색을 한 번에 하나만 보낸다. main의 탐색은 중간에 멈출 수 없으므로, 띄엄띄엄 입력해도 탐색 여러 개가 동시에 돌지 않게 앞 검색이 끝난 뒤 최신 입력만 보낸다.
+- `searchFiles` use case가 신뢰 경계다. 등록 폴더 목록 (문자열 배열, 100개 이하, 빈 값 없음)과 검색어 (200자 이하)를 검사하고, 한도 (`fsSearchMaxResults`, `fsSearchMaxScanned`)를 정한다.
+- IPC `fs-search` → 위젯 API `fs.search(roots, query, opts)`. 결과의 `rootIndex`로 위젯이 위치 글자를 만든다 (`treeModel.ts` `hitLocation`).
+- 위젯은 라이브러리 검색을 끈다 (`search: false`). 검색창은 일반 `<input>`이고 결과 목록은 `listbox`다 (`aria-activedescendant`로 고른 줄을 알린다).
+
+**까다로웠던 포인트**
+
+- 라이브러리 (`@pierre/trees`) 검색은 이미 불러온 (펼친) 노드만 거른다. 입력란도 IME 조합 (`isComposing`)을 막지 않아 한글이 글자마다 다시 걸러지며 깨졌다 (CHANGES #31). 그래서 트리를 거르는 대신 디스크를 직접 찾는 검색으로 바꿨다.
+- 한글 조합을 끝내는 Enter나 화살표가 결과를 열거나 옮기면 안 된다. 검색창의 keydown은 `isComposing`이면 무시한다.
+- macOS는 파일 이름을 분해형 (NFD)으로 돌려준다. 입력한 한글 (NFC)과 그대로 비교하면 맞지 않으므로 둘 다 NFC로 바꾼다.
+- `readdir`의 `withFileTypes` 항목은 링크 자체를 설명한다. 그래서 링크된 폴더는 폴더로 보이지 않고, 들어가지 않는다 (링크로 도는 무한 반복 방지).
+- 느린 이전 검색의 답이 나중에 오면 버린다. 답에 검색어와 설정을 묶은 키를 붙여, 지금 입력과 키가 다르면 "Searching…"으로 본다.
+- 결과 줄을 클릭하면 포커스가 검색창을 떠나 화살표, Enter, Esc가 듣지 않았다. 줄의 `mousedown` 기본 동작을 막아 포커스를 검색창에 둔다. Esc로 닫을 때는 포커스를 위젯 (`tabIndex=-1`)으로 옮겨 `Ctrl+F`가 다시 동작하게 한다.
+- 선택한 줄로의 스크롤은 선택이나 목록이 바뀔 때만 한다. 렌더마다 하면 사용자가 휠로 내린 목록이 되돌아간다.
+- 위 항목들은 코드 리뷰 (`/code-review high`)에서 찾았다.
+
+**수정 파일**
+
+- **신규**: `src/main/application/useCases/fs/searchFiles.ts`, `src/renderer/widgets/file-explorer/icons/search.svg`
+- **수정**: `src/common/base/fs.ts`, `src/common/ipc/channels.ts`, `src/main/application/interfaces/fsProvider.ts`, `src/main/infra/fsProvider/fsProvider.ts`, `src/main/controllers/fs.ts`, `src/main/index.ts`, `src/renderer/application/interfaces/fsProvider.ts`, `src/renderer/infra/fsProvider/fsProvider.ts`, `src/renderer/base/widgetApi.ts`, `src/renderer/application/useCases/widget/getWidgetApi.ts`, `src/renderer/widgets/file-explorer/{widget.tsx,widget.module.scss,treeModel.ts,icons/index.ts}`
+- **테스트**: `tests/main/application/useCases/fs/searchFiles.spec.ts` (신규), `tests/main/infra/fsProvider/fsProvider.spec.ts`, `tests/main/controllers/fs.spec.ts`, `tests/renderer/infra/fsProvider/fsProvider.spec.ts`, `tests/renderer/application/useCases/widget/getWidgetApi.spec.ts`, `tests/renderer/widgets/file-explorer/{widget.spec.tsx,treeModel.spec.ts}`, mock (`tests/{main,renderer}/infra/mocks/fsProvider.ts`, `tests/renderer/widgets/setupSut.tsx`)
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

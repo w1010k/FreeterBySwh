@@ -6,7 +6,7 @@
 import { AiOrigin, AiRpcRequest, AiRpcResult } from '@common/ai/protocol';
 import { MenuItemsIpc } from '@common/base/menu';
 import { ProcessInfo } from '@common/base/process';
-import { FsDirEntry, ReadDirOptions } from '@common/base/fs';
+import { FsDirEntry, FsSearchOptions, FsSearchResult, ReadDirOptions } from '@common/base/fs';
 import { SystemStats } from '@common/base/systemStats';
 import { TelemetryEntitiesSnapshot } from '@common/base/telemetry';
 import { makeIpcChannelName } from '@common/ipc/ipc';
@@ -231,6 +231,10 @@ export type IpcGetFaviconRes = string | null;
 export const ipcFsReadDirChannel = makeIpcChannelName('fs-read-dir');
 export type IpcFsReadDirArgs = [dirPath: string, opts?: ReadDirOptions];
 export type IpcFsReadDirRes = FsDirEntry[];
+
+export const ipcFsSearchChannel = makeIpcChannelName('fs-search');
+export type IpcFsSearchArgs = [roots: string[], query: string, opts?: FsSearchOptions];
+export type IpcFsSearchRes = FsSearchResult;
 
 export const ipcFsGetHomeDirChannel = makeIpcChannelName('fs-get-home-dir');
 export type IpcFsGetHomeDirArgs = [];

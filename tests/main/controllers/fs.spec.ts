@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { ipcFsReadDirChannel, ipcFsGetHomeDirChannel } from '@common/ipc/channels';
+import { ipcFsReadDirChannel, ipcFsGetHomeDirChannel, ipcFsSearchChannel } from '@common/ipc/channels';
 import { createFsControllers } from '@/controllers/fs';
 import { FsDirEntry } from '@common/base/fs';
 import { fixtureIpcMainEvent } from '@tests/infra/mocks/ipcMain';
@@ -15,15 +15,18 @@ function setup() {
   const readDirUseCase = jest.fn(async () => readDirUseCaseRes);
   const getHomeDirUseCase = jest.fn(() => getHomeDirUseCaseRes);
   const getImageDataUrlUseCase = jest.fn(async () => null);
+  const searchFilesUseCase = jest.fn(async () => ({ hits: [], limit: null }));
 
   const [
     readDirController,
     getHomeDirController,
     getImageDataUrlController,
+    searchController,
   ] = createFsControllers({
     readDirUseCase,
     getHomeDirUseCase,
     getImageDataUrlUseCase,
+    searchFilesUseCase,
   })
 
   return {
@@ -33,6 +36,8 @@ function setup() {
     readDirController,
     getHomeDirController,
     getImageDataUrlController,
+    searchFilesUseCase,
+    searchController,
   }
 }
 
@@ -91,4 +96,16 @@ describe('FsControllers', () => {
     });
   })
 
+
+  describe('searchController', () => {
+    it('should have a right channel name and pass the args to the usecase', async () => {
+      const { searchController, searchFilesUseCase } = setup();
+      expect(searchController.channel).toBe(ipcFsSearchChannel);
+
+      const res = await searchController.handle(fixtureIpcMainEvent(), ['/a'], 'q', { includeHidden: false });
+
+      expect(searchFilesUseCase).toHaveBeenCalledWith(['/a'], 'q', { includeHidden: false });
+      expect(res).toEqual({ hits: [], limit: null });
+    });
+  })
 })

@@ -234,6 +234,7 @@ function _createWidgetApiFactory({
       }),
       fs: () => ({
         readDir: (dirPath, opts) => fsProvider.readDir(dirPath, opts),
+        search: (roots, query, opts) => fsProvider.search(roots, query, opts),
         getHomeDir: () => fsProvider.getHomeDir(),
       }),
       terminal: () => ({
