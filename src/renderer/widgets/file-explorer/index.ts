@@ -7,6 +7,7 @@ import { WidgetType } from '@/widgets/appModules';
 import { settingsEditorComp, Settings, createSettingsState } from './settings';
 import { widgetComp } from './widget';
 import { widgetSvg } from './icons';
+import { fileExplorerAiActions } from './aiActions';
 
 const widgetType: WidgetType<Settings> = {
   id: 'file-explorer',
@@ -23,6 +24,7 @@ const widgetType: WidgetType<Settings> = {
   requiresApi: ['fs', 'shell', 'clipboard'],
   // A double-click opens an entry with the OS (a program runs): the folders it shows are confirmed.
   runsPrograms: true,
+  aiActions: fileExplorerAiActions,
 }
 
 export default widgetType;

@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { canGoBack, canGoForward, canGoHome, copyCurrentAddress, copyLinkAddress, goBack, goForward, goHome, hardReload, labelAutoReloadStart, labelAutoReloadStop, labelCopy, labelCopyCurrentAddress, labelCopyImageAddress, labelCopyLinkAddress, labelCut, labelDevTools, labelGoBack, labelGoForward, labelGoHome, labelHardReload, labelOpenInBrowser, labelOpenLinkInBrowser, labelPaste, labelPasteAsPlainText, labelPrintPage, labelRedo, labelReload, labelSaveAs, labelSaveImageAs, labelSaveLinkAs, labelSelectAll, labelShowOriginal, labelTranslatePage, labelUndo, labelZoom, openCurrentInBrowser, openDevTools, openLinkInBrowser, printPage, reload, saveLink, savePage, zoomPage } from './actions';
+import { canGoBack, canGoForward, canGoHome, copyCurrentAddress, copyLinkAddress, goBack, goForward, goHome, hardReload, labelAutoReloadStart, labelAutoReloadStop, labelCopy, labelCopyCurrentAddress, labelCopyImage, labelCopyImageAddress, labelCopyLinkAddress, labelCut, labelDevTools, labelGoBack, labelGoForward, labelGoHome, labelHardReload, labelOpenInBrowser, labelOpenLinkInBrowser, labelPaste, labelPasteAsPlainText, labelPrintPage, labelRedo, labelReload, labelSaveAs, labelSaveImageAs, labelSaveLinkAs, labelSelectAll, labelShowOriginal, labelTranslatePage, labelUndo, labelZoom, openCurrentInBrowser, openDevTools, openLinkInBrowser, printPage, reload, saveLink, savePage, zoomPage } from './actions';
 import { WidgetApi, WidgetContextMenuFactory, WidgetMenuItem } from '@/widgets/appModules';
 import { ContextMenuParams } from 'electron';
 
@@ -137,9 +137,10 @@ export function createContextMenuFactory(
             {
               doAction: async () => saveLink(contextData.srcURL, elWebview),
               label: labelSaveImageAs
-              // }, {
-              //   doAction: async () => copy(elWebview),
-              //   label: labelCopyImage
+            }, {
+              // The image as the page shows it (also works for blob: and data: images, and needs no new download).
+              doAction: async () => widgetApi.clipboard.copyImageAt(elWebview.getWebContentsId(), contextData.x, contextData.y),
+              label: labelCopyImage
             }, {
               doAction: async () => copyLinkAddress(contextData.srcURL, widgetApi),
               label: labelCopyImageAddress

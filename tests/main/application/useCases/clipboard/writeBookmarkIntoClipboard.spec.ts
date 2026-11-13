@@ -9,7 +9,8 @@ import { createWriteBookmarkIntoClipboardUseCase } from '@/application/useCases/
 function setup() {
   const clipboardProviderMock: ClipboardProvider = {
     writeBookmark: jest.fn(),
-    writeText: jest.fn()
+    writeText: jest.fn(),
+    copyImageAt: jest.fn()
   }
   const useCase = createWriteBookmarkIntoClipboardUseCase({
     clipboardProvider: clipboardProviderMock

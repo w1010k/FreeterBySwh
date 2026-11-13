@@ -3905,6 +3905,9 @@ File Explorer의 검색이 펼치지 않은 하위 폴더까지 찾는다. 검�
 - 결과는 200개까지 보여 준다. 이 한도에 걸리면 "Showing the first N matches. Type more to narrow the search."라고 알린다.
 - 디스크 작업을 제한하려고 한 번에 50,000개 항목까지만 확인한다. 이 한도에 걸리면 결과가 0개여도 "No matches." 대신 "Stopped early: ... Register smaller folders to search everything."이라고 알린다. 검색어를 늘려도 확인하는 항목은 같으므로 좁히라고 안내하지 않는다.
 - 다음 검색 결과가 올 때까지 이전 결과 목록을 그대로 두고 "Searching…"을 보여 준다 (목록이 깜빡이지 않음).
+- (후속, 2026-11-13) 결과 줄에도 트리와 같은 오른쪽 클릭 메뉴가 있다: Open (폴더는 Open in File Explorer), Open Containing Folder (파일), Copy Path, Copy Name. 키보드에서는 결과를 고르고 `Shift+F10`이나 메뉴 키로 연다. 메뉴의 `Esc`는 메뉴만 닫고 검색창으로 돌아간다. 트리 메뉴와 결과 메뉴는 같은 `EntryMenuButtons` 컴포넌트를 쓴다.
+- (후속, 2026-11-13) AI 작업 `file-explorer.search { widgetId, query }`: AI 에이전트가 같은 검색을 쓴다. 결과는 `{ hits: [{ name, path, isDirectory, location }], limit }`이다. 읽기 작업이라 확인 상자가 없다. 위젯은 `exposeApi({ fileExplorer: { search } })`로 지금 설정 (폴더, 숨김 파일)의 검색을 내보낸다. 위젯이 메모리 세이버로 내려가 있으면 `not_ready`다. 찾은 파일 이름과 경로는 에이전트의 회사로 전송된다 (Note 본문을 읽을 때와 같다). AI 검색도 검색창과 같은 대기열 (`searchRunRef`)을 거쳐, main의 탐색이 한 번에 하나만 돈다.
+- (후속, 코드 리뷰) 결과 메뉴는 창 가장자리에서 창 안으로 당겨 그리고 (`useLayoutEffect`로 그리기 전에), 스크롤하거나 포커스가 메뉴 밖으로 나가면 닫힌다. 결과 줄의 오른쪽 클릭은 `stopPropagation`한다. 위젯 틀이 같은 이벤트로 편집 모드 메뉴 (위젯 삭제·복사)를 함께 띄웠다.
 - "Show hidden files" 설정을 따른다. 끈 상태에서는 `.`으로 시작하는 항목과 그 안을 찾지 않는다.
 
 구조:
@@ -3930,9 +3933,82 @@ File Explorer의 검색이 펼치지 않은 하위 폴더까지 찾는다. 검�
 
 **수정 파일**
 
-- **신규**: `src/main/application/useCases/fs/searchFiles.ts`, `src/renderer/widgets/file-explorer/icons/search.svg`
+- **신규**: `src/main/application/useCases/fs/searchFiles.ts`, `src/renderer/widgets/file-explorer/icons/search.svg`, `src/renderer/widgets/file-explorer/aiActions.ts` (후속)
 - **수정**: `src/common/base/fs.ts`, `src/common/ipc/channels.ts`, `src/main/application/interfaces/fsProvider.ts`, `src/main/infra/fsProvider/fsProvider.ts`, `src/main/controllers/fs.ts`, `src/main/index.ts`, `src/renderer/application/interfaces/fsProvider.ts`, `src/renderer/infra/fsProvider/fsProvider.ts`, `src/renderer/base/widgetApi.ts`, `src/renderer/application/useCases/widget/getWidgetApi.ts`, `src/renderer/widgets/file-explorer/{widget.tsx,widget.module.scss,treeModel.ts,icons/index.ts}`
 - **테스트**: `tests/main/application/useCases/fs/searchFiles.spec.ts` (신규), `tests/main/infra/fsProvider/fsProvider.spec.ts`, `tests/main/controllers/fs.spec.ts`, `tests/renderer/infra/fsProvider/fsProvider.spec.ts`, `tests/renderer/application/useCases/widget/getWidgetApi.spec.ts`, `tests/renderer/widgets/file-explorer/{widget.spec.tsx,treeModel.spec.ts}`, mock (`tests/{main,renderer}/infra/mocks/fsProvider.ts`, `tests/renderer/widgets/setupSut.tsx`)
+
+## 106. 새 버전 알림 *(2026-11-13)*
+
+설치한 Freeter가 새 버전이 나온 것을 알려 준다. 시작하고 10초 뒤, 그리고 켜 둔 동안 하루에 한 번 GitHub에서 이 포크의 최신 릴리스를 확인한다. 지금 버전보다 새 버전이면 OS 알림 ("Freeter-SWH 2.8.0-swh.30 is available")을 띄우고, 알림을 누르면 그 릴리스의 다운로드 페이지가 브라우저에서 열린다.
+
+- 같은 버전은 한 번만 알린다. 알림을 넘긴 사용자에게 매일 다시 묻지 않는다. 더 새 버전이 나오면 다시 알린다.
+- 자동으로 설치하지는 않는다. 릴리스가 MSI·zip이고 자동 업데이트에 필요한 `latest.yml`이 없다.
+- 저장소에서 띄운 앱 (`yarn dev`, `yarn prod:run`)은 확인하지 않는다.
+- 인터넷이 안 되거나 GitHub가 요청을 막으면 (시간당 60회 제한) 조용히 넘어가고 다음 확인 때 다시 시도한다.
+- 알린 버전은 알림을 실제로 띄운 뒤에만 기억한다. 시스템이 알림을 띄우지 못하면 (`Notification.isSupported()`가 false) 다음 확인 때 다시 시도한다. use case는 타이머에서 돌므로 저장 오류를 포함해 어떤 실패도 밖으로 던지지 않는다.
+
+구조:
+
+- main `releaseProvider` (`infra/releaseProvider/`)가 `https://api.github.com/repos/w1010k/FreeterBySwh/releases/latest`의 `tag_name`을 읽는다. `net.fetch`라 시스템 프록시를 따르고, 15초 제한이 있다. `releases/latest`는 초안과 pre-release를 건너뛰므로 CD가 만드는 중인 초안은 알리지 않는다.
+- `checkForUpdate` use case가 태그를 지금 버전 (`app.getVersion()`)과 비교한다 (`isNewerVersion`: `major.minor.patch` 다음 `-swh.N`). 알린 버전은 appDataStorage의 `update-notified` 키에 남긴다.
+- 알림은 Electron `Notification`이다. 알림 객체를 모듈 변수에 붙잡아 둔다. 붙잡지 않으면 클릭 전에 GC로 사라져 클릭이 동작하지 않을 수 있다.
+
+**까다로웠던 포인트**
+
+- 태그는 네트워크에서 온다. 버전 모양 (`v2.8.0-swh.30`)이 아닌 태그는 알리지 않는다. 열 주소는 응답의 URL을 쓰지 않고 저장소 주소와 태그로 직접 만든다 (`encodeURIComponent`).
+
+**수정 파일**
+
+- **신규**: `src/main/application/interfaces/releaseProvider.ts`, `src/main/infra/releaseProvider/releaseProvider.ts`, `src/main/application/useCases/update/checkForUpdate.ts`
+- **수정**: `src/main/index.ts`
+- **테스트**: `tests/main/application/useCases/update/checkForUpdate.spec.ts`, `tests/main/infra/releaseProvider/releaseProvider.spec.ts` (신규)
+
+## 107. Webpage 이미지 복사 *(2026-11-13)*
+
+Webpage 위젯에서 이미지를 오른쪽 클릭하면 **Copy image**가 있다. 누르면 페이지에 보이는 이미지가 클립보드에 들어가서, 메신저나 문서에 바로 붙여 넣을 수 있다. 메뉴 순서는 Save image as…, Copy image, Copy image address다.
+
+- 이미지를 다시 내려받지 않고 페이지가 그린 것을 복사한다. 그래서 `blob:`·`data:` 이미지와 로그인해야 보이는 이미지도 복사된다.
+
+구조:
+
+- `copyImageAt(x, y)`는 `WebContents`에만 있고 `<webview>` 태그에는 없다 (그래서 upstream과 #38에서 주석으로 남겨 두었다). renderer가 webview의 `getWebContentsId()`와 오른쪽 클릭 위치 (`context-menu` 이벤트의 `x`, `y`)를 보내고, main이 `webContents.fromId(id).copyImageAt(x, y)`를 부른다.
+- 새 IPC `copy-image-at-into-clipboard` → 위젯 API `clipboard.copyImageAt(webContentsId, x, y)`.
+- id는 renderer가 보내는 값이다. use case가 정수 id와 유한한 좌표인지 검사하고, provider는 대상이 webview guest (`getType() === 'webview'`)일 때만 복사한다. 앱 화면 자체는 대상이 아니다.
+
+**수정 파일**
+
+- **신규**: `src/main/application/useCases/clipboard/copyImageAtIntoClipboard.ts`
+- **수정**: `src/common/ipc/channels.ts`, `src/main/application/interfaces/clipboardProvider.ts`, `src/main/infra/clipboardProvider/clipboardProvider.ts`, `src/main/controllers/clipboard.ts`, `src/main/index.ts`, `src/renderer/application/interfaces/clipboardProvider.ts`, `src/renderer/infra/clipboardProvider/clipboardProvider.ts`, `src/renderer/base/widgetApi.ts`, `src/renderer/application/useCases/widget/getWidgetApi.ts`, `src/renderer/widgets/webpage/contextMenu.ts`
+- **테스트**: `tests/main/application/useCases/clipboard/copyImageAtIntoClipboard.spec.ts`, `tests/renderer/widgets/webpage/contextMenu.spec.ts` (신규), `tests/main/controllers/clipboard.spec.ts`, `tests/main/application/useCases/clipboard/*.spec.ts`, `tests/renderer/infra/clipboardProvider/clipboardProvider.spec.ts`, `tests/renderer/application/useCases/widget/getWidgetApi.spec.ts`, `tests/renderer/widgets/setupSut.tsx`
+
+## 108. 데이터 백업과 복원 *(2026-11-13)*
+
+File 메뉴에 **Back Up Data…**와 **Restore Data…**가 생겼다. PC를 바꾸거나 데이터가 망가졌을 때, 데이터 폴더를 직접 찾아 복사하지 않고 메뉴로 옮길 수 있다.
+
+- **Back Up Data…**: 저장할 폴더를 고르면 그 안에 `Freeter-SWH backup 2026-11-13 153012` 폴더를 만들고 프로젝트, 워크플로, 위젯 배치와 설정 (`app`), 위젯 데이터 (`widgets`, `shared`: Note, To-Do 등), 창 위치 (`window`)를 복사한다. 끝나면 위치를 알려 주고 Open Folder로 열 수 있다.
+- **Restore Data…**: 백업 폴더를 고르면 만든 날짜와 버전을 보여 주고 확인을 받는다. **Restore and Restart**를 누르면 Freeter가 다시 시작하면서 데이터를 백업으로 바꾼다. 바뀌기 전 데이터는 데이터 폴더 옆 `freeter-data-before-restore <시각>` 폴더에 남는다.
+- 사용 기록 (`telemetry`, Analytics의 원본, 수십 MB가 될 수 있다)과 AI 제어 연결 정보 (`ai`)는 백업하지 않는다. 복원해도 이 PC의 사용 기록은 그대로다.
+- 백업 폴더가 아닌 폴더를 고르면 거절한다. 백업 표시 파일 (`freeter-backup.json`)은 복사가 다 끝난 뒤 마지막에 쓴다. 그래서 중간에 실패한 백업은 복원 대상이 되지 않는다. 실패한 백업 폴더는 지운다.
+- 데이터 폴더나 그 안의 폴더를 저장 위치로 고르면 거절한다 (자기 안으로 복사하거나 살아 있는 데이터 사이에 백업이 생긴다).
+
+구조:
+
+- main `infra/appDataBackup/`이 파일 작업을 한다 (`write`, `readInfo`, `apply`, `setPending`, `takePending`). use case는 `useCases/appDataBackup/`의 `backUpAppData`, `restoreAppData`, `applyPendingRestore`다. IPC는 `back-up-app-data`, `restore-app-data`이고, renderer는 `appDataBackupProvider`로 부른다.
+- 복원은 실행 중에 하지 않는다. Restore Data는 `<appData>/freeter-swh/restore-pending.json`에 백업 위치를 적고 `app.relaunch()` + `app.quit()` 한다. 다음 시작에서 main이 데이터를 읽기 전에 (`createFileDataStorage` 앞) 그 파일을 한 번 꺼내 복원한다. 실행 중에 바꾸면 renderer의 지연 저장 (5초)과 위젯 저장이 복원한 파일을 덮어쓸 수 있다.
+- 백업 전에 renderer가 지연 중인 앱 상태와 위젯 데이터 저장을 먼저 보낸다 (`flushAppData`). 쓰기는 기다리지 않으므로 best effort다.
+
+**까다로웠던 포인트**
+
+- 복원 도중 실패하면 반쯤 바뀐 데이터가 남으면 안 된다. `apply`는 항목마다 현재 것을 옆 폴더로 옮긴 뒤 백업을 복사하고, 실패하면 복사한 항목을 지우고 옮긴 항목을 되돌린 뒤 오류를 낸다. 시작 시 복원이 실패하면 현재 데이터로 시작하고 메시지를 보여 준다. 복원 요청 파일은 한 번만 꺼내므로, 실패한 복원을 매번 다시 시도하지 않는다.
+- 백업 폴더 이름의 시각에 `:`를 쓰지 않는다 (Windows 폴더 이름에 쓸 수 없다). 이미 있는 폴더에는 쓰지 않아 예전 백업과 섞이지 않는다.
+- 백업은 앱이 실행 중일 때 만든다. 위젯 데이터는 `<key>.tmp`에 쓴 뒤 이름을 바꿔 저장하고, 항목이 지워지기도 한다. 그래서 `fs.cp` 대신 직접 복사하며 (`copyLive`) `.tmp` 파일은 건너뛰고, 복사하는 사이 사라진 파일은 빼고 계속한다. `cp`는 목록을 읽은 뒤 사라진 파일에서 백업 전체가 실패했다 (코드 리뷰에서 발견).
+- 되돌리기의 각 단계는 앞 단계가 실패해도 계속한다. 다 되돌리지 못하면 오류 메시지에 남은 데이터의 위치 (옆 폴더)를 적는다. 복원 요청 파일을 지우지 못하면 (잠긴 파일) 복원하지 않고 알린다. 그대로 복원하면 시작할 때마다 다시 복원된다. 이 실패들이 앱 시작을 막지 않는다.
+
+**수정 파일**
+
+- **신규**: `src/main/application/interfaces/appDataBackup.ts`, `src/main/infra/appDataBackup/appDataBackup.ts`, `src/main/application/useCases/appDataBackup/{backUpAppData,restoreAppData,applyPendingRestore,backupStamp}.ts`, `src/main/controllers/appDataBackup.ts`, `src/renderer/application/interfaces/appDataBackupProvider.ts`, `src/renderer/infra/appDataBackupProvider/appDataBackupProvider.ts`
+- **수정**: `src/common/ipc/channels.ts`, `src/main/index.ts`, `src/renderer/application/useCases/appMenu/initAppMenu.ts`, `src/renderer/init.ts`
+- **테스트**: `tests/main/infra/appDataBackup/appDataBackup.spec.ts`, `tests/main/application/useCases/appDataBackup/appDataBackupUseCases.spec.ts` (신규), `tests/renderer/application/useCases/appMenu/initAppMenu.spec.ts`
 
 ## 부록: 참고 문서
 

@@ -486,7 +486,7 @@
 
 | 메뉴 | 항목                                                                                                                                                                                                                                    |
 |------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| File | Settings (`CmdOrCtrl+,`), Open Data Folder [fork #5], Quit                                                                                                                                                                              |
+| File | Settings (`CmdOrCtrl+,`), Open Data Folder [fork #5], Back Up Data…, Restore Data… [fork #108], Quit                                                                                                                                                                              |
 | Edit | Enable/Disable Edit Mode (`CmdOrCtrl+E`), undo, redo, cut, copy, paste, selectAll                                                                                                                                                       |
 | View | Appearance (전체 화면, 메뉴 바, 상단 바, 프로젝트 전환기 위치, 편집 토글 위치), Next/Previous Workflow (`CmdOrCtrl+Tab`, `CmdOrCtrl+Shift+Tab`) [fork #6], Analytics (`CmdOrCtrl+Shift+A`) [fork #62 #87], Manage Projects, Manage Apps |
 | Help | Original Freeter on Twitter·Community·Feature Requests·Bug Reports·Downloads, About Freeter-SWH [fork #1, #103]                                                                                                                                     |

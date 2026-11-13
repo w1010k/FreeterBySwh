@@ -54,6 +54,7 @@ import { createClickContextMenuItemUseCase } from '@/application/useCases/contex
 import { createShowWidgetContextMenuUseCase } from '@/application/useCases/widget/showWidgetContextMenu';
 import { createClipboardProvider } from '@/infra/clipboardProvider/clipboardProvider';
 import { createShellProvider } from '@/infra/shellProvider/shellProvider';
+import { createAppDataBackupProvider } from '@/infra/appDataBackupProvider/appDataBackupProvider';
 import { createFsProvider } from '@/infra/fsProvider/fsProvider';
 import { createIconProvider } from '@/infra/iconProvider/iconProvider';
 import { createProcessProvider } from '@/infra/processProvider/processProvider';
@@ -233,18 +234,20 @@ function createStore() {
     resolve(true);
   });
 
-  // Persist any pending (debounced) app state before the window unloads. Best-effort:
-  // the save is dispatched over IPC and not awaited, but flushing here shrinks the
-  // loss window from the debounce delay (~5s) to the unload moment.
-  window.addEventListener('beforeunload', () => {
+  // Sends the pending (debounced) app state and widget data saves now. Best-effort: the saves are dispatched over IPC
+  // and not awaited. Used before the window unloads (shrinks the loss window from the debounce delay, ~5s, to the
+  // unload moment) and before a backup.
+  const flushAppData = () => {
     appStore.flush();
     widgetStorageFlushers.forEach(flush => flush());
-  });
+  };
+  window.addEventListener('beforeunload', flushAppData);
 
   return {
     appStore,
     appStoreForUi,
     appStoreReady,
+    flushAppData,
   } as const;
 }
 
@@ -498,6 +501,8 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     appMenu: appMenuProvider,
     processProvider,
     shellProvider,
+    appDataBackupProvider: createAppDataBackupProvider(),
+    flushAppData: store.flushAppData,
     toggleEditModeUseCase,
     toggleMenuBarUseCase,
     toggleTopBarUseCase,

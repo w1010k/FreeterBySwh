@@ -3,6 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
+import { MenuItem } from '@common/base/menu';
 import { AppMenuProvider } from '@/application/interfaces/appMenuProvider';
 import { ProcessProvider } from '@/application/interfaces/processProvider';
 import { createInitAppMenuUseCase } from '@/application/useCases/appMenu/initAppMenu';
@@ -38,11 +39,15 @@ async function setup(initState: AppState, opts?: {
   const openAppManagerUseCase = jest.fn();
   const openProjectManagerUseCase = jest.fn();
   const switchWorkflowByOffsetUseCase = jest.fn();
+  const appDataBackupProvider = { backUp: jest.fn(async () => undefined), restore: jest.fn(async () => undefined) };
+  const flushAppData = jest.fn();
   const initAppMenuUseCase = createInitAppMenuUseCase({
     appStore,
     appMenu: appMenuProviderMock,
     processProvider: processProviderMock,
     shellProvider: shellProviderMock,
+    appDataBackupProvider,
+    flushAppData,
     toggleEditModeUseCase,
     toggleMenuBarUseCase,
     toggleTopBarUseCase,
@@ -65,6 +70,8 @@ async function setup(initState: AppState, opts?: {
     toggleTopBarUseCase,
     setProjectSwitcherPositionUseCase,
     openAboutUseCase,
+    appDataBackupProvider,
+    flushAppData,
   }
 }
 
@@ -240,5 +247,21 @@ describe('initAppMenuUseCase()', () => {
     appStore.set({ ...state, ui: { ...state.ui, editMode: false } })
 
     expect(appMenuProviderMock.setMenu).toHaveBeenCalledTimes(2);
+  });
+
+  it('File menu Back Up Data writes the pending data first, then asks main to back up; Restore Data asks main to restore', async () => {
+    const { initAppMenuUseCase, appMenuProviderMock, appDataBackupProvider, flushAppData } = await setup(fixtureAppState({}));
+    initAppMenuUseCase();
+
+    const menus = (appMenuProviderMock.setMenu as jest.Mock).mock.calls[0][0] as MenuItem[];
+    const file = menus.find(m => m.label === '&File')!.submenu!;
+    const backUp = file.find(i => i.label === 'Back Up Data…')!;
+    const restore = file.find(i => i.label === 'Restore Data…')!;
+    expect(file.map(i => i.label)).toEqual(expect.arrayContaining(['Open Data Folder', 'Back Up Data…', 'Restore Data…']));
+
+    await backUp.doAction!();
+    expect(flushAppData.mock.invocationCallOrder[0]).toBeLessThan(appDataBackupProvider.backUp.mock.invocationCallOrder[0]);
+    await restore.doAction!();
+    expect(appDataBackupProvider.restore).toHaveBeenCalledTimes(1);
   });
 })

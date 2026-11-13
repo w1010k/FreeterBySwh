@@ -35,6 +35,7 @@ async function setup(deletingSharedDataKeys = new Set<string>()) {
   const clipboardProvider: jest.MockedObject<ClipboardProvider> = {
     writeBookmark: jest.fn(),
     writeText: jest.fn(),
+    copyImageAt: jest.fn(),
   }
   const processProvider: jest.MockedObject<ProcessProvider> = {
     getProcessInfo: jest.fn()
@@ -303,6 +304,9 @@ describe('getWidgetApiUseCase()', () => {
     widgetApi.clipboard.writeText('text');
     expect(clipboardProvider.writeText).toHaveBeenCalledTimes(1);
     expect(clipboardProvider.writeText).toHaveBeenCalledWith('text');
+
+    widgetApi.clipboard.copyImageAt(7, 10, 20);
+    expect(clipboardProvider.copyImageAt).toHaveBeenCalledWith(7, 10, 20);
   })
 
   it('should correctly setup dataStorage module', async () => {

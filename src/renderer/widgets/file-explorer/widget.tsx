@@ -5,7 +5,7 @@
 
 import { ReactComponent, WidgetReactComponentProps } from '@/widgets/appModules';
 import { Settings } from './settings';
-import { CSSProperties, KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { CSSProperties, KeyboardEvent, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FileTree, useFileTree } from '@pierre/trees/react';
 import { preparePresortedFileTreeInput } from '@pierre/trees';
@@ -13,6 +13,7 @@ import type { ContextMenuItem, ContextMenuOpenContext, FileTreeRowDecoration, Fi
 import { basenameOf, buildEntryPaths, buildRootEntries, dirnameOf, hitLocation, humanFileSize, toMapKey, toTreePath } from './treeModel';
 import { collapseAllSvg, refreshSvg, searchSvg } from './icons';
 import { FsSearchHit, FsSearchResult } from '@common/base/fs';
+import { FileExplorerAiApi } from './aiActions';
 import styles from './widget.module.scss';
 
 // Bind the tree's theme custom properties to Freeter's theme vars so the tree
@@ -44,8 +45,29 @@ const searchDelayMs = 250;
 type SearchAnswer = { key: string } & ({ status: 'done'; result: FsSearchResult } | { status: 'failed' });
 const noHits: FsSearchHit[] = [];
 
+interface EntryMenuButtonsProps {
+  abs: string;
+  isDir: boolean;
+  close: () => void;
+  openEntry: (abs: string, isDir: boolean) => void;
+  openPath: (path: string) => void;
+  copyText: (text: string) => void;
+}
+
+/** The menu of a tree row and of a search hit. */
+function EntryMenuButtons({ abs, isDir, close, openEntry, openPath, copyText }: EntryMenuButtonsProps) {
+  return (
+    <>
+      <button onClick={() => { openEntry(abs, isDir); close(); }}>{isDir ? 'Open in File Explorer' : 'Open'}</button>
+      {!isDir && <button onClick={() => { openPath(dirnameOf(abs)); close(); }}>Open Containing Folder</button>}
+      <button onClick={() => { copyText(abs); close(); }}>Copy Path</button>
+      <button onClick={() => { copyText(basenameOf(abs)); close(); }}>Copy Name</button>
+    </>
+  );
+}
+
 function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) {
-  const { fs, shell, clipboard, updateActionBar } = widgetApi;
+  const { fs, shell, clipboard, updateActionBar, exposeApi } = widgetApi;
   const { paths, showFileSize, showHiddenFiles } = settings;
 
   // Stable string key for the configured folders. The effects depend on this
@@ -195,6 +217,17 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     }
   }, [model, shell, widgetApi]);
 
+  // Files open in their default app; folders open in the OS file manager.
+  const openEntry = useCallback((abs: string, isDir: boolean) => {
+    shell.openPath(abs);
+    if (!isDir) {
+      widgetApi.logActivity('file_open', { text: basenameOf(abs), detail: abs });
+    }
+  }, [shell, widgetApi]);
+
+  const openPath = useCallback((path: string) => { shell.openPath(path); }, [shell]);
+  const copyText = useCallback((text: string) => { clipboard.writeText(text); }, [clipboard]);
+
   const renderContextMenu = useCallback((item: ContextMenuItem, context: ContextMenuOpenContext) => {
     const abs = absByKey.current.get(toMapKey(item.path));
     if (!abs) {
@@ -207,18 +240,13 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     // not to treat clicks inside the menu as an outside-click (which closes it).
     const { anchorRect } = context;
     const menuPos: CSSProperties = { left: anchorRect.x, top: anchorRect.y };
-    const isDir = item.kind === 'directory';
-    const openLabel = isDir ? 'Open in File Explorer' : 'Open';
     return createPortal(
       <div className={styles['menu']} style={menuPos} data-file-tree-context-menu-root="true">
-        <button onClick={() => { shell.openPath(abs); if (!isDir) { widgetApi.logActivity('file_open', { text: basenameOf(abs), detail: abs }); } context.close(); }}>{openLabel}</button>
-        {!isDir && <button onClick={() => { shell.openPath(dirnameOf(abs)); context.close(); }}>Open Containing Folder</button>}
-        <button onClick={() => { clipboard.writeText(abs); context.close(); }}>Copy Path</button>
-        <button onClick={() => { clipboard.writeText(basenameOf(abs)); context.close(); }}>Copy Name</button>
+        <EntryMenuButtons abs={abs} isDir={item.kind === 'directory'} close={context.close} openEntry={openEntry} openPath={openPath} copyText={copyText} />
       </div>,
       document.body
     );
-  }, [shell, clipboard, widgetApi]);
+  }, [openEntry, openPath, copyText]);
 
   // Collapse every known (loaded) directory back to its roots. Collapsing each
   // dir — not just the roots — means re-expanding a root shows its children
@@ -242,6 +270,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   // The last search sent to main; the next one waits for it (one walk at a time).
   const searchRunRef = useRef<Promise<void>>(Promise.resolve());
   const listId = useId();
+  const optionId = useCallback((i: number) => `${listId}-${i}`, [listId]);
   const trimmedQuery = query.trim();
 
   const openSearch = useCallback(() => {
@@ -296,6 +325,24 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   // No answer for the current input yet: searching. The last list stays until the new one comes, so it does not flicker.
   const searching = answer?.key !== searchKey;
   const hits = answer?.status === 'done' ? answer.result.hits : noHits;
+
+  // AI action `file-explorer.search` (aiActions.ts): the same search over the same folders, without the search box.
+  useEffect(() => {
+    const fileExplorer: FileExplorerAiApi = {
+      search: async (q) => {
+        // Through the search box's queue: an agent's calls, and the user's typing, start one walk in main at a time.
+        const run = searchRunRef.current.then(() => fs.search(roots.map(r => r.path), q, { includeHidden: showHiddenFiles }));
+        searchRunRef.current = run.then(() => undefined, () => undefined);
+        const result = await run;
+        return {
+          hits: result.hits.map(h => ({ name: h.name, path: h.path, isDirectory: h.isDirectory, location: hitLocation(h, roots) })),
+          limit: result.limit
+        };
+      }
+    };
+    exposeApi({ fileExplorer });
+    return () => exposeApi({});
+  }, [exposeApi, fs, roots, showHiddenFiles]);
   let searchStatus = '';
   if (searching) {
     searchStatus = 'Searching…';
@@ -309,14 +356,46 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
     searchStatus = 'No matches.';
   }
 
-  // Files open in their default app; folders open in the OS file manager (the tree's double-click on a folder only
-  // expands it, but a search hit has no tree row to expand).
-  const openHit = useCallback((hit: FsSearchHit) => {
-    shell.openPath(hit.path);
-    if (!hit.isDirectory) {
-      widgetApi.logActivity('file_open', { text: hit.name, detail: hit.path });
+  // A folder hit opens in the OS file manager: the tree's double-click on a folder only expands it, but a search hit
+  // has no tree row to expand.
+  const openHit = useCallback((hit: FsSearchHit) => openEntry(hit.path, hit.isDirectory), [openEntry]);
+
+  // Right-click menu of a search hit, at the pointer (or under the row, from the keyboard).
+  const [hitMenu, setHitMenu] = useState<{ hit: FsSearchHit; x: number; y: number } | null>(null);
+  const hitMenuRef = useRef<HTMLDivElement>(null);
+  const closeHitMenu = useCallback(() => {
+    setHitMenu(null);
+    searchInputRef.current?.focus();
+  }, []);
+  useEffect(() => {
+    if (!hitMenu) {
+      return undefined;
     }
-  }, [shell, widgetApi]);
+    hitMenuRef.current?.querySelector('button')?.focus();
+    const onOutside = (e: MouseEvent) => {
+      if (!hitMenuRef.current?.contains(e.target as Node)) {
+        setHitMenu(null);
+      }
+    };
+    // Scrolling moves the rows away from a menu at fixed coordinates.
+    const onScroll = () => setHitMenu(null);
+    document.addEventListener('mousedown', onOutside);
+    document.addEventListener('scroll', onScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', onOutside);
+      document.removeEventListener('scroll', onScroll, true);
+    };
+  }, [hitMenu]);
+  // Keep the menu inside the window (a right-click near the right or bottom edge). Before paint, so it does not jump.
+  useLayoutEffect(() => {
+    const el = hitMenuRef.current;
+    if (!hitMenu || !el) {
+      return;
+    }
+    const { width, height } = el.getBoundingClientRect();
+    el.style.left = `${Math.max(0, Math.min(hitMenu.x, window.innerWidth - width))}px`;
+    el.style.top = `${Math.max(0, Math.min(hitMenu.y, window.innerHeight - height))}px`;
+  }, [hitMenu]);
 
   const onSearchKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
     if (e.nativeEvent.isComposing) {
@@ -326,6 +405,10 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
       e.preventDefault();
       e.stopPropagation();
       closeSearch();
+    } else if ((e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) && hits[selected]) {
+      e.preventDefault();
+      const rect = document.getElementById(optionId(selected))?.getBoundingClientRect();
+      setHitMenu({ hit: hits[selected], x: (rect?.left ?? 0) + 16, y: rect?.bottom ?? 0 });
     } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       if (hits.length > 0) {
@@ -337,7 +420,7 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
         openHit(hits[selected]);
       }
     }
-  }, [closeSearch, hits, selected, openHit]);
+  }, [closeSearch, hits, selected, openHit, optionId]);
 
   const onRootKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
     if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'f') {
@@ -347,7 +430,6 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
   }, [openSearch]);
 
   const showResults = searchOpen && trimmedQuery !== '';
-  const optionId = useCallback((i: number) => `${listId}-${i}`, [listId]);
 
   // Keep the selected row in view when the selection or the list changes (not on every render: that would undo the
   // user's own scrolling).
@@ -423,6 +505,13 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
                 onMouseDown={e => e.preventDefault()}
                 onClick={() => setSelected(i)}
                 onDoubleClick={() => openHit(hit)}
+                onContextMenu={e => {
+                  e.preventDefault();
+                  // The widget frame shows its own menu (edit mode: delete, copy widget) for a bubbling right-click.
+                  e.stopPropagation();
+                  setSelected(i);
+                  setHitMenu({ hit, x: e.clientX, y: e.clientY });
+                }}
               >
                 <span className={styles['hit-name']}>{hit.isDirectory ? `${hit.name}/` : hit.name}</span>
                 <span className={styles['hit-location']}>{hitLocation(hit, roots)}</span>
@@ -430,6 +519,36 @@ function WidgetComp({settings, widgetApi}: WidgetReactComponentProps<Settings>) 
             ))}
           </ul>
           <div className={styles['search-status']} role="status">{searchStatus}</div>
+          {hitMenu && createPortal(
+            // Portal to <body>, as the tree menu: the tile's CSS transform would offset a fixed menu.
+            <div
+              ref={hitMenuRef}
+              className={styles['menu']}
+              style={{ left: hitMenu.x, top: hitMenu.y }}
+              onKeyDown={e => {
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  closeHitMenu();
+                }
+              }}
+              onBlur={e => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                  setHitMenu(null);
+                }
+              }}
+            >
+              <EntryMenuButtons
+                abs={hitMenu.hit.path}
+                isDir={hitMenu.hit.isDirectory}
+                close={closeHitMenu}
+                openEntry={openEntry}
+                openPath={openPath}
+                copyText={copyText}
+              />
+            </div>,
+            document.body
+          )}
         </>
       )}
       <div className={styles['tree']} hidden={showResults} onDoubleClick={onDoubleClick}>

@@ -110,6 +110,7 @@ export function setupWidgetSut<T>(reactComp: ReactComponent<WidgetReactComponent
     clipboard: {
       writeBookmark: jest.fn(),
       writeText: jest.fn(),
+      copyImageAt: jest.fn(),
       ...mockWidgetApi.clipboard
     },
     dataStorage: {

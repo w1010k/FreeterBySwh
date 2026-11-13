@@ -13,6 +13,7 @@ import { OpenApplicationSettingsUseCase } from '@/application/useCases/applicati
 import { OpenAnalyticsUseCase } from '@/application/useCases/analytics/openAnalytics';
 import { OpenAboutUseCase } from '@/application/useCases/about/openAbout';
 import { ShellProvider } from '@/application/interfaces/shellProvider';
+import { AppDataBackupProvider } from '@/application/interfaces/appDataBackupProvider';
 import { OpenProjectManagerUseCase } from '@/application/useCases/projectManager/openProjectManager';
 import { OpenAppManagerUseCase } from '@/application/useCases/appManager/openAppManager';
 import { EditTogglePos, ProjectSwitcherPos } from '@/base/state/ui';
@@ -32,6 +33,9 @@ type Deps = {
   appMenu: AppMenuProvider;
   processProvider: ProcessProvider;
   shellProvider: ShellProvider;
+  appDataBackupProvider: AppDataBackupProvider;
+  /** Writes the pending (debounced) app state and widget data now, so a backup holds the last changes. */
+  flushAppData: () => void;
   toggleEditModeUseCase: ToggleEditModeUseCase;
   toggleMenuBarUseCase: ToggleMenuBarUseCase;
   toggleTopBarUseCase: ToggleTopBarUseCase;
@@ -51,6 +55,8 @@ export function createInitAppMenuUseCase({
   appMenu,
   processProvider,
   shellProvider,
+  appDataBackupProvider,
+  flushAppData,
   toggleEditModeUseCase,
   toggleMenuBarUseCase,
   toggleTopBarUseCase,
@@ -80,6 +86,20 @@ export function createInitAppMenuUseCase({
     label: 'Open Data Folder'
   };
 
+  const itemBackUpData: MenuItem = {
+    doAction: async () => {
+      // Best effort: the writes are sent before the backup request, but are not awaited.
+      flushAppData();
+      await appDataBackupProvider.backUp();
+    },
+    label: 'Back Up Data…'
+  };
+
+  const itemRestoreData: MenuItem = {
+    doAction: async () => { await appDataBackupProvider.restore(); },
+    label: 'Restore Data…'
+  };
+
   const itemAbout: MenuItem = {
     label: 'About Freeter-SWH',
     doAction: async () => openAboutUseCase()
@@ -101,6 +121,8 @@ export function createInitAppMenuUseCase({
       itemSeparator,
       itemSettings,
       itemOpenDataFolder,
+      itemBackUpData,
+      itemRestoreData,
       itemSeparator,
       itemCheckUpdates,
       itemSeparator,
@@ -117,6 +139,8 @@ export function createInitAppMenuUseCase({
     submenu: [
       itemSettings,
       itemOpenDataFolder,
+      itemBackUpData,
+      itemRestoreData,
       itemSeparator,
       itemQuit
     ]

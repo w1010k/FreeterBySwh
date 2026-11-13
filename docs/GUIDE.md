@@ -59,6 +59,8 @@
 
 이 포크의 설치 파일은 [GitHub Releases](https://github.com/w1010k/FreeterBySwh/releases)에서 받습니다. Windows는 `msi`(설치형)나 `zip`(압축을 풀어 바로 실행), Linux는 `tar.xz`입니다. macOS용 설치 파일은 없습니다.
 
+새 버전이 나오면 Freeter가 OS 알림으로 알려 줍니다 (시작할 때와 하루 한 번 확인, 버전마다 한 번). 알림을 누르면 다운로드 페이지가 열립니다. 자동으로 설치되지는 않으니 받은 설치 파일을 실행하세요.
+
 직접 빌드하려면 [README의 "소스에서 직접 빌드하기"](../README.md#소스에서-직접-빌드하기)를 따르세요. 요약하면 `yarn` → `yarn run prod` → `yarn run package`입니다. 원본 Freeter를 쓰고 싶다면 [원본 다운로드 페이지](https://freeter.io/download)를 참고하세요.
 
 처음 실행하면 비어 있는 작업판이 나타납니다. 여기서부터 시작합니다.
@@ -235,7 +237,11 @@ PC에 설치한 Claude Code나 Codex 같은 AI 에이전트가 실행 중인 Fre
 
 ### 백업하려면?
 
-위 **데이터 폴더를 통째로 복사**하면 됩니다. 다른 컴퓨터에 같은 위치로 복원하면 그대로 옮겨집니다.
+메뉴 **File → Back Up Data…**에서 저장할 폴더를 고르면, 그 안에 `Freeter-SWH backup <날짜 시각>` 폴더가 생깁니다. 프로젝트, 워크플로, 위젯 배치와 설정, Note·To-Do 같은 위젯 데이터, 창 위치가 들어갑니다. 사용 기록 (Analytics)은 들어가지 않습니다.
+
+되돌리려면 **File → Restore Data…**에서 그 백업 폴더를 고르고 **Restore and Restart**를 누르세요. Freeter가 다시 시작하면서 백업 내용으로 바뀝니다. 바뀌기 전 데이터는 데이터 폴더 옆 `freeter-data-before-restore <시각>` 폴더에 남아 있으니, 잘못 복원했을 때 되살릴 수 있습니다.
+
+다른 컴퓨터로 옮길 때도 같은 방법을 씁니다. 백업 폴더를 새 컴퓨터로 복사한 뒤 Restore Data…로 고르면 됩니다.
 
 ### FAQ
 

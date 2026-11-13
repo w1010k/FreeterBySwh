@@ -4,21 +4,25 @@
  */
 
 import { Controller } from '@/controllers/controller';
-import { ipcWriteTextIntoClipboardChannel, IpcWriteTextIntoClipboardArgs, IpcWriteTextIntoClipboardRes, ipcWriteBookmarkIntoClipboardChannel, IpcWriteBookmarkIntoClipboardArgs, IpcWriteBookmarkIntoClipboardRes } from '@common/ipc/channels';
+import { ipcCopyImageAtIntoClipboardChannel, IpcCopyImageAtIntoClipboardArgs, IpcCopyImageAtIntoClipboardRes, ipcWriteTextIntoClipboardChannel, IpcWriteTextIntoClipboardArgs, IpcWriteTextIntoClipboardRes, ipcWriteBookmarkIntoClipboardChannel, IpcWriteBookmarkIntoClipboardArgs, IpcWriteBookmarkIntoClipboardRes } from '@common/ipc/channels';
 import { WriteTextIntoClipboardUseCase } from '@/application/useCases/clipboard/writeTextIntoClipboard';
 import { WriteBookmarkIntoClipboardUseCase } from '@/application/useCases/clipboard/writeBookmarkIntoClipboard';
+import { CopyImageAtIntoClipboardUseCase } from '@/application/useCases/clipboard/copyImageAtIntoClipboard';
 
 type Deps = {
   writeBookmarkIntoClipboardUseCase: WriteBookmarkIntoClipboardUseCase;
   writeTextIntoClipboardUseCase: WriteTextIntoClipboardUseCase;
+  copyImageAtIntoClipboardUseCase: CopyImageAtIntoClipboardUseCase;
 }
 
 export function createClipboardControllers({
   writeBookmarkIntoClipboardUseCase,
   writeTextIntoClipboardUseCase,
+  copyImageAtIntoClipboardUseCase,
 }: Deps): [
     Controller<IpcWriteBookmarkIntoClipboardArgs, IpcWriteBookmarkIntoClipboardRes>,
     Controller<IpcWriteTextIntoClipboardArgs, IpcWriteTextIntoClipboardRes>,
+    Controller<IpcCopyImageAtIntoClipboardArgs, IpcCopyImageAtIntoClipboardRes>,
   ] {
   return [{
     channel: ipcWriteBookmarkIntoClipboardChannel,
@@ -26,5 +30,8 @@ export function createClipboardControllers({
   }, {
     channel: ipcWriteTextIntoClipboardChannel,
     handle: async (_event, text) => writeTextIntoClipboardUseCase(text)
+  }, {
+    channel: ipcCopyImageAtIntoClipboardChannel,
+    handle: async (_event, webContentsId, x, y) => copyImageAtIntoClipboardUseCase(webContentsId, x, y)
   }]
 }

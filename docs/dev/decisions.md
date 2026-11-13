@@ -686,6 +686,26 @@
 - 버린 대안: 예외 없이 전부 허용 (위 위험), 대화별 10분 허용 (사용자가 항상 허용을 원함), 출처별 허용 (출처가 달라도 위험은 같다).
 - 근거: `src/renderer/application/useCases/ai/runAiRequest.ts`, `src/renderer/base/ai/aiAction.ts`, `src/renderer/base/widgetType.ts`
 
+#### D80. 데이터 복원은 재시작한 뒤, 데이터를 읽기 전에
+
+- 상태: 유효
+- 출처: `[fork #108]`
+- 결정: Restore Data는 백업 위치를 `restore-pending.json`에 적고 앱을 다시 시작한다. main이 다음 시작에서 `createFileDataStorage` 전에 백업을 적용한다. 바꾸기 전 데이터는 데이터 폴더 옆 `freeter-data-before-restore <시각>`으로 옮긴다. 백업은 압축하지 않은 폴더다.
+- 이유: 실행 중에 파일을 바꾸면 renderer의 지연 저장 (5초)과 위젯 저장이 복원한 파일을 덮어쓴다. 시작 전에는 아무것도 파일을 쓰지 않는다. 옮겨 둔 데이터가 있으면 잘못된 복원도 되돌릴 수 있다.
+- 버린 대안: 실행 중 복원 + 창 새로고침 (위 덮어쓰기 경쟁), zip 백업 (Node 표준 라이브러리에 zip이 없고, 새 의존성이 필요하다. 폴더는 탐색기로 바로 열어 볼 수 있다), 사용 기록 (`telemetry`)까지 백업 (수십 MB이고 요청 범위가 프로젝트·워크플로·위젯이었다).
+- 한계: 백업 직전의 변경은 best effort로 저장한다 (flush를 보내지만 기다리지 않는다). 백업을 만든 버전보다 오래된 앱으로 복원하면 앱이 모르는 상태 필드는 기본값과 합쳐질 때 버려질 수 있다 (추정, 확인하지 않음).
+- 근거: `src/main/infra/appDataBackup/appDataBackup.ts`, `src/main/application/useCases/appDataBackup/`, `src/main/index.ts`
+
+#### D79. 새 버전은 알림만, 설치는 사용자가
+
+- 상태: 유효
+- 출처: `[fork #106]`
+- 결정: 설치본 main이 GitHub `releases/latest`를 시작 10초 뒤와 하루마다 확인하고, 새 버전이면 OS 알림을 버전마다 한 번 띄운다. 알림을 누르면 릴리스 페이지가 열린다. 설치는 사용자가 한다.
+- 이유: 팀원이 새 기능과 수정 (예: swh.29의 AI 제어 수정)을 알 방법이 없었다. 알림 하나는 의존성 없이 작게 만들 수 있다.
+- 버린 대안: `electron-updater` 자동 업데이트 (릴리스가 MSI·zip이고 `latest.yml`과 NSIS 설치 파일이 필요하다. 배포 형식을 바꾸는 일이라 범위 밖), 앱 안 배너 (renderer 배선이 필요하고, 알림으로 충분하다고 판단), 확인 끄기 설정 (요청이 없었다).
+- 한계: 알림을 놓치면 다음 새 버전까지 다시 알리지 않는다. GitHub 미인증 요청은 IP당 시간당 60회 제한이 있다 (하루 한 번이라 문제없음).
+- 근거: `src/main/application/useCases/update/checkForUpdate.ts`, `src/main/infra/releaseProvider/releaseProvider.ts`, `src/main/index.ts`
+
 #### D78. 페이지 번역은 글자 노드 교체 + main의 Google 요청
 
 - 상태: 유효

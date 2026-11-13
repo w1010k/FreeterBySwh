@@ -3,20 +3,23 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { ipcWriteBookmarkIntoClipboardChannel, ipcWriteTextIntoClipboardChannel } from '@common/ipc/channels';
+import { ipcCopyImageAtIntoClipboardChannel, ipcWriteBookmarkIntoClipboardChannel, ipcWriteTextIntoClipboardChannel } from '@common/ipc/channels';
 import { createClipboardControllers } from '@/controllers/clipboard';
 import { fixtureIpcMainEvent } from '@tests/infra/mocks/ipcMain';
 
 function setup() {
   const writeBookmarkIntoClipboardUseCase = jest.fn();
   const writeTextIntoClipboardUseCase = jest.fn();
+  const copyImageAtIntoClipboardUseCase = jest.fn();
 
   const [
     writeBookmarkIntoClipboardController,
     writeTextIntoClipboardController,
+    copyImageAtIntoClipboardController,
   ] = createClipboardControllers({
     writeBookmarkIntoClipboardUseCase,
     writeTextIntoClipboardUseCase,
+    copyImageAtIntoClipboardUseCase,
   })
 
   return {
@@ -25,6 +28,9 @@ function setup() {
 
     writeTextIntoClipboardUseCase,
     writeTextIntoClipboardController,
+
+    copyImageAtIntoClipboardUseCase,
+    copyImageAtIntoClipboardController,
   }
 }
 
@@ -69,6 +75,17 @@ describe('ClipboardControllers', () => {
 
       expect(writeTextIntoClipboardUseCase).toHaveBeenCalledTimes(1);
       expect(writeTextIntoClipboardUseCase).toHaveBeenCalledWith(testText);
+    });
+  })
+
+  describe('copyImageAtIntoClipboard', () => {
+    it('should have a right channel name and pass the args to the usecase', () => {
+      const { copyImageAtIntoClipboardController, copyImageAtIntoClipboardUseCase } = setup();
+      expect(copyImageAtIntoClipboardController.channel).toBe(ipcCopyImageAtIntoClipboardChannel);
+
+      copyImageAtIntoClipboardController.handle(fixtureIpcMainEvent(), 7, 10, 20);
+
+      expect(copyImageAtIntoClipboardUseCase).toHaveBeenCalledWith(7, 10, 20);
     });
   })
 })

@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { ipcWriteBookmarkIntoClipboardChannel, ipcWriteTextIntoClipboardChannel } from '@common/ipc/channels';
+import { ipcCopyImageAtIntoClipboardChannel, ipcWriteBookmarkIntoClipboardChannel, ipcWriteTextIntoClipboardChannel } from '@common/ipc/channels';
 import { createClipboardProvider } from '@/infra/clipboardProvider/clipboardProvider';
 import { electronIpcRenderer } from '@/infra/mainApi/mainApi';
 
@@ -22,6 +22,16 @@ describe('ClipboardProvider', () => {
 
       expect(electronIpcRenderer.invoke).toHaveBeenCalledTimes(1);
       expect(electronIpcRenderer.invoke).toHaveBeenCalledWith(ipcWriteBookmarkIntoClipboardChannel, testTitle, testUrl);
+    })
+  })
+
+  describe('copyImageAt', () => {
+    it('should send the webview id and the point via a right ipc channel', async () => {
+      const clipboardProvider = createClipboardProvider();
+
+      await clipboardProvider.copyImageAt(7, 10, 20);
+
+      expect(electronIpcRenderer.invoke).toHaveBeenCalledWith(ipcCopyImageAtIntoClipboardChannel, 7, 10, 20);
     })
   })
 

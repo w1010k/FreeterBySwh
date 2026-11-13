@@ -424,6 +424,22 @@
 - 규칙: main → renderer 알림은 앱 창에만 보낸다 (`index.ts` `sendToAppWindow`).
 - 근거: `src/main/index.ts` `sendToAppWindow`, `src/main/controllers/sharedDataStorage.ts`
 
+#### 위젯 안 오른쪽 클릭과 위젯 틀 메뉴
+
+- 출처: `[fork #105]`
+- 증상: File Explorer 검색 결과의 자체 메뉴와 함께, 편집 모드의 위젯 메뉴 (위젯 삭제·복사)가 같이 떴다.
+- 원인: 위젯 틀 (`widgetViewModel.ts`의 `onContextMenuHandler`)이 위젯 안에서 올라오는 `contextmenu`로 자기 메뉴를 띄운다. `preventDefault`만으로는 막히지 않는다.
+- 규칙: 위젯이 자체 메뉴를 띄우는 오른쪽 클릭은 `stopPropagation`도 한다.
+- 근거: `src/renderer/widgets/file-explorer/widget.tsx` (결과 줄 `onContextMenu`)
+
+#### 실행 중 데이터 폴더 복사
+
+- 출처: `[fork #108]`
+- 증상: (리뷰에서 발견) 백업 중 위젯이 저장하면 `fs.cp`가 사라진 `.tmp` 파일에서 ENOENT로 실패하거나, `.tmp` 파일이 백업에 들어간다.
+- 원인: 파일 저장은 `<key>.tmp`에 쓰고 이름을 바꾼다 (`writeFileAtomic`). `cp`는 목록을 먼저 읽고 나중에 복사한다.
+- 규칙: 실행 중인 데이터 폴더를 복사할 때는 `.tmp`를 건너뛰고 사라진 항목을 허용한다 (`appDataBackup.ts` `copyLive`, `fileDataStorage.ts` `copyFileDataStorage`의 filter). 데이터 폴더를 바꾸는 일 (복원)은 앱이 데이터를 읽기 전에 한다.
+- 근거: `src/main/infra/appDataBackup/appDataBackup.ts`, CHANGES #108
+
 #### 앱 창 로딩 이벤트와 AI 통로
 
 - 출처: `[fork #99 후속]`

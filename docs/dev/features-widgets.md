@@ -122,7 +122,7 @@
 
 | 모듈          | 함수                                                                     | 구현 경로                                                                   | 출처                        |
 |---------------|--------------------------------------------------------------------------|-----------------------------------------------------------------------------|-----------------------------|
-| `clipboard`   | `writeText`, `writeBookmark`                                             | renderer `clipboardProvider` → IPC → main                                   | [upstream]                  |
+| `clipboard`   | `writeText`, `writeBookmark`, `copyImageAt(webContentsId, x, y)` (webview guest만) | renderer `clipboardProvider` → IPC → main                                   | [upstream, fork #107]       |
 | `dataStorage` | `getText`, `setText`, `getJson`, `setJson`, `remove`, `clear`, `getKeys` | 아래 "데이터 저장" 참조                                                     | [upstream, fork #8 #9 변경] |
 | `process`     | `getProcessInfo()` (동기, `isMac` 등)                                    | 시작 시 1회 로드한 값                                                       | [upstream]                  |
 | `shell`       | `openApp`, `openExternalUrl`, `openPath`                                 | main `shell`                                                                | [upstream]                  |
@@ -242,8 +242,9 @@
 | Link Opener, File Opener, Commander | `openLinks`, `openFiles`, `runCommands` | 버튼과 같은 함수 |
 | Web Query | `query { text, entry? }` | `{ query(text, entryIndex) }`. 폼 제출과 같은 `runQuery`, 기록에도 남는다 |
 | Timer | `control { command: start, pause, resume, reset }` | `{ control }`. 화면에 없는 버튼은 false |
+| File Explorer | `search { query }` (읽기) | `{ fileExplorer: { search } }`. 검색창과 같은 `fs.search`, 결과에 `location` 포함 [fork #105] |
 
-AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explorer)은 `widget.updateSettings`로 설정만 바꾼다.
+AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor)은 `widget.updateSettings`로 설정만 바꾼다.
 
 #### minSize와 기본 크기
 
@@ -384,7 +385,7 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
   `page_visit` 기록 [fork #63], `exposeApi`로 `{ openUrl, getUrl }` 공개 [upstream].
 - **컨텍스트 메뉴** (`contextMenu.ts`): 새로고침, 강제 새로고침, 자동 새로고침 토글, 줌 배율 하위 메뉴, 시작 페이지·뒤로·앞으로, 브라우저로 열기, 다른 이름으로 저장, 주소 복사, 인쇄,
   개발자 도구. 링크·이미지·편집 가능 영역 위에서는 해당 항목 (링크 열기·저장·주소 복사, 이미지 저장·주소 복사, 실행 취소·잘라내기·붙여넣기 등)이 추가된다 [upstream]. "Copy image"는
-  `<webview>`에 `copyImageAt`이 없어 주석 처리돼 있다 (CHANGES #38).
+  `<webview>`에 `copyImageAt`이 없어서 `clipboard.copyImageAt(getWebContentsId(), x, y)`로 main의 `WebContents`가 복사한다 [fork #107].
 - **main 쪽 연관 기능**: 다운로드 폴더 지정 [fork #41], HTTP Basic/Digest 인증 창 [fork #71], Chrome 형식 User-Agent [fork #7].
   상세는 [features-core.md](features-core.md)와 [overview.md](overview.md).
 - **주의점**:
@@ -465,7 +466,9 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor, File Explo
   `fs.search(roots, query)`로 main이 등록 폴더 전체를 너비 우선으로 찾는다 (단계마다 16개씩 동시에 읽기, 결과 200개와 확인 항목 50,000개 한도,
   링크 폴더는 들어가지 않음, 겹치는 폴더는 한 번만). 결과의 `limit`이 멈춘 한도를, `folder`가 등록 폴더 아래 위치를 알린다. 위젯은 검색을 한 번에
   하나만 보내고 (`searchRunRef` 대기열), 새 결과가 올 때까지 이전 목록을 둔다. 결과는 `listbox` 목록이고 위치 글자는 `hitLocation`이 만든다.
-  Enter·더블클릭으로 열고 `Esc`로 닫는다 (포커스는 위젯 루트로). 검색 중에는 트리를 `hidden`으로 숨겨 펼침 상태를 유지한다 [fork #105].
+  Enter·더블클릭으로 열고 `Esc`로 닫는다 (포커스는 위젯 루트로). 검색 중에는 트리를 `hidden`으로 숨겨 펼침 상태를 유지한다. 결과 줄의 오른쪽 클릭
+  (키보드는 `Shift+F10`, 메뉴 키)은 트리와 같은 메뉴 (`EntryMenuButtons`)를 `document.body` 포털로 띄운다. 바깥 `mousedown`이나 `Esc`로 닫히고, 닫히면
+  포커스가 검색창으로 돌아간다 [fork #105].
 - **액션바와 메뉴**: `SEARCH`(검색창 열기) [fork #105], `REFRESH`(캐시 비우고 다시 읽기), `COLLAPSE-ALL`(캐시 유지, 접기만) [fork #61]. 우클릭 메뉴는 라이브러리 `renderContextMenu`를
   `document.body` 포털로 그린다: Open / Open in File Explorer, Open containing folder (파일), Copy Path, Copy
   name [fork #31 #37].

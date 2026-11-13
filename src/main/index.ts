@@ -14,6 +14,7 @@ import {createSetWindowStateUseCase} from '@/application/useCases/browserWindow/
 import {createShowBrowserWindowUseCase} from '@/application/useCases/browserWindow/showBrowserWindow';
 import {createWriteBookmarkIntoClipboardUseCase} from '@/application/useCases/clipboard/writeBookmarkIntoClipboard';
 import {createWriteTextIntoClipboardUseCase} from '@/application/useCases/clipboard/writeTextIntoClipboard';
+import {createCopyImageAtIntoClipboardUseCase} from '@/application/useCases/clipboard/copyImageAtIntoClipboard';
 import {createPopupContextMenuUseCase} from '@/application/useCases/contextMenu/popupContextMenu';
 import {createShowMessageBoxUseCase} from '@/application/useCases/dialog/showMessageBox';
 import {createShowOpenDirDialogUseCase} from '@/application/useCases/dialog/showOpenDirDialog';
@@ -82,6 +83,11 @@ import {
   createSetTextInWidgetDataStorageUseCase
 } from '@/application/useCases/widgetDataStorage/setTextInWidgetDataStorage';
 import {createAppDataStorageControllers} from '@/controllers/appDataStorage';
+import {createAppDataBackupControllers} from '@/controllers/appDataBackup';
+import {createAppDataBackup} from '@/infra/appDataBackup/appDataBackup';
+import {createBackUpAppDataUseCase} from '@/application/useCases/appDataBackup/backUpAppData';
+import {createRestoreAppDataUseCase} from '@/application/useCases/appDataBackup/restoreAppData';
+import {createApplyPendingRestoreUseCase} from '@/application/useCases/appDataBackup/applyPendingRestore';
 import {createAppMenuControllers} from '@/controllers/appMenu';
 import {createBrowserWindowControllers} from '@/controllers/browserWindow';
 import {createClipboardControllers} from '@/controllers/clipboard';
@@ -128,6 +134,8 @@ import {registerAppFileProtocol} from '@/infra/protocolHandler/registerAppFilePr
 import {createShellProvider} from '@/infra/shellProvider/shellProvider';
 import {createSystemStatsProvider} from '@/infra/systemStatsProvider/systemStatsProvider';
 import {createTranslateProvider} from '@/infra/translateProvider/translateProvider';
+import {createReleaseProvider, releaseRepo} from '@/infra/releaseProvider/releaseProvider';
+import {createCheckForUpdateUseCase} from '@/application/useCases/update/checkForUpdate';
 import {createTrayProvider} from '@/infra/trayProvider/trayProvider';
 import {createObjectManager} from '@common/base/objectManager';
 import {parseSharedStorageId} from '@common/base/sharedStorageId';
@@ -136,7 +144,7 @@ import {withJson} from '@common/infra/dataStorage/withJson';
 import {hostFreeterApp, schemeFreeterFile} from '@common/infra/network';
 import {ipcOsActivityEventChannel} from '@common/ipc/channels';
 import {channelPrefix} from '@common/ipc/ipc';
-import {app, BrowserWindow as ElectronBrowserWindow, dialog as electronDialog, net, powerMonitor} from 'electron';
+import {app, BrowserWindow as ElectronBrowserWindow, dialog as electronDialog, net, Notification, powerMonitor} from 'electron';
 import {delimiter as pathDelimiter, join} from 'node:path';
 import type * as NodePty from 'node-pty';
 import {createTerminalHost, prependPath} from '@/application/terminal/terminalHost';
@@ -157,6 +165,8 @@ import {getAiPipePath, removeAiEndpointSync, writeAiEndpoint} from '@/infra/aiCo
 import {ipcAiActionRequestChannel, ipcPtyDataChannel, ipcPtyExitChannel, ipcPtyTitleChannel} from '@common/ipc/channels';
 
 let appWindow: BrowserWindow | null = null; // ref to the app window
+// Held so the shown notification is not garbage-collected before the user clicks it.
+let updateNotification: Notification | null = null;
 
 /**
  * Pushes a message to the app page only. Other windows (in-app popups opened by
@@ -302,6 +312,13 @@ if (!app.requestSingleInstanceLock()) {
     registerPermissionHandler();
 
     const appDataDir = join(app.getPath('appData'), dataDirName, 'freeter-data');
+    // Restore Data writes this file and restarts the app; the restore runs here, before any data is read.
+    const restorePendingFile = join(app.getPath('appData'), dataDirName, 'restore-pending.json');
+    const appDataBackup = createAppDataBackup();
+    const dialogProvider = createDialogProvider();
+    await createApplyPendingRestoreUseCase({
+      appDataBackup, dialogProvider, appDataDir, pendingFile: restorePendingFile, now: () => new Date()
+    })();
     const appDataStorage = await createFileDataStorage('string', appDataDir);
     const getTextFromAppDataStorageUseCase = createGetTextFromAppDataStorageUseCase({appDataStorage});
     const setTextInAppDataStorageUseCase = createSetTextInAppDataStorageUseCase({appDataStorage});
@@ -362,11 +379,24 @@ if (!app.requestSingleInstanceLock()) {
     const clipboardProvider = createClipboardProvider();
     const writeBookmarkIntoClipboardUseCase = createWriteBookmarkIntoClipboardUseCase({clipboardProvider});
     const writeTextIntoClipboardUseCase = createWriteTextIntoClipboardUseCase({clipboardProvider});
+    const copyImageAtIntoClipboardUseCase = createCopyImageAtIntoClipboardUseCase({clipboardProvider});
 
     const shellProvider = createShellProvider();
     const openExternalUrlUseCase = createOpenExternalUrlUseCase({shellProvider});
     const openPathUseCase = createOpenPathUseCase({shellProvider})
     const openAppDataDirUseCase = createOpenAppDataDirUseCase({shellProvider, appDataDir})
+    const backUpAppDataUseCase = createBackUpAppDataUseCase({
+      appDataBackup, dialogProvider, shellProvider, appDataDir, version: app.getVersion(), now: () => new Date()
+    });
+    const restoreAppDataUseCase = createRestoreAppDataUseCase({
+      appDataBackup,
+      dialogProvider,
+      pendingFile: restorePendingFile,
+      restart: () => {
+        app.relaunch();
+        app.quit();
+      }
+    });
 
     // Serves the browser Analytics page (built next to main.js) and the raw
     // telemetry files it reads; started on first open, closed on quit.
@@ -514,7 +544,29 @@ if (!app.requestSingleInstanceLock()) {
     const translateProvider = createTranslateProvider((url, init) => net.fetch(url, init));
     const translateTextsUseCase = createTranslateTextsUseCase({translateProvider});
 
-    const dialogProvider = createDialogProvider();
+    // New version notice: the installed app asks GitHub for the latest release once soon after start and then daily
+    // (the app often runs for days). Repo runs (`yarn dev`, `yarn prod:run`) do not ask.
+    if (app.isPackaged) {
+      const checkForUpdateUseCase = createCheckForUpdateUseCase({
+        releaseProvider: createReleaseProvider((url, init) => net.fetch(url, init)),
+        appDataStorage,
+        shellProvider,
+        currentVersion: app.getVersion(),
+        notify: (title, body, onClick) => {
+          if (!Notification.isSupported()) {
+            return false;
+          }
+          updateNotification = new Notification({ title, body });
+          updateNotification.on('click', onClick);
+          updateNotification.show();
+          return true;
+        },
+        releasePageUrl: tag => `https://github.com/${releaseRepo}/releases/tag/${encodeURIComponent(tag)}`
+      });
+      setTimeout(checkForUpdateUseCase, 10 * 1000);
+      setInterval(checkForUpdateUseCase, 24 * 60 * 60 * 1000);
+    }
+
     const dialogShowMessageBoxUseCase = createShowMessageBoxUseCase({dialogProvider});
     const showOpenFileDialogUseCase = createShowOpenFileDialogUseCase({dialogProvider});
     const showSaveFileDialogUseCase = createShowSaveFileDialogUseCase({dialogProvider});
@@ -548,6 +600,7 @@ if (!app.requestSingleInstanceLock()) {
 
     registerControllers(ipcMain, [
       ...createAppDataStorageControllers({getTextFromAppDataStorageUseCase, setTextInAppDataStorageUseCase}),
+      ...createAppDataBackupControllers({backUpAppDataUseCase, restoreAppDataUseCase}),
       ...createWidgetDataStorageControllers({
         getTextFromWidgetDataStorageUseCase,
         setTextInWidgetDataStorageUseCase,
@@ -557,7 +610,7 @@ if (!app.requestSingleInstanceLock()) {
         copyWidgetDataStorageUseCase,
       }),
       ...createContextMenuControllers({popupContextMenuUseCase}),
-      ...createClipboardControllers({writeBookmarkIntoClipboardUseCase, writeTextIntoClipboardUseCase}),
+      ...createClipboardControllers({writeBookmarkIntoClipboardUseCase, writeTextIntoClipboardUseCase, copyImageAtIntoClipboardUseCase}),
       ...createShellControllers({openExternalUrlUseCase, openPathUseCase, openAppUseCase, openAppDataDirUseCase}),
       ...createFsControllers({readDirUseCase, getHomeDirUseCase, getImageDataUrlUseCase, searchFilesUseCase}),
       ...createProcessControllers({getProcessInfoUseCase}),

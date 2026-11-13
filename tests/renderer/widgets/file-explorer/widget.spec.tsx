@@ -228,12 +228,13 @@ describe('File Explorer Widget', () => {
     function setupSearch(search: jest.Mock = jest.fn(async () => ({ hits, limit: null }))) {
       jest.useFakeTimers();
       const openPath = jest.fn(async () => '');
+      const writeText = jest.fn();
       const logActivity = jest.fn();
       const updateActionBar = jest.fn();
       setupSut(fixtureSettings({ paths: ['/home/user/Documents'], showHiddenFiles: false }), {
-        mockWidgetApi: { fs: { search }, shell: { openPath }, logActivity, updateActionBar }
+        mockWidgetApi: { fs: { search }, shell: { openPath }, clipboard: { writeText }, logActivity, updateActionBar }
       });
-      return { search, openPath, logActivity, updateActionBar };
+      return { search, openPath, writeText, logActivity, updateActionBar };
     }
     const typeQuery = async (text: string) => {
       fireEvent.change(screen.getByRole('combobox', { name: 'Search in folders' }), { target: { value: text } });
@@ -378,6 +379,130 @@ describe('File Explorer Widget', () => {
       await act(async () => { resolveFirst({ hits, limit: null }); });
 
       expect(screen.getAllByRole('option')).toHaveLength(1);
+    });
+
+    it('exposes the same search for the AI action, with the location the widget shows', async () => {
+      const exposeApi = jest.fn();
+      const search = jest.fn(async () => ({ hits, limit: 'results' as const }));
+      setupSut(fixtureSettings({ paths: ['/home/user/Documents'], showHiddenFiles: true }), { mockWidgetApi: { fs: { search }, exposeApi } });
+
+      const { fileExplorer } = exposeApi.mock.calls.at(-1)![0];
+      const res = await fileExplorer.search('rep');
+
+      expect(search).toHaveBeenCalledWith(['/home/user/Documents'], 'rep', { includeHidden: true });
+      expect(res).toEqual({
+        hits: [
+          { name: 'report.txt', path: '/home/user/Documents/2026/report.txt', isDirectory: false, location: 'Documents/2026' },
+          { name: 'reports', path: '/home/user/Documents/reports', isDirectory: true, location: 'Documents' },
+        ],
+        limit: 'results'
+      });
+    });
+
+    it('runs the AI search after a search box search that is still going, not at the same time', async () => {
+      jest.useFakeTimers();
+      const exposeApi = jest.fn();
+      let resolveBox: (v: unknown) => void = () => undefined;
+      const search = jest.fn()
+        .mockReturnValueOnce(new Promise(r => { resolveBox = r; }))
+        .mockResolvedValueOnce({ hits: [], limit: null });
+      setupSut(fixtureSettings({ paths: ['/home/user/Documents'] }), { mockWidgetApi: { fs: { search }, exposeApi } });
+      fireEvent.keyDown(screen.getByTestId('file-tree'), { key: 'f', ctrlKey: true });
+      fireEvent.change(screen.getByRole('combobox', { name: 'Search in folders' }), { target: { value: 'rep' } });
+      await act(async () => { jest.advanceTimersByTime(250); });
+
+      const aiRes = exposeApi.mock.calls.at(-1)![0].fileExplorer.search('x');
+      await act(async () => undefined);
+      expect(search).toHaveBeenCalledTimes(1);
+
+      await act(async () => { resolveBox({ hits, limit: null }); });
+      await expect(aiRes).resolves.toEqual({ hits: [], limit: null });
+      expect(search).toHaveBeenCalledTimes(2);
+      jest.useRealTimers();
+    });
+
+    describe('hit menu', () => {
+      it('opens on right-click with the tree menu items, and copies the path', async () => {
+        const { writeText } = setupSearch();
+        fireEvent.keyDown(screen.getByTestId('file-tree'), { key: 'f', ctrlKey: true });
+        await typeQuery('rep');
+
+        fireEvent.contextMenu(screen.getAllByRole('option')[0], { clientX: 10, clientY: 20 });
+
+        expect(screen.getAllByRole('option')[0]).toHaveAttribute('aria-selected', 'true');
+        expect(screen.getByRole('button', { name: 'Open' })).toHaveFocus();
+        expect(screen.getByRole('button', { name: 'Open Containing Folder' })).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Copy Path' }));
+        expect(writeText).toHaveBeenCalledWith('/home/user/Documents/2026/report.txt');
+        expect(screen.queryByRole('button', { name: 'Copy Path' })).not.toBeInTheDocument();
+        expect(screen.getByRole('combobox', { name: 'Search in folders' })).toHaveFocus();
+      });
+
+      it('offers Open in File Explorer and no containing folder for a folder hit', async () => {
+        const { openPath } = setupSearch();
+        fireEvent.keyDown(screen.getByTestId('file-tree'), { key: 'f', ctrlKey: true });
+        await typeQuery('rep');
+
+        fireEvent.contextMenu(screen.getAllByRole('option')[1]);
+        expect(screen.queryByRole('button', { name: 'Open Containing Folder' })).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Open in File Explorer' }));
+
+        expect(openPath).toHaveBeenCalledWith('/home/user/Documents/reports');
+      });
+
+      it('opens for the selected hit with Shift+F10, and closes with Escape back to the search box', async () => {
+        setupSearch();
+        fireEvent.keyDown(screen.getByTestId('file-tree'), { key: 'f', ctrlKey: true });
+        await typeQuery('rep');
+        const input = screen.getByRole('combobox', { name: 'Search in folders' });
+
+        fireEvent.keyDown(input, { key: 'F10', shiftKey: true });
+        expect(screen.getByRole('button', { name: 'Open' })).toHaveFocus();
+        fireEvent.keyDown(screen.getByRole('button', { name: 'Open' }), { key: 'Escape' });
+
+        expect(screen.queryByRole('button', { name: 'Open' })).not.toBeInTheDocument();
+        expect(input).toHaveFocus();
+        // The menu's Escape does not also close the search.
+        expect(input).toBeInTheDocument();
+      });
+
+      it('does not let the right-click reach the widget frame (its own edit-mode menu)', async () => {
+        setupSearch();
+        fireEvent.keyDown(screen.getByTestId('file-tree'), { key: 'f', ctrlKey: true });
+        await typeQuery('rep');
+        const frameMenu = jest.fn();
+        document.addEventListener('contextmenu', frameMenu);
+
+        fireEvent.contextMenu(screen.getAllByRole('option')[0]);
+
+        document.removeEventListener('contextmenu', frameMenu);
+        expect(frameMenu).not.toHaveBeenCalled();
+      });
+
+      it('stays inside the window near its edge, and closes on scroll', async () => {
+        setupSearch();
+        fireEvent.keyDown(screen.getByTestId('file-tree'), { key: 'f', ctrlKey: true });
+        await typeQuery('rep');
+
+        fireEvent.contextMenu(screen.getAllByRole('option')[0], { clientX: window.innerWidth + 500, clientY: window.innerHeight + 500 });
+        const menu = screen.getByRole('button', { name: 'Open' }).parentElement!;
+        expect(parseFloat(menu.style.left)).toBeLessThanOrEqual(window.innerWidth);
+        expect(parseFloat(menu.style.top)).toBeLessThanOrEqual(window.innerHeight);
+
+        fireEvent.scroll(document);
+        expect(screen.queryByRole('button', { name: 'Open' })).not.toBeInTheDocument();
+      });
+
+      it('closes on a click outside', async () => {
+        setupSearch();
+        fireEvent.keyDown(screen.getByTestId('file-tree'), { key: 'f', ctrlKey: true });
+        await typeQuery('rep');
+        fireEvent.contextMenu(screen.getAllByRole('option')[0]);
+
+        fireEvent.mouseDown(document.body);
+
+        expect(screen.queryByRole('button', { name: 'Open' })).not.toBeInTheDocument();
+      });
     });
 
     it('closes with Escape and shows the tree again', async () => {

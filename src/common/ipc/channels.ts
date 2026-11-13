@@ -117,6 +117,14 @@ export const ipcShellOpenPathChannel = makeIpcChannelName('shell-open-path');
 export type IpcShellOpenPathArgs = [path: string];
 export type IpcShellOpenPathRes = string;
 
+export const ipcBackUpAppDataChannel = makeIpcChannelName('back-up-app-data');
+export type IpcBackUpAppDataArgs = [];
+export type IpcBackUpAppDataRes = void;
+
+export const ipcRestoreAppDataChannel = makeIpcChannelName('restore-app-data');
+export type IpcRestoreAppDataArgs = [];
+export type IpcRestoreAppDataRes = void;
+
 export const ipcShellOpenAppDataDirChannel = makeIpcChannelName('shell-open-app-data-dir');
 export type IpcShellOpenAppDataDirArgs = [];
 export type IpcShellOpenAppDataDirRes = string;
@@ -141,6 +149,10 @@ export type IpcWriteBookmarkIntoClipboardRes = void;
 export const ipcWriteTextIntoClipboardChannel = makeIpcChannelName('write-text-into-clipboard');
 export type IpcWriteTextIntoClipboardArgs = [text: string];
 export type IpcWriteTextIntoClipboardRes = void;
+
+export const ipcCopyImageAtIntoClipboardChannel = makeIpcChannelName('copy-image-at-into-clipboard');
+export type IpcCopyImageAtIntoClipboardArgs = [webContentsId: number, x: number, y: number];
+export type IpcCopyImageAtIntoClipboardRes = void;
 
 export const ipcGetProcessInfoChannel = makeIpcChannelName('get-process-info');
 export type IpcGetProcessInfoArgs = [];

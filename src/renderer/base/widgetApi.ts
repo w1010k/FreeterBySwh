@@ -97,6 +97,8 @@ interface WidgetApiModules {
   readonly clipboard: {
     writeBookmark: (title: string, url: string) => Promise<void>;
     writeText: (text: string) => Promise<void>;
+    /** Copy the image at (x, y) of a <webview> page (its `getWebContentsId()`), e.g. from its context-menu event. */
+    copyImageAt: (webContentsId: number, x: number, y: number) => Promise<void>;
   };
   readonly dataStorage: {
     getText: (key: string) => Promise<string | undefined>;

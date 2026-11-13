@@ -142,7 +142,8 @@ function _createWidgetApiFactory({
     {
       clipboard: () => ({
         writeBookmark: (title, url) => clipboardProvider.writeBookmark(title, url),
-        writeText: (text) => clipboardProvider.writeText(text)
+        writeText: (text) => clipboardProvider.writeText(text),
+        copyImageAt: (webContentsId, x, y) => clipboardProvider.copyImageAt(webContentsId, x, y)
       }),
       dataStorage: (widgetId) => {
         // To-do scope routing for this widget API instance. One instance

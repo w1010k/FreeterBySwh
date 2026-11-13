@@ -6,4 +6,5 @@
 export interface ClipboardProvider {
   writeBookmark: (title: string, url: string) => Promise<void>;
   writeText: (text: string) => Promise<void>;
+  copyImageAt: (webContentsId: number, x: number, y: number) => Promise<void>;
 }
