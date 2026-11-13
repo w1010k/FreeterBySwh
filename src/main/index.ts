@@ -148,7 +148,7 @@ import {existsSync, readFileSync} from 'node:fs';
 import {detectShells} from '@/infra/terminal/detectShells';
 import {ShellOption} from '@common/ipc/channels';
 import {expandEnvVars, mergePath, parseRegPath} from '@/infra/env/windowsPath';
-import {createAiActionBridge} from '@/application/ai/aiActionBridge';
+import {closeAiWhenAppPageGoes, createAiActionBridge} from '@/application/ai/aiActionBridge';
 import {createConfirmAiActionUseCase} from '@/application/useCases/ai/confirmAiAction';
 import {createAiControllers} from '@/controllers/ai';
 import {createAiControlServer} from '@/infra/aiControlServer/aiControlServer';
@@ -163,15 +163,17 @@ let appWindow: BrowserWindow | null = null; // ref to the app window
  * window titles. `appWindow` is typed by the narrow app interface, so the Electron
  * window is found by identity, as 'browser-window-created' below does.
  */
-function sendToAppWindow(channel: string, ...args: unknown[]): void {
+function sendToAppWindow(channel: string, ...args: unknown[]): boolean {
   const win = ElectronBrowserWindow.getAllWindows().find(w => w === appWindow);
   if (!win || win.isDestroyed()) {
-    return;
+    return false;
   }
   // The window can be torn down between the check and send.
   try {
     win.webContents.send(channel, ...args);
+    return true;
   } catch { /* window gone */
+    return false;
   }
 }
 
@@ -623,13 +625,14 @@ if (!app.requestSingleInstanceLock()) {
           devTools: isDevMode,
         }
       )
-      // A (re)load drops the page's listener; it says ai-ready again once it listens.
-      ElectronBrowserWindow.getAllWindows().find(w => w === appWindow)?.webContents
-        .on('did-start-loading', () => aiActionBridge.setReady(false))
+      const appWebContents = ElectronBrowserWindow.getAllWindows().find(w => w === appWindow)?.webContents;
+      if (appWebContents) {
+        closeAiWhenAppPageGoes(appWebContents, aiActionBridge);
         // A new page (reload) has no view for the old shells, and starts its own.
-        .on('did-navigate', () => {
+        appWebContents.on('did-navigate', () => {
           stopTerminals?.();
         });
+      }
 
       app.on('browser-window-created', (_e, win) => {
         // Disable menu in child windows

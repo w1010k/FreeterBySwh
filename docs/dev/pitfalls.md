@@ -424,6 +424,14 @@
 - 규칙: main → renderer 알림은 앱 창에만 보낸다 (`index.ts` `sendToAppWindow`).
 - 근거: `src/main/index.ts` `sendToAppWindow`, `src/main/controllers/sharedDataStorage.ts`
 
+#### 앱 창 로딩 이벤트와 AI 통로
+
+- 출처: `[fork #99 후속]`
+- 증상: swh.28에서 AI 제어 요청이 시작 직후부터 모두 `not_ready`로 끝났다.
+- 원인: main이 앱 창의 `did-start-loading`마다 통로를 닫았다. 앱 화면은 ai-ready를 시작할 때 한 번만 보낸다. ai-ready 뒤에도 이 이벤트가 와서 통로가 다시 열리지 않았다. 이벤트를 일으킨 쪽은 확인하지 못했다 (Webpage 위젯이나 하위 frame의 로딩으로 추정).
+- 규칙: 한 번만 오는 신호와 짝을 이루는 해제는 그 문서가 실제로 사라진 때에 묶는다. 앱 창에서는 `did-navigate` (main frame의 새 문서 commit)와 `render-process-gone`이다. 이동 시작 (`did-start-navigation`)은 쓰지 않는다. `will-navigate`가 막은 이동도 시작은 되므로, 화면이 그대로인데 통로가 닫힌다.
+- 근거: `src/main/application/ai/aiActionBridge.ts` `closeAiWhenAppPageGoes`, `setReady`, `tests/main/application/ai/aiActionBridge.spec.ts`, CHANGES #99
+
 #### renderer CSP와 로컬 이미지
 
 - 출처: `[upstream, fork #21 #42 변경]`

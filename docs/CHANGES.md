@@ -3747,6 +3747,7 @@ System Monitor 위젯이 CPU·RAM 외에 새 의존성 없이 얻을 수 있는 
 - **Linux 첫 실행**: 소켓 파일의 `ai/` 폴더를 listen 전에 만든다. 처음에는 endpoint 파일을 쓸 때만 폴더를 만들어서 첫 실행부터 계속 시작에 실패했다 (최종 리뷰에서 발견, CI의 Linux에서만 테스트가 돈다).
 - **전체 코드 리뷰 (`/code-review max`)에서 고친 것**: 복제한 위젯이 원본의 exposedApi를 물려받아 AI 작업이 원본에서 실행됨, 정수 키로 확인 문구 앞을 채워 `injectedJS`를 숨길 수 있음, 확인 대기 중 바뀐 명령이 실행됨, 끊긴 요청의 확인 상자가 남음, Project Manager Save가 AI 변경을 되돌림, Spreadsheet 먼 행 쓰기로 앱 멈춤, Note의 없는 공유 키로 저장 중단, PowerShell에서 `--input` JSON 따옴표 손실, Web Query가 화면의 다른 워크플로 페이지를 이동, 창 포커스가 없는데도 Note 쓰기 거절, `freeter mcp` 연결 수명, 시작·새로고침 중 150초 대기, 실행기 stdin 오류와 exit 순서, 터미널 PATH 키 중복.
 - **Codex 승인 정책**: `codex exec`는 MCP 도구 호출을 기본으로 막는다. `-c mcp_servers.<이름>.default_tools_approval_mode="approve"`가 필요하다. 확인은 Freeter가 받으므로 자동 승인으로 둬도 된다.
+- **(후속, 2026-11-13) 시작 직후부터 닫혀 있던 AI 통로**: swh.28 설치본에서 모든 요청이 `not_ready`로 끝났다. 앱을 재시작해도 같았다. main은 앱 창의 `did-start-loading`마다 통로를 닫았고, 앱 화면은 ai-ready를 시작할 때 한 번만 보낸다. 앱 화면이 ai-ready를 보낸 뒤에도 이 이벤트가 와서 통로가 다시 열리지 않았다. 이제 앱 화면이 사라질 때만 닫는다. 새 문서가 main frame에 들어선 때 (`did-navigate`)와 화면 프로세스가 죽은 때 (`render-process-gone`)다. 이동 시작 (`did-start-navigation`)은 쓰지 않는다. 앱 창은 `will-navigate`로 일부 이동을 막으므로, 이동이 시작돼도 화면이 그대로일 수 있다 (코드 리뷰에서 발견). 닫을 때 진행 중인 요청은 timeout을 기다리지 않고 바로 `failed`로 끝나고, 확인 상자도 닫힌다. `not_ready`는 "아무것도 실행되지 않음"을 뜻하는데, Allow된 작업은 실행되고 응답만 사라졌을 수 있어서다. 앱 창이 없어 요청을 보내지 못하면 바로 `not_ready`로 끝난다. 이벤트 선택은 `closeAiWhenAppPageGoes` 테스트가 고정한다. `did-start-loading`을 일으킨 쪽은 확인하지 못했다 (Webpage 위젯이나 하위 frame의 로딩으로 추정). 수정한 빌드에서는 Webpage 위젯이 페이지를 불러오고 이동한 뒤에도 `app.describe`가 성공했다.
 
 **수정 파일**
 

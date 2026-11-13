@@ -247,7 +247,7 @@ main은 `did-attach-webview`에서 guest마다 아래를 건다.
 - 메뉴는 renderer가 정의한다. renderer는 `doAction`을 숫자 `actionId`로 바꿔 보내고 (`src/renderer/infra/ipc/prepareMenuItemsForIpc.ts`),
   main이 Electron 메뉴를 만든 뒤 클릭 시 `actionId`를 돌려보낸다 (`src/main/infra/utils/menu.ts`) [upstream]
 - main → renderer 요청-응답은 AI 제어에만 있다. main이 `ai-action-request` 알림을 `[reqId, req]`로 보내고, renderer (`init.ts`)가 실행 뒤
-  `ai-action-response` invoke로 `[reqId, res]`를 돌려준다. main `createAiActionBridge`가 `reqId`별로 150초 기다리고, 늦은 응답은 버린다. 쓰기 확인은
+  `ai-action-response` invoke로 `[reqId, res]`를 돌려준다. main `createAiActionBridge`가 `reqId`별로 150초 기다리고, 늦은 응답은 버린다. 앱 화면이 사라지면 (`closeAiWhenAppPageGoes`: main frame 새 문서 commit, 화면 프로세스 종료) 기다리던 요청을 바로 `failed`로 끝내고, 다음 ai-ready까지 새 요청에 `not_ready`를 돌려준다. 쓰기 확인은
   renderer가 `ai-confirm` invoke로 main에 요청한다 [fork #99]
 - 앱 안 터미널: renderer가 `pty-create/resize/buffer/kill/shells`를 invoke하고 키 입력은 `pty-write`로 send하며, main이 `pty-data`, `pty-exit` 알림을 보낸다. Terminal 위젯은 `pty` 위젯 API 모듈로 쓴다 [fork #100]
 

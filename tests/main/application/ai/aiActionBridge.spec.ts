@@ -3,7 +3,8 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { createAiActionBridge } from '@/application/ai/aiActionBridge';
+import { EventEmitter } from 'node:events';
+import { closeAiWhenAppPageGoes, createAiActionBridge } from '@/application/ai/aiActionBridge';
 import { AiRpcRequest } from '@common/ai/protocol';
 
 const req: AiRpcRequest = { jsonrpc: '2.0', id: 1, method: 'actions.list', params: { token: 't', origin: 'cli' } };
@@ -17,7 +18,7 @@ function readyBridge(deps: Parameters<typeof createAiActionBridge>[0]) {
 
 describe('createAiActionBridge', () => {
   it('answers not_ready at once while the app page is not listening (starting or reloading)', async () => {
-    const send = jest.fn();
+    const send = jest.fn((_reqId: number, _req: AiRpcRequest) => true);
     const bridge = createAiActionBridge({ send, timeoutMs: 1000 });
     await expect(bridge.request(req)).resolves.toMatchObject({ ok: false, code: 'not_ready' });
     bridge.setReady(true);
@@ -31,7 +32,7 @@ describe('createAiActionBridge', () => {
   afterEach(() => jest.useRealTimers());
 
   it('sends the request and resolves when resolve is called with its reqId', async () => {
-    const send = jest.fn();
+    const send = jest.fn((_reqId: number, _req: AiRpcRequest) => true);
     const bridge = readyBridge({ send, timeoutMs: 1000 });
     const p = bridge.request(req);
     expect(send).toHaveBeenCalledWith(expect.any(Number), req);
@@ -41,7 +42,7 @@ describe('createAiActionBridge', () => {
   });
 
   it('gives each request its own reqId', () => {
-    const send = jest.fn();
+    const send = jest.fn((_reqId: number, _req: AiRpcRequest) => true);
     const bridge = readyBridge({ send, timeoutMs: 1000 });
     bridge.request(req);
     bridge.request(req);
@@ -49,14 +50,14 @@ describe('createAiActionBridge', () => {
   });
 
   it('returns timeout after timeoutMs', async () => {
-    const bridge = readyBridge({ send: jest.fn(), timeoutMs: 1000 });
+    const bridge = readyBridge({ send: () => true, timeoutMs: 1000 });
     const p = bridge.request(req);
     jest.advanceTimersByTime(1000);
     await expect(p).resolves.toMatchObject({ ok: false, code: 'timeout' });
   });
 
   it('ignores resolve for an unknown or already timed-out reqId', async () => {
-    const send = jest.fn();
+    const send = jest.fn((_reqId: number, _req: AiRpcRequest) => true);
     const bridge = readyBridge({ send, timeoutMs: 1000 });
     const p = bridge.request(req);
     jest.advanceTimersByTime(1000);
@@ -66,7 +67,7 @@ describe('createAiActionBridge', () => {
   });
 
   it('ends a request whose caller went away, and aborts its confirm box', async () => {
-    const send = jest.fn();
+    const send = jest.fn((_reqId: number, _req: AiRpcRequest) => true);
     const bridge = readyBridge({ send, timeoutMs: 1000 });
     const caller = new AbortController();
     const p = bridge.request(req, caller.signal);
@@ -79,11 +80,53 @@ describe('createAiActionBridge', () => {
   });
 
   it('aborts the confirm box when the request times out', async () => {
-    const send = jest.fn();
+    const send = jest.fn((_reqId: number, _req: AiRpcRequest) => true);
     const bridge = readyBridge({ send, timeoutMs: 1000 });
     bridge.request(req);
     const confirmSignal = bridge.signalFor(send.mock.calls[0][0]);
     jest.advanceTimersByTime(1000);
     expect(confirmSignal?.aborted).toBe(true);
+  });
+
+  it('ends pending requests at once with failed (an action may have run), and aborts their confirm boxes, when the page goes away', async () => {
+    const send = jest.fn((_reqId: number, _req: AiRpcRequest) => true);
+    const bridge = readyBridge({ send, timeoutMs: 1000 });
+    const p1 = bridge.request(req);
+    const p2 = bridge.request(req);
+    const confirmSignal = bridge.signalFor(send.mock.calls[0][0]);
+    bridge.setReady(false);
+    await expect(p1).resolves.toMatchObject({ ok: false, code: 'failed' });
+    await expect(p2).resolves.toMatchObject({ ok: false, code: 'failed' });
+    expect(confirmSignal?.aborted).toBe(true);
+  });
+
+  it('answers not_ready at once when there is no app page to send to', async () => {
+    const send = jest.fn((_reqId: number, _req: AiRpcRequest) => false);
+    const bridge = readyBridge({ send, timeoutMs: 1000 });
+    const p = bridge.request(req);
+    const confirmSignal = bridge.signalFor(send.mock.calls[0][0]);
+    await expect(p).resolves.toMatchObject({ ok: false, code: 'not_ready' });
+    expect(confirmSignal).toBeUndefined();
+  });
+});
+
+describe('closeAiWhenAppPageGoes', () => {
+  function setup() {
+    const appWebContents = new EventEmitter();
+    const bridge = { setReady: jest.fn() };
+    closeAiWhenAppPageGoes(appWebContents, bridge);
+    return { appWebContents, bridge };
+  }
+
+  it.each(['did-navigate', 'render-process-gone'])('closes AI control on %s (the page that said ai-ready is gone)', event => {
+    const { appWebContents, bridge } = setup();
+    appWebContents.emit(event);
+    expect(bridge.setReady).toHaveBeenCalledWith(false);
+  });
+
+  it.each(['did-start-loading', 'did-start-navigation', 'did-navigate-in-page'])('keeps AI control open on %s (the page may stay)', event => {
+    const { appWebContents, bridge } = setup();
+    appWebContents.emit(event);
+    expect(bridge.setReady).not.toHaveBeenCalled();
   });
 });
