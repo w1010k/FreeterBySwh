@@ -7,7 +7,7 @@ import { AppStore } from '@/application/interfaces/store';
 import { asRecord, okNull } from '@/application/useCases/ai/actions/inputs';
 import { AiAction } from '@/base/ai/aiAction';
 import { AppConfig } from '@/base/appConfig';
-import { uiThemes } from '@/base/uiTheme';
+import { uiThemeSettings } from '@/base/uiTheme';
 import { workflowBarMaxWidth, workflowBarMinWidth } from '@/application/useCases/applicationSettings/setWorkflowBarWidth';
 
 type Deps = {
@@ -22,7 +22,7 @@ type Deps = {
 const isString = (v: unknown) => typeof v === 'string';
 const oneOf = (values: readonly string[]) => (v: unknown) => typeof v === 'string' && values.includes(v);
 const editable = {
-  uiTheme: (v: unknown) => uiThemes.some(t => t.id === v),
+  uiTheme: (v: unknown) => uiThemeSettings.some(t => t.id === v),
   bgColor: isString,
   bgImage: isString,
   bgImageMode: oneOf(['cover', 'contain', 'center', 'tile']),
@@ -52,7 +52,7 @@ export function createSettingsAiActions({ appStore }: Deps): AiAction[] {
 
   const updateSettings: AiAction<EditableSettings> = {
     id: 'app.updateSettings',
-    description: 'Change app settings. Keys: uiTheme (dark|light), bgColor, bgImage (file path), bgImageMode (cover|contain|center|tile), '
+    description: 'Change app settings. Keys: uiTheme (system, light, dark or a named theme), bgColor, bgImage (file path), bgImageMode (cover|contain|center|tile), '
       + `bgOpacity (0-100), workflowBarPos (top|bottom|left|right), workflowBarWidth (${workflowBarMinWidth}-${workflowBarMaxWidth} px), downloadDir (folder path).`,
     kind: 'write',
     // Downloads save there without asking: a startup folder would run what a page serves.
@@ -60,7 +60,7 @@ export function createSettingsAiActions({ appStore }: Deps): AiAction[] {
     inputSchema: {
       type: 'object',
       properties: {
-        uiTheme: { enum: uiThemes.map(t => t.id) },
+        uiTheme: { enum: uiThemeSettings.map(t => t.id) },
         bgColor: { type: 'string' },
         bgImage: { type: 'string' },
         bgImageMode: { enum: ['cover', 'contain', 'center', 'tile'] },

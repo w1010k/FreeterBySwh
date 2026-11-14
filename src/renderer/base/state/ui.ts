@@ -12,7 +12,7 @@ import {List} from '@/base/list';
 import {MemSaverWorkflowList} from '@/base/memSaver';
 import {Project} from '@/base/project';
 import {WidgetEntityDeps, WorkflowEntityDeps} from '@/base/state/entities';
-import {defaultUiThemeId} from '@/base/uiTheme';
+import {UiThemeKind, defaultUiThemeId} from '@/base/uiTheme';
 import {Widget, WidgetInEnv} from '@/base/widget';
 import {WidgetLayoutItemWH, WidgetLayoutItemXY} from '@/base/widgetLayout';
 import {WidgetList} from '@/base/widgetList';
@@ -232,6 +232,10 @@ export interface UiState {
    * widgetApi.setDynamicTitle. Not persisted and cleared on widget delete.
    */
   widgetDynamicTitles: Record<EntityId, string>;
+  /** The OS light/dark mode, for the 'system' Theme setting. Runtime only: init.ts reads it and follows its changes. */
+  systemThemeKind: UiThemeKind;
+  /** The top-level app menu names ('&File', ...) for the app's own menu bar (TitleBar). Runtime only: initAppMenu sets it. */
+  appMenuLabels: string[];
 }
 
 export function createUiState(): UiState {
@@ -317,6 +321,8 @@ export function createUiState(): UiState {
       widgetList: []
     },
     worktable: {},
-    widgetDynamicTitles: {}
+    widgetDynamicTitles: {},
+    systemThemeKind: 'light',
+    appMenuLabels: [],
   }
 }

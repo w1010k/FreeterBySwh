@@ -9,6 +9,8 @@ import {createGetTextFromAppDataStorageUseCase} from '@/application/useCases/app
 import {createSetTextInAppDataStorageUseCase} from '@/application/useCases/appDataStorage/setTextInAppDataStorage';
 import {createSetAppMenuUseCase} from '@/application/useCases/appMenu/setAppMenu';
 import {createSetAppMenuAutoHideUseCase} from '@/application/useCases/appMenu/setAppMenuAutoHide';
+import {createPopupAppMenuUseCase} from '@/application/useCases/appMenu/popupAppMenu';
+import {createSetTitleBarColorsUseCase} from '@/application/useCases/appMenu/setTitleBarColors';
 import {createGetWindowStateUseCase} from '@/application/useCases/browserWindow/getWindowState';
 import {createSetWindowStateUseCase} from '@/application/useCases/browserWindow/setWindowState';
 import {createShowBrowserWindowUseCase} from '@/application/useCases/browserWindow/showBrowserWindow';
@@ -576,6 +578,8 @@ if (!app.requestSingleInstanceLock()) {
     const appMenuProvider = createAppMenuProvider();
     const setAppMenuUseCase = createSetAppMenuUseCase({appMenuProvider});
     const setAppMenuAutoHideUseCase = createSetAppMenuAutoHideUseCase({appMenuProvider})
+    const popupAppMenuUseCase = createPopupAppMenuUseCase({appMenuProvider})
+    const setTitleBarColorsUseCase = createSetTitleBarColorsUseCase({appMenuProvider})
 
     const setMainShortcutUseCase = createSetMainShortcutUseCase({globalShortcutProvider});
 
@@ -623,7 +627,7 @@ if (!app.requestSingleInstanceLock()) {
         showOpenFileDialogUseCase,
         showSaveFileDialogUseCase
       }),
-      ...createAppMenuControllers({setAppMenuUseCase, setAppMenuAutoHideUseCase}),
+      ...createAppMenuControllers({setAppMenuUseCase, setAppMenuAutoHideUseCase, popupAppMenuUseCase, setTitleBarColorsUseCase}),
       ...createGlobalShortcutControllers({setMainShortcutUseCase}),
       ...createTrayMenuControllers({setTrayMenuUseCase}),
       ...createBrowserWindowControllers({showBrowserWindowUseCase}),

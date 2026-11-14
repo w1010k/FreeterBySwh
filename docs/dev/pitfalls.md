@@ -147,9 +147,32 @@
 - 출처: `[fork #82]`
 - 증상: 선택 셀 외곽선이 보이지 않았다. 빌드 오류와 경고는 없었다.
 - 원인: 테마에 없는 `var(--freeter-x)`가 들어간 선언은 통째로 무효가 된다. 테마 키는 `themes/{light,dark}.ts` 객체이고 런타임에 `--freeter-<key>`로 주입된다.
-- 규칙: 새 `var(--freeter-*)`는 두 테마 객체에 키가 있는지 확인한다. 폴백 형태 `var(--a, var(--b))`는 안전하다 (Calculator의 `buttonBorder`가 이 형태).
+- 규칙: 새 `var(--freeter-*)`는 두 테마 객체에 키가 있는지 확인한다. 새 키는 `named.ts`의 `createTheme`에도 넣어야 컴파일된다 (반환 타입이 `typeof darkTheme`). 폴백 형태 `var(--a, var(--b))`는 안전하다 (Calculator의 `buttonBorder`가 이 형태).
   `tests/renderer/widgets/theme.spec.ts`가 모든 위젯 SCSS에서 폴백 없는 `var(--freeter-*)`를 검사한다.
 - 근거: CHANGES #82, `src/renderer/ui/components/app/uiTheme/themes/light.ts`, `tests/renderer/widgets/theme.spec.ts`
+
+#### Window Controls Overlay 값에 기대지 않기
+
+- 출처: `[fork #110]`
+- 증상: 제목 표시줄을 `navigator.windowControlsOverlay.visible`과 `useSyncExternalStore`로 판단하고 앱 화면을 `top: env(titlebar-area-height)`로
+  내렸더니, 개발 앱에서 TitleBar가 그려지지 않았고 앱 화면의 top도 0이었다. 나중에 만든 요소의 `env()`는 30px였고 `visible`도 true였다.
+- 원인: 페이지가 처음 그려질 때 값이 준비되지 않았고, 그 뒤의 변경이 기존 스타일과 구독에 닿지 않았다 (추정, `geometrychange`를 직접 보내도
+  다시 그려지지 않았다).
+- 규칙: 앱 제목 표시줄의 유무는 main `infra/browserWindow/appTitleBar.ts`의 `hasAppTitleBar` 하나로 정하고 (renderer는 `ProcessInfo`로 받음), 높이는 `--app-title-bar-height` (TitleBar가 넣음)를
+  쓴다. 새 `position: fixed` 요소를 화면 위쪽에 둘 때도 이 변수만큼 내리고, 위치를 JS로 계산하면
+  `appTitleBarOffsetPx()`를 더한다 (셸프 위젯 상자).
+- 근거: `src/renderer/ui/components/titleBar/`, `src/main/infra/browserWindow/browserWindow.ts`, CHANGES #110
+
+#### 숨은 창에서 오지 않는 OS 테마 변경
+
+- 출처: `[fork #110]`
+- 증상: 개발 앱에서 `nativeTheme.themeSource`를 바꿔 OS 모드 변경을 흉내 냈더니 `matchMedia('(prefers-color-scheme: dark)').matches`는 바뀌었지만
+  `change` 이벤트가 오지 않아 System 테마가 그대로였다.
+- 원인: 창이 보이지 않았다 (`document.visibilityState === 'hidden'`, 화면 잠김). 렌더러가 프레임을 그리지 않으면 미디어 쿼리 변경 알림도 미뤄진다
+  (추정: Chromium이 렌더링 갱신 단계에서 알린다).
+- 규칙: 화면이 잠긴 상태에서 자동 확인을 할 때는 `--disable-features=CalculateNativeWinOcclusion`으로 띄운다 (`visibilityState`가 `visible`로 남고
+  이벤트가 온다). 확인 전에 `document.visibilityState`를 먼저 본다.
+- 근거: `src/renderer/init.ts`, CHANGES #110
 
 #### CSS 모듈의 특이성
 
@@ -187,7 +210,7 @@
 - 원인: 영속 상태는 `createPersistentAppState`가 런타임 상태에서 필드를 destructure로 빼서 만든다. 빼지 않은 `ui` 필드는 모두 저장된다.
 - 규칙: 런타임 전용 `ui` 필드를 추가하면 `createPersistentAppState`의 제외 목록에 넣고, `createUiState`와 테스트 fixture
   (`tests/renderer/base/state/fixtures/appState.ts`)에 기본값을 넣는다. 현재 제외 목록: `copy`, `dragDrop`, `editMode`, `palette`,
-  `memSaver`, `modalScreens`, `worktable`, `widgetDynamicTitles`, 위젯의 `exposedApi`.
+  `memSaver`, `modalScreens`, `worktable`, `widgetDynamicTitles`, `systemThemeKind`, `appMenuLabels`, 위젯의 `exposedApi`.
 - 근거: CHANGES #11, `src/renderer/base/state/app.ts` `createPersistentAppState`
 
 #### 영속 상태 병합의 깊이

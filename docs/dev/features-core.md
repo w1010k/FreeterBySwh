@@ -65,6 +65,8 @@
 | `entities.widgets` (`exposedApi` 필드 제외)                                                     | `ui.copy`, `ui.dragDrop`, `ui.editMode`, `ui.palette` |
 | `ui.appConfig`, `ui.apps`, `ui.menuBar`, `ui.topBar`                                            | `ui.memSaver`, `ui.modalScreens`, `ui.worktable`      |
 | `ui.editTogglePos`, `ui.projectSwitcher`, `ui.shelf`                                            | `ui.widgetDynamicTitles` [fork #11]                   |
+|                                                                                                 | `ui.systemThemeKind` (OS 밝음/어두움) [fork #110]     |
+|                                                                                                 | `ui.appMenuLabels` (메뉴 바 이름) [fork #110]         |
 
 - 로드 병합: `mergeAppStateWithPersistentAppState`. `ui.appConfig`, `ui.apps`, `ui.projectSwitcher`, `ui.shelf`는 한 단계만 펼쳐
   병합한다.
@@ -465,6 +467,7 @@
 | `toggleTopBar.ts`                               | `ui.topBar` (false)                                         | View → Appearance → Show/Hide Top Bar                           |
 | `projectSwitcher/setProjectSwitcherPosition.ts` | `ui.projectSwitcher.pos` (`ProjectSwitcherPos.TabBarRight`) | View → Appearance → Project Switcher Position                   |
 | `setEditTogglePosition.ts`                      | `ui.editTogglePos` (`EditTogglePos.TabBarRight`)            | View → Appearance → Edit Mode Toggle Position                   |
+| `uiTheme/toggleUiTheme.ts` [fork #110]          | `ui.appConfig.uiTheme`                                      | View → Appearance → Switch Light/Dark Theme (`CmdOrCtrl+Shift+L`) |
 
 - `ProjectSwitcherPos`와 `EditTogglePos` 값: `Hidden`, `TopBar`, `TabBarLeft`, `TabBarRight`.
 - 상단 바 팔레트는 편집 토글이 `TopBar` 또는 `Hidden`일 때 보인다 (`topBarViewModel.ts`).
@@ -481,6 +484,7 @@
 | `src/renderer/application/useCases/trayMenu/initTrayMenu.ts`                       | 프로젝트 목록 트레이 메뉴. 프로젝트 목록, 현재 프로젝트, 프로젝트 이름이 바뀌면 다시 만든다 |
 | `src/renderer/application/useCases/contextMenu/showContextMenu.ts`                 | 메뉴 항목 배열을 OS 컨텍스트 메뉴로 표시 |
 | `src/renderer/infra/appMenuProvider/`, `trayMenuProvider/`, `contextMenuProvider/` | IPC 래퍼 (공통 패턴의 메뉴 IPC 왕복)     |
+| `src/renderer/ui/components/titleBar/`                                             | 앱이 그리는 제목 표시줄과 메뉴 바 (Windows, Linux) [fork #110] |
 
 앱 메뉴 (Windows/Linux 기준. macOS는 첫 메뉴가 `Freeter-SWH` 앱 메뉴):
 
@@ -488,11 +492,18 @@
 |------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | File | Settings (`CmdOrCtrl+,`), Open Data Folder [fork #5], Back Up Data…, Restore Data… [fork #108], Quit                                                                                                                                                                              |
 | Edit | Enable/Disable Edit Mode (`CmdOrCtrl+E`), undo, redo, cut, copy, paste, selectAll                                                                                                                                                       |
-| View | Appearance (전체 화면, 메뉴 바, 상단 바, 프로젝트 전환기 위치, 편집 토글 위치), Next/Previous Workflow (`CmdOrCtrl+Tab`, `CmdOrCtrl+Shift+Tab`) [fork #6], Analytics (`CmdOrCtrl+Shift+A`) [fork #62 #87], Manage Projects, Manage Apps |
+| View | Appearance (전체 화면, 메뉴 바, 상단 바, 밝게/어둡게 전환 `CmdOrCtrl+Shift+L` [fork #110], 프로젝트 전환기 위치, 편집 토글 위치), Next/Previous Workflow (`CmdOrCtrl+Tab`, `CmdOrCtrl+Shift+Tab`) [fork #6], Analytics (`CmdOrCtrl+Shift+A`) [fork #62 #87], Manage Projects, Manage Apps |
 | Help | Original Freeter on Twitter·Community·Feature Requests·Bug Reports·Downloads, About Freeter-SWH [fork #1, #103]                                                                                                                                     |
 | Dev  | dev 모드 (`isDevMode`)에서만: reload, forceReload, toggleDevTools                                                                                                                                                                       |
 
 - 메뉴는 로딩이 끝난 뒤 `editMode`, `menuBar`, `topBar`, `projectSwitcher.pos`, `editTogglePos`가 바뀔 때마다 다시 만든다.
+- 메뉴 바 [fork #110]: Windows와 Linux는 OS 제목 표시줄이 없다 (main `titleBarStyle: 'hidden'`). `initAppMenu`가 메뉴 이름을
+  `ui.appMenuLabels` (런타임 전용)에 넣고, `TitleBar`가 그린다. 클릭, Alt+밑줄 글자, Alt 뒤 Enter/↓는 `popupAppMenuUseCase(순번, x, y)` →
+  IPC `popup-app-menu` → main `submenu.popup`. 창 버튼 색은 `setTitleBarColorsUseCase` → `set-title-bar-colors` → `setTitleBarOverlay`
+  (바탕 `topBarBackground`, 기호 `componentColor`). `menuBar`가 false면 메뉴 이름을 숨기고 포커스가 있을 때만 보인다. macOS는 TitleBar를 그리지
+  않는다 (`hasAppTitleBar`). 앱 화면, 전체 화면 모달, 셸프 위젯 상자는 `--app-title-bar-height`만큼 내린다. Alt+글자는 bubble 단계에서
+  `defaultPrevented`가 아닐 때만 받고 `e.code`로 맞춘다. Alt 단독 판단은 capture 단계 keydown, mousedown으로 지운다. 플랫폼 판단은
+  `ProcessInfo.hasAppTitleBar` (main `infra/browserWindow/appTitleBar.ts`). 창 제목은 `ProcessInfo.appName` (main `app.getName()`).
 - Help의 외부 링크와 Downloads (`https://freeter.io/v2/download`)는 upstream 주소 그대로라서, 이름에 "Original Freeter"를 붙인다 (이전 "Check for updates"는 이 포크의 업데이트를 확인하는 것처럼 읽혔다) [fork #103].
 - 트레이 메뉴: 프로젝트마다 항목 하나 (현재 프로젝트는 radio). 클릭 → `showBrowserWindowUseCase()` → `switchProjectUseCase(id)`.
 
@@ -532,7 +543,7 @@
 | 필드                                             | 기본값                       | 소비처                        | 출처                    |
 |--------------------------------------------------|------------------------------|-------------------------------|-------------------------|
 | `mainHotkey`                                     | `'CmdOrCtrl+Shift+Space'`    | `initMainShortcutUseCase`     | upstream, fork #20 변경 |
-| `uiTheme`                                        | `'light'`                    | `UITheme`                     | upstream                |
+| `uiTheme`                                        | `'light'`                    | `UITheme`, Terminal           | upstream, fork #110 확장 |
 | `memSaver.workflowInactiveAfter`                 | `-1`                         | Memory Saver                  | upstream                |
 | `memSaver.activateWorkflowsOnProjectSwitch`      | `true`                       | Memory Saver                  | upstream                |
 | `downloadDir`                                    | `''` (OS 기본 Downloads)     | `initDownloadDirUseCase`      | fork #41                |
@@ -683,11 +694,17 @@
 
 출처: `[upstream, fork #43 변경]`
 
-- 테마 id: `dark`, `light` (기본 `light`) (`src/renderer/base/uiTheme.ts`, 알 수 없는 값은 `sanitizeUiThemeId`가 기본값으로 바꿈).
-- 값: `src/renderer/ui/components/app/uiTheme/themes/light.ts`, `dark.ts`의 객체. `UITheme` 컴포넌트가 키마다 `--freeter-<key>` CSS
-  변수를 `document.documentElement`에 쓴다.
+- 테마 id (`src/renderer/base/uiTheme.ts`): `light` (기본), `dark` [upstream]. `solarized-light`, `catppuccin-latte`, `one-dark`, `nord`,
+  `tokyo-night`, `dracula`, `catppuccin-mocha`, `solarized-dark` [fork #110]. 테마마다 `kind` (`light`/`dark`)와 전환 짝 `pair`가 있다.
+- 설정 값 `appConfig.uiTheme`은 테마 id나 `'system'` [fork #110]. `resolveUiThemeId(설정, ui.systemThemeKind)`가 보여 줄 테마를 정한다
+  (알 수 없는 값은 기본값). `appViewModel`과 공유 상태 `uiTheme` 슬라이스 (Terminal)가 이 함수를 같이 쓴다. 설정 목록은 `uiThemeSettings`.
+- `ui.systemThemeKind`: OS 밝음/어두움 (런타임 전용). `init.ts`가 `matchMedia('(prefers-color-scheme: dark)')`로 시작 값을 넣고 `change`를
+  따른다 (`setSystemThemeKindUseCase`). 전환 단축키는 `toggleUiThemeUseCase` (위 "편집 모드와 바 배치 토글" 표). webview 포커스에서는 페이지가
+  먼저 받고, 페이지가 처리하지 않은 키만 메뉴 단축키로 동작한다. 설정 화면이 열려 있으면 사본 (`modalScreens.data.applicationSettings.appConfig`)도 같이 바꾼다.
+- 값: `src/renderer/ui/components/app/uiTheme/themes/light.ts`, `dark.ts`의 객체, 새 테마는 `named.ts`의 `createTheme(팔레트)` [fork #110].
+  `UITheme` 컴포넌트가 키마다 `--freeter-<key>` CSS 변수를 `document.documentElement`에 쓴다.
 - 포크 변경: `widgetLayoutItemResizingOpacity` 0.5 → 0.8 [fork #43].
-- 글자색 키 `textSecondary`, `accentText`, `dangerText` [fork #103]: 두 테마 모두 배경 대비 4.5:1 이상인 불투명 색이다. `componentColor60`,
+- 글자색 키 `textSecondary`, `accentText`, `dangerText` [fork #103]: 모든 테마에서 배경 대비 4.5:1 이상인 불투명 색이다 (`contrast.spec.ts`). `componentColor60`,
   `primary60` 같은 알파 단계의 숫자는 hex 알파 (0x60 = 37.6%)라서 글자에 쓰면 3:1 아래로 떨어진다. 알파 단계는 채움과 선에만 쓴다.
   `inAppNoteColor`도 `textSecondary`와 같은 값이다.
 

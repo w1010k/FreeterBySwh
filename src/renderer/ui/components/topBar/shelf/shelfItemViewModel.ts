@@ -10,8 +10,9 @@ import { useElementRect } from '@/ui/hooks';
 import { useWindowSize } from '@/ui/hooks/useWindowSize';
 import { CSSProperties, DragEvent, MouseEvent, useCallback, useMemo } from 'react';
 import { shelfWidgetDefaultH, shelfWidgetDefaultW } from '@/application/useCases/shelf/setShelfItemSize';
+import { appTitleBarOffsetPx } from '@/ui/components/titleBar/titleBar';
 
-// The popup box is positioned `top: 46px` in shelf.module.scss (just below the
+// The popup box is positioned `top: 46px` (+ the app's title bar) in shelf.module.scss (just below the
 // top bar). Mirror it here so the box can be kept inside the window vertically.
 const shelfPopupTopPx = 46;
 
@@ -111,7 +112,7 @@ export function useShelfItemViewModel(props: ShelfItemProps) {
 
   const windowSize = useWindowSize();
   const itemWidgetElRectStyle = useMemo(() => {
-    const box = clampShelfPopupBox(itemElRect.xPx, wPx, hPx, windowSize.wPx, windowSize.hPx, shelfPopupTopPx);
+    const box = clampShelfPopupBox(itemElRect.xPx, wPx, hPx, windowSize.wPx, windowSize.hPx, shelfPopupTopPx + appTitleBarOffsetPx());
     return {
       left: box.leftPx + 'px',
       width: box.wPx + 'px',

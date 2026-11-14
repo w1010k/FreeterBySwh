@@ -54,7 +54,7 @@
 | `widgetComp`, `settingsEditorComp` | `{ type: 'react', Comp }`           | `ReactComponent` 타입                                                                                                                                   |
 | `createSettingsState`              | 부분 설정을 받아 완전한 설정 반환   | 생성 시 `{}`, 로드 시 저장값으로 호출. 타입 검증, 기본값, 마이그레이션 담당                                                                             |
 | `requiresApi`                      | 받을 `WidgetApi` 모듈 이름 목록     | 선언하지 않은 모듈은 `widgetApi`에 속성 자체가 없다 (`createWidgetApiFactory`가 `availableModules`만 조립)                                              |
-| `requiresState`                    | 받을 공유 상태 슬라이스             | `apps`(File Opener), `sharedDataKeys`(Note), `uiTheme`(Terminal: 앱의 light·dark) [fork #103]                                                                                                             |
+| `requiresState`                    | 받을 공유 상태 슬라이스             | `apps`(File Opener), `sharedDataKeys`(Note), `uiTheme`(Terminal: 보여 주는 앱 테마 id, `system`은 풀어서) [fork #103 #110]                                                                                                             |
 | `aiActions`                        | AI 에이전트가 쓸 위젯 작업          | `WidgetAiAction[]` (`src/renderer/base/ai/widgetAiAction.ts`). 아래 "AI 작업" 참조 [fork #99]                                                          |
 | `onDeleted`                        | 위젯이 지워진 뒤 호출               | `(widgetId) => void`. 화면 밖에서 도는 것 (셸, AI 대화)을 끝낸다. 위젯은 여러 경로로 지워지므로 `initWidgetDeleteHooks`가 store의 `entities.widgets`를 지켜보다 빠진 id마다 호출한다 [fork #100] |
 
@@ -519,7 +519,7 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor)은 `widget
 #### Terminal (`terminal`)
 
 - **색**: xterm은 앱 CSS 변수를 쓰지 않고 자기 색으로 그린다. 설정 `theme` (`dark` 기본, `light`, `app`; 잘못된 값은 `dark`)이 팔레트를 고르고, `app`이면
-  `requiresState: ['uiTheme']`로 받은 앱 테마를 따른다. `dark`가 기본인 이유: 이 설정 전의 위젯은 늘 어두웠다. `theme.ts`의 light·dark 팔레트를
+  `requiresState: ['uiTheme']`로 받은 앱 테마의 `kind` (light·dark)를 따른다 [fork #110]. `dark`가 기본인 이유: 이 설정 전의 위젯은 늘 어두웠다. `theme.ts`의 light·dark 팔레트를
   `term.options.theme`에 넣고, 테마가 바뀌면 바로 바꾼다. `minimumContrastRatio: 4.5`로 프로그램이 정한 배경 위의 글자도 읽힌다. 팔레트의 글자색도 기본 배경 대비 4.5:1 이상이다 (`tests/renderer/widgets/terminal/theme.spec.ts`) [fork #103].
 - **역할**: 위젯 안의 셸 [fork #100]. xterm.js로 그리고 (화면이 열린 다음 프레임에 `@xterm/addon-webgl`; 실패하거나 WebGL 컨텍스트를 잃으면 DOM 렌더러. 뷰가 닫힐 때 `WEBGL_lose_context`로 컨텍스트를 돌려준다: 애드온은 돌려주지 않고, Chromium은 몇 개만 두고 가장 오래된 것을 잃게 한다) main의 node-pty 셸과 `pty` 모듈로 주고받는다. 키 입력은 `pty.write`가 응답 없는 `send`로 보낸다.
 - **설정**: `shell` (빈 값은 플랫폼 기본: Windows는 PowerShell 7이 있으면 pwsh, 없으면 Windows PowerShell), `cwd` (빈 값은 사용자 홈, main `terminalHost`의 `defaultCwd`), `startCommand` (셸 시작 뒤 입력), `fontSize` (기본 13, 6~48, `clampFontSize`), `theme` (아래 **색**). `fontSize`와 `theme`은 바로 적용되고, 나머지는 Restart Shell 뒤 적용된다.

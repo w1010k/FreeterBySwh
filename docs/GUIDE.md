@@ -172,7 +172,7 @@ Markdown Editor, Pomodoro, Stopwatch, AI Chat, Spreadsheet는 제거되었습니
 |---|---|---|
 | **Calculator** | 버튼·키보드 입력 사칙연산 계산기 | 잠깐 계산할 때 |
 | **System Monitor** | 내 컴퓨터의 CPU (코어별 포함)·RAM·시스템 드라이브·Freeter 자체 사용량, 배터리, 가동 시간 실시간 표시 | 무거운 작업 중 자원을 곁눈질할 때 |
-| **Terminal** | 위젯 안에서 PowerShell 같은 셸 실행. 헤더의 +로 탭 (셸)을 더 열고 x로 닫음. + 옆 ▾로 PowerShell 7, 명령 프롬프트, Git Bash, WSL 등 이 PC에 있는 셸을 골라 탭을 엶. 출력의 링크는 Ctrl+클릭으로 엶. Ctrl+= / Ctrl+- / Ctrl+휠로 확대·축소, Ctrl+0으로 원래 크기 (설정의 Font Size). 색은 설정의 Theme (Dark, Light, 앱 테마를 따르는 Follow App; 기본 Dark). 그 안에서 Claude Code·Codex를 실행할 수 있음 (설정의 시작 명령에 `claude`를 넣으면 셸과 함께 시작) | 작업판 옆에서 명령을 치거나 AI 에이전트를 돌릴 때 |
+| **Terminal** | 위젯 안에서 PowerShell 같은 셸 실행. 헤더의 +로 탭 (셸)을 더 열고 x로 닫음. + 옆 ▾로 PowerShell 7, 명령 프롬프트, Git Bash, WSL 등 이 PC에 있는 셸을 골라 탭을 엶. 출력의 링크는 Ctrl+클릭으로 엶. Ctrl+= / Ctrl+- / Ctrl+휠로 확대·축소, Ctrl+0으로 원래 크기 (설정의 Font Size). 색은 설정의 Theme (Dark, Light, 앱 테마의 밝음/어두움을 따르는 Follow App; 기본 Dark). 그 안에서 Claude Code·Codex를 실행할 수 있음 (설정의 시작 명령에 `claude`를 넣으면 셸과 함께 시작) | 작업판 옆에서 명령을 치거나 AI 에이전트를 돌릴 때 |
 
 > 각 위젯의 포크 추가 기능(자동 아이콘, 동적 타이틀, 단축키 등)의 자세한 내역은 [`docs/CHANGES.md`](CHANGES.md)에 정리돼 있습니다.
 
@@ -189,6 +189,7 @@ Markdown Editor, Pomodoro, Stopwatch, AI Chat, Spreadsheet는 제거되었습니
 | 다음 워크플로우 | `Ctrl`+`Tab` | `Cmd`+`Tab` |
 | 이전 워크플로우 | `Ctrl`+`Shift`+`Tab` | `Cmd`+`Shift`+`Tab` |
 | 앱 설정 열기 | `Ctrl`+`,` | `Cmd`+`,` |
+| 밝은 테마 ↔ 어두운 테마 | `Ctrl`+`Shift`+`L` | `Cmd`+`Shift`+`L` |
 
 **Webpage 위젯**에 포커스가 있을 때(위젯별 동작):
 
@@ -206,6 +207,7 @@ Markdown Editor, Pomodoro, Stopwatch, AI Chat, Spreadsheet는 제거되었습니
 ### 꿀팁
 
 - **앱 설정(`Ctrl`/`Cmd`+`,`)에서 바꿀 수 있는 것**: 글로벌 단축키 조합, 워크플로우 바 위치(상/하/좌/우), 작업판 배경(색·이미지), Webpage 다운로드 폴더, 테마, 메모리 세이버 임계값.
+- **테마**: Light, Dark 말고도 Solarized, Catppuccin, One Dark, Nord, Tokyo Night, Dracula가 있습니다. **System**을 고르면 OS의 밝음/어두움 모드를 따릅니다. `Ctrl`/`Cmd`+`Shift`+`L`은 밝은 테마와 어두운 테마를 오가고 (Solarized Light ↔ Dark처럼 짝이 있으면 그 짝으로), 한 번 더 누르면 원래 테마로 돌아옵니다. Windows에서는 창 맨 위의 제목 표시줄과 메뉴 바도 테마 색을 따릅니다. 메뉴는 이름을 누르거나 `Alt`를 눌렀다 떼서 엽니다 (`Alt`+`F`는 File). 웹 페이지는 앱 테마와 상관없이 원래 모양대로 보입니다.
 - **셸프(탑 바)** 에는 프로젝트와 무관하게 늘 곁에 둘 위젯을 올리세요. 위젯을 복사해 탑 바의 "Paste Widget"에서 끌어다 놓습니다.
 - **Note 공유**: 한 노트를 여러 워크플로우에서 같이 보려면 Note 설정에서 공유 키를 만들어 다른 Note에도 같은 키를 지정하세요.
 - **To-Do List**는 설정 없이도 같은 프로젝트 안에서 자동으로 동기화됩니다.

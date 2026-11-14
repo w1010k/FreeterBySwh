@@ -18,6 +18,7 @@ import { OpenProjectManagerUseCase } from '@/application/useCases/projectManager
 import { OpenAppManagerUseCase } from '@/application/useCases/appManager/openAppManager';
 import { EditTogglePos, ProjectSwitcherPos } from '@/base/state/ui';
 import { ToggleTopBarUseCase } from '@/application/useCases/toggleTopBar';
+import { ToggleUiThemeUseCase } from '@/application/useCases/uiTheme/toggleUiTheme';
 import { SetProjectSwitcherPositionUseCase } from '@/application/useCases/projectSwitcher/setProjectSwitcherPosition';
 import { SetEditTogglePositionUseCase } from '@/application/useCases/setEditTogglePosition';
 import { SwitchWorkflowByOffsetUseCase } from '@/application/useCases/workflowSwitcher/switchWorkflowByOffset';
@@ -39,6 +40,7 @@ type Deps = {
   toggleEditModeUseCase: ToggleEditModeUseCase;
   toggleMenuBarUseCase: ToggleMenuBarUseCase;
   toggleTopBarUseCase: ToggleTopBarUseCase;
+  toggleUiThemeUseCase: ToggleUiThemeUseCase;
   setProjectSwitcherPositionUseCase: SetProjectSwitcherPositionUseCase;
   setEditTogglePositionUseCase: SetEditTogglePositionUseCase;
   openApplicationSettingsUseCase: OpenApplicationSettingsUseCase;
@@ -60,6 +62,7 @@ export function createInitAppMenuUseCase({
   toggleEditModeUseCase,
   toggleMenuBarUseCase,
   toggleTopBarUseCase,
+  toggleUiThemeUseCase,
   setProjectSwitcherPositionUseCase,
   setEditTogglePositionUseCase,
   openApplicationSettingsUseCase,
@@ -195,6 +198,11 @@ export function createInitAppMenuUseCase({
           {
             label: topBar ? 'Hide Top Bar' : 'Show Top Bar',
             doAction: async () => toggleTopBarUseCase()
+          },
+          {
+            accelerator: 'CmdOrCtrl+Shift+L',
+            label: 'Switch Light/Dark Theme',
+            doAction: async () => toggleUiThemeUseCase()
           },
           itemSeparator,
           {
@@ -361,7 +369,7 @@ export function createInitAppMenuUseCase({
       editTogglePos
     }) => {
       if (!isLoading) {
-        appMenu.setMenu([
+        const menus = [
           (isMac ? menuApp : menuFile),
           createMenuEdit(editMode),
           createMenuView(menuBar, topBar, prjSwitcherPos, editTogglePos),
@@ -370,7 +378,14 @@ export function createInitAppMenuUseCase({
             ? [menuDev]
             : []
           )
-        ])
+        ];
+        appMenu.setMenu(menus);
+        // The app's own menu bar (TitleBar) shows these names and opens the menu by its index.
+        const labels = menus.map(m => m.label ?? '');
+        const state = appStore.get();
+        if (labels.join('\n') !== state.ui.appMenuLabels.join('\n')) {
+          appStore.set({ ...state, ui: { ...state.ui, appMenuLabels: labels } });
+        }
       }
     }, { fireImmediately: true });
   }

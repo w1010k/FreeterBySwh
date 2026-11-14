@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { ipcSetAppMenuAutoHideChannel, ipcSetAppMenuChannel } from '@common/ipc/channels';
+import { ipcPopupAppMenuChannel, ipcSetAppMenuAutoHideChannel, ipcSetAppMenuChannel, ipcSetTitleBarColorsChannel } from '@common/ipc/channels';
 import { createAppMenuControllers } from '@/controllers/appMenu';
 import { fixtureIpcMainEvent } from '@tests/infra/mocks/ipcMain';
 import { MenuItemsIpc } from '@common/base/menu';
@@ -14,20 +14,30 @@ import { BrowserWindow } from '@/application/interfaces/browserWindow';
 function setup() {
   const setAppMenuUseCase = jest.fn(async () => undefined);
   const setAppMenuAutoHideUseCase = jest.fn(async () => undefined);
+  const popupAppMenuUseCase = jest.fn(async () => undefined);
+  const setTitleBarColorsUseCase = jest.fn(async () => undefined);
 
   const [
     setAppMenuController,
     setAppMenuAutoHideController,
+    popupAppMenuController,
+    setTitleBarColorsController,
   ] = createAppMenuControllers({
     setAppMenuUseCase,
-    setAppMenuAutoHideUseCase
+    setAppMenuAutoHideUseCase,
+    popupAppMenuUseCase,
+    setTitleBarColorsUseCase,
   })
 
   return {
     setAppMenuUseCase,
     setAppMenuAutoHideUseCase,
+    popupAppMenuUseCase,
+    setTitleBarColorsUseCase,
     setAppMenuController,
     setAppMenuAutoHideController,
+    popupAppMenuController,
+    setTitleBarColorsController,
   }
 }
 
@@ -80,6 +90,22 @@ describe('AppMenuControllers', () => {
       handle(event, false);
 
       expect(setAppMenuAutoHideUseCase).toHaveBeenNthCalledWith(2, false, win);
+    });
+  })
+
+  describe('PopupAppMenuController and SetTitleBarColorsController', () => {
+    it('pass the arguments and the sender window to their use cases', async () => {
+      const win = { 'test': 'obj' } as unknown as BrowserWindow;
+      const { popupAppMenuController, popupAppMenuUseCase, setTitleBarColorsController, setTitleBarColorsUseCase } = setup();
+      const event = fixtureIpcMainEvent({ getSenderBrowserWindow: () => win });
+
+      expect(popupAppMenuController.channel).toBe(ipcPopupAppMenuChannel);
+      await popupAppMenuController.handle(event, 1, 10, 30);
+      expect(popupAppMenuUseCase).toHaveBeenCalledWith(1, 10, 30, win);
+
+      expect(setTitleBarColorsController.channel).toBe(ipcSetTitleBarColorsChannel);
+      await setTitleBarColorsController.handle(event, '#282A36', '#F8F8F2');
+      expect(setTitleBarColorsUseCase).toHaveBeenCalledWith('#282A36', '#F8F8F2', win);
     });
   })
 })

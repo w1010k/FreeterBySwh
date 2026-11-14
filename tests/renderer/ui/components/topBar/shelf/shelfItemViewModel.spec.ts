@@ -4,6 +4,17 @@
  */
 
 import { clampShelfPopupBox } from '@/ui/components/topBar/shelf/shelfItemViewModel';
+import { appTitleBarOffsetPx } from '@/ui/components/titleBar/titleBar';
+
+describe('appTitleBarOffsetPx', () => {
+  afterEach(() => document.documentElement.style.removeProperty('--app-title-bar-height'));
+
+  it('is the app title bar height, or 0 without it (macOS)', () => {
+    expect(appTitleBarOffsetPx()).toBe(0);
+    document.documentElement.style.setProperty('--app-title-bar-height', '30px');
+    expect(appTitleBarOffsetPx()).toBe(30);
+  });
+});
 
 describe('clampShelfPopupBox', () => {
   const topPx = 46;

@@ -3,7 +3,11 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { IpcClickAppMenuActionArgs, IpcSetAppMenuArgs, IpcSetAppMenuAutoHideArgs, IpcSetAppMenuAutoHideRes, IpcSetAppMenuRes, ipcClickAppMenuActionChannel, ipcSetAppMenuAutoHideChannel, ipcSetAppMenuChannel } from '@common/ipc/channels';
+import {
+  IpcClickAppMenuActionArgs, IpcPopupAppMenuArgs, IpcPopupAppMenuRes, IpcSetAppMenuArgs, IpcSetAppMenuAutoHideArgs, IpcSetAppMenuAutoHideRes, IpcSetAppMenuRes,
+  IpcSetTitleBarColorsArgs, IpcSetTitleBarColorsRes, ipcClickAppMenuActionChannel, ipcPopupAppMenuChannel, ipcSetAppMenuAutoHideChannel, ipcSetAppMenuChannel,
+  ipcSetTitleBarColorsChannel
+} from '@common/ipc/channels';
 import { AppMenuProvider } from '@/application/interfaces/appMenuProvider';
 import { electronIpcRenderer } from '@/infra/mainApi/mainApi';
 import { prepareMenuItemsForIpc } from '@/infra/ipc/prepareMenuItemsForIpc';
@@ -33,6 +37,12 @@ export function createAppMenuProvider({ clickAppMenuItemUseCase }: Deps): AppMen
         ipcSetAppMenuAutoHideChannel,
         autoHide
       )
+    },
+    popup: async (index, x, y) => {
+      await electronIpcRenderer.invoke<IpcPopupAppMenuArgs, IpcPopupAppMenuRes>(ipcPopupAppMenuChannel, index, x, y);
+    },
+    setTitleBarColors: async (color, symbolColor) => {
+      await electronIpcRenderer.invoke<IpcSetTitleBarColorsArgs, IpcSetTitleBarColorsRes>(ipcSetTitleBarColorsChannel, color, symbolColor);
     }
   }
 }

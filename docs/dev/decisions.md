@@ -171,6 +171,34 @@
 - 이유: 단일 탭 브라우저처럼 쓰려는 사용자에게 매번 뜨는 팝업 창이 번거로웠다.
 - 근거: CHANGES #3
 
+#### D83. 제목 표시줄과 메뉴 바는 앱이 그리고, 메뉴 목록은 OS가 연다
+
+- 상태: 유효
+- 출처: `[fork #110]`
+- 결정: Windows와 Linux는 OS 제목 표시줄을 숨기고 (`titleBarStyle: 'hidden'`), 앱이 테마 색으로 제목 표시줄과 메뉴 이름을 그린다. 창 버튼은 OS가
+  그리고 (`titleBarOverlay`), 메뉴 목록은 main이 기존 앱 메뉴의 하위 메뉴를 `popup`으로 연다. macOS는 그대로 둔다.
+- 이유: 사용자가 테마를 바꾸면 메뉴 바와 창 제목 표시줄도 같이 바뀌기를 원했다 (2026-11-14). 웹 페이지는 앱 테마를 따르면 안 되고, 테마 고유색을 원했다.
+- 버린 대안: `nativeTheme.themeSource`를 테마 종류로 바꾸기 (Webpage 위젯의 `prefers-color-scheme`까지 바뀐다, 색도 OS 기본 밝음/어두움뿐),
+  webview마다 OS 모드를 강제로 보여 주기 (`webContents.debugger`, 강제 중에는 OS 모드를 읽을 수 없다), 메뉴 목록까지 HTML로 다시 만들기 (키보드,
+  하위 메뉴, 체크 표시, 접근성을 다시 만들어야 한다).
+- 밝게/어둡게 단축키 (`CmdOrCtrl+Shift+L`)는 webview 포커스에서 가로채지 않는다: 웹 페이지 (Google Docs 왼쪽 정렬 등)가 먼저 받고, 처리하지 않은 키만 메뉴로 간다.
+- 한계: 열린 메뉴 목록은 OS 모양이다. 메뉴가 열린 동안 옆 메뉴로 마우스나 ←/→로 옮겨 가지 않는다. 창 끌기와 스냅은 개발 앱에서 화면이 잠겨 확인하지 못했다.
+- 근거: `src/renderer/ui/components/titleBar/titleBar.tsx`, `src/main/infra/appMenuProvider/appMenuProvider.ts`, CHANGES #110
+
+#### D82. 새 테마는 팔레트에서 만들고, System은 Light와 Dark만 쓴다
+
+- 상태: 유효
+- 출처: `[fork #110]`
+- 결정: 새 테마 8개는 14색 팔레트를 `createTheme`이 테마 키 전체로 펼친다. Light, Dark는 기존 파일을 그대로 둔다. System 설정은 OS 모드에 따라 Light나
+  Dark를 쓴다. 전환 단축키는 짝이 있으면 짝으로, 없으면 Light나 Dark로 가고, 다시 누르면 원래 설정으로 돌아온다.
+- 이유: 사용자가 다른 Markdown 편집기의 테마 기능 (테마 목록, 시스템 설정, Ctrl+Shift+L 전환)을 Freeter에도 원했다 (2026-11-14). 테마마다
+  129개 키를 손으로 쓰면 1,500줄이 넘고 키가 늘 때마다 10곳을 고쳐야 한다.
+- 버린 대안: 테마마다 전체 파일 (위 이유), Light·Dark도 팔레트로 다시 만들기 (손으로 맞춘 값과 #103의 대비 조정이 바뀐다), System이 고를 밝은/어두운
+  테마를 사용자가 정하기 (요청 범위 밖, 필요해지면 설정 2개 추가), Terminal에 테마별 팔레트 (ANSI 색 대비를 테마마다 다시 맞춰야 한다).
+- 한계: 원본 색 일부는 대비 기준을 넘도록 조정했다 (CHANGES #110). 전환 기억은 메모리에만 있어 재시작하면 사라진다. 다른 경로로 테마가 바뀌면
+  기억을 지운다. 기억 없이 짝과 Light/Dark만 오가는 방식도 검토했지만, 원래 테마로 돌아오는 동작을 지키려고 택하지 않았다.
+- 근거: `src/renderer/base/uiTheme.ts`, `src/renderer/ui/components/app/uiTheme/themes/named.ts`, `src/renderer/application/useCases/uiTheme/toggleUiTheme.ts`, CHANGES #110
+
 #### D81. 열지 않은 새 창은 알리고, 앱 링크는 사용자 클릭으로만 연다
 
 - 상태: 유효

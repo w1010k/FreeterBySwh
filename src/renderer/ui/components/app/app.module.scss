@@ -7,7 +7,8 @@
   display: flex;
   flex-direction: column;
   position: fixed;
-  top: 0;
+  // Under the app's title bar (TitleBar; 0 where the OS draws the title bar).
+  top: var(--app-title-bar-height, 0px);
   right: 0;
   bottom: 0;
   left: 0;

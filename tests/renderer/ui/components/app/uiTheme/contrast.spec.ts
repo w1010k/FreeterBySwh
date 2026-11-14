@@ -26,10 +26,12 @@ const pairs: Array<[keyof typeof uiThemes.light, Array<keyof typeof uiThemes.lig
   ['inAppNoteColor', ['componentBackground'], 4.5],
   ['inputBorder', ['inputBackground', 'componentBackground', 'widgetBackground', 'modalScreenBackground'], 3],
   ['aboutScreenRightLinkColor', ['aboutScreenRightBackground'], 4.5],
+  ['componentColor', ['componentBackground', 'widgetBackground', 'inputBackground', 'worktableBackground'], 4.5],
+  ['buttonPrimaryColor', ['buttonPrimaryBackground'], 4.5],
 ];
 
 describe('UI theme contrast', () => {
-  it.each(['light', 'dark'] as const)('%s theme keeps text at 4.5:1 and control edges at 3:1', (id) => {
+  it.each(Object.keys(uiThemes) as Array<keyof typeof uiThemes>)('%s theme keeps text at 4.5:1 and control edges at 3:1', (id) => {
     const theme = uiThemes[id] as Record<string, string>;
     const failing = pairs.flatMap(([fg, bgs, min]) => bgs
       .map(bg => ({ fg, bg, ratio: contrast(theme[fg], theme[bg]) }))

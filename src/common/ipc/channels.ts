@@ -189,6 +189,16 @@ export const ipcSetAppMenuAutoHideChannel = makeIpcChannelName('set-app-menu-aut
 export type IpcSetAppMenuAutoHideArgs = [autoHide: boolean];
 export type IpcSetAppMenuAutoHideRes = void;
 
+/** The app's own menu bar (Windows, Linux): opens a top-level menu of the app menu at x, y. Resolves when it closes. */
+export const ipcPopupAppMenuChannel = makeIpcChannelName('popup-app-menu');
+export type IpcPopupAppMenuArgs = [index: number, x: number, y: number];
+export type IpcPopupAppMenuRes = void;
+
+/** The colors of the window buttons (minimize, maximize, close) that the OS draws over the app's title bar. */
+export const ipcSetTitleBarColorsChannel = makeIpcChannelName('set-title-bar-colors');
+export type IpcSetTitleBarColorsArgs = [color: string, symbolColor: string];
+export type IpcSetTitleBarColorsRes = void;
+
 export const ipcClickAppMenuActionChannel = makeIpcChannelName('click-app-menu-action');
 export type IpcClickAppMenuActionArgs = [actionId: number];
 

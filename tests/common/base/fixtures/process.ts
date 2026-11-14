@@ -29,6 +29,8 @@ const processInfoOsWin: ProcessInfoOs = {
 const processInfoLinux: ProcessInfo = {
   browser: processInfoBrowser,
   isDevMode: false,
+  appName: 'Freeter-SWH',
+  hasAppTitleBar: true,
   isLinux: true,
   isMac: false,
   isWin: false,
@@ -38,6 +40,8 @@ const processInfoLinux: ProcessInfo = {
 const processInfoMac: ProcessInfo = {
   browser: processInfoBrowser,
   isDevMode: false,
+  appName: 'Freeter-SWH',
+  hasAppTitleBar: true,
   isLinux: false,
   isMac: true,
   isWin: false,
@@ -47,6 +51,8 @@ const processInfoMac: ProcessInfo = {
 const processInfoWin: ProcessInfo = {
   browser: processInfoBrowser,
   isDevMode: false,
+  appName: 'Freeter-SWH',
+  hasAppTitleBar: true,
   isLinux: false,
   isMac: false,
   isWin: true,

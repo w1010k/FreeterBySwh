@@ -41,10 +41,14 @@ import { createSaveWidgetSettingsUseCase } from '@/application/useCases/widgetSe
 import { createWidgetByIdComponent } from '@/ui/components/widget/widgetById';
 import { createWidgetByIdViewModelHook } from '@/ui/components/widget/widgetByIdViewModel';
 import { createEditModeToggleComponent, createEditModeToggleViewModelHook } from '@/ui/components/editModeToggle';
+import { createTitleBarComponent, createTitleBarViewModelHook } from '@/ui/components/titleBar';
+import { createPopupAppMenuUseCase } from '@/application/useCases/appMenu/popupAppMenu';
+import { createSetTitleBarColorsUseCase } from '@/application/useCases/appMenu/setTitleBarColors';
 import { createToggleEditModeUseCase } from '@/application/useCases/toggleEditMode';
 import { createToggleMenuBarUseCase } from '@/application/useCases/toggleMenuBar';
 import { createAppStore } from '@/data/appStore';
 import { createAppState } from '@/base/state/app';
+import { UiThemeKind } from '@/base/uiTheme';
 import { entityStateActions } from '@/base/state/actions';
 import { createAppStateHook } from '@/ui/hooks/appState';
 import { createAppStateStorage } from '@/data/appStateStorage';
@@ -160,6 +164,8 @@ import { createShowOpenFileDialogUseCase } from '@/application/useCases/dialog/s
 import { createInitMemSaverUseCase } from '@/application/useCases/memSaver/initMemSaver';
 import { createDeactivateWorkflowUseCase } from '@/application/useCases/memSaver/deactivateWorkflow';
 import { createToggleTopBarUseCase } from '@/application/useCases/toggleTopBar';
+import { createToggleUiThemeUseCase } from '@/application/useCases/uiTheme/toggleUiTheme';
+import { createSetSystemThemeKindUseCase } from '@/application/useCases/uiTheme/setSystemThemeKind';
 import { createSetProjectSwitcherPositionUseCase } from '@/application/useCases/projectSwitcher/setProjectSwitcherPosition';
 import { createSetEditTogglePositionUseCase } from '@/application/useCases/setEditTogglePosition';
 import { createGetWidgetsInCurrentWorkflowUseCase } from '@/application/useCases/widget/widgetApiWidgets/getWidgetsInCurrentWorkflow';
@@ -220,10 +226,16 @@ function prepareDataStorageForRenderer(dataStorage: DataStorage) {
   return withJson(storage);
 }
 
+// Follows the OS light/dark mode (Electron's nativeTheme, 'system' by default) for the 'system' Theme setting.
+const darkSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+const osThemeKind = (dark: boolean): UiThemeKind => (dark ? 'dark' : 'light');
+
 function createStore() {
   const { promise: appStoreReady, resolve } = Promise.withResolvers<boolean>();
 
   const firstRunState = createAppState();
+  // The OS light/dark mode at start, so the 'system' Theme setting shows the right theme from the first paint.
+  firstRunState.ui.systemThemeKind = osThemeKind(darkSchemeQuery.matches);
 
   const appState = entityStateActions.widgetTypes.setAll(firstRunState, registry.getWidgetTypes());
   const dataStorage = setTextOnlyIfChanged(createAppDataStorage());
@@ -316,6 +328,8 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
   const toggleEditModeUseCase = createToggleEditModeUseCase(deps);
   const toggleMenuBarUseCase = createToggleMenuBarUseCase(deps);
   const toggleTopBarUseCase = createToggleTopBarUseCase(deps);
+  const toggleUiThemeUseCase = createToggleUiThemeUseCase(deps);
+  const setSystemThemeKindUseCase = createSetSystemThemeKindUseCase(deps);
   const setProjectSwitcherPositionUseCase = createSetProjectSwitcherPositionUseCase(deps);
   const setEditTogglePositionUseCase = createSetEditTogglePositionUseCase(deps);
 
@@ -498,6 +512,11 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
   const appMenuProvider = createAppMenuProvider({
     clickAppMenuItemUseCase
   });
+  const popupAppMenuUseCase = createPopupAppMenuUseCase({ appMenu: appMenuProvider });
+  // Main decides (main infra/browserWindow/appTitleBar.ts): the app draws its own title bar (TitleBar).
+  const { hasAppTitleBar } = processProvider.getProcessInfo();
+  const windowTitle = processProvider.getProcessInfo().appName;
+  const setTitleBarColorsUseCase = createSetTitleBarColorsUseCase({ appMenu: appMenuProvider });
   const initAppMenuUseCase = createInitAppMenuUseCase({
     ...deps,
     appMenu: appMenuProvider,
@@ -508,6 +527,7 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     toggleEditModeUseCase,
     toggleMenuBarUseCase,
     toggleTopBarUseCase,
+    toggleUiThemeUseCase,
     setProjectSwitcherPositionUseCase,
     setEditTogglePositionUseCase,
     openApplicationSettingsUseCase,
@@ -696,6 +716,11 @@ async function createUseCases(store: ReturnType<typeof createStore>) {
     initTrayMenuUseCase,
     initMainShortcutUseCase,
     initDownloadDirUseCase,
+    setSystemThemeKindUseCase,
+    popupAppMenuUseCase,
+    setTitleBarColorsUseCase,
+    hasAppTitleBar,
+    windowTitle,
 
     getMainHotkeyOptionsUseCase,
     openApplicationSettingsUseCase,
@@ -863,7 +888,13 @@ function createUI(stateHooks: ReturnType<typeof createUiHooks>, useCases: Awaite
     About,
   });
 
+  const useTitleBarViewModel = createTitleBarViewModelHook(deps);
+  const TitleBar = createTitleBarComponent({
+    useTitleBarViewModel
+  });
+
   const App = createAppComponent({
+    TitleBar,
     TopBar,
     WorkflowSwitcher,
     Worktable,
@@ -879,7 +910,7 @@ export async function init() {
 
   const {
     initAppMenuUseCase, initMainShortcutUseCase, initDownloadDirUseCase,
-    initTrayMenuUseCase, initMemSaverUseCase, switchWorkflowByOffsetUseCase
+    initTrayMenuUseCase, initMemSaverUseCase, switchWorkflowByOffsetUseCase, setSystemThemeKindUseCase
   } = useCases;
   const initWidgetDeleteHooksUseCase = createInitWidgetDeleteHooksUseCase({ appStore: store.appStore });
   store.appStoreReady.then(_ => {
@@ -889,6 +920,9 @@ export async function init() {
     initTrayMenuUseCase();
     initMemSaverUseCase();
     initWidgetDeleteHooksUseCase();
+    // After the load: the store ignores changes before it. The start value is set in createStore.
+    darkSchemeQuery.addEventListener('change', e => setSystemThemeKindUseCase(osThemeKind(e.matches)));
+    setSystemThemeKindUseCase(osThemeKind(darkSchemeQuery.matches));
     // Local usage telemetry (gated on user consent inside the collector).
     startTelemetry({ appStore: store.appStore, collector: useCases.telemetryCollector });
   })

@@ -22,4 +22,8 @@ export interface ProcessInfo {
   isMac: boolean;
   isLinux: boolean;
   isDevMode: boolean;
+  /** The app name, also the window title: "Freeter-SWH", or "Freeter-SWH (dev)" in a run from the repo. */
+  appName: string;
+  /** The app draws the window's title bar and menu bar (Windows, Linux); main decides it (infra/browserWindow/appTitleBar.ts). */
+  hasAppTitleBar: boolean;
 }

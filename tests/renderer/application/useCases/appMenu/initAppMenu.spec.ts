@@ -20,7 +20,9 @@ async function setup(initState: AppState, opts?: {
   const [appStore] = await fixtureAppStore(initState);
   const appMenuProviderMock: AppMenuProvider = {
     setMenu: jest.fn(),
-    setAutoHide: jest.fn()
+    setAutoHide: jest.fn(),
+    popup: jest.fn(),
+    setTitleBarColors: jest.fn(),
   }
   const processProviderMock: ProcessProvider = {
     getProcessInfo: () => opts?.processInfo || fixtureProcessInfoLinux()
@@ -31,6 +33,7 @@ async function setup(initState: AppState, opts?: {
   const toggleEditModeUseCase = jest.fn();
   const toggleMenuBarUseCase = jest.fn();
   const toggleTopBarUseCase = jest.fn();
+  const toggleUiThemeUseCase = jest.fn();
   const setProjectSwitcherPositionUseCase = jest.fn();
   const setEditTogglePositionUseCase = jest.fn();
   const openApplicationSettingsUseCase = jest.fn();
@@ -51,6 +54,7 @@ async function setup(initState: AppState, opts?: {
     toggleEditModeUseCase,
     toggleMenuBarUseCase,
     toggleTopBarUseCase,
+    toggleUiThemeUseCase,
     setProjectSwitcherPositionUseCase,
     setEditTogglePositionUseCase,
     openApplicationSettingsUseCase,
@@ -68,6 +72,7 @@ async function setup(initState: AppState, opts?: {
     toggleEditModeUseCase,
     toggleMenuBarUseCase,
     toggleTopBarUseCase,
+    toggleUiThemeUseCase,
     setProjectSwitcherPositionUseCase,
     openAboutUseCase,
     appDataBackupProvider,
@@ -263,5 +268,25 @@ describe('initAppMenuUseCase()', () => {
     expect(flushAppData.mock.invocationCallOrder[0]).toBeLessThan(appDataBackupProvider.backUp.mock.invocationCallOrder[0]);
     await restore.doAction!();
     expect(appDataBackupProvider.restore).toHaveBeenCalledTimes(1);
+  });
+
+  it('puts the top-level menu names in the state, for the app\'s own menu bar', async () => {
+    const { initAppMenuUseCase, appStore } = await setup(fixtureAppState({}));
+    initAppMenuUseCase();
+
+    expect(appStore.get().ui.appMenuLabels).toEqual(['&File', '&Edit', '&View', '&Help']);
+  });
+
+  it('View > Appearance switches the light/dark theme with CmdOrCtrl+Shift+L', async () => {
+    const { initAppMenuUseCase, appMenuProviderMock, toggleUiThemeUseCase } = await setup(fixtureAppState({}));
+    initAppMenuUseCase();
+
+    const menus = (appMenuProviderMock.setMenu as jest.Mock).mock.calls[0][0] as MenuItem[];
+    const appearance = menus.find(m => m.label === '&View')!.submenu!.find(i => i.label === 'Appearance')!.submenu!;
+    const item = appearance.find(i => i.label === 'Switch Light/Dark Theme')!;
+    expect(item.accelerator).toBe('CmdOrCtrl+Shift+L');
+
+    await item.doAction!();
+    expect(toggleUiThemeUseCase).toHaveBeenCalledTimes(1);
   });
 })

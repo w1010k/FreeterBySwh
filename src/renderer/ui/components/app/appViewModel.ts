@@ -7,7 +7,7 @@ import { ShowContextMenuUseCase } from '@/application/useCases/contextMenu/showC
 import { SetWorkflowBarWidthUseCase } from '@/application/useCases/applicationSettings/setWorkflowBarWidth';
 import { contextMenuForTextInput } from '@/base/contextMenu';
 import { ModalScreenId } from '@/base/state/ui';
-import { sanitizeUiThemeId } from '@/base/uiTheme';
+import { resolveUiThemeId } from '@/base/uiTheme';
 import { UseAppState } from '@/ui/hooks/appState';
 import React, { ReactNode, createElement } from 'react';
 
@@ -40,6 +40,7 @@ export function createAppViewModelHook({
       projectIds,
       modalScreensOrder,
       uiTheme,
+      systemThemeKind,
       hasTopBar,
       workflowBarPos,
       workflowBarWidth
@@ -48,6 +49,7 @@ export function createAppViewModelHook({
       state.ui.projectSwitcher.projectIds,
       state.ui.modalScreens.order,
       state.ui.appConfig.uiTheme,
+      state.ui.systemThemeKind,
       state.ui.topBar,
       state.ui.appConfig.workflowBarPos,
       state.ui.appConfig.workflowBarWidth
@@ -86,7 +88,7 @@ export function createAppViewModelHook({
       }
     }
 
-    const uiThemeId = sanitizeUiThemeId(uiTheme);
+    const uiThemeId = resolveUiThemeId(uiTheme, systemThemeKind);
     return {
       hasProjects,
       modalScreens,

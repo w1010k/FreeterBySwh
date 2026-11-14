@@ -6,7 +6,8 @@
 .modal-screen {
   z-index: 1000;
   position: fixed;
-  top: 0;
+  // Under the app's title bar (TitleBar), so the window stays movable while a screen is open.
+  top: var(--app-title-bar-height, 0px);
   left: 0;
   right: 0;
   bottom: 0;

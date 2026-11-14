@@ -37,6 +37,7 @@ function ModalLayer({isTop, children}: React.PropsWithChildren<{isTop: boolean}>
 }
 
 type Deps = {
+  TitleBar: React.FC;
   TopBar: React.FC;
   WorkflowSwitcher: React.FC;
   Worktable: React.FC;
@@ -44,6 +45,7 @@ type Deps = {
 }
 
 export function createAppComponent({
+                                     TitleBar,
                                      TopBar,
                                      WorkflowSwitcher,
                                      Worktable,
@@ -109,6 +111,7 @@ export function createAppComponent({
     return (
       <div onContextMenu={contextMenuHandler}>
         <UITheme themeId={uiThemeId}/>
+        <TitleBar/>
         <div className={styles['main-screen']}
              data-testid="main-screen" {...{inert: hasModalScreens ? true : undefined}}>
           {hasTopBar && <TopBar/>}

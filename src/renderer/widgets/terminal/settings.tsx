@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import type { UiThemeId } from '@/base/uiTheme';
+import type { UiThemeKind } from '@/base/uiTheme';
 import { CreateSettingsState, ReactComponent, SettingsEditorReactComponentProps, SettingBlock } from '@/widgets/appModules';
 
 export interface Settings {
@@ -20,9 +20,9 @@ export interface Settings {
   theme: TerminalThemeSetting;
 }
 
-/** A fixed palette (a key of terminalThemes, the app theme ids) or 'app' (follow the app theme). */
-export type TerminalThemeSetting = UiThemeId | 'app';
-// A Record over the type: adding a theme id fails to compile until it has a name here.
+/** A fixed palette (a key of terminalThemes: light or dark) or 'app' (the app theme's kind). */
+export type TerminalThemeSetting = UiThemeKind | 'app';
+// A Record over the type: adding a palette fails to compile until it has a name here.
 const terminalThemeNames: Record<TerminalThemeSetting, string> = { dark: 'Dark', light: 'Light', app: 'Follow App' };
 export const terminalThemeSettings = Object.keys(terminalThemeNames) as TerminalThemeSetting[];
 // Dark: the terminal was always dark before it had this setting, so saved widgets keep that.

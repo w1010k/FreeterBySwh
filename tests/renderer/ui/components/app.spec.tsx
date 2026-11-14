@@ -57,6 +57,7 @@ async function setup(
   });
 
   const App = createAppComponent({
+    TitleBar: () => null,
     TopBar: mockTopBar,
     WorkflowSwitcher: mockWorkflowSwitcher,
     Worktable: mockWorktable,

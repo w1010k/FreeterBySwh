@@ -28,6 +28,9 @@ import {
   webContents
 } from 'electron';
 
+import { appTitleBarHeight } from '@common/base/titleBar';
+import { hasAppTitleBar } from '@/infra/browserWindow/appTitleBar';
+
 const minWidth = 1200;
 const minHeight = 600;
 
@@ -120,6 +123,12 @@ export function createRendererWindow(
     title: winTitle(),
     minWidth,
     minHeight,
+    // Windows, Linux: no OS title bar, so the app's title bar and menu bar take the theme colors (TitleBar component).
+    // The OS still draws the window buttons over it; the page sets their colors (set-title-bar-colors) once the theme
+    // is known. macOS keeps its title bar: the menu is at the top of the screen there.
+    ...(hasAppTitleBar
+      ? { titleBarStyle: 'hidden' as const, titleBarOverlay: { color: '#F8F8F8', symbolColor: '#000000', height: appTitleBarHeight } }
+      : {}),
     webPreferences: {
       // (SECURITY) Disable access to NodeJS in Renderer
       nodeIntegration: false,

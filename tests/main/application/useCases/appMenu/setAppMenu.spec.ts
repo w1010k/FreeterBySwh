@@ -12,7 +12,9 @@ import { fixtureMenuItemA } from '@testscommon/base/fixtures/menu';
 function setup() {
   const appMenuProviderMock: AppMenuProvider = {
     setMenu: jest.fn(async () => undefined),
-    setAutoHide: jest.fn(async () => undefined)
+    setAutoHide: jest.fn(async () => undefined),
+    popup: jest.fn(async () => undefined),
+    setTitleBarColors: jest.fn(),
   }
   const useCase = createSetAppMenuUseCase({
     appMenuProvider: appMenuProviderMock

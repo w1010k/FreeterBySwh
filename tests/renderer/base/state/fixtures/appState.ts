@@ -76,7 +76,9 @@ const appState: AppState = {
       widgetList: []
     },
     worktable: {},
-    widgetDynamicTitles: {}
+    widgetDynamicTitles: {},
+    systemThemeKind: 'light',
+    appMenuLabels: [],
   }
 };
 

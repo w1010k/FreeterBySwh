@@ -1,0 +1,71 @@
+/*
+ * Copyright: (c) 2024, Alex Kaul
+ * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+ */
+
+// The OS draws the window buttons over the right end (titleBarOverlay): the padding keeps the title clear of them.
+.title-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--app-title-bar-height);
+  padding-right: 140px;
+  display: flex;
+  align-items: center;
+  background-color: var(--freeter-topBarBackground);
+  color: var(--freeter-componentColor);
+  font-size: 13px;
+  user-select: none;
+  // Drags the window and double-click maximizes (the OS handles both); the menus opt out.
+  -webkit-app-region: drag;
+}
+
+.menu-bar {
+  display: flex;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+// The Hide Menu Bar setting: the names come back while the menu bar has focus (Alt, Alt+letter).
+.menu-bar.is-auto-hidden:not(:focus-within) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.menu {
+  height: 100%;
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: default;
+
+  &:hover, &:focus-visible, &.is-open {
+    background-color: var(--freeter-buttonHoverBackground);
+  }
+  &:focus-visible {
+    outline: 1px solid var(--freeter-outline);
+    outline-offset: -1px;
+  }
+}
+
+// The access key letter is underlined while the menu bar is in use, as in OS menu bars.
+.mnemonic {
+  text-decoration: none;
+}
+.menu-bar:focus-within .mnemonic {
+  text-decoration: underline;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  padding: 0 8px;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--freeter-textSecondary);
+}

@@ -541,6 +541,12 @@ describe('Terminal widget', () => {
     setupWidgetSut(widgetComp, settings({ theme: 'app' }), { mockWidgetApi: { pty }, sharedState: { uiTheme: { themeId: 'light' } }, widgetId: 'W2' });
     await waitFor(() => expect(terms).toHaveLength(2));
     expect(terms[1].options.theme).toBe(terminalThemes.light);
+
+    // A named theme: the palette of its kind.
+    resetTerminalSessions();
+    setupWidgetSut(widgetComp, settings({ theme: 'app' }), { mockWidgetApi: { pty }, sharedState: { uiTheme: { themeId: 'nord' } }, widgetId: 'W3' });
+    await waitFor(() => expect(terms).toHaveLength(3));
+    expect(terms[2].options.theme).toBe(terminalThemes.dark);
   });
 
   it('applies a Theme change to the open terminal at once (no restart)', async () => {

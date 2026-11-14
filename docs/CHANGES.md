@@ -4050,6 +4050,56 @@ Webpage 위젯 안 페이지가 새 창을 열려고 했는데 열리지 않으�
 - **수정**: `src/main/infra/browserWindow/browserWindow.ts`, `src/main/infra/permissions/permissionHandler.ts`, `src/main/index.ts`, `src/common/ipc/channels.ts`, `src/common/helpers/isAllowedExternalUrl.ts`, `src/renderer/init.ts`, `src/renderer/widgets/webpage/{widget.tsx,widget.module.scss}`
 - **테스트**: `tests/main/infra/browserWindow/windowOpenPolicy.spec.ts`, `tests/renderer/widgets/webpage/windowBlockedEvents.spec.ts` (신규), `tests/renderer/widgets/webpage/widget.spec.ts`, `tests/main/infra/permissions/permissionHandler.spec.ts`
 
+## 110. 테마 추가, 시스템 설정 따르기, 밝게/어둡게 전환 단축키, 테마 색 제목 표시줄 *(2026-11-14)*
+
+테마가 2개 (Light, Dark)에서 10개로 늘었다. 설정의 테마 목록에 **System**이 생겼고, `Ctrl`/`Cmd`+`Shift`+`L`로 밝은 테마와 어두운 테마를 오간다. Windows와 Linux에서는 창의 제목 표시줄과 메뉴 바도 테마 색으로 그린다.
+
+- **테마**: 밝은 테마는 Light, Solarized Light, Catppuccin Latte. 어두운 테마는 Dark, One Dark, Nord, Tokyo Night, Dracula, Catppuccin Mocha, Solarized Dark. 설정 > User Interface Theme에서 고른다. 기본값은 전처럼 Light이고, 저장된 설정은 바꾸지 않는다.
+- **System**: OS의 앱 모드 (Windows의 "앱 모드", macOS의 모양)에 맞춰 Light나 Dark를 쓴다. 실행 중에 OS 설정을 바꾸면 따라 바뀐다.
+- **전환 단축키** (View > Appearance > Switch Light/Dark Theme, `CmdOrCtrl+Shift+L`): 짝이 있는 테마는 짝으로 간다 (Solarized Light ↔ Dark, Catppuccin Latte ↔ Mocha). 짝이 없으면 Light나 Dark로 간다. 한 번 더 누르면 원래 설정으로 돌아온다 (One Dark → Light → One Dark, System → Light → System). 이 기억은 앱을 끄면 사라지고, 그 사이에 설정 화면이나 AI로 테마를 바꾸면 지워진다. 돌아갈 설정이 지금 화면과 같은 테마를 보여 주면 (System인데 그 사이 OS 모드가 바뀜) 돌아가지 않고 반대 종류로 간다. 설정 화면이 열려 있으면 그 화면의 값도 같이 바꿔서, OK를 눌러도 전환이 남는다. Webpage 위젯에 포커스가 있으면 페이지가 먼저 키를 받는다. 페이지가 이 키를 쓰면 (`preventDefault`, Google Docs의 왼쪽 정렬 등) 테마는 그대로이고, 쓰지 않으면 테마가 바뀐다.
+- **Terminal 위젯**: 설정 Theme의 Follow App은 앱 테마의 종류 (밝음, 어두움)에 맞는 Light나 Dark 팔레트를 쓴다. Terminal의 Theme 선택지는 전처럼 Dark, Light, Follow App이다.
+- **AI 작업** `app.updateSettings`의 `uiTheme`도 `system`과 새 테마 id를 받는다.
+- **제목 표시줄과 메뉴 바** (Windows, Linux): OS의 제목 표시줄을 숨기고 앱이 직접 그린다. 바탕은 상단 바 색, 글자는 본문 글자색이다. 최소화·최대화·닫기 버튼은 OS가 그리고, 그 바탕색과 기호색도 테마를 따른다. 웹 페이지 (Webpage 위젯)는 앱 테마의 영향을 받지 않는다.
+  - 메뉴 이름 (File, Edit, View, Help)을 누르면 그 메뉴가 열린다. 열린 메뉴 목록은 OS 기본 모양이다.
+  - 키보드: Alt를 눌렀다 떼면 메뉴 이름으로 포커스가 가고, ←/→로 옮기고 Enter나 ↓로 연다. Esc는 원래 자리로 포커스를 돌려준다. Alt+밑줄 글자 (Alt+F 등)는 그 메뉴를 바로 연다. 단, 포커스된 요소가 그 키를 쓰면 (Terminal은 Alt+F 등을 셸로 보냄) 메뉴를 열지 않는다. 글자는 키 위치 (`KeyboardEvent.code`)로 보므로 한글 입력 중에도 동작한다. 메뉴 단축키 (`Ctrl+E` 등)는 그대로다.
+  - 바 가운데에 창 제목을 보인다. 저장소 실행은 "Freeter-SWH (dev)"다 (#80, `ProcessInfo.appName`).
+  - 전체 화면에서도 바가 남는다.
+  - 빈 곳을 끌면 창이 움직이고, 두 번 누르면 최대화된다 (OS 처리).
+  - View > Appearance > Hide Menu Bar: 메뉴 이름을 숨긴다 (창 버튼이 있어 바 자체는 남는다). Alt를 누르면 다시 보인다.
+  - macOS는 OS 제목 표시줄과 화면 위 메뉴를 그대로 쓴다.
+
+구조:
+
+- `base/uiTheme.ts`: 테마 id 목록과 테마마다 종류 (`kind`)와 짝 (`pair`). 설정 값 `UiThemeSetting`은 테마 id나 `'system'`이다. `resolveUiThemeId(설정, OS 모드)`가 보여 줄 테마를 정하고 (알 수 없는 값은 Light), `toggledUiThemeId`가 전환할 테마를 정한다. 설정 목록은 `uiThemeSettings` (System이 맨 앞).
+- 새 테마의 색: `ui/components/app/uiTheme/themes/named.ts`의 `createTheme(팔레트)`. 팔레트 14색 (사이드바, 작업판, 위젯, 테두리, 글자, 강조 등)으로 테마 키 129개를 만든다. 반환 타입이 `typeof darkTheme`이라 테마 키가 늘면 컴파일이 실패한다. Light, Dark는 기존 손으로 고른 값 그대로다.
+- OS 모드: `ui.systemThemeKind` (런타임 전용, 저장 안 함). `init.ts`가 시작할 때 `matchMedia('(prefers-color-scheme: dark)')`로 넣고, 저장 상태를 읽은 뒤 `change` 이벤트로 `setSystemThemeKindUseCase`를 부른다. Electron `nativeTheme.themeSource` 기본값 `system`이라 main 쪽 코드는 없다.
+- 보여 줄 테마는 `appViewModel` (CSS 변수)과 공유 상태 슬라이스 `uiTheme` (Terminal)가 같은 `resolveUiThemeId`로 정한다.
+- 제목 표시줄: main `createRendererWindow`가 macOS가 아니면 `titleBarStyle: 'hidden'`과 `titleBarOverlay` (높이 `appTitleBarHeight` 30px, `src/common/base/titleBar.ts`)로 창을 만든다. renderer `ui/components/titleBar`가 `ui.appMenuLabels` (런타임 전용, `initAppMenu`가 메뉴를 만들 때 넣음)로 메뉴 이름을 그리고, 열 때 `popup-app-menu` (메뉴 순번, x, y)로 main에 맡긴다. main은 `Menu.getApplicationMenu().items[i].submenu.popup`으로 열고 닫힐 때 응답한다. 창 버튼 색은 `set-title-bar-colors` → `setTitleBarOverlay`. 앱 화면, 설정 같은 전체 화면, 셸프 위젯 상자는 CSS 변수 `--app-title-bar-height`만큼 아래에 놓인다 (TitleBar가 보일 때만 넣음).
+- 전환: `useCases/uiTheme/toggleUiTheme.ts`. 마지막 전환 (`from`, `to`)을 메모리에 들고, 현재 설정이 `to`와 같으면 `from`으로 돌아간다. store 구독으로 `uiTheme`이 `to`가 아닌 값이 되면 기억을 지운다.
+
+**까다로웠던 포인트**
+
+- 테마 원본 색 그대로는 대비 기준 (글자 4.5:1, 입력란 테두리 3:1)에 못 미치는 색이 있었다 (Solarized Light의 보조 글자·테두리·강조, Catppuccin Latte의 링크·빨강, One Dark·Nord·Dracula의 빨강 등). 기준을 넘을 만큼만 글자색 쪽으로 옮겼다. `contrast.spec.ts`가 이제 모든 테마를 검사하고, 본문 글자 (`componentColor`)와 기본 버튼 글자도 검사한다.
+- 처음에는 위젯 배경을 작업판 배경과 같게 두어서 Nord, Dracula에서 위젯 경계가 흐렸다 (화면 캡처로 발견). 기본 Dark처럼 사이드바, 작업판, 위젯 배경을 3단계로 나눴다.
+- 창이 화면에 보이지 않으면 (`document.visibilityState === 'hidden'`, 예: 화면 잠김) 렌더러가 프레임을 그리지 않아 `prefers-color-scheme`의 `change` 이벤트가 오지 않는다 (`matches`는 바로 바뀐다). 이때 System 테마는 창이 다시 보일 때 바뀐다 (추정: Chromium이 미디어 쿼리 변경을 렌더링 갱신 때 알린다). `--disable-features=CalculateNativeWinOcclusion`으로 띄우면 잠긴 화면에서도 `visible`이고, 그때는 이벤트가 바로 와서 테마가 바뀌었다.
+- 메뉴 accelerator는 webview에 포커스가 있으면 닿지 않는다. 첫 코드 리뷰 뒤 main이 webview의 Ctrl+Shift+L을 받아 넘기게 했다가, 두 번째 리뷰 뒤 되돌렸다: 웹 페이지 (Google Docs 왼쪽 정렬 등)가 이 키를 못 받았다. 되돌린 뒤 개발 앱에서 보니, 페이지가 처리하지 않은 키는 앱 화면으로 넘어가 메뉴 단축키가 동작했다 (Nord → Light). 페이지가 `preventDefault`한 키는 넘어가지 않았다 (테마 그대로, 페이지가 키를 받음). `webContents.sendInputEvent`로 확인.
+- 코드 리뷰에서 고친 것: 설정 화면을 연 채 전환하고 OK를 누르면 전환이 사라졌다, 돌아가기 기억이 다른 경로의 테마 변경 뒤에도 남았다, macOS 안내 문구, 팔레트와 `uiThemeDataById`의 종류 이중 기재 (이제 `createTheme(id, 팔레트)`가 종류를 `uiThemeDataById`에서 읽는다), Dracula 테두리가 사이드바 색과 같았다.
+- 제목 표시줄을 Window Controls Overlay API (`navigator.windowControlsOverlay`, CSS `env(titlebar-area-*)`)로 판단했더니, 개발 앱에서 TitleBar가 그려지지 않았고 앱 화면의 `top: env(titlebar-area-height)`도 0이었다. 나중에 만든 요소에서는 `env()`가 30px였다. 페이지가 처음 그려질 때 이 값이 준비되지 않았고, 그 뒤의 변경이 기존 스타일과 React 구독에 닿지 않은 것으로 본다 (추정). 그래서 플랫폼 (`isMac`)으로 판단하고, 높이는 고정 CSS 변수로 넣는다.
+- `titleBarStyle: 'hidden'`이어도 앱 메뉴는 설정된 채라서 메뉴 단축키가 동작한다 (개발 앱에서 `Ctrl+Shift+L`, `Ctrl+E` 확인). 숨긴 OS 메뉴 바가 Alt로 다시 나오지 않도록, main `setAutoHide`는 macOS가 아니면 자동 숨김을 끈 상태로 둔다.
+- Alt만 눌렀다 뗐는지는 capture 단계의 keydown과 mousedown으로 판단한다. 처음에는 bubble 단계에서만 보아서, Terminal에서 Alt+F (xterm이 전달을 멈춤)나 Alt+클릭 뒤 Alt를 떼면 포커스가 메뉴로 갔다. Alt를 오래 눌러 자동 반복이 와도 Alt만 누른 것으로 본다 (OS 메뉴 바와 같음).
+- "macOS가 아니면 앱이 제목 표시줄을 그린다"는 규칙은 main `infra/browserWindow/appTitleBar.ts`의 `hasAppTitleBar` 한 곳에 있다. 창 옵션, 앱 메뉴 provider, renderer (`ProcessInfo.hasAppTitleBar`)가 이 값을 쓴다.
+- 앱 화면을 내리는 `--app-title-bar-height`는 `useLayoutEffect`로 첫 화면을 그리기 전에 넣는다. 셸프 위젯 상자의 높이 제한도 이 높이를 더한다 (`appTitleBarOffsetPx`).
+- 메뉴가 열린 동안 옆 메뉴 이름에 마우스를 올려도 메뉴가 바뀌지 않는다. 열린 메뉴 안에서 ←/→로 옆 메뉴로 가지도 않는다 (OS 팝업 메뉴라서).
+- 참고한 다른 편집기의 테마 기능 중 코드 블록 구문 색, 다이어그램 색, 내보내기 색은 Freeter에 해당 기능이 없어 넣지 않았다.
+
+확인 (개발 앱, `yarn prod:run`, CDP와 PrintWindow 화면 캡처): Dracula와 Light의 제목 표시줄과 창 버튼 색, 메뉴 이름 클릭으로 File 메뉴 열림과 닫힘, Alt로 포커스 이동과 Esc, Alt+V로 View 열림, 메뉴 바 숨김에서 Alt로 다시 보임 (OS 메뉴 바는 안 나옴), `Ctrl+E` 단축키, 설정 화면이 제목 표시줄 아래에 열림. 창 끌기, 두 번 눌러 최대화, 스냅 레이아웃은 화면이 잠겨 확인하지 못했다. Linux는 확인하지 못했다. 테마: 8개 새 테마의 메인 화면, 설정 화면의 테마 목록 11개, 메뉴 항목 클릭으로 Nord → Light → Nord 전환과 저장, System (OS 밝음이라 Light) → Dark → System 전환. 실행 중 OS 모드 변경 (`nativeTheme.themeSource`를 dark, light로 바꿈)에 System 테마가 Light → Dark → Light로 따라갔다 (창 가림 계산을 끈 실행, 아래 참고). 앱 화면의 실제 키 입력 (메뉴 accelerator)은 화면이 잠겨 확인하지 못했다.
+
+**수정 파일**
+
+- **신규**: `src/renderer/ui/components/app/uiTheme/themes/named.ts`, `src/renderer/application/useCases/uiTheme/{toggleUiTheme,setSystemThemeKind}.ts`, `src/renderer/ui/components/titleBar/` (`titleBar.tsx`, `titleBarViewModel.ts`, `titleBar.module.scss`, `index.ts`), `src/renderer/application/useCases/appMenu/{popupAppMenu,setTitleBarColors}.ts`, `src/main/application/useCases/appMenu/{popupAppMenu,setTitleBarColors}.ts`, `src/main/infra/browserWindow/appTitleBar.ts`, `src/common/base/titleBar.ts`
+- **수정**: `src/common/ipc/channels.ts`, `src/main/infra/browserWindow/browserWindow.ts`, `src/main/infra/appMenuProvider/appMenuProvider.ts`, `src/main/application/interfaces/appMenuProvider.ts`, `src/main/controllers/appMenu.ts`, `src/main/index.ts`, `src/main/infra/processProvider/processProvider.ts`, `src/common/base/process.ts`, `src/renderer/ui/components/topBar/shelf/shelfItemViewModel.ts`, `src/renderer/application/interfaces/appMenuProvider.ts`, `src/renderer/infra/appMenuProvider/appMenuProvider.ts`, `src/renderer/ui/components/app/{app.tsx,app.module.scss}`, `src/renderer/ui/components/basic/modalScreen/modalScreen.module.scss`, `src/renderer/ui/components/topBar/shelf/shelf.module.scss`, `src/renderer/base/uiTheme.ts`, `src/renderer/base/state/{ui,app,shared}.ts`, `src/renderer/ui/components/app/uiTheme/themes/index.ts`, `src/renderer/ui/components/app/appViewModel.ts`, `src/renderer/application/useCases/appMenu/initAppMenu.ts`, `src/renderer/init.ts`, `src/renderer/ui/components/applicationSettings/{applicationSettings.tsx,applicationSettingsViewModel.ts}`, `src/renderer/application/useCases/ai/actions/settingsActions.ts`, `src/renderer/widgets/terminal/{theme.ts,settings.tsx,widget.tsx}`
+- **테스트**: `tests/renderer/base/uiTheme.spec.ts`, `tests/renderer/application/useCases/uiTheme/toggleUiTheme.spec.ts`, `tests/renderer/ui/components/titleBar.spec.tsx`, `tests/main/application/useCases/appMenu/popupAppMenu.spec.ts` (신규), `tests/main/controllers/appMenu.spec.ts`, `tests/main/application/useCases/appMenu/{setAppMenu,setAppMenuAutoHide}.spec.ts`, `tests/renderer/ui/components/app.spec.tsx`, `tests/renderer/ui/components/topBar/shelf/shelfItemViewModel.spec.ts`, `tests/common/base/fixtures/process.ts`, `tests/renderer/ui/components/app/uiTheme/contrast.spec.ts`, `tests/renderer/application/useCases/appMenu/initAppMenu.spec.ts`, `tests/renderer/widgets/terminal/widget.spec.ts`, `tests/renderer/base/state/fixtures/appState.ts`
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

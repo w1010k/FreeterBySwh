@@ -188,6 +188,8 @@ renderer 기능을 추가할 때: use case 파일 작성 → `createUseCases`에
 - `focus`, `blur` 때 `app-focus-changed` 전송 [fork #62]
 - 저장소 실행에서는 `page-title-updated`를 막아 제목 `Freeter-SWH (dev)`를 고정 [fork #80]
 - 개발 빌드 (`isDevMode`)면 DevTools를 연다 [upstream]
+- macOS가 아니면 `titleBarStyle: 'hidden'`, `titleBarOverlay` (높이 `appTitleBarHeight`, 판단은 `infra/browserWindow/appTitleBar.ts`): OS 제목 표시줄 대신 renderer `TitleBar`가 그린다.
+  창 버튼만 OS가 그 위에 그린다 [fork #110]
 
 #### webview (Webpage 위젯)
 
@@ -327,7 +329,8 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 
 - `currentAppStateVersion = 2`. `migrateAppState`는 버전 1 데이터에 memSaver 설정을 추가한다 [upstream]
 - `createPersistentAppState`가 저장에서 빼는 것: `ui`의 `copy`, `dragDrop`, `editMode`, `palette`, `memSaver`, `modalScreens`,
-  `worktable`, `entities.widgetTypes`, 위젯의 `exposedApi` [upstream]. `ui.widgetDynamicTitles` (위젯 동적 제목) [fork #11]
+  `worktable`, `entities.widgetTypes`, 위젯의 `exposedApi` [upstream]. `ui.widgetDynamicTitles` (위젯 동적 제목) [fork #11],
+  `ui.systemThemeKind` (OS 밝음/어두움), `ui.appMenuLabels` (메뉴 바 이름) [fork #110]
 - `palette`가 저장되지 않으므로 팔레트 목록은 항상 `createUiState`의 `palette.widgetTypeIds` 값이다 (`src/renderer/base/state/ui.ts`)
 - `mergeAppStateWithPersistentAppState`: `entities`와 `ui`는 1단계 병합이고, `ui.appConfig`, `ui.apps`, `ui.projectSwitcher`,
   `ui.shelf`만 한 단계 더 병합한다. 그래서 `appConfig`에 새 최상위 필드를 추가하면 기존 사용자도 기본값을 받는다. `appConfig.telemetry`, `appConfig.memSaver`
@@ -344,7 +347,7 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 |--------------------------------------------------|-----------------------------------------------------------------------|---------------------------|
 | `mainHotkey`                                     | `'CmdOrCtrl+Shift+Space'`                                             | [upstream, fork #20 변경] |
 | `memSaver`                                       | `{activateWorkflowsOnProjectSwitch: true, workflowInactiveAfter: -1}` | [upstream]                |
-| `uiTheme`                                        | `defaultUiThemeId`                                                    | [upstream]                |
+| `uiTheme`                                        | `defaultUiThemeId` (테마 id나 `'system'`)                             | [upstream, fork #110]     |
 | `downloadDir`                                    | `''` (OS Downloads)                                                   | [fork #41]                |
 | `bgColor`, `bgImage`, `bgImageMode`, `bgOpacity` | `''`, `''`, `'cover'`, `100`                                          | [fork #42]                |
 | `workflowBarPos`, `workflowBarWidth`             | `'left'`, `200`                                                       | [fork #45]                |

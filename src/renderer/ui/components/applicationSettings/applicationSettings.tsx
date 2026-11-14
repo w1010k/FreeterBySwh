@@ -97,7 +97,7 @@ export function createApplicationSettingsComponent({
             <SettingBlock
               titleForId='ui-theme'
               title='User Interface Theme'
-              moreInfo='The interface theme defines the appearance of all visual elements of the user interface.'
+              moreInfo='The interface theme defines the appearance of all visual elements of the user interface. System follows the light/dark mode of the OS. Ctrl+Shift+L (Cmd+Shift+L on macOS) switches between a light and a dark theme.'
             >
               <select id="ui-theme" value={appConfig.uiTheme} onChange={e => updateSettings({
                 ...appConfig,

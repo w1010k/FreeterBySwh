@@ -3,7 +3,9 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
+import { app } from 'electron';
 import { ProcessProvider } from '@/application/interfaces/processProvider';
+import { hasAppTitleBar } from '@/infra/browserWindow/appTitleBar';
 import { ProcessInfoOsName } from '@common/base/process';
 
 export function createProcessProvider(): ProcessProvider {
@@ -20,7 +22,9 @@ export function createProcessProvider(): ProcessProvider {
       isLinux: process.platform === 'linux',
       isMac: process.platform === 'darwin',
       isWin: process.platform === 'win32',
-      isDevMode: process.env.NODE_ENV !== 'production'
+      isDevMode: process.env.NODE_ENV !== 'production',
+      appName: app.getName(),
+      hasAppTitleBar,
     })
   }
 }

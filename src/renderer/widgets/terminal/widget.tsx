@@ -12,6 +12,7 @@ import '@xterm/xterm/css/xterm.css';
 import { ActionBarItems, ReactComponent, WidgetReactComponentProps } from '@/widgets/appModules';
 import { clampFontSize, Settings } from './settings';
 import { terminalThemes } from './theme';
+import { uiThemeDataById } from '@/base/uiTheme';
 import { restartSvg } from './icons';
 import styles from './widget.module.scss';
 import { takeRevealedByAi } from '@/base/ai/aiActivity';
@@ -483,7 +484,7 @@ function TerminalTabs({id, settings, widgetApi, sharedState}: WidgetReactCompone
   const tabs = tabsOf(id);
   const sessionKey = tabs.keys[Math.min(tabs.active, tabs.keys.length - 1)];
   // The terminal draws its own colors: the Theme setting, or the app's light or dark theme (Follow App).
-  const theme = terminalThemes[settings.theme === 'app' ? sharedState.uiTheme.themeId : settings.theme];
+  const theme = terminalThemes[settings.theme === 'app' ? uiThemeDataById[sharedState.uiTheme.themeId].kind : settings.theme];
   return <LiveTerminal key={sessionKey} widgetId={id} theme={theme} sessionKey={sessionKey} settings={settings} widgetApi={widgetApi}/>;
 }
 
