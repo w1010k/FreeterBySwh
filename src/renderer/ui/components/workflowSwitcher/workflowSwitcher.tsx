@@ -6,6 +6,7 @@
 import {ActionBar} from '@/ui/components/basic/actionBar';
 import {PaletteProps, PalettePropsPos} from '@/ui/components/palette';
 import {ProjectSwitcherProps} from '@/ui/components/projectSwitcher';
+import {ShelfProps} from '@/ui/components/topBar/shelf/shelf';
 import {WorkflowSwitcherItem} from '@/ui/components/workflowSwitcher/workflowSwitcherItem';
 import {WorkflowSwitcherViewModelHook} from '@/ui/components/workflowSwitcher/workflowSwitcherViewModel';
 import clsx from 'clsx';
@@ -17,6 +18,7 @@ type Deps = {
   ProjectSwitcher: React.FC<ProjectSwitcherProps>;
   ManageProjectsButton: React.FC;
   Palette: React.FC<PaletteProps>;
+  Shelf: React.FC<ShelfProps>;
   useWorkflowSwitcherViewModel: WorkflowSwitcherViewModelHook;
 }
 
@@ -25,6 +27,7 @@ export function createWorkflowSwitcherComponent({
                                                   ProjectSwitcher,
                                                   ManageProjectsButton,
                                                   Palette,
+                                                  Shelf,
                                                   useWorkflowSwitcherViewModel
                                                 }: Deps) {
   function WorkflowSwitcher() {
@@ -58,6 +61,7 @@ export function createWorkflowSwitcherComponent({
       showEditToggleLeft,
       showPrjSwitcherRight,
       showEditToggleRight,
+      showShelf,
       workflowBarPos,
       workflowBarWidth,
     } = useWorkflowSwitcherViewModel();
@@ -145,6 +149,16 @@ export function createWorkflowSwitcherComponent({
           ></div>
         }
 
+        {/* The Top Bar merged into this bar: its shelf sits after the tabs, at the right. */}
+        {showShelf &&
+          <div className={clsx(
+            styles['workflow-switcher-bar-section'],
+            styles['workflow-switcher-bar-shelf-section'],
+            isEditMode && styles['is-edit-mode']
+          )}>
+            <Shelf compact/>
+          </div>
+        }
         {showPrjSwitcherRight && compPrjSwitcher}
         {showPaletteRight && compPalette}
         {showEditToggleRight && compEditToggle}

@@ -159,8 +159,8 @@
 - 원인: 페이지가 처음 그려질 때 값이 준비되지 않았고, 그 뒤의 변경이 기존 스타일과 구독에 닿지 않았다 (추정, `geometrychange`를 직접 보내도
   다시 그려지지 않았다).
 - 규칙: 앱 제목 표시줄의 유무는 main `infra/browserWindow/appTitleBar.ts`의 `hasAppTitleBar` 하나로 정하고 (renderer는 `ProcessInfo`로 받음), 높이는 `--app-title-bar-height` (TitleBar가 넣음)를
-  쓴다. 새 `position: fixed` 요소를 화면 위쪽에 둘 때도 이 변수만큼 내리고, 위치를 JS로 계산하면
-  `appTitleBarOffsetPx()`를 더한다 (셸프 위젯 상자).
+  쓴다. 새 `position: fixed` 요소를 화면 위쪽에 둘 때도 이 변수만큼 내린다. 기준 요소의 실측 rect로 위치를 정하면 이 높이가 이미 들어 있다
+  (셸프 위젯 상자, #111).
 - 근거: `src/renderer/ui/components/titleBar/`, `src/main/infra/browserWindow/browserWindow.ts`, CHANGES #110
 
 #### 숨은 창에서 오지 않는 OS 테마 변경
@@ -184,14 +184,16 @@
 
 #### 상단 바 높이의 다중 정의
 
-- 출처: `[upstream, fork #14 변경]`
-- 증상: (잠재) 상단 바 높이만 바꾸면 셸프 탭과 팝업이 바와 어긋나고, 팝업의 세로 클램프 계산도 틀어진다.
-- 원인: 높이 값이 여러 파일에 따로 있다. `topBar.module.scss`의 높이 48px, `shelf.module.scss`의 셸프 항목 `height: 50px` (높이 + 2)과
-  `line-height: 48px`, 팝업 `top: 46px` (높이 - 2), `shelfItemViewModel.ts`의 `shelfPopupTopPx = 46`이다.
-- 규칙: 상단 바 높이를 바꾸면 위 값을 모두 함께 바꾼다. #14가 60px에서 48px로 바꿀 때 이 값들을 함께 고쳤다.
-- 근거: CHANGES #14, `src/renderer/ui/components/topBar/topBar.module.scss`,
+- 출처: `[upstream, fork #14 변경, fork #111에서 해소]`
+- 증상: (#111 이전) 상단 바 높이만 바꾸면 셸프 탭과 팝업이 바와 어긋나고, 팝업의 세로 클램프 계산도 틀어졌다.
+- 원인: 높이 값이 `topBar.module.scss` (48px), `shelf.module.scss` (탭 50px, `line-height` 48px, 팝업 `top: 46px`), `shelfItemViewModel.ts`
+  (상수 46)에 따로 있었다.
+- 규칙: 바 높이는 그 바의 `--shelf-bar-height` 한 곳에서 바꾼다 (`.top-bar` 48px, `.workflow-switcher-bar` 36px). 셸프 탭 높이와 `line-height`는 이
+  변수를 상속하고, 팝업의 `top`과 세로 클램프는 탭 캡션의 실측 rect에서 나온다. 셸프를 새 바에 넣으면 그 바가 이 변수를 정의해야 한다 (없으면 탭 높이가 내용 높이가 된다).
+- 근거: CHANGES #14 #111, `src/renderer/ui/components/topBar/topBar.module.scss`,
+  `src/renderer/ui/components/workflowSwitcher/workflowSwitcher.module.scss`,
   `src/renderer/ui/components/topBar/shelf/shelf.module.scss`,
-  `src/renderer/ui/components/topBar/shelf/shelfItemViewModel.ts` `shelfPopupTopPx`
+  `src/renderer/ui/components/topBar/shelf/shelfItemViewModel.ts` `shelfPopupOverlapPx`
 
 ### 상태와 저장
 

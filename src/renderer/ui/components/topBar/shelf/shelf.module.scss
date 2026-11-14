@@ -3,6 +3,8 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
+// --shelf-bar-height is the height of the bar the shelf sits in. That bar defines it (.top-bar, or
+// .workflow-switcher-bar when the Top Bar is merged into it), and the tabs derive their size from it.
 .shelf {
   display: flex;
   margin: 0;
@@ -21,6 +23,30 @@
   &:not(:hover)::-webkit-scrollbar{
     display: none;
   }
+
+  // Inside the workflow bar (the Top Bar merged into it): in the flow, so the section is as wide as the tabs and can
+  // shrink (then the list scrolls).
+  &.is-compact {
+    position: static;
+    flex: 1 1 auto;
+    min-width: 0;
+    // Same overlaps as the workflow tabs next to it: the list covers the bar's bottom border, and the tabs start 1px
+    // above the list, which clips their top border (the bar has none).
+    margin: 0 0 -1px;
+
+    .shelf-item {
+      margin-top: -1px;
+    }
+
+    .shelf-item-caption {
+      font-size: 14px;
+    }
+
+    // The tabs end at the section's edge, which draws the divider to the next section (or is the end of the bar).
+    .shelf-item:last-child .shelf-item-caption {
+      border-right-color: transparent;
+    }
+  }
 }
 
 .shelf-item {
@@ -36,11 +62,11 @@
     box-sizing: border-box;
     white-space: nowrap;
     min-width: 96px;
-    // = .top-bar-section height + 2 (shelf overlaps topBar's 1px top/bottom borders via top:-1/bottom:-1)
-    height: 50px;
+    // + 2: the tab overlaps the bar's 1px top/bottom borders (the list's top:-1/bottom:-1, or the margins when compact)
+    height: calc(var(--shelf-bar-height) + 2px);
     padding: 0 12px;
     font-size: 16px;
-    line-height: 48px;
+    line-height: var(--shelf-bar-height);
     text-align: center;
     cursor: pointer;
   }
@@ -48,8 +74,7 @@
     display: block;
     z-index: 1;
     position: fixed;
-    // = .top-bar-section height - 2 (overlap for seamless hover), under the app's title bar (TitleBar)
-    top: calc(46px + var(--app-title-bar-height, 0px));
+    // `top` is an inline style: just under the tab, from its measured rect (shelfItemViewModel.ts).
     border: 1px solid var(--freeter-shelfWidgetBoxBorder);
     background-color: var(--freeter-shelfWidgetBoxBackground);
     box-shadow: 0 4px 8px 0 var(--freeter-shelfWidgetBoxShadow);

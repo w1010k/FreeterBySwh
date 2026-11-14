@@ -483,6 +483,20 @@
 - 이유: 사용자는 대부분 자동 이름을 곧바로 바꾸거나 비운다. 헤더는 이름이 비면 타입 이름이나 동적 타이틀을 보여준다.
 - 근거: CHANGES #16
 
+#### D85. 상단 바 병합은 위쪽 워크플로우 바에만, 셸프를 옮겨 그린다
+
+- 상태: 유효
+- 출처: `[fork #111]`
+- 결정: `appConfig.mergeTopBar`가 켜져 있고 상단 바가 보이고 워크플로우 바가 Top일 때만 병합한다 (`isTopBarMerged`). 병합 상태에서는 `TopBar`를 렌더하지 않고
+  `WorkflowSwitcher`가 같은 `Shelf` 컴포넌트를 탭 목록 뒤에 그린다. 프로젝트 전환기와 편집 토글의 `TopBar` 위치는 저장 값을 바꾸지 않고 view model에서
+  `TabBarRight`처럼 취급한다. 병합 여부가 바뀔 때 (`mergeTopBar`, `ui.topBar`, `workflowBarPos`의 변경) 셸프가 다시 만들어지는 것은 받아들인다.
+- 이유: 셸프는 팝업이 아래로 열리는 가로 목록이다. Bottom 바에서는 팝업이 위로 열려야 하고, Left/Right 바는 세로 목록이라 셸프의 배치와 맞지 않는다. 위치 설정의
+  저장 값을 그대로 두면 병합을 껐을 때 원래 배치로 돌아간다. 셸프 재생성은 설정을 바꿀 때만 일어나고, `.body-layout`은 그대로라 worktable 위젯은 영향이 없다.
+- 버린 대안: Bottom, Left, Right 바에도 병합 (팝업 방향과 세로 배치를 새로 만들어야 한다). 셸프를 한 부모에 두고 CSS로만 위치를 옮기기 (상단 바와 워크플로우 바는
+  `app.tsx`에서 다른 컨테이너에 있어 한 줄로 합칠 수 없다). 자동 병합 (설정 없이 Top이면 항상 병합: 두 줄을 쓰던 사용자의 화면이 바뀐다).
+- 근거: `src/renderer/base/state/ui.ts` `isTopBarMerged`, `src/renderer/ui/components/workflowSwitcher/workflowSwitcherViewModel.ts`,
+  `src/renderer/ui/components/app/appViewModel.ts`
+
 ### 위젯
 
 #### D43. File Explorer 트리 구현

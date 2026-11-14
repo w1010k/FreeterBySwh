@@ -23,7 +23,7 @@ describe('createSettingsAiActions()', () => {
       ok: true,
       value: {
         uiTheme: c.uiTheme, bgColor: c.bgColor, bgImage: c.bgImage, bgImageMode: c.bgImageMode, bgOpacity: c.bgOpacity,
-        workflowBarPos: c.workflowBarPos, workflowBarWidth: c.workflowBarWidth, downloadDir: c.downloadDir
+        workflowBarPos: c.workflowBarPos, workflowBarWidth: c.workflowBarWidth, mergeTopBar: c.mergeTopBar, downloadDir: c.downloadDir
       }
     });
   });
@@ -51,6 +51,8 @@ describe('createSettingsAiActions()', () => {
     expect(parse({ workflowBarWidth: 119 })).toBeUndefined();
     expect(parse({ workflowBarWidth: 601 })).toBeUndefined();
     expect(parse({ workflowBarWidth: 300 })).toEqual({ workflowBarWidth: 300 });
+    expect(parse({ mergeTopBar: 'yes' })).toBeUndefined();
+    expect(parse({ mergeTopBar: true })).toEqual({ mergeTopBar: true });
     expect(parse({ bgColor: 3 })).toBeUndefined();
     expect(parse({})).toBeUndefined();
     expect(parse({ bgImageMode: 'tile', downloadDir: 'D:\\dl' })).toEqual({ bgImageMode: 'tile', downloadDir: 'D:\\dl' });

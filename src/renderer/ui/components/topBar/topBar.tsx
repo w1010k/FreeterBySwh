@@ -9,13 +9,14 @@ import clsx from 'clsx';
 import { TopBarViewModelHook } from '@/ui/components/topBar/topBarViewModel';
 import { ProjectSwitcherProps } from '@/ui/components/projectSwitcher';
 import { PaletteProps, PalettePropsPos } from '@/ui/components/palette';
+import { ShelfProps } from '@/ui/components/topBar/shelf/shelf';
 
 type Deps = {
   EditModeToggle: React.FC;
   ProjectSwitcher: React.FC<ProjectSwitcherProps>;
   ManageProjectsButton: React.FC;
   Palette: React.FC<PaletteProps>;
-  Shelf: React.FC;
+  Shelf: React.FC<ShelfProps>;
   useTopBarViewModel: TopBarViewModelHook;
 }
 

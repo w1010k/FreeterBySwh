@@ -19,6 +19,8 @@ import { fixtureWorktableNotResizing, fixtureWorktableResizingItem } from '@test
 import { createCreateWorkflowSubCase } from '@/application/useCases/workflow/subs/createWorkflow';
 import { EditTogglePos, ProjectSwitcherPos } from '@/base/state/ui';
 import { fixtureAppConfig } from '@tests/base/fixtures/appConfig';
+import { fixtureShelf } from '@tests/base/state/fixtures/shelf';
+import { fixtureWidgetListItemA } from '@tests/base/fixtures/widgetList';
 
 const newWorkflowId = 'NEW-WORKFLOW-ID';
 
@@ -30,6 +32,8 @@ const mockEditModeToggle = () => <div>{strEditModeToggle}</div>;
 const mockProjectSwitcher = () => <div>{strProjectSwitcher}</div>;
 const mockManageProjectsButton = () => <div>{strManageProjectsButton}</div>
 const mockPalette = () => <div>{strPalette}</div>;
+const strShelf = 'Shelf';
+const mockShelf = ({compact}: {compact?: boolean}) => <div>{strShelf}{compact && ' compact'}</div>;
 
 async function setup(
   appState: AppState,
@@ -80,6 +84,7 @@ async function setup(
     ManageProjectsButton: mockManageProjectsButton,
     Palette: mockPalette,
     ProjectSwitcher: mockProjectSwitcher,
+    Shelf: mockShelf,
   })
   const comp = render(
     <WorkflowSwitcher/>
@@ -122,6 +127,69 @@ describe('<WorkflowSwitcher />', () => {
     }));
 
     expect(comp.container.firstChild as HTMLElement).not.toHaveAttribute('style');
+  });
+
+  describe('Top Bar merged into the bar', () => {
+    const merged = (workflowBarPos: 'top' | 'bottom' | 'left' | 'right' = 'top') => fixtureAppConfig({workflowBarPos, mergeTopBar: true});
+
+    it('should not display Shelf, when the merge setting is off', async () => {
+      await setup(fixtureAppState({ui: {topBar: true, appConfig: fixtureAppConfig({workflowBarPos: 'top'})}}));
+      expect(screen.queryByText(strShelf, {exact: false})).not.toBeInTheDocument();
+    });
+    const shelf = fixtureShelf({widgetList: [fixtureWidgetListItemA()]});
+    const emptyShelf = fixtureShelf({widgetList: []});
+
+    it('should display a compact Shelf, when the merge setting is on, the Top Bar is shown and the bar is at the top', async () => {
+      await setup(fixtureAppState({ui: {topBar: true, appConfig: merged(), shelf}}));
+      expect(screen.getByText(`${strShelf} compact`)).toBeInTheDocument();
+    });
+    it('should not display Shelf, when the Top Bar is hidden', async () => {
+      await setup(fixtureAppState({ui: {topBar: false, appConfig: merged(), shelf}}));
+      expect(screen.queryByText(strShelf, {exact: false})).not.toBeInTheDocument();
+    });
+    it.each(['bottom', 'left', 'right'] as const)('should not display Shelf, when the bar is at the %s', async (pos) => {
+      await setup(fixtureAppState({ui: {topBar: true, appConfig: merged(pos), shelf}}));
+      expect(screen.queryByText(strShelf, {exact: false})).not.toBeInTheDocument();
+    });
+    it('should not display an empty Shelf, when edit mode is off', async () => {
+      await setup(fixtureAppState({ui: {topBar: true, appConfig: merged(), shelf: emptyShelf, editMode: false}}));
+      expect(screen.queryByText(strShelf, {exact: false})).not.toBeInTheDocument();
+    });
+    it('should display an empty Shelf as a drop area, when edit mode is on', async () => {
+      await setup(fixtureAppState({ui: {topBar: true, appConfig: merged(), shelf: emptyShelf, editMode: true}}));
+      expect(screen.getByText(`${strShelf} compact`)).toBeInTheDocument();
+    });
+    it('should display EditModeToggle and ProjectSwitcher set to the Top Bar position', async () => {
+      await setup(fixtureAppState({
+        ui: {
+          topBar: true,
+          appConfig: merged(),
+          editTogglePos: EditTogglePos.TopBar,
+          projectSwitcher: fixtureProjectSwitcher({pos: ProjectSwitcherPos.TopBar})
+        }
+      }));
+      expect(screen.getByText(strEditModeToggle)).toBeInTheDocument();
+      expect(screen.getByText(strProjectSwitcher)).toBeInTheDocument();
+      expect(screen.getByText(strManageProjectsButton)).toBeInTheDocument();
+    });
+    it('should display Palette in edit mode, when the edit toggle is set to the Top Bar position', async () => {
+      const workflowId = 'workflow-id';
+      const projectId = 'project-id';
+      await setup(fixtureAppState({
+        entities: {
+          projects: fixtureProjectAInColl({id: projectId, workflowIds: [workflowId], currentWorkflowId: workflowId}),
+          workflows: fixtureWorkflowAInColl({id: workflowId})
+        },
+        ui: {
+          topBar: true,
+          appConfig: merged(),
+          editMode: true,
+          editTogglePos: EditTogglePos.TopBar,
+          projectSwitcher: fixtureProjectSwitcher({projectIds: [projectId], currentProjectId: projectId})
+        }
+      }));
+      expect(screen.getByText(strPalette)).toBeInTheDocument();
+    });
   });
 
   it('should not display EditModeToggle, when its pos!==TabBar', async() => {

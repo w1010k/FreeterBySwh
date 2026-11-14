@@ -847,6 +847,7 @@ function createUI(stateHooks: ReturnType<typeof createUiHooks>, useCases: Awaite
     ManageProjectsButton,
     Palette,
     ProjectSwitcher,
+    Shelf,
   })
   const useWorktableViewModel = createWorktableViewModelHook(deps);
   const Worktable = createWorktableComponent({

@@ -29,6 +29,7 @@ const editable = {
   bgOpacity: (v: unknown) => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 100,
   workflowBarPos: oneOf(['top', 'bottom', 'left', 'right']),
   workflowBarWidth: (v: unknown) => Number.isInteger(v) && (v as number) >= workflowBarMinWidth && (v as number) <= workflowBarMaxWidth,
+  mergeTopBar: (v: unknown) => typeof v === 'boolean',
   downloadDir: isString,
 } satisfies Partial<Record<keyof AppConfig, (v: unknown) => boolean>>;
 
@@ -53,7 +54,8 @@ export function createSettingsAiActions({ appStore }: Deps): AiAction[] {
   const updateSettings: AiAction<EditableSettings> = {
     id: 'app.updateSettings',
     description: 'Change app settings. Keys: uiTheme (system, light, dark or a named theme), bgColor, bgImage (file path), bgImageMode (cover|contain|center|tile), '
-      + `bgOpacity (0-100), workflowBarPos (top|bottom|left|right), workflowBarWidth (${workflowBarMinWidth}-${workflowBarMaxWidth} px), downloadDir (folder path).`,
+      + `bgOpacity (0-100), workflowBarPos (top|bottom|left|right), workflowBarWidth (${workflowBarMinWidth}-${workflowBarMaxWidth} px), `
+      + 'mergeTopBar (true|false: the Top Bar widgets inside a top workflow bar), downloadDir (folder path).',
     kind: 'write',
     // Downloads save there without asking: a startup folder would run what a page serves.
     alwaysConfirm: (input) => input.downloadDir !== undefined,
@@ -67,6 +69,7 @@ export function createSettingsAiActions({ appStore }: Deps): AiAction[] {
         bgOpacity: { type: 'integer', minimum: 0, maximum: 100 },
         workflowBarPos: { enum: ['top', 'bottom', 'left', 'right'] },
         workflowBarWidth: { type: 'integer', minimum: workflowBarMinWidth, maximum: workflowBarMaxWidth },
+        mergeTopBar: { type: 'boolean' },
         downloadDir: { type: 'string' },
       },
       additionalProperties: false

@@ -6,7 +6,7 @@
 import { ShowContextMenuUseCase } from '@/application/useCases/contextMenu/showContextMenu';
 import { SetWorkflowBarWidthUseCase } from '@/application/useCases/applicationSettings/setWorkflowBarWidth';
 import { contextMenuForTextInput } from '@/base/contextMenu';
-import { ModalScreenId } from '@/base/state/ui';
+import { ModalScreenId, isTopBarMerged } from '@/base/state/ui';
 import { resolveUiThemeId } from '@/base/uiTheme';
 import { UseAppState } from '@/ui/hooks/appState';
 import React, { ReactNode, createElement } from 'react';
@@ -50,7 +50,8 @@ export function createAppViewModelHook({
       state.ui.modalScreens.order,
       state.ui.appConfig.uiTheme,
       state.ui.systemThemeKind,
-      state.ui.topBar,
+      // Merged into the workflow bar: the bar draws the shelf, so the Top Bar row is not rendered.
+      state.ui.topBar && !isTopBarMerged(state.ui),
       state.ui.appConfig.workflowBarPos,
       state.ui.appConfig.workflowBarWidth
     ])

@@ -8,13 +8,13 @@ import { Widget, WidgetEnvAreaShelf } from '@/base/widget';
 import { WidgetType } from '@/base/widgetType';
 import { useElementRect } from '@/ui/hooks';
 import { useWindowSize } from '@/ui/hooks/useWindowSize';
-import { CSSProperties, DragEvent, MouseEvent, useCallback, useMemo } from 'react';
+import { CSSProperties, DragEvent, MouseEvent, useCallback, useLayoutEffect, useMemo } from 'react';
 import { shelfWidgetDefaultH, shelfWidgetDefaultW } from '@/application/useCases/shelf/setShelfItemSize';
-import { appTitleBarOffsetPx } from '@/ui/components/titleBar/titleBar';
 
-// The popup box is positioned `top: 46px` (+ the app's title bar) in shelf.module.scss (just below the
-// top bar). Mirror it here so the box can be kept inside the window vertically.
-const shelfPopupTopPx = 46;
+// The popup box starts this far above the bottom edge of its tab: over the tab's bottom border and a bit more, so the
+// pointer crosses from the tab into the box without leaving the item. The top comes from the tab's measured rect, so
+// it holds for any bar the shelf sits in (the Top Bar, or the workflow bar when the Top Bar is merged into it).
+const shelfPopupOverlapPx = 4;
 
 /**
  * Clamp a shelf popup box to the current window so it never spills off-screen.
@@ -107,18 +107,26 @@ export function useShelfItemViewModel(props: ShelfItemProps) {
 
   const [itemElRef, itemElRect, measureItemElRect] = useElementRect({ useViewportRect: true });
 
+  // Edit Mode adds and removes sections of the bar (the palette), which moves the tabs of a shelf at the right end
+  // of the workflow bar without resizing them. A popup that stays open through the switch (focus inside) follows.
+  useLayoutEffect(() => {
+    measureItemElRect();
+  }, [isEditMode, measureItemElRect]);
+
   const wPx = typeof w === 'number' ? w : shelfWidgetDefaultW;
   const hPx = typeof h === 'number' ? h : shelfWidgetDefaultH;
 
   const windowSize = useWindowSize();
   const itemWidgetElRectStyle = useMemo(() => {
-    const box = clampShelfPopupBox(itemElRect.xPx, wPx, hPx, windowSize.wPx, windowSize.hPx, shelfPopupTopPx + appTitleBarOffsetPx());
+    const topPx = itemElRect.yPx + itemElRect.hPx - shelfPopupOverlapPx;
+    const box = clampShelfPopupBox(itemElRect.xPx, wPx, hPx, windowSize.wPx, windowSize.hPx, topPx);
     return {
+      top: topPx + 'px',
       left: box.leftPx + 'px',
       width: box.wPx + 'px',
       height: box.hPx + 'px'
     } as CSSProperties;
-  }, [itemElRect.xPx, windowSize.wPx, windowSize.hPx, wPx, hPx])
+  }, [itemElRect.xPx, itemElRect.yPx, itemElRect.hPx, windowSize.wPx, windowSize.hPx, wPx, hPx])
 
   const onResizeHandler = useCallback((newW: number, newH: number) => {
     onResize(id, newW, newH);

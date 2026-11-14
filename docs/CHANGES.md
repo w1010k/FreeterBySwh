@@ -4100,6 +4100,39 @@ Webpage 위젯 안 페이지가 새 창을 열려고 했는데 열리지 않으�
 - **수정**: `src/common/ipc/channels.ts`, `src/main/infra/browserWindow/browserWindow.ts`, `src/main/infra/appMenuProvider/appMenuProvider.ts`, `src/main/application/interfaces/appMenuProvider.ts`, `src/main/controllers/appMenu.ts`, `src/main/index.ts`, `src/main/infra/processProvider/processProvider.ts`, `src/common/base/process.ts`, `src/renderer/ui/components/topBar/shelf/shelfItemViewModel.ts`, `src/renderer/application/interfaces/appMenuProvider.ts`, `src/renderer/infra/appMenuProvider/appMenuProvider.ts`, `src/renderer/ui/components/app/{app.tsx,app.module.scss}`, `src/renderer/ui/components/basic/modalScreen/modalScreen.module.scss`, `src/renderer/ui/components/topBar/shelf/shelf.module.scss`, `src/renderer/base/uiTheme.ts`, `src/renderer/base/state/{ui,app,shared}.ts`, `src/renderer/ui/components/app/uiTheme/themes/index.ts`, `src/renderer/ui/components/app/appViewModel.ts`, `src/renderer/application/useCases/appMenu/initAppMenu.ts`, `src/renderer/init.ts`, `src/renderer/ui/components/applicationSettings/{applicationSettings.tsx,applicationSettingsViewModel.ts}`, `src/renderer/application/useCases/ai/actions/settingsActions.ts`, `src/renderer/widgets/terminal/{theme.ts,settings.tsx,widget.tsx}`
 - **테스트**: `tests/renderer/base/uiTheme.spec.ts`, `tests/renderer/application/useCases/uiTheme/toggleUiTheme.spec.ts`, `tests/renderer/ui/components/titleBar.spec.tsx`, `tests/main/application/useCases/appMenu/popupAppMenu.spec.ts` (신규), `tests/main/controllers/appMenu.spec.ts`, `tests/main/application/useCases/appMenu/{setAppMenu,setAppMenuAutoHide}.spec.ts`, `tests/renderer/ui/components/app.spec.tsx`, `tests/renderer/ui/components/topBar/shelf/shelfItemViewModel.spec.ts`, `tests/common/base/fixtures/process.ts`, `tests/renderer/ui/components/app/uiTheme/contrast.spec.ts`, `tests/renderer/application/useCases/appMenu/initAppMenu.spec.ts`, `tests/renderer/widgets/terminal/widget.spec.ts`, `tests/renderer/base/state/fixtures/appState.ts`
 
+## 111. 상단 바를 워크플로우 바에 병합 *(2026-11-14)*
+
+상단 바 (Top Bar)의 셸프 위젯을 워크플로우 바 안에 넣어 두 줄을 한 줄로 쓴다. 워크플로우 탭은 왼쪽에, 셸프 탭은 오른쪽에 놓인다.
+
+- **켜는 곳**: 설정 > Workflow Bar Position이 Top일 때 나오는 **Merge Top Bar into it** (기본 Off).
+- **동작 조건**: 이 설정이 On이고, 상단 바가 보이는 상태 (View > Appearance > Show Top Bar)이고, 워크플로우 바가 Top일 때. 하나라도 아니면 전처럼 따로 그린다. 셸프 팝업은 아래로 열리는 가로 목록이라서 Bottom, Left, Right 바에는 넣지 않는다.
+- **병합된 바의 순서**: 왼쪽 요소, 워크플로우 탭 (남는 폭), 셸프, 오른쪽 요소. 셸프는 항목 폭만큼만 쓰고 바의 절반을 넘으면 가로로 스크롤한다. 빈 셸프는 편집 모드에서만 보인다 (위젯을 놓을 자리).
+- 설정 칸 옆에 "상단 바가 보일 때 적용된다"는 안내를 둔다. 상단 바가 숨겨져 있으면 On이어도 화면은 그대로다.
+- **위치 설정**: 프로젝트 전환기와 편집 토글의 위치가 Top Bar이면 병합된 바의 오른쪽 끝에 나온다. 편집 모드의 팔레트도 바 오른쪽에 나온다.
+- 셸프 탭 높이는 워크플로우 바에 맞춰 36px (상단 바에서는 48px), 글자는 14px다. 팝업 크기와 hover/focus 동작은 그대로다.
+- AI 작업 `app.getSettings`, `app.updateSettings`가 `mergeTopBar`를 받는다.
+
+구조:
+
+- `isTopBarMerged(ui)` (`base/state/ui.ts`) 하나가 병합 여부를 정한다. `appViewModel`은 이때 `hasTopBar`를 false로 돌려주고, `workflowSwitcherViewModel`은 `showShelf`를 돌려준다.
+- `app.tsx`의 `.body-layout` 슬롯 순서는 그대로다. 그래서 병합을 켜고 꺼도 `Worktable`이 다시 만들어지지 않는다.
+- 같은 `Shelf` 컴포넌트를 `compact` prop으로 다시 쓴다. 셸프 탭 높이는 CSS 변수 `--shelf-bar-height`에서 나오고, 이 변수는 셸프가 놓인 바 (`.top-bar` 48px, `.workflow-switcher-bar` 36px)가 정의한다.
+- 셸프 팝업의 `top`을 고정값 (`46px` + 제목 표시줄 높이)에서 탭 캡션의 실측 rect (아래쪽 좌표 - 4px)로 바꿨다. 상단 바에서의 위치는 전과 같다. 쓰는 곳이 없어진 `appTitleBarOffsetPx`는 지웠다.
+- `AppConfig` 최상위 필드라서 마이그레이션은 없다 (decisions.md의 선례). 설계 선택과 버린 대안은 decisions.md D85.
+
+**까다로웠던 포인트**
+
+- 병합 여부가 바뀌면 `Shelf`가 다른 부모 아래로 옮겨져 다시 만들어진다. 설정을 켜고 끌 때, 병합이 켜진 채로 상단 바를 보이거나 숨길 때, 워크플로우 바 위치를 Top에서 다른 곳으로 (또는 반대로) 바꿀 때다. 셸프 안의 webview 위젯은 그때 한 번 새로고침된다. worktable 위젯은 영향이 없다.
+- 팝업 위치는 `<li>`가 아닌 캡션을 재서 정한다. `<li>`는 목록 높이에 맞춰 늘어나서, 셸프가 넘쳐 hover 때 3px 스크롤바가 나오면 낮아지고 팝업이 따라 올라간다 (코드 리뷰에서 발견).
+- 병합된 셸프는 바의 오른쪽에 붙는다. 편집 모드를 켜서 팔레트 구역이 생기면 탭이 옆으로 밀리므로, 편집 모드가 바뀔 때 탭 위치를 다시 잰다 (코드 리뷰에서 발견).
+- 상단 바의 셸프는 `position: absolute`로 구역을 채운다. 이 상태로는 구역이 항목 폭을 알 수 없어서, 병합 상태 (`.is-compact`)에서는 `position: static`으로 둔다.
+- 프로젝트 전환기와 편집 토글의 Top Bar 위치는 병합 상태에서 갈 곳이 없다. 저장 값은 바꾸지 않고 view model에서 오른쪽으로 취급한다. 병합을 끄면 원래 위치로 돌아간다.
+
+**수정 파일**
+
+- **수정**: `src/renderer/base/appConfig.ts`, `src/renderer/base/state/ui.ts`, `src/renderer/ui/components/app/appViewModel.ts`, `src/renderer/ui/components/workflowSwitcher/{workflowSwitcher.tsx,workflowSwitcherViewModel.ts,workflowSwitcher.module.scss}`, `src/renderer/ui/components/topBar/{topBar.tsx,topBar.module.scss}`, `src/renderer/ui/components/topBar/shelf/{shelf.tsx,shelfItem.tsx,shelfItemViewModel.ts,shelf.module.scss}`, `src/renderer/ui/components/titleBar/titleBar.tsx`, `src/renderer/ui/components/applicationSettings/applicationSettings.tsx`, `src/renderer/application/useCases/ai/actions/settingsActions.ts`, `src/renderer/init.ts`
+- **테스트**: `tests/renderer/ui/components/{app,workflowSwitcher,applicationSettings}.spec.tsx`, `tests/renderer/ui/components/topBar/shelf.spec.tsx`, `tests/renderer/ui/components/topBar/shelf/shelfItemViewModel.spec.ts`, `tests/renderer/application/useCases/ai/actions/settingsActions.spec.ts`, `tests/renderer/base/fixtures/appConfig.ts`, `tests/renderer/base/state/fixtures/appState.ts`
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

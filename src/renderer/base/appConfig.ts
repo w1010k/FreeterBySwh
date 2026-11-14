@@ -34,6 +34,8 @@ export interface AppConfig {
   workflowBarPos: WorkflowBarPos;
   /** Width (px) of the workflow bar when positioned on the left/right. */
   workflowBarWidth: number;
+  /** Put the Top Bar's shelf into the workflow bar (one bar instead of two). Applies only while the Top Bar is shown and the workflow bar is at the top. */
+  mergeTopBar: boolean;
   /** Local usage-analytics collection settings. */
   telemetry: TelemetryConfig;
   /**

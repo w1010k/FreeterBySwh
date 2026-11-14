@@ -14,11 +14,16 @@ type Deps = {
   useShelfViewModel: ShelfViewModelHook;
 }
 
+export interface ShelfProps {
+  /** Inside the workflow bar (the Top Bar merged into it): the bar's height, and as wide as its items. */
+  compact?: boolean;
+}
+
 export function createShelfComponent({
   ShelfItem,
   useShelfViewModel
 }: Deps) {
-  function Shelf() {
+  function Shelf({compact}: ShelfProps) {
     const {
       env,
       isEditMode,
@@ -48,6 +53,7 @@ export function createShelfComponent({
       <ul
         className={clsx(
           styles.shelf,
+          compact && styles['is-compact'],
           isEditMode && dndTargetListItemId === null && styles['is-drop-area'],
           dontShowWidgets && styles['dont-show-widgets']
         )}

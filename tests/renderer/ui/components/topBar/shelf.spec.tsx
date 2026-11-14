@@ -30,7 +30,8 @@ const overItemId = 'OVER-ITEM-ID';
 const widgetId = 'WIDGET-ID';
 
 async function setup(
-  appState: AppState
+  appState: AppState,
+  opts?: { compact?: boolean }
 ) {
   const [appStore, appStoreForUi] = await fixtureAppStore(appState);
   const useAppState = createAppStateHook(appStoreForUi);
@@ -71,7 +72,7 @@ async function setup(
     useShelfViewModel
   })
   const comp = render(
-    <Shelf/>
+    <Shelf compact={opts?.compact}/>
   );
 
   return {
@@ -91,6 +92,34 @@ describe('<Shelf />', () => {
   it('should display a list', async () => {
     await setup(fixtureAppState({}));
     expect(screen.getByRole('list')).toBeInTheDocument();
+  });
+
+  it('should set "is-compact" style only when compact (inside the workflow bar)', async () => {
+    const {comp} = await setup(fixtureAppState({}));
+    expect(screen.getByRole('list')).not.toHaveClass('is-compact');
+    comp.unmount();
+    await setup(fixtureAppState({}), {compact: true});
+    expect(screen.getByRole('list')).toHaveClass('is-compact');
+  });
+
+  it('should open the widget box just under its tab, wherever the bar is', async () => {
+    const rect = jest.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue({left: 300, top: 30, width: 96, height: 38} as DOMRect);
+    try {
+      const {comp} = await setup(fixtureAppState({
+        ui: {
+          shelf: fixtureShelf({
+            widgetList: [fixtureWidgetListItemA()]
+          })
+        }
+      }));
+      const box = comp.container.querySelector<HTMLElement>('.shelf-item-widget-box');
+      // The tab's bottom edge (30 + 38), minus the 4px overlap.
+      expect(box?.style.top).toBe('64px');
+      expect(box?.style.left).toBe('300px');
+    } finally {
+      rect.mockRestore();
+    }
   });
 
   it('should display 0 items, when there is no widgets', async () => {

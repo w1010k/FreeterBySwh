@@ -228,6 +228,25 @@ describe('<ApplicationSettings />', () => {
       expect(updateApplicationSettingsUseCase).toHaveBeenCalledWith({...appConfig, aiAlwaysAllow: true});
     })
 
+    it('turns "Merge Top Bar" on for a top workflow bar (off by default)', async () => {
+      const appConfig = fixtureAppConfig({workflowBarPos: 'top'});
+      const {updateApplicationSettingsUseCase} = await setup(fixtureAppState({
+        ui: { modalScreens: fixtureModalScreens({ data: fixtureModalScreensData({ applicationSettings: fixtureApplicationSettings({ appConfig }) }) }) }
+      }));
+      const select = screen.getByRole('combobox', {name: /^Merge Top Bar into it$/i});
+      expect(select).toHaveValue('0');
+      await userEvent.selectOptions(select, 'On');
+      expect(updateApplicationSettingsUseCase).toHaveBeenCalledWith({...appConfig, mergeTopBar: true});
+    })
+
+    it('does not offer "Merge Top Bar" for a side workflow bar', async () => {
+      const appConfig = fixtureAppConfig({workflowBarPos: 'left'});
+      await setup(fixtureAppState({
+        ui: { modalScreens: fixtureModalScreens({ data: fixtureModalScreensData({ applicationSettings: fixtureApplicationSettings({ appConfig }) }) }) }
+      }));
+      expect(screen.queryByRole('combobox', {name: /^Merge Top Bar into it$/i})).not.toBeInTheDocument();
+    })
+
     describe('workflow bar width', () => {
       const setupSide = async () => {
         const appConfig = fixtureAppConfig({workflowBarPos: 'left', workflowBarWidth: 200});

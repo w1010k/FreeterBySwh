@@ -355,6 +355,7 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 | `downloadDir`                                    | `''` (OS Downloads)                                                   | [fork #41]                |
 | `bgColor`, `bgImage`, `bgImageMode`, `bgOpacity` | `''`, `''`, `'cover'`, `100`                                          | [fork #42]                |
 | `workflowBarPos`, `workflowBarWidth`             | `'left'`, `200`                                                       | [fork #45]                |
+| `mergeTopBar`                                    | `false`                                                               | [fork #111]               |
 | `telemetry`                                      | `{enabled: false, idleTimeoutMs: 300000}`                             | [fork #62]                |
 
 #### 저장소 계층

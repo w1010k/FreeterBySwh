@@ -22,7 +22,7 @@ import { DeleteWorkflowUseCase } from '@/application/useCases/workflowSwitcher/d
 import { ShowContextMenuUseCase } from '@/application/useCases/contextMenu/showContextMenu';
 import { MenuItem, MenuItems } from '@common/base/menu';
 import { EntityList, mapIdListToEntityList } from '@/base/entityList';
-import { CopiedEntitiesItem, EditTogglePos, ProjectSwitcherPos } from '@/base/state/ui';
+import { CopiedEntitiesItem, EditTogglePos, ProjectSwitcherPos, isTopBarMerged } from '@/base/state/ui';
 import { Workflow } from '@/base/workflow';
 import { WorkflowEntityDeps } from '@/base/state/entities';
 import { PasteWorkflowUseCase } from '@/application/useCases/workflowSwitcher/pasteWorkflow';
@@ -254,7 +254,9 @@ export function createWorkflowSwitcherViewModelHook({
       copiedWorkflowsEntitites,
       copiedWorkflowsList,
       hasCurrentWorkflow,
-      topBarIsHidden,
+      topBarHasOwnRow,
+      topBarIsMerged,
+      shelfHasItems,
       editTogglePos,
       prjSwitcherPos,
       workflowBarPos,
@@ -272,7 +274,10 @@ export function createWorkflowSwitcherViewModelHook({
       const copiedWorkflowsEntitites = state.ui.copy.workflows.entities;
       const copiedWorkflowsList = state.ui.copy.workflows.list;
       const hasCurrentWorkflow = !!state.entities.workflows[currentWorkflowId || ''];
-      const topBarIsHidden = !state.ui.topBar;
+      const topBarIsMerged = isTopBarMerged(state.ui);
+      // Without a Top Bar row (hidden, or merged into this bar), this bar takes what that row would show.
+      const topBarHasOwnRow = state.ui.topBar && !topBarIsMerged;
+      const shelfHasItems = state.ui.shelf.widgetList.length > 0;
       const editTogglePos = state.ui.editTogglePos;
       const prjSwitcherPos = state.ui.projectSwitcher.pos;
       const workflowBarPos = state.ui.appConfig.workflowBarPos;
@@ -287,7 +292,9 @@ export function createWorkflowSwitcherViewModelHook({
         copiedWorkflowsEntitites,
         copiedWorkflowsList,
         hasCurrentWorkflow,
-        topBarIsHidden,
+        topBarHasOwnRow,
+        topBarIsMerged,
+        shelfHasItems,
         editTogglePos,
         prjSwitcherPos,
         workflowBarPos,
@@ -419,12 +426,15 @@ export function createWorkflowSwitcherViewModelHook({
     }, [copiedWorkflows, isEditMode, currentProjectId, workflowIds, workflowBarPos])
 
     const showPrjSwitcherLeft = prjSwitcherPos === ProjectSwitcherPos.TabBarLeft;
-    const showPrjSwitcherRight = prjSwitcherPos === ProjectSwitcherPos.TabBarRight;
+    // The Top Bar positions land on the right end of the bar when the Top Bar is merged into it.
+    const showPrjSwitcherRight = prjSwitcherPos === ProjectSwitcherPos.TabBarRight
+      || (topBarIsMerged && prjSwitcherPos === ProjectSwitcherPos.TopBar);
     const showEditToggleLeft = editTogglePos === EditTogglePos.TabBarLeft;
-    const showEditToggleRight = editTogglePos === EditTogglePos.TabBarRight;
+    const showEditToggleRight = editTogglePos === EditTogglePos.TabBarRight
+      || (topBarIsMerged && editTogglePos === EditTogglePos.TopBar);
     const showPalette = isEditMode && hasCurrentWorkflow;
     const showPaletteLeft = showPalette && showEditToggleLeft;
-    const showPaletteRight = showPalette && !showPaletteLeft && (showEditToggleRight || topBarIsHidden);
+    const showPaletteRight = showPalette && !showPaletteLeft && (showEditToggleRight || !topBarHasOwnRow);
 
     return {
       isEditMode,
@@ -456,6 +466,8 @@ export function createWorkflowSwitcherViewModelHook({
       showPrjSwitcherRight,
       showEditToggleLeft,
       showEditToggleRight,
+      // An empty shelf is drawn only in Edit Mode (as a drop area): otherwise its zero-width section leaves a stray divider.
+      showShelf: topBarIsMerged && (shelfHasItems || isEditMode),
       workflowBarPos,
       workflowBarWidth,
     }

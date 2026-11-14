@@ -112,7 +112,7 @@ export function createApplicationSettingsComponent({
             <SettingBlock
               titleForId='workflow-bar-pos'
               title='Workflow Bar Position'
-              moreInfo='Where the workflow tab bar sits. Left/Right show it as a vertical side panel whose width you can set here (or drag its edge while in Edit Mode).'
+              moreInfo='Where the workflow tab bar sits. Left/Right show it as a vertical side panel whose width you can set here (or drag its edge while in Edit Mode). At the top, it can take in the Top Bar (when shown): the workflow tabs stay on the left and the Top Bar widgets go to the right of the same bar.'
             >
               <select id="workflow-bar-pos" value={appConfig.workflowBarPos} onChange={e => updateSettings({
                 ...appConfig,
@@ -134,6 +134,19 @@ export function createApplicationSettingsComponent({
                     })}
                   />
                   <span>px</span>
+                </div>}
+              {appConfig.workflowBarPos === 'top' &&
+                <div className={styles['download-dir-row']}>
+                  <label htmlFor="merge-top-bar">Merge Top Bar into it</label>
+                  <select id="merge-top-bar" value={convertBoolToStr(appConfig.mergeTopBar)}
+                          onChange={e => updateSettings({
+                            ...appConfig,
+                            mergeTopBar: convertStrToBool(e.target.value)
+                          })}>
+                    <option value={convertBoolToStr(false)}>Off</option>
+                    <option value={convertBoolToStr(true)}>On</option>
+                  </select>
+                  <span>Applies while the Top Bar is shown (View &gt; Appearance).</span>
                 </div>}
             </SettingBlock>
 

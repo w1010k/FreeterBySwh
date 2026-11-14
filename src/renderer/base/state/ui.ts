@@ -238,6 +238,14 @@ export interface UiState {
   appMenuLabels: string[];
 }
 
+/**
+ * The Top Bar is drawn inside the workflow bar (the shelf after the tabs) instead of as its own row. Only a top
+ * workflow bar can take it: the shelf is a horizontal list whose widget boxes open downward.
+ */
+export function isTopBarMerged(ui: Pick<UiState, 'topBar' | 'appConfig'>): boolean {
+  return ui.topBar && ui.appConfig.mergeTopBar && ui.appConfig.workflowBarPos === 'top';
+}
+
 export function createUiState(): UiState {
   return {
     dragDrop: {},
@@ -259,6 +267,7 @@ export function createUiState(): UiState {
       bgOpacity: 100,
       workflowBarPos: 'left',
       workflowBarWidth: 200,
+      mergeTopBar: false,
       aiAlwaysAllow: false,
       telemetry: {
         enabled: false,

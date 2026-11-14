@@ -138,7 +138,9 @@
 
 구조:
 
-- `TopBar`는 `ui.topBar`가 true일 때만 렌더한다 (기본 false).
+- `TopBar`는 `ui.topBar`가 true일 때만 렌더한다 (기본 false). 상단 바가 워크플로우 바에 병합된 상태 (`isTopBarMerged`,
+  `src/renderer/base/state/ui.ts`: `ui.topBar`, `appConfig.mergeTopBar`, `workflowBarPos === 'top'`이 모두 참)이면 `TopBar`를 렌더하지 않고
+  `WorkflowSwitcher`가 셸프를 그린다 [fork #111].
 - `.body-layout` 하나에 `[WorkflowSwitcher, 리사이저 자리, 본문]`을 고정 순서로 둔다. `appConfig.workflowBarPos`는 CSS 클래스
   `is-top/is-bottom/is-left/is-right`로 `flex-direction`만 바꾼다 (`column`, `column-reverse`, `row`,
   `row-reverse`) [fork #45].
@@ -230,11 +232,18 @@
 
 | 요소                                   | 표시 조건                                                                                  |
 |----------------------------------------|--------------------------------------------------------------------------------------------|
-| 프로젝트 전환기 + Manage Projects 버튼 | `ui.projectSwitcher.pos`가 `TabBarLeft` 또는 `TabBarRight`                                 |
-| 편집 토글                              | `ui.editTogglePos`가 `TabBarLeft` 또는 `TabBarRight`                                       |
+| 프로젝트 전환기 + Manage Projects 버튼 | `ui.projectSwitcher.pos`가 `TabBarLeft` 또는 `TabBarRight`. 병합 상태에서는 `TopBar`도 오른쪽으로 취급 [fork #111] |
+| 편집 토글                              | `ui.editTogglePos`가 `TabBarLeft` 또는 `TabBarRight`. 병합 상태에서는 `TopBar`도 오른쪽으로 취급 [fork #111]       |
+| 셸프 (`<Shelf compact/>`)              | 병합 상태 (`isTopBarMerged`)이고, 셸프에 항목이 있거나 편집 모드. 탭 목록 바로 뒤, 오른쪽 요소들 앞 [fork #111] |
 | 팔레트 (왼쪽)                          | 편집 모드, 현재 workflow 있음, 편집 토글이 왼쪽                                            |
 | 팔레트 (오른쪽)                        | 편집 모드, 현재 workflow 있음, 왼쪽 팔레트 아님, 편집 토글이 오른쪽이거나 상단 바가 숨겨짐 |
 | 팔레트 `dropUp`                        | 바가 아래이거나, 세로 바에서 팔레트가 탭 목록 뒤에 있음 [fork #45 후속]                    |
+
+- 병합 상태는 팔레트 규칙에서 "상단 바가 숨겨짐"과 같다 (둘 다 `topBarHasOwnRow`가 false). 그래서 편집 토글이 `TopBar`나 `Hidden`이어도 팔레트가 바 오른쪽에 나온다.
+- 빈 셸프는 보기 모드에서 그리지 않는다 (폭 0인 구역이 구분선만 남긴다). 편집 모드에서는 drop 영역으로 그린다.
+- 병합 여부가 바뀌면 (`mergeTopBar`, `ui.topBar`, `workflowBarPos` 중 하나의 변경) `Shelf`가 다른 부모 아래에서 다시 만들어진다. 셸프의 webview 위젯은 그때 새로고침된다 (decisions.md D85).
+- 병합 상태의 가로 배분 (`workflowSwitcher.module.scss`): 탭 목록이 남는 폭을 쓰고, 셸프 구역 (`.workflow-switcher-bar-shelf-section`)은 항목 폭만큼만 쓴다.
+  셸프 구역은 바의 50%를 넘지 않고, 넘으면 셸프가 가로로 스크롤한다. 편집 모드에서는 빈 셸프도 drop을 받도록 최소 폭 96px를 둔다.
 
 - 팔레트 키보드 [fork #103]: 목록 (Add, Paste)은 CSS hover/focus 드롭다운이다 (트리거는 `:focus-visible ~ section`: 마우스로 클릭한 트리거는 목록을 붙잡지 않는다. 열린 목록은 `:has(:focus-visible)`로 유지: `:focus-within`이면 마우스로 클릭한 항목이 포커스를 가져 클릭 뒤에도 목록이 열려 있다). DOM 순서를
   Add 트리거, Add 목록, Paste 트리거, Paste 목록으로 두어 Tab이 트리거에서 그 목록의 검색칸과 항목으로 이어진다. 항목 (`li`)은 `tabIndex=0`이고
@@ -438,7 +447,8 @@
 
 ### 셸프 (Top Bar 위젯 목록)
 
-출처: `[upstream, fork #14 #15 #19 #30 #48 변경]`. 상단 바에 위젯을 탭으로 두고, hover나 focus 때 팝업으로 보여 준다. 상단 바가 숨겨져 있으면 (기본값) 보이지 않는다.
+출처: `[upstream, fork #14 #15 #19 #30 #48 #111 변경]`. 상단 바에 위젯을 탭으로 두고, hover나 focus 때 팝업으로 보여 준다. 상단 바가 숨겨져 있으면 (기본값) 보이지 않는다.
+상단 바가 워크플로우 바에 병합되면 (`appConfig.mergeTopBar`, [fork #111]) 같은 `Shelf` 컴포넌트가 워크플로우 바 안에서 `compact` prop으로 렌더된다.
 
 | 경로                                                                             | 역할                                                                              |
 |----------------------------------------------------------------------------------|-----------------------------------------------------------------------------------|
@@ -449,15 +459,17 @@
 
 - 팝업 크기: 기본 300×150 (`shelfWidgetDefaultW`, `shelfWidgetDefaultH`), 범위 150~1200 × 80~900
   (`src/renderer/application/useCases/shelf/setShelfItemSize.ts`) [fork #19 #48].
-- 팝업은 `position: fixed`이고 x 좌표는 탭의 실측 rect다. 탭에 `onMouseEnter`나 `onFocus`가 오면 `measureItemElRect`로 다시
-  잰다 [fork, CHANGES 섹션 없음, 커밋 548a753]. 다른 탭이 삭제되어 위치만 바뀐 경우를 잡으려는 것이다.
+- 팝업은 `position: fixed`이고 x 좌표와 `top`은 탭 캡션 (`.shelf-item-caption`)의 실측 rect에서 나온다 (`top` = 캡션 아래쪽 좌표 -
+  `shelfPopupOverlapPx` 4px, [fork #111]). `<li>`가 아닌 캡션을 재는 이유: `<li>`는 목록 높이에 맞춰 늘어나서, hover 때 목록의 가로 스크롤바가 나오면 낮아진다.
+  탭에 `onMouseEnter`나 `onFocus`가 오면 `measureItemElRect`로 다시 잰다 [fork, CHANGES 섹션 없음, 커밋 548a753]. 다른 탭이 삭제되어 위치만 바뀐
+  경우를 잡으려는 것이다. 편집 모드가 바뀔 때도 다시 잰다 (병합된 바에서 팔레트 구역이 생기면 셸프 탭이 옆으로 밀린다, [fork #111]).
 - 표시 크기만 창 안으로 클램프하고 저장 크기는 유지한다 (`clampShelfPopupBox`).
 - 편집 모드에서 팝업 우하단 핸들로 크기를 바꾼다 → `setShelfItemSizeUseCase` (클램프, 반올림, 같은 값 무시). 드래그 중에는 `is-resizing` 클래스로 팝업을 강제 표시하고
   오버레이를 띄운다.
 - 모든 셸프 위젯은 `createWidgetEnv({ area: 'shelf' })` 객체 하나를 공유한다 (`shelfViewModel.ts`). env 객체는 `Object.freeze`된다.
 - `ShelfItem`은 `memo`다 [fork #30].
-- 주의점: 상단 바 높이 48px [fork #14]와 팝업 `top: 46px`은 `shelf.module.scss`와 `shelfItemViewModel.ts`의 `shelfPopupTopPx`가 같은 값을
-  유지해야 한다. (pitfalls: 상단 바 높이의 다중 정의)
+- 탭 높이는 CSS 변수 `--shelf-bar-height`에서 나온다 [fork #111]. 이 변수는 셸프가 놓인 바가 정의하고 자기 높이로도 쓴다 (`.top-bar` 48px,
+  `.workflow-switcher-bar` 36px). `.is-compact`는 셸프를 `position: static`으로 바꿔 구역이 항목 폭을 갖게 한다.
 
 ### 편집 모드와 바 배치 토글
 
@@ -552,11 +564,13 @@
 | `downloadDir`                                    | `''` (OS 기본 Downloads)     | `initDownloadDirUseCase`      | fork #41                |
 | `bgColor`, `bgImage`, `bgImageMode`, `bgOpacity` | `''`, `''`, `'cover'`, `100` | `worktableViewModel`          | fork #42                |
 | `workflowBarPos`, `workflowBarWidth`             | `'left'`, `200`              | `app.tsx`, `workflowSwitcher` | fork #45                |
+| `mergeTopBar`                                    | `false`                      | `isTopBarMerged`              | fork #111               |
 | `telemetry.enabled`, `telemetry.idleTimeoutMs`   | `false`, `300000`            | `telemetryCollector`          | fork #62                |
 
 - 모달 안의 변경은 초안에만 들어가고, OK (`saveApplicationSettingsUseCase`)에서 `ui.appConfig`로 반영된다. Cancel은 초안을 버린다.
 - 사이드 바 너비를 바꾸는 경로: 모달 입력칸 (초안, OK 때 적용, 입력 중 문자열은 로컬 state로 들고 blur 때 클램프), 편집 모드 리사이저 드래그
   (`setWorkflowBarWidthUseCase`, `ui.appConfig`에 바로 반영).
+- `mergeTopBar` 입력칸 (Merge Top Bar into it)은 Workflow Bar Position이 Top일 때만 보인다. 값은 위치를 바꿔도 남고, 위치가 Top이 아니면 효과가 없다.
 - `telemetry.idleTimeoutMs`는 설정 UI가 없다.
 - 설정 화면 공통 폼 컨트롤은 `width: 100%`다 [fork #68]
   (`src/renderer/ui/components/basic/settingsScreen/settingsScreen.module.scss`).

@@ -4,6 +4,8 @@
  */
 
 .top-bar {
+  // The bar's height. The shelf sizes its tabs from it (shelf.module.scss).
+  --shelf-bar-height: 48px;
   display: flex;
   z-index: 3;
   background-color: var(--freeter-topBarBackground);
@@ -14,7 +16,7 @@
 .top-bar-section {
   box-sizing: border-box;
   padding: 6px;
-  height: 48px;
+  height: var(--shelf-bar-height);
   display: flex;
   &:not(:last-child) {
     border-right: 1px solid var(--freeter-topBarBorder);

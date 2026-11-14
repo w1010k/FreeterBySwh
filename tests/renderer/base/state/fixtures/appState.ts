@@ -31,6 +31,7 @@ const appState: AppState = {
       bgOpacity: 100,
       workflowBarPos: 'top',
       workflowBarWidth: 200,
+      mergeTopBar: false,
       aiAlwaysAllow: false,
       telemetry: {
         enabled: false,

@@ -122,6 +122,16 @@ describe('<App />', () => {
     expect(screen.getByText(strTopBar)).toBeInTheDocument();
   });
 
+  it('should not display TopBar, when it is merged into a top workflow bar', async () => {
+    await setup(fixtureAppState({ui: {topBar: true, appConfig: fixtureAppConfig({workflowBarPos: 'top', mergeTopBar: true})}}));
+    expect(screen.queryByText(strTopBar)).not.toBeInTheDocument();
+  });
+
+  it('should display TopBar with the merge setting on, when the workflow bar is not at the top', async () => {
+    await setup(fixtureAppState({ui: {topBar: true, appConfig: fixtureAppConfig({workflowBarPos: 'left', mergeTopBar: true})}}));
+    expect(screen.getByText(strTopBar)).toBeInTheDocument();
+  });
+
   it('should not display "No Projects" text, when there are projects in the project switcher', async () => {
     const projectId = 'PROJECT-ID';
     await setup(fixtureAppState({

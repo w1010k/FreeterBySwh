@@ -217,8 +217,3 @@ export function createTitleBarComponent({
 
   return TitleBar;
 }
-
-/** The height the app's title bar takes from the top of the page (0 where the OS draws the title bar: macOS). */
-export function appTitleBarOffsetPx(): number {
-  return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-title-bar-height')) || 0;
-}

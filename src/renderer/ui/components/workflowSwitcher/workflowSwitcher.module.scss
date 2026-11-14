@@ -8,7 +8,9 @@
   border-bottom: 1px solid var(--freeter-workflowSwitcherBorder);
   z-index: 2;
   box-sizing: content-box;
-  height: 36px;
+  // The bar's height. A shelf merged into the bar sizes its tabs from it (shelf.module.scss).
+  --shelf-bar-height: 36px;
+  height: var(--shelf-bar-height);
   width: 100%;
   display: flex;
   flex-direction: row;
@@ -155,6 +157,20 @@
   padding: 0;
   z-index: 1;
   flex-shrink: 0;
+}
+
+// The Top Bar's shelf, merged into this bar: as wide as its tabs, after the workflow tabs (which take the rest). Past
+// half of the bar it scrolls instead of squeezing the workflow tabs out.
+.workflow-switcher-bar-shelf-section {
+  padding: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 50%;
+
+  // An empty shelf still needs an area to drop a widget on.
+  &.is-edit-mode {
+    min-width: 96px;
+  }
 }
 
 .workflow-switcher-bar-project-switcher-section {

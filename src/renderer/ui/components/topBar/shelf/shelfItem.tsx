@@ -101,10 +101,12 @@ export function createShelfItemComponent({
         onMouseEnter={measureItemElRect}
         onFocus={measureItemElRect}
         tabIndex={0}
-        ref={itemWidgetElRef as React.RefObject<HTMLLIElement | null>}
       >
         <div
           className={styles['shelf-item-caption']}
+          // The caption, not the <li>: its height is fixed, while the <li> stretches to the list and gets shorter
+          // when the list shows its scrollbar on hover (which would move the popup).
+          ref={itemWidgetElRef as React.RefObject<HTMLDivElement | null>}
           draggable={isEditMode}
           onDragStart={onDragStartHandler}
           onDragEnd={onDragEndHandler}
