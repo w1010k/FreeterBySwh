@@ -260,7 +260,7 @@ describe('Webpage Widget', () => {
 
       block(7, 'file:///C:/Windows/notepad.exe', 'scheme');
 
-      expect(screen.getByRole('status')).toHaveTextContent('This page tried to open a file: link. Freeter does not open it from a page.');
+      expect(screen.getByRole('status')).toHaveTextContent('This page tried to open a file: link. Acedeck does not open it from a page.');
       expect(screen.queryByRole('button', { name: /^Open/ })).not.toBeInTheDocument();
     });
 

@@ -31,8 +31,8 @@ export function ProjectManagerSettings(props: ProjectManagerSettingsProps) {
       </SettingBlock>
       <SettingBlock
         title='Memory Saver'
-        moreInfo='Freeter frees up memory from inactive workflows.
-                  This gives active workflows more computer resources and keeps Freeter
+        moreInfo='Acedeck frees up memory from inactive workflows.
+                  This gives active workflows more computer resources and keeps Acedeck
                   fast. Your inactive workflows automatically become active again when
                   you go back to them.'
       >

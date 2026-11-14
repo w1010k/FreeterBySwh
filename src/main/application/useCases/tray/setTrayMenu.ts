@@ -24,7 +24,7 @@ export function createSetTrayMenuUseCase(deps: Deps) {
     trayProvider.setMenu([
       {
         doAction: showAppAction,
-        label: 'Show Freeter'
+        label: 'Show Acedeck'
       },
       { type: 'separator' },
       ...(items.length > 0

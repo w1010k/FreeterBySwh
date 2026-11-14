@@ -4,7 +4,7 @@
  */
 
 /**
- * The `freeter` CLI: lets AI agents (and people) drive a running Freeter through
+ * The `acedeck` CLI (`freeter` is its former name, kept as an alias): lets AI agents (and people) drive a running app through
  * its AI control pipe. Runs on plain Node or on the Freeter executable with
  * ELECTRON_RUN_AS_NODE=1, so it must not import 'electron'.
  */
@@ -14,6 +14,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { AiActionInfo, aiOrigins, AiOrigin, AiRpcMethod, AiRpcResponse, AiRpcResult, createLineSplitter, encodeLine } from '@common/ai/protocol';
 import { runMcpServer } from '@/cli/mcp';
+import { userDataDirName } from '@/base/userDataDir';
 
 export interface CliIo {
   stdin: NodeJS.ReadableStream;
@@ -31,8 +32,8 @@ export interface AiClient {
 
 export type ConnectAiClient = (endpointPath: string, origin: AiOrigin) => Promise<AiClient>;
 
-const notRunning = () => new Error('Freeter is not running');
-const CLOSED = 'Freeter closed the connection';
+const notRunning = () => new Error('Acedeck is not running');
+const CLOSED = 'Acedeck closed the connection';
 
 async function readAll(stream: NodeJS.ReadableStream): Promise<string> {
   const chunks: Buffer[] = [];
@@ -49,7 +50,7 @@ export function defaultEndpointPath(env: Record<string, string | undefined>, pla
   const base = platform === 'win32'
     ? env.APPDATA ?? join(homeDir, 'AppData', 'Roaming')
     : env.XDG_CONFIG_HOME ?? join(homeDir, '.config');
-  return join(base, 'freeter-swh', 'freeter-data', 'ai', 'endpoint.json');
+  return join(base, userDataDirName(true), 'freeter-data', 'ai', 'endpoint.json');
 }
 
 export async function connectAiClient(endpointPath: string, origin: AiOrigin): Promise<AiClient> {
@@ -93,7 +94,7 @@ export async function connectAiClient(endpointPath: string, origin: AiOrigin): P
     pending.delete(msg.id);
     resolve?.(msg.error ? { ok: false, code: msg.error.data?.code ?? 'failed', message: msg.error.message } : { ok: true, value: msg.result ?? null });
   }, () => socket.destroy()));
-  socket.on('error', () => failAll('Connection to Freeter failed'));
+  socket.on('error', () => failAll('Connection to Acedeck failed'));
   socket.on('close', () => failAll(CLOSED));
 
   return {
@@ -115,13 +116,13 @@ export async function connectAiClient(endpointPath: string, origin: AiOrigin): P
 
 /** Stands in until the first connection: every call reconnects. */
 const closedClient: AiClient = {
-  call: async () => ({ ok: false, code: 'failed', message: 'Freeter is not running' }),
+  call: async () => ({ ok: false, code: 'failed', message: 'Acedeck is not running' }),
   close: () => undefined,
   isClosed: () => true,
 };
 
 /**
- * For the long-lived `freeter mcp`: when Freeter restarts (new pipe, new token),
+ * For the long-lived `acedeck mcp`: when Freeter restarts (new pipe, new token),
  * the next call reads endpoint.json again and reconnects.
  */
 export function createReconnectingAiClient(first: AiClient, reopen: () => Promise<AiClient>): AiClient {
@@ -141,7 +142,7 @@ export function createReconnectingAiClient(first: AiClient, reopen: () => Promis
       });
       current = await reopening;
       if (closing) {
-        current.close(); // closed meanwhile: a socket left open would keep `freeter mcp` running
+        current.close(); // closed meanwhile: a socket left open would keep `acedeck mcp` running
       }
       return undefined;
     } catch (err) {
@@ -194,36 +195,36 @@ export function createReconnectingAiClient(first: AiClient, reopen: () => Promis
 }
 
 const usage = `Usage:
-  freeter actions [--json]              List what an agent can do in Freeter
-  freeter run <action> [--input <JSON> | --input - | --input-file <path>]
+  acedeck actions [--json]              List what an agent can do in Acedeck
+  acedeck run <action> [--input <JSON> | --input - | --input-file <path>]
                                         Run an action (write actions ask the user first,
                                         unless the user turned on "always allow");
                                         '-' reads the JSON from stdin
-  freeter guide                         Print a usage guide for AI agents
-  freeter mcp                           Run as a stdio MCP server
+  acedeck guide                         Print a usage guide for AI agents
+  acedeck mcp                           Run as a stdio MCP server
 `;
 
 export function guideText(actions: AiActionInfo[]): string {
-  return `# Freeter CLI guide for AI agents
+  return `# Acedeck CLI guide for AI agents
 
-Freeter is a desktop organizer: projects contain workflows, workflows contain widgets.
-This CLI drives the running Freeter app.
+Acedeck is a desktop organizer: projects contain workflows, workflows contain widgets.
+This CLI drives the running Acedeck app.
 
 ## Commands
 
 | Command | Does |
 |---------|------|
-| \`freeter actions --json\` | List actions with their input JSON Schema |
-| \`freeter run <action> --input-file <path>\` | Run an action with the JSON input in a UTF-8 file; prints the result as JSON |
-| \`freeter run <action> --input -\` | Same, reading the JSON from stdin |
-| \`freeter run <action> --input '<JSON>'\` | Same, JSON as an argument (POSIX shells only: PowerShell and cmd.exe drop its quotes) |
-| \`freeter mcp\` | Same actions as MCP tools over stdio (\`.\` in ids becomes \`_\`) |
+| \`acedeck actions --json\` | List actions with their input JSON Schema |
+| \`acedeck run <action> --input-file <path>\` | Run an action with the JSON input in a UTF-8 file; prints the result as JSON |
+| \`acedeck run <action> --input -\` | Same, reading the JSON from stdin |
+| \`acedeck run <action> --input '<JSON>'\` | Same, JSON as an argument (POSIX shells only: PowerShell and cmd.exe drop its quotes) |
+| \`acedeck mcp\` | Same actions as MCP tools over stdio (\`.\` in ids becomes \`_\`) |
 
-Start with \`freeter run app.describe\` to get the ids of projects, workflows, widgets and widget types.
+Start with \`acedeck run app.describe\` to get the ids of projects, workflows, widgets and widget types.
 
 ## Confirmation
 
-A "write" action shows the user an Allow/Deny dialog in Freeter. A denial or no answer
+A "write" action shows the user an Allow/Deny dialog in Acedeck. A denial or no answer
 within 2 minutes fails with "denied". Tell the user; do not retry without asking.
 If the user turned on "AI actions: always allow", most writes (deletes too) run at once with no
 dialog; only actions that can run programs or send data off the PC still ask. So make only the
@@ -231,7 +232,7 @@ changes the user asked for, and ask in the chat before deleting anything.
 
 ## Exit codes
 
-0 success, 1 action failed (stderr: "<code>: <message>"), 2 usage error, 3 Freeter not running.
+0 success, 1 action failed (stderr: "<code>: <message>"), 2 usage error, 3 Acedeck not running.
 
 ## Actions
 

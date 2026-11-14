@@ -21,7 +21,7 @@ Freeter는 Electron 데스크톱 앱이다. 프로젝트, 워크플로우 (탭),
 | 현재 버전         | `2.8.0-swh.17`                                                                                | `package.json` `version`                          |
 | 버전 형식         | `<upstream 기준>-swh.N`. 2.8 병합 때 `2.8.0-swh.1`부터 시작                                   | 병합 커밋 메시지                                  |
 | 포크 저장소       | `w1010k/FreeterBySwh`                                                                         | `package.json` `repository`                       |
-| 앱 식별자         | appId `io.freeter.app.swh`, productName `Freeter-SWH`, package `name` `freeter-swh` [fork #1] | `electron-builder.config.js`, `package.json`      |
+| 앱 식별자         | appId `io.freeter.app.swh` [fork #1], productName `Acedeck`, package `name` `acedeck` [fork #112] | `electron-builder.config.js`, `package.json`      |
 | 배포 | GitHub Releases. Windows `msi`, `zip` (x64), Linux `tar.xz` (x64). macOS `dmg`는 `2.8.0-swh.17`까지만 있다 [fork #89] | `electron-builder.config.js`, `.github/workflows/cd.yml` |
 
 #### upstream 2.8과 병합 방침
@@ -145,7 +145,7 @@ main과 renderer는 같은 레이어 규칙을 따른다 [upstream].
 
 `src/main/index.ts` 실행 순서:
 
-1. `dataDirName` 결정. 저장소 실행이면 `app.setPath('userData', ...)`, `app.setName('Freeter-SWH (dev)')` [fork #80]
+1. `dataDirName` 결정 (`userDataDirName`). 모든 실행에서 `app.setPath('userData', ...)` [fork #112], 저장소 실행이면 `app.setName('Acedeck (dev)')` [fork #80]
 2. `app.requestSingleInstanceLock()`. 실패하면 종료. `second-instance`에서 기존 창을 표시, 복원, 포커스 [upstream]
 3. `registerAppFileProtocol(isDevMode)` (app ready 전에 호출해야 한다) [upstream]
 4. `app.userAgentFallback`을 Chrome UA로 재작성 [fork #7]
@@ -186,7 +186,7 @@ renderer 기능을 추가할 때: use case 파일 작성 → `createUseCases`에
 - `will-navigate`를 막아 앱 페이지를 벗어나지 않게 한다 (이미지 드래그 등) [upstream]
 - 창 이동, 크기, 상태 변경마다 `setWindowStateUseCase` 호출 (5초 debounce 저장) [upstream]
 - `focus`, `blur` 때 `app-focus-changed` 전송 [fork #62]
-- 저장소 실행에서는 `page-title-updated`를 막아 제목 `Freeter-SWH (dev)`를 고정 [fork #80]
+- 저장소 실행에서는 `page-title-updated`를 막아 제목 `Acedeck (dev)`를 고정 [fork #80]
 - 개발 빌드 (`isDevMode`)면 DevTools를 연다 [upstream]
 - macOS가 아니면 `titleBarStyle: 'hidden'`, `titleBarOverlay` (높이 `appTitleBarHeight`, 판단은 `infra/browserWindow/appTitleBar.ts`): OS 제목 표시줄 대신 renderer `TitleBar`가 그린다.
   창 버튼만 OS가 그 위에 그린다 [fork #110]
@@ -373,7 +373,7 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 
 | 실행 형태                                 | 판별                       | Electron `userData` (세션, 캐시, 단일 인스턴스 잠금)                       | 앱 데이터 `appDataDir`                   |
 |-------------------------------------------|----------------------------|----------------------------------------------------------------------------|------------------------------------------|
-| 설치본                                    | `app.isPackaged === true`  | Electron 기본값 (productName `Freeter-SWH` 기준, `src/main/index.ts` 주석) | `<appData>/freeter-swh/freeter-data`     |
+| 설치본                                    | `app.isPackaged === true`  | `<appData>/freeter-swh` (고정, `userDataDirName`) [fork #112]              | `<appData>/freeter-swh/freeter-data`     |
 | 저장소 실행 (`yarn dev`, `yarn prod:run`) | `app.isPackaged === false` | `<appData>/freeter-swh-dev`                                                | `<appData>/freeter-swh-dev/freeter-data` |
 | upstream (참고)                           |                            |                                                                            | `<appData>/freeter2/freeter-data`        |
 
@@ -435,7 +435,7 @@ infra 전용 구성: `infra/protocolHandler/` (`freeter-file` 스킴 등록) [up
 | 스크립트                          | 설정                          | 엔트리                                 | 출력                                                | target             |
 |-----------------------------------|-------------------------------|----------------------------------------|-----------------------------------------------------|--------------------|
 | `dev:main`, `prod:main`           | `webpack.main.config.js`      | `src/main/index.ts`                    | `build/main.js` (`node-pty`는 externals, 실행 때 node_modules에서 로드) | `electron-main`    |
-| (위와 같은 실행)                  | `webpack.main.config.js`      | `src/main/cli/index.ts`                | `build/cli.js` (`freeter` CLI)                      | `electron-main` [fork #99] |
+| (위와 같은 실행)                  | `webpack.main.config.js`      | `src/main/cli/index.ts`                | `build/cli.js` (`acedeck` CLI)                      | `electron-main` [fork #99] |
 | `dev:preload`, `prod:preload`     | `webpack.preload.config.js`   | `src/renderer/preload/index.ts`        | `build/preload.js`                                  | `electron-preload` |
 | `dev:renderer`, `prod:renderer`   | `webpack.renderer.config.js`  | `src/renderer/index.tsx`               | `build/renderer.js`, `build/index.html`, sprite SVG | `web`              |
 | `dev:analytics`, `prod:analytics` | `webpack.analytics.config.js` | `src/renderer/analyticsPage/index.tsx` | `build/analytics/`                                  | `web` [fork #87]   |

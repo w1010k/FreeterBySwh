@@ -86,9 +86,12 @@ pattern — add a use case, thread it through `init.ts`, inject it into the view
     a *subset* of runtime state.
   - Auto-save via `stateStorage.saveState` on every `set`.
 - Entity collections/lists live in `src/renderer/base/state/entities.ts` with typed actions in `base/state/actions/`.
+- The product is named **Acedeck** (formerly Freeter-SWH, forked from Freeter). Internal identifiers keep the old name
+  on purpose (`freeter-swh` data folder, `--freeter-*` CSS variables, `freeter:` IPC prefix, `appId`): see
+  `docs/dev/decisions.md` D86 before renaming any of them.
 - App data is persisted under `<appData>/freeter-swh/freeter-data` for the installed app and
   `<appData>/freeter-swh-dev/freeter-data` for repo runs (`yarn dev`, `yarn prod:run`); per-widget data under
-  `<that folder>/widgets/<widgetId>` (see `dataDirName` in `src/main/index.ts`).
+  `<that folder>/widgets/<widgetId>` (see `userDataDirName` in `src/main/base/userDataDir.ts`).
 
 ### Widgets
 

@@ -1,0 +1,4 @@
+#!/bin/sh
+# `acedeck` CLI: runs build/cli.js (in app.asar) on the Acedeck executable as plain Node.
+DIR="$(cd "$(dirname "$0")" && pwd)"
+ELECTRON_RUN_AS_NODE=1 exec "$DIR/../../acedeck" "$DIR/../app.asar/cli.js" "$@"

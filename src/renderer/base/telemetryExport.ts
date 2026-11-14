@@ -56,9 +56,9 @@ const FIELD_DICTIONARY: Record<string, string> = {
   'daily.perHour': 'Active ms bucketed by local hour-of-day (length 24)',
 };
 
-const README = `# Freeter usage activity export
+const README = `# Acedeck usage activity export
 
-This file is a **local, self-describing** snapshot of how this Freeter install was
+This file is a **local, self-describing** snapshot of how this Acedeck install was
 used. It was produced with the user's consent. Keystrokes are recorded as counts only
 (never the keys themselves), and note contents are never recorded. It DOES include an
 activity timeline the user opted into: Web Query searches, visited page titles/URLs,
@@ -80,7 +80,7 @@ tracking is on it also includes which app/window was in the foreground and for h
 
 ## Suggested prompt for an AI assistant
 
-> Here is my local Freeter usage export (JSON). Using \`entities\` to resolve ids to
+> Here is my local Acedeck usage export (JSON). Using \`entities\` to resolve ids to
 > names, summarize how I spend time across workflows, my most active hours, focus vs.
 > idle patterns, and any trends across days. Call out anything actionable.
 `;
@@ -94,7 +94,7 @@ export function buildTelemetryExport({
 }: TelemetryExportInput): TelemetryExportBundle {
   return {
     manifest: {
-      app: 'Freeter-SWH',
+      app: 'Acedeck',
       schemaVersion: telemetrySchemaVersion,
       generatedAt,
       timezone,

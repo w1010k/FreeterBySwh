@@ -30,11 +30,11 @@ export function createBackUpAppDataUseCase({ appDataBackup, dialogProvider, shel
     const rel = relative(appDataDir, filePaths[0]);
     const isOutside = rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel);
     if (!isOutside) {
-      await dialogProvider.showMessageBox(win, { type: 'warning', message: 'Choose a folder outside the Freeter data folder.' });
+      await dialogProvider.showMessageBox(win, { type: 'warning', message: 'Choose a folder outside the Acedeck data folder.' });
       return;
     }
     const time = now();
-    const target = join(filePaths[0], `Freeter-SWH backup ${backupStamp(time)}`);
+    const target = join(filePaths[0], `Acedeck backup ${backupStamp(time)}`);
     try {
       await appDataBackup.write(appDataDir, target, { version, createdAt: time.toISOString() });
     } catch (err) {

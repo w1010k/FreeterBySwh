@@ -58,7 +58,7 @@ export function createCheckForUpdateUseCase({ releaseProvider, appDataStorage, s
         return;
       }
       const shown = notify(
-        `Freeter-SWH ${version} is available`,
+        `Acedeck ${version} is available`,
         `You have ${currentVersion}. Click to open the download page.`,
         () => { shellProvider.openExternal(releasePageUrl(tag)); }
       );

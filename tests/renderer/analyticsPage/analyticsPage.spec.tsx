@@ -91,10 +91,10 @@ describe('AnalyticsPage', () => {
     expect(screen.getByText('컴퓨터 사용 시간')).toBeInTheDocument();
   });
 
-  it('tells the user to reopen from Freeter when the server is gone', async () => {
+  it('tells the user to reopen from Acedeck when the server is gone', async () => {
     global.fetch = jest.fn(async () => { throw new TypeError('Failed to fetch'); }) as unknown as typeof fetch;
     render(<AnalyticsPage />);
 
-    expect(await screen.findByText(/Freeter가 실행 중인지 확인/)).toBeInTheDocument();
+    expect(await screen.findByText(/Acedeck이 실행 중인지 확인/)).toBeInTheDocument();
   });
 });

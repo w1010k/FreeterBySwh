@@ -162,7 +162,7 @@ module.exports = {
     isDev && new ForkTsCheckerWebpackPlugin({ typescript: { configFile } }),
 
     new HtmlWebpackPlugin({
-      title: "Freeter-SWH",
+      title: "Acedeck",
       template: path.join(__dirname, 'src', 'renderer', 'index.ejs'),
       filename: "index.html",
       env: process.env.NODE_ENV,

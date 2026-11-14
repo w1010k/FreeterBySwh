@@ -90,7 +90,7 @@
 
 #### D10. 앱 아이덴티티 분리
 
-- 상태: 유효
+- 상태: 유효 (이름은 D86에서 Acedeck으로 바뀜. `appId`와 데이터 폴더는 이 결정 그대로)
 - 출처: `[fork #1]`
 - 결정: `appId`(`io.freeter.app.swh`), productName (`Freeter-SWH`), `package.json` `name`(`freeter-swh`), 데이터 폴더,
   창·트레이·메뉴·다이얼로그 라벨을 원본과 다르게 한다. 설정 화면의 제품 설명 문구 (`moreInfo`)는 원본 그대로 둔다.
@@ -102,10 +102,11 @@
 
 - 상태: 유효
 - 출처: `[fork #80]`
-- 결정: 저장소에서 띄운 실행 (`app.isPackaged`가 거짓)은 `freeter-swh-dev` 폴더, 별도 세션, 별도 잠금을 쓰고 창 제목에 `(dev)`를 붙인다. 설치판 경로는 바꾸지 않는다.
+- 결정: 저장소에서 띄운 실행 (`app.isPackaged`가 거짓)은 `freeter-swh-dev` 폴더, 별도 세션, 별도 잠금을 쓰고 창 제목에 `(dev)`를 붙인다. 설치판 경로는 바꾸지 않는다 (D86부터는 설치판도 같은 경로를 명시적으로 고정).
 - 이유: 개발 중 조작이 실제 데이터에 닿지 않게 하고, 설치판이 떠 있어도 개발판을 띄우기 위해서다.
-- 버린 대안: `NODE_ENV` 판별 (`yarn prod:run`은 프로덕션 빌드지만 설치판이 아님). 양쪽 모두 명시 경로로 통일 (대소문자를 구분하는 macOS·Linux에서 기존 설치판의 세션·캐시 위치가
-  바뀜).
+- 버린 대안: `NODE_ENV` 판별 (`yarn prod:run`은 프로덕션 빌드지만 설치판이 아님). 양쪽 모두 명시 경로로 통일하는 방법은 당시 버렸다가 D86에서 채택했다. 당시 이유는
+  "macOS·Linux에서 기존 설치판의 세션·캐시 위치가 바뀜"이었는데, 설치판의 앱 이름은 `package.json` `name` (`freeter-swh`)이었으므로 (electron-builder는 패키지에
+  productName을 넣지 않는다) `freeter-swh`로 고정해도 위치가 바뀌지 않는다.
 - 근거: CHANGES #80, `src/main/index.ts` `dataDirName`
 
 #### D12. Yarn 1 유지
@@ -437,6 +438,27 @@
 - 이유: 병합 때 기본값이 빈 자리를 채운다 (`mergeAppStateWithPersistentAppState`의 `appConfig` 1단계 병합).
 - 근거: CHANGES #41, #42, `src/renderer/base/state/app.ts`
 
+#### D86. 제품 이름은 Acedeck, 보이는 이름만 바꾸고 식별자와 데이터는 그대로
+
+- 상태: 유효
+- 출처: `[fork #112]`
+- 결정: 제품 이름을 Freeter-SWH에서 Acedeck으로 바꾼다. 바꾸는 것은 화면 문구, productName, `package.json` `name`, 설치 파일과 실행 파일 이름, CLI 명령
+  (`acedeck`), MCP 서버 이름 (`serverInfo.name`), 사용 기록 내보내기의 `manifest.app`과 파일 이름, 문서다. 그대로 두는 것은 `appId` (`io.freeter.app.swh`), 데이터 폴더 (`freeter-swh`, `freeter-data`), CSS 변수 `--freeter-*`, IPC
+  접두어 `freeter:`, 프로토콜 `freeter-file://freeter-app`, 환경 변수 `FREETER_AI_*`, pipe 이름, 백업 표식 파일 이름, 아이콘, 저장소 이름, 버전 형식이다.
+  옛 경로는 함께 둔다: `freeter` 명령은 `acedeck`을 부르는 래퍼로 남기고, 복원은 옛 표식 (`Freeter-SWH backup`)의 백업도 받는다.
+- 이유: 포크가 원본에서 멀어져 독립 제품이 됐다 (변경 기록 111건). 이름의 뜻은 ace (일당백으로 일하는 사람) + deck (모든 것이 준비된 조종석, 여러 일을 쥔 카드 한 벌)이다.
+  `userData`는 Electron이 앱 이름에서 만들므로 이름만 바꾸면 빈 폴더에서 시작한다. 그래서 `userDataDirName`으로 옛 폴더를 고정한다. MSI 업그레이드 코드는 `appId`에서
+  나오므로 (`app-builder-lib` `MsiTarget.js`) `appId`를 유지해야 새 설치 파일이 기존 설치본을 교체한다. 내부 식별자는 사용자에게 보이지 않고 바꿔도 동작 이득이 없다.
+- 버린 대안: 내부 식별자까지 전부 변경 (300곳 이상, 회귀 위험). 데이터 폴더를 `acedeck`으로 이동 (세션 파일 잠금, 이동 실패, 이전 버전으로 되돌릴 때의 처리가 필요).
+  새 폴더에서 빈 상태로 시작 (로그인 세션이 끊김). 저장소 이름을 함께 변경 (새 이름의 첫 릴리스를 확인한 뒤 별도 작업).
+- 받아들인 것: MCP 서버 이름과 `manifest.app`은 옛 값과 병행하지 않는다 (저장소 안에 읽는 코드가 없다). 절대 경로로 등록한 MCP 설정은 설치 폴더가 바뀌어 사용자가
+  고쳐야 한다 (`freeter` 별칭은 PATH로 찾을 때만 효과가 있다). Analytics의 앱별 통계에서 이 앱은 변경일 전후로 `Freeter-SWH`와 `Acedeck` 두 항목이 된다 (OS 프로세스
+  이름을 기록한다). Linux는 쿠키 암호화 키의 키링 항목 이름이 앱 이름을 따르므로 Webpage 로그인 세션이 끊길 수 있다 (추정, 확인하지 못함. Windows는 키가 `userData`
+  안에 있어 영향이 없다).
+- 남은 것: GPL-3.0과 원저작자 (Alex Kaul) 저작권 표기는 유지한다. 미국에 ACEDECK 상표 출원 (9류, 심사 중, 2025-09 출원)이 있다. 상업 배포 전에 확인한다.
+- 근거: `src/main/base/userDataDir.ts`, `src/main/index.ts`, `electron-builder.config.js`, `resources/bin/`,
+  `src/main/infra/appDataBackup/appDataBackup.ts`, CHANGES #112
+
 ### 레이아웃과 화면
 
 #### D38. 격자 32×16과 무마이그레이션
@@ -689,7 +711,7 @@
 
 - 상태: 유효
 - 출처: `[fork #99]`
-- 결정: 외부 에이전트는 실행 중인 앱의 로컬 pipe (Windows named pipe, Linux 소켓)로 Freeter를 다룬다. 통로는 `freeter` CLI와 `freeter mcp` 두 개이고 같은 작업 목록을 쓴다. CLI는 Freeter 실행 파일을 `ELECTRON_RUN_AS_NODE=1`로 띄워 실행하고, MCP는 SDK 없이 직접 구현한다. 접근 통제는 실행마다 바뀌는 토큰 (`ai/endpoint.json`)이다.
+- 결정: 외부 에이전트는 실행 중인 앱의 로컬 pipe (Windows named pipe, Linux 소켓)로 Freeter를 다룬다. 통로는 `acedeck` CLI와 `acedeck mcp` (옛 이름 `freeter`도 동작, D86) 두 개이고 같은 작업 목록을 쓴다. CLI는 Freeter 실행 파일을 `ELECTRON_RUN_AS_NODE=1`로 띄워 실행하고, MCP는 SDK 없이 직접 구현한다. 접근 통제는 실행마다 바뀌는 토큰 (`ai/endpoint.json`)이다.
 - 이유: CLI는 셸 명령을 쓸 수 있는 모든 에이전트와 사람이 쓴다. MCP는 도구 목록이 정해져 있다. Claude Code의 MCP 서버는 턴마다 새 프로세스라 상태를 가질 수 없어 실행 중인 앱에 중계해야 한다. 새 런타임이나 의존성이 필요 없다.
 - 버린 대안: 루프백 HTTP 서버 (포트가 열리고 DNS rebinding 방어가 필요), `@modelcontextprotocol/sdk` (지금 쓰는 메서드 4개에 비해 큼), 에이전트별 권한 장치 (`--permission-prompt-tool`은 Claude 전용).
 - 근거: `docs/superpowers/specs/2026-11-07-ai-infra-design.md`, `src/main/infra/aiControlServer/`, `src/main/cli/`

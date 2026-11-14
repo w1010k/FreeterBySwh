@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-// Entry of build/cli.js. Started by the `freeter` wrappers (resources/bin) with
+// Entry of build/cli.js. Started by the `acedeck` wrappers (resources/bin; `freeter` is an alias of them) with
 // ELECTRON_RUN_AS_NODE=1, or by plain `node build/cli.js` in a repo checkout.
 
 import { readFileSync } from 'node:fs';

@@ -59,14 +59,14 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
       <SettingBlock
         titleForId='terminal-start-command'
         title='Start Command'
-        moreInfo='Typed into the shell when it starts, e.g. claude or codex. In the terminal, the freeter command (installed app) lets an agent use Freeter.'
+        moreInfo='Typed into the shell when it starts, e.g. claude or codex. In the terminal, the acedeck command (installed app; freeter also works) lets an agent use Acedeck.'
       >
         <input type="text" id="terminal-start-command" value={settings.startCommand} onChange={e => updateSettings({ ...settings, startCommand: e.target.value })}/>
       </SettingBlock>
       <SettingBlock
         titleForId='terminal-font-size'
         title='Font Size'
-        moreInfo='In the terminal, Ctrl+= and Ctrl+- (or Ctrl+mouse wheel) zoom until Freeter closes; Ctrl+0 goes back to this size.'
+        moreInfo='In the terminal, Ctrl+= and Ctrl+- (or Ctrl+mouse wheel) zoom until Acedeck closes; Ctrl+0 goes back to this size.'
       >
         <input
           type="number"

@@ -30,7 +30,7 @@ describe('System Monitor Widget', () => {
     delete (navigator as { getBattery?: unknown }).getBattery;
   });
 
-  it('polls system stats and displays CPU, RAM, disk, Freeter usage and uptime', async () => {
+  it('polls system stats and displays CPU, RAM, disk, Acedeck usage and uptime', async () => {
     const getStats = jest.fn().mockResolvedValue(stats);
     setupWidgetSut(widgetType, {} as Settings, { mockWidgetApi: { systemStats: { getStats } } });
 
@@ -42,7 +42,7 @@ describe('System Monitor Widget', () => {
     expect(screen.getByTitle('Per-core usage').children).toHaveLength(2);
     expect(screen.getByText('25%')).toBeInTheDocument(); // Disk 1/4
     expect(screen.getByText('1.0 GB / 4.0 GB')).toBeInTheDocument();
-    expect(screen.getByText('3%')).toBeInTheDocument(); // Freeter CPU
+    expect(screen.getByText('3%')).toBeInTheDocument(); // Acedeck CPU
     expect(screen.getByText('512 MB')).toBeInTheDocument();
     expect(screen.getByText('Uptime 1h 2m')).toBeInTheDocument();
     expect(screen.queryByText('Battery')).not.toBeInTheDocument(); // jsdom has no getBattery

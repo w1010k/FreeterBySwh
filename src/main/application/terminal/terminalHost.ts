@@ -47,7 +47,7 @@ type Deps = {
   defaultShell: () => string;
   /** A shell with no folder set starts here (Freeter's own folder can be system32 when the installer started it). */
   defaultCwd: string;
-  /** Includes FREETER_AI_ENDPOINT / FREETER_AI_ORIGIN so `freeter` works in the shell. */
+  /** Includes FREETER_AI_ENDPOINT / FREETER_AI_ORIGIN so `acedeck` (and its alias `freeter`) works in the shell. */
   env: Record<string, string>;
   /** `seq`: the number of the last output chunk in `data` (a re-attached view skips what its screen copy covers). */
   emitData: (terminalId: string, data: string, seq: number) => void;

@@ -17,7 +17,7 @@ interface RestoreDeps {
 
 export function createRestoreAppDataUseCase({ appDataBackup, dialogProvider, pendingFile, restart }: RestoreDeps) {
   return async function restoreAppDataUseCase(win: BrowserWindow | null): Promise<void> {
-    const { canceled, filePaths } = await dialogProvider.showOpenDirDialog(win, { title: 'Choose a Freeter-SWH backup folder' });
+    const { canceled, filePaths } = await dialogProvider.showOpenDirDialog(win, { title: 'Choose an Acedeck backup folder' });
     if (canceled || !filePaths[0]) {
       return;
     }
@@ -26,15 +26,15 @@ export function createRestoreAppDataUseCase({ appDataBackup, dialogProvider, pen
     if (!info) {
       await dialogProvider.showMessageBox(win, {
         type: 'warning',
-        message: 'This folder is not a Freeter-SWH backup. Choose a "Freeter-SWH backup ..." folder made by Back Up Data.'
+        message: 'This folder is not an Acedeck backup. Choose an "Acedeck backup ..." folder made by Back Up Data.'
       });
       return;
     }
     const { response } = await dialogProvider.showMessageBox(win, {
       type: 'warning',
-      message: `Restore the backup made on ${new Date(info.createdAt).toLocaleString()} (Freeter-SWH ${info.version})?\n\n`
+      message: `Restore the backup made on ${new Date(info.createdAt).toLocaleString()} (Acedeck ${info.version})?\n\n`
         + 'It replaces all projects, workflows and widget data on this PC. The current data is kept in a '
-        + '"freeter-data-before-restore" folder next to the data folder.\n\nFreeter restarts to restore.',
+        + '"freeter-data-before-restore" folder next to the data folder.\n\nAcedeck restarts to restore.',
       buttons: ['Restore and Restart', 'Cancel'],
       defaultId: 1,
       cancelId: 1,

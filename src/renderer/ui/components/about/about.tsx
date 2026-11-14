@@ -28,14 +28,14 @@ export function createAboutComponent({
         buttons={[
           {id: 'close', caption: 'Close', primary: true, onClick: onCloseClick},
         ]}
-        title="About Freeter-SWH"
+        title="About Acedeck"
         onEscape={onCloseClick}
       >
         <div className={styles['about-left']}>
           <div className={styles['app-logo']}>
             <SvgIcon svg={logo150Svg} className={styles['app-logo-svg']}></SvgIcon>
           </div>
-          <div className={styles['app-name']}>Freeter-SWH</div>
+          <div className={styles['app-name']}>Acedeck</div>
           <div className={styles['app-about']}>
             <span><b>Version:</b> {aboutInfo.productInfo.version}</span>
             <span><b>Date:</b> {aboutInfo.productInfo.builtAt}</span>
@@ -44,10 +44,10 @@ export function createAboutComponent({
           </div>
         </div>
         <div className={styles['about-right']}>
-          <h2>포크 정보</h2>
+          <h2>Acedeck 정보</h2>
           <p>
-            이 앱은 <b>swh</b>가 개인적으로 포크·유지관리하는 <b>Freeter-SWH</b>입니다. 원본 Freeter(Alex Kaul)의 기반 위에
-            사용성과 커스터마이징을 꾸준히 다듬고 있어요. 포크에서 추가·변경된 내역은 저장소의 <code>docs/CHANGES.md</code>
+            <b>Acedeck</b>은 <b>swh</b>가 만들고 유지관리하는 앱입니다. 원본 Freeter(Alex Kaul, GPL-3.0)에서 갈라져 나왔고,
+            이전 이름은 Freeter-SWH입니다. 원본에서 추가·변경된 내역은 저장소의 <code>docs/CHANGES.md</code>
             또는 <code>README.md</code>에 정리되어 있습니다.
           </p>
 

@@ -33,7 +33,7 @@ describe('runMcpServer', () => {
     const { responses } = await exchange([{ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18' } }]);
     expect(responses[0]).toEqual({
       jsonrpc: '2.0', id: 1,
-      result: { protocolVersion: '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'freeter', version: '1.2.3' } }
+      result: { protocolVersion: '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'acedeck', version: '1.2.3' } }
     });
   });
 
@@ -42,9 +42,9 @@ describe('runMcpServer', () => {
     expect(responses[0].result.tools).toEqual([{ name: 'workflow_create', description: 'Create', inputSchema: { type: 'object' } }]);
   });
 
-  it('tools/list answers an error when Freeter cannot be reached, instead of an empty list', async () => {
-    const { responses } = await exchange([{ jsonrpc: '2.0', id: 2, method: 'tools/list' }], undefined, { ok: false, code: 'failed', message: 'Freeter is not running' });
-    expect(responses[0]).toMatchObject({ id: 2, error: { message: 'Freeter is not running' } });
+  it('tools/list answers an error when Acedeck cannot be reached, instead of an empty list', async () => {
+    const { responses } = await exchange([{ jsonrpc: '2.0', id: 2, method: 'tools/list' }], undefined, { ok: false, code: 'failed', message: 'Acedeck is not running' });
+    expect(responses[0]).toMatchObject({ id: 2, error: { message: 'Acedeck is not running' } });
   });
 
   it('tools/call runs the action and returns its value as text', async () => {

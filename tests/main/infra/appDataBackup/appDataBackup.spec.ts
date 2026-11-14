@@ -73,6 +73,17 @@ describe('appDataBackup', () => {
     await expect(createAppDataBackup().readInfo(dir)).resolves.toBeNull();
   });
 
+  it('reads a backup made under the former app name (Freeter-SWH), and writes the new name', async () => {
+    const backup = createAppDataBackup();
+    const target = join(root, 'backup');
+    await backup.write(dataDir, target, info);
+    expect(JSON.parse(await read(target, backupMarkerFile)).kind).toBe('Acedeck backup');
+
+    await writeFile(join(target, backupMarkerFile), JSON.stringify({ kind: 'Freeter-SWH backup', ...info }));
+
+    await expect(backup.readInfo(target)).resolves.toEqual(info);
+  });
+
   it('restores: replaces the backed-up entries, moves the current ones aside, keeps usage history and AI endpoint', async () => {
     const backup = createAppDataBackup();
     const target = join(root, 'backup');

@@ -51,7 +51,7 @@ describe('backUpAppDataUseCase()', () => {
 
     await useCase(null);
 
-    const target = join('/backups', 'Freeter-SWH backup 2026-11-13 153012');
+    const target = join('/backups', 'Acedeck backup 2026-11-13 153012');
     expect(appDataBackup.write).toHaveBeenCalledWith('/data', target, info);
     expect(dialogProvider.showMessageBox).toHaveBeenCalledWith(null, expect.objectContaining({ message: `Backup saved to:\n${target}` }));
     expect(shellProvider.openPath).toHaveBeenCalledWith(target);
@@ -67,7 +67,7 @@ describe('backUpAppDataUseCase()', () => {
     await useCase(null);
 
     expect(appDataBackup.write).not.toHaveBeenCalled();
-    expect(dialogProvider.showMessageBox).toHaveBeenCalledWith(null, { type: 'warning', message: 'Choose a folder outside the Freeter data folder.' });
+    expect(dialogProvider.showMessageBox).toHaveBeenCalledWith(null, { type: 'warning', message: 'Choose a folder outside the Acedeck data folder.' });
   });
 
   it('does nothing when the folder choice is cancelled', async () => {
@@ -124,7 +124,7 @@ describe('restoreAppDataUseCase()', () => {
     await useCase(null);
 
     expect(dialogProvider.showMessageBox).toHaveBeenCalledTimes(1);
-    expect(dialogProvider.showMessageBox).toHaveBeenCalledWith(null, expect.objectContaining({ message: expect.stringContaining('not a Freeter-SWH backup') }));
+    expect(dialogProvider.showMessageBox).toHaveBeenCalledWith(null, expect.objectContaining({ message: expect.stringContaining('not an Acedeck backup') }));
     expect(restart).not.toHaveBeenCalled();
   });
 });

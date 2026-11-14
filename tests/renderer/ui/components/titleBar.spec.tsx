@@ -23,7 +23,7 @@ async function setup(opts: { visible?: boolean; ui?: Partial<AppState['ui']> } =
       popupAppMenuUseCase,
       setTitleBarColorsUseCase,
       hasAppTitleBar: opts.visible ?? true,
-      windowTitle: 'Freeter-SWH (dev)',
+      windowTitle: 'Acedeck (dev)',
     })
   });
   const comp = render(<><input aria-label="note"/><TitleBar/></>);
@@ -108,7 +108,7 @@ describe('TitleBar', () => {
 
   it('shows the window title', async () => {
     await setup();
-    expect(screen.getByText('Freeter-SWH (dev)')).toBeInTheDocument();
+    expect(screen.getByText('Acedeck (dev)')).toBeInTheDocument();
   });
 
   it('does not take the release of Alt after a key a focused element stopped (Alt+F in the Terminal)', async () => {

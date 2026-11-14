@@ -1,6 +1,8 @@
 module.exports = {
+  // Kept from before the rename to Acedeck: the MSI upgrade code is derived from it, so a new installer replaces
+  // an installed Freeter-SWH instead of installing next to it.
   appId: 'io.freeter.app.swh',
-  productName: 'Freeter-SWH',
+  productName: 'Acedeck',
   artifactName: '${productName}-${version}-${os}-${arch}.${ext}',
   files: [{
     from: './build',
@@ -14,7 +16,7 @@ module.exports = {
   // compiled on Linux) loads in Electron as is. Rebuilding it for Electron fails on Windows
   // (its winpty build step), so the rebuild is skipped.
   npmRebuild: false,
-  // `freeter` CLI wrappers, outside app.asar so a shell can run them.
+  // `acedeck` CLI wrappers (and `freeter`, the command's former name), outside app.asar so a shell can run them.
   extraResources: [{
     from: 'resources/bin',
     to: 'bin'

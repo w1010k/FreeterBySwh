@@ -4133,6 +4133,41 @@ Webpage 위젯 안 페이지가 새 창을 열려고 했는데 열리지 않으�
 - **수정**: `src/renderer/base/appConfig.ts`, `src/renderer/base/state/ui.ts`, `src/renderer/ui/components/app/appViewModel.ts`, `src/renderer/ui/components/workflowSwitcher/{workflowSwitcher.tsx,workflowSwitcherViewModel.ts,workflowSwitcher.module.scss}`, `src/renderer/ui/components/topBar/{topBar.tsx,topBar.module.scss}`, `src/renderer/ui/components/topBar/shelf/{shelf.tsx,shelfItem.tsx,shelfItemViewModel.ts,shelf.module.scss}`, `src/renderer/ui/components/titleBar/titleBar.tsx`, `src/renderer/ui/components/applicationSettings/applicationSettings.tsx`, `src/renderer/application/useCases/ai/actions/settingsActions.ts`, `src/renderer/init.ts`
 - **테스트**: `tests/renderer/ui/components/{app,workflowSwitcher,applicationSettings}.spec.tsx`, `tests/renderer/ui/components/topBar/shelf.spec.tsx`, `tests/renderer/ui/components/topBar/shelf/shelfItemViewModel.spec.ts`, `tests/renderer/application/useCases/ai/actions/settingsActions.spec.ts`, `tests/renderer/base/fixtures/appConfig.ts`, `tests/renderer/base/state/fixtures/appState.ts`
 
+## 112. 제품 이름을 Acedeck으로 변경 *(2026-11-15)*
+
+제품 이름이 Freeter-SWH에서 **Acedeck**으로 바뀌었다. 창 제목, 작업 표시줄, 트레이, 대화 상자, 설정 화면의 설명 문구, About 화면, Analytics 페이지, 업데이트 알림, 백업 폴더 이름, CLI 안내문이 새 이름을 쓴다.
+
+- **이름의 뜻**: ace + deck. ace는 혼자서 여러 사람 몫을 하는 사람 (일당백)이다. deck은 모든 것이 손 닿는 곳에 준비된 조종석이고, 여러 일을 한 손에 쥔 카드 한 벌이다.
+- **데이터**: 그대로 이어진다. 프로젝트, 위젯 데이터, Webpage 위젯의 세션 파일은 전과 같은 폴더 (`<appData>/freeter-swh`)에 있다. 옮기거나 복사하지 않는다. Windows는 로그인 세션도 이어진다. Linux는 Webpage 위젯에서 다시 로그인해야 할 수 있다 (아래 까다로웠던 포인트).
+- **설치**: 새 설치 파일 (`Acedeck-<버전>-win-x64.msi`)은 기존 Freeter-SWH 설치본을 교체한다 (같은 `appId`에서 같은 업그레이드 코드가 나온다). 설치 폴더와 실행 파일 이름은 `Acedeck`이 된다. 작업 표시줄 고정과 바로가기는 다시 만들어야 할 수 있다.
+- **CLI**: 명령이 `acedeck`이 됐다 (`acedeck actions`, `acedeck run`, `acedeck guide`, `acedeck mcp`). 옛 명령 `freeter`도 같은 CLI를 부르지만, PATH로 찾을 때 (앱 안 Terminal 위젯)만 이어진다. 설치 폴더가 바뀌므로, `freeter.cmd`의 절대 경로를 등록해 둔 MCP 설정은 새 설치 폴더의 경로로 고쳐야 한다. MCP 서버 이름 (`serverInfo.name`)은 `acedeck`이 됐고, 서버 이름으로 승인을 기억하는 호스트는 다시 승인을 물을 수 있다.
+- **Analytics**: 페이지 제목과 내보내기 파일 이름 (`acedeck-activity-…json`), 내보내기의 `manifest.app`이 새 이름을 쓴다. 앱별 통계에서 이 앱은 변경일 전후로 `Freeter-SWH`와 `Acedeck` 두 항목으로 나온다 (OS 프로세스 이름을 기록하기 때문이다). 과거 기록은 합치지 않는다.
+- **백업**: 새 백업 폴더 이름은 `Acedeck backup <날짜>`다. Restore Data는 옛 이름으로 만든 백업 (`Freeter-SWH backup …`)도 받는다.
+- **설치본의 창 제목**: 전에는 소문자 `freeter-swh`로 보였다 (`package.json`에 `productName`이 없어 `name`이 쓰였다). 이제 `Acedeck`으로 보인다.
+- 원본 Freeter를 가리키는 곳은 그대로다: Help 메뉴의 Original Freeter 링크, About 화면의 원본 후원자 안내, 파일 머리말의 저작권 표기 (GPL-3.0).
+
+구조:
+
+- `userData`를 모든 실행에서 고정한다 (`src/main/base/userDataDir.ts` `userDataDirName`: 설치본 `freeter-swh`, 저장소 실행 `freeter-swh-dev`). Electron은 `userData`를 앱 이름에서 만들기 때문에, 고정하지 않으면 이름을 바꾼 앱이 빈 폴더에서 시작한다. CLI의 기본 endpoint 경로도 같은 함수를 쓴다.
+- `appId` (`io.freeter.app.swh`)는 그대로다. electron-builder가 MSI 업그레이드 코드를 `appId`에서 만든다.
+- `resources/bin`: `acedeck`, `acedeck.cmd`가 실행 파일을 부르고, `freeter`, `freeter.cmd`는 그 래퍼를 부른다.
+- 바꾸지 않은 내부 식별자: CSS 변수 `--freeter-*`, IPC 접두어 `freeter:`, 프로토콜 `freeter-file://freeter-app`, 환경 변수 `FREETER_AI_*`, pipe 이름, 데이터 폴더 안의 `freeter-data`, 백업 표식 파일 `freeter-backup.json`, 아이콘 파일. 저장소 이름과 버전 형식 (`2.8.0-swh.N`)도 그대로다. 결정과 버린 대안은 decisions.md D86.
+
+**까다로웠던 포인트**
+
+- 화면 문구의 "Freeter"는 처음 조사한 20곳보다 많았다 (설정의 `moreInfo`, AI 오류 문구, Analytics 페이지, 위젯 설명 등 `src` 24개 파일 63줄). 주석과 식별자는 두고 문자열만 바꿨다. "Original Freeter", "원본 Freeter"가 든 줄은 건드리지 않았다.
+- Linux에서 Chromium은 쿠키 암호화 키를 OS 키링 (gnome-keyring, kwallet)에 앱 이름으로 둔다 (`<앱 이름> Safe Storage`). 앱 이름이 바뀌면 새 키가 만들어져 기존 쿠키를 읽지 못할 수 있다 (추정: 코드 리뷰의 지적, 확인하지 못했다). `userData` 고정은 이 키를 이어 주지 못한다. Windows는 키가 `userData`의 `Local State`에 있어 영향이 없다.
+- 새 POSIX 래퍼 `resources/bin/acedeck`은 실행 권한 (`git add --chmod=+x`)과 LF 줄바꿈 (`.gitattributes`)이 필요하다. 이 저장소는 `core.filemode=false`, `core.autocrlf=true`라서 Windows에서 그냥 추가하면 둘 다 빠진다. `freeter`가 `acedeck`을 부르므로 빠지면 Linux CLI와 Git Bash의 CLI가 모두 실패한다 (코드 리뷰에서 발견).
+- Linux 실행 파일 이름은 `package.json` `name`에서, Windows 실행 파일 이름은 productName에서 나온다 (`app-builder-lib`). 그래서 POSIX 래퍼는 `acedeck`을, Windows 래퍼는 `Acedeck.exe`를 부른다.
+
+확인: 설치 없이 패키징한 폴더 (`electron-builder --win dir`)에서 `Acedeck.exe`와 래퍼 4개를 확인했고, `acedeck.cmd actions`와 `freeter.cmd actions`가 실행 중인 설치본 (기존 데이터 폴더의 endpoint)에 붙어 작업 목록을 돌려줬다. 새 MSI가 기존 설치본을 실제로 교체하는지, 패키징한 앱이 기존 데이터로 시작하는지, Linux 패키지는 확인하지 못했다.
+
+**수정 파일**
+
+- **신규**: `src/main/base/userDataDir.ts`, `resources/bin/{acedeck,acedeck.cmd}`
+- **수정**: `package.json`, `electron-builder.config.js`, `webpack.renderer.config.js`, `resources/bin/{freeter,freeter.cmd}`, `.gitattributes`, `src/renderer/analyticsPage/{index.ejs,analyticsPage.tsx}`, `src/main/index.ts`, `src/main/cli/{cli.ts,mcp.ts}`, `src/main/infra/appDataBackup/appDataBackup.ts`, `src/main/application/useCases/appDataBackup/{backUpAppData,restoreAppData}.ts`, `src/renderer/ui/components/about/about.tsx`, 그 밖에 화면 문구가 든 `src` 파일들
+- **테스트**: `tests/main/base/userDataDir.spec.ts` (신규), `tests/main/infra/appDataBackup/` (옛 표식 복원), 문구를 기대하는 기존 스펙들
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

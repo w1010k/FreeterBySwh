@@ -681,7 +681,7 @@
 
 - 출처: `[upstream, fork #7 변경]`
 - 증상: 앱 이름 토큰이 남은 UA에서 일부 사이트가 영구 세션을 주지 않았다.
-- 원인: Electron 기본 UA에는 `Freeter-SWH/...` 토큰이 들어 있다.
+- 원인: Electron 기본 UA에는 앱 이름 토큰 (`Acedeck/...`, #112 이전에는 `Freeter-SWH/...`)이 들어 있다.
 - 규칙: `app.userAgentFallback`은 `process.versions.chrome` 메이저로 만든 순수 Chrome UA다. 원본 UA가 필요한 사이트는
   `reUrlsRequiringOriginalUA`(현재 Google 도메인)에 추가한다.
 - 근거: CHANGES #7, `src/main/index.ts`, `src/main/infra/browserWindow/browserWindow.ts` `reUrlsRequiringOriginalUA`
@@ -948,10 +948,12 @@
 
 - 출처: `[fork #80]`
 - 증상: 설치판이 떠 있으면 개발판이 창도 못 띄우고 종료됐다.
-- 원인: 비패키지 Electron은 `userData`를 `package.json` `name`(`freeter-swh`)에서, 설치판은 productName (`Freeter-SWH`)에서 만든다. Windows
-  경로는 대소문자를 구분하지 않아 같은 폴더와 같은 단일 인스턴스 잠금을 쓴다.
-- 규칙: 개발 실행은 `freeter-swh-dev`를 쓴다. 판별은 `app.isPackaged`로 한다 (`yarn prod:run`도 개발 실행). 순서는 `setPath('userData')` →
-  `requestSingleInstanceLock()`이고, `setName`은 `setPath` 뒤다. 설치판 경로는 바꾸지 않는다. 개발판 창 제목은 `page-title-updated`를 막아 고정한다.
+- 원인: Electron은 `userData`를 앱 이름에서 만든다 (#112 이전: 비패키지는 `package.json` `name` `freeter-swh`, 설치판은 productName
+  `Freeter-SWH`). Windows 경로는 대소문자를 구분하지 않아 같은 폴더와 같은 단일 인스턴스 잠금을 썼다.
+- 규칙: `userData`는 모든 실행에서 `userDataDirName` (`src/main/base/userDataDir.ts`)으로 고정한다: 설치판 `freeter-swh`, 개발 실행
+  `freeter-swh-dev`. 이 이름은 제품 이름 (Acedeck)을 따르지 않는다. 바꾸면 기존 설치본이 빈 상태로 시작하고 Webpage 로그인 세션도 끊긴다 [fork #112].
+  판별은 `app.isPackaged`로 한다 (`yarn prod:run`도 개발 실행). 순서는 `setPath('userData')` → `requestSingleInstanceLock()`이고, `setName`은
+  `setPath` 뒤다. 개발판 창 제목은 `page-title-updated`를 막아 고정한다.
 - 근거: CHANGES #80, `src/main/index.ts` `dataDirName`, `src/main/infra/browserWindow/browserWindow.ts`
 
 #### 앱 데이터 폴더의 위치

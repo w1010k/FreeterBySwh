@@ -7,7 +7,7 @@ import type { AiClient, CliIo } from '@/cli/cli';
 import { AiActionInfo, createLineSplitter, encodeLine } from '@common/ai/protocol';
 
 /**
- * `freeter mcp`: a stdio MCP server whose tools are Freeter's AI actions.
+ * `acedeck mcp`: a stdio MCP server whose tools are the app's AI actions.
  * ponytail: hand-written JSON-RPC (initialize, tools/list, tools/call) instead of
  * @modelcontextprotocol/sdk; switch to the SDK if protocol versions start to matter.
  */
@@ -40,7 +40,7 @@ export function runMcpServer(io: CliIo, client: AiClient, version: string): Prom
           result: {
             protocolVersion: params?.protocolVersion,
             capabilities: { tools: {} },
-            serverInfo: { name: 'freeter', version }
+            serverInfo: { name: 'acedeck', version }
           }
         });
         return;

@@ -23,7 +23,7 @@ type Deps = {
  */
 export const AI_MAX_CONFIRM_TEXT = 4000;
 
-const SETTINGS_WINDOW_OPEN = { ok: false, code: 'not_ready', message: 'A Freeter settings window is open; ask the user to close it, then retry' } as const;
+const SETTINGS_WINDOW_OPEN = { ok: false, code: 'not_ready', message: 'An Acedeck settings window is open; ask the user to close it, then retry' } as const;
 
 /** The widgets on screen or mounted: the shelf and the active workflows (Memory Saver). */
 function shownWidgetIds(state: AppState): Set<string> {
@@ -46,7 +46,7 @@ export function createRunAiRequestUseCase({ actions, aiControl, appStore }: Deps
       return { ok: true, value: infos };
     }
     if (appStore.get().isLoading) {
-      return { ok: false, code: 'not_ready', message: 'Freeter is still loading' };
+      return { ok: false, code: 'not_ready', message: 'Acedeck is still loading' };
     }
     const action = actions.find(a => a.id === req.params.actionId);
     if (!action) {
@@ -101,7 +101,7 @@ export function createRunAiRequestUseCase({ actions, aiControl, appStore }: Deps
         }
         // What runs must be what the user saw: settings may have changed while the box was open.
         if (action.describe(input) !== text || settingsWindowOpen()) {
-          return { ok: false, code: 'failed', message: 'Freeter changed while the confirm box was open; nothing was done. Retry.' };
+          return { ok: false, code: 'failed', message: 'Acedeck changed while the confirm box was open; nothing was done. Retry.' };
         }
         return await action.run(input, { confirmed: true });
       }

@@ -25,7 +25,7 @@ export interface AiActionBridge {
 const notReady: AiRpcResult = {
   ok: false,
   code: 'not_ready',
-  message: 'Freeter is starting or reloading; retry in a moment. If this keeps happening, reload or restart Freeter'
+  message: 'Acedeck is starting or reloading; retry in a moment. If this keeps happening, reload or restart Acedeck'
 };
 
 /**
@@ -63,7 +63,7 @@ export function createAiActionBridge({ send, timeoutMs }: Deps): AiActionBridge 
           ended.abort();
           settle(res);
         };
-        const timer = setTimeout(() => giveUp({ ok: false, code: 'timeout', message: 'Freeter did not answer in time' }), timeoutMs);
+        const timer = setTimeout(() => giveUp({ ok: false, code: 'timeout', message: 'Acedeck did not answer in time' }), timeoutMs);
         cleanups.push(() => clearTimeout(timer));
         pending.set(reqId, { resolve: settle, ended });
         if (signal) {
@@ -94,7 +94,7 @@ export function createAiActionBridge({ send, timeoutMs }: Deps): AiActionBridge 
         // letting the callers wait out the timeout. Not not_ready: a confirmed action may have run, with only its answer lost.
         [...pending.values()].forEach(p => {
           p.ended.abort();
-          p.resolve({ ok: false, code: 'failed', message: 'Freeter reloaded before answering; the action may have run. Check before retrying' });
+          p.resolve({ ok: false, code: 'failed', message: 'Acedeck reloaded before answering; the action may have run. Check before retrying' });
         });
       }
     }

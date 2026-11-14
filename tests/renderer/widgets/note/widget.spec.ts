@@ -57,7 +57,7 @@ describe('computeCounts()', () => {
 })
 
 describe('Note Widget AI api', () => {
-  it('lets an agent write while the Freeter window is not focused, even if the note kept the focus', async () => {
+  it('lets an agent write while the Acedeck window is not focused, even if the note kept the focus', async () => {
     const exposeApi = jest.fn();
     setupNoteWidgetSut({ mockWidgetApi: { exposeApi, dataStorage: { getText: jest.fn().mockResolvedValue('saved'), setText: jest.fn() } } });
     const textarea = await screen.findByDisplayValue('saved');

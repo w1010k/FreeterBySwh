@@ -10,7 +10,7 @@ import { IpcClickTrayMenuActionArgs, ipcClickTrayMenuActionChannel } from '@comm
 
 export function createTrayProvider(trayIcon: string): TrayProvider {
   const tray = new Electron.Tray(trayIcon);
-  tray.setToolTip('Freeter-SWH');
+  tray.setToolTip('Acedeck');
 
   let prevMainAction: (() => void) | null = null;
 

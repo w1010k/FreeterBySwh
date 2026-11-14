@@ -152,7 +152,7 @@ function DayReview({ day, entities }: { day: TelemetryDay; entities: TelemetryEn
   return (
     <div className={styles['review']}>
       <p className={styles['review-summary']}>
-        컴퓨터 사용 <b>{formatDuration(focus.osMs)}</b> · Freeter 활성 <b>{formatDuration(rollup.activeMs)}</b> ·
+        컴퓨터 사용 <b>{formatDuration(focus.osMs)}</b> · Acedeck 활성 <b>{formatDuration(rollup.activeMs)}</b> ·
         집중 블록 <b>{focus.focusBlocks}개</b>({formatDuration(focus.focusMs)}) · 앱 전환 <b>{focus.switches}회</b>
         {workflows.length > 0 && <> · 워크플로 {workflows.map(([id, ms]) => `${wflName.get(id) ?? '(삭제됨)'} ${formatDuration(ms)}`).join(', ')}</>}
       </p>
@@ -251,7 +251,7 @@ export function AnalyticsPage() {
       },
       () => {
         if (!stale) {
-          setResult({ key: requestKey, error: 'Freeter에서 데이터를 받지 못했습니다. Freeter가 실행 중인지 확인하고, Freeter 메뉴 View → Analytics로 다시 열어 주세요.' });
+          setResult({ key: requestKey, error: 'Acedeck에서 데이터를 받지 못했습니다. Acedeck이 실행 중인지 확인하고, Acedeck 메뉴 View → Analytics로 다시 열어 주세요.' });
         }
       }
     );
@@ -311,7 +311,7 @@ export function AnalyticsPage() {
     const url = URL.createObjectURL(new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = `freeter-activity-${range.from}_${range.to}.json`;
+    a.download = `acedeck-activity-${range.from}_${range.to}.json`;
     a.click();
     // Revoking right after click() can cancel the download in some browsers; give it a moment.
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
@@ -329,7 +329,7 @@ export function AnalyticsPage() {
     try {
       await fetchJson('api/clear', { method: 'POST' });
     } catch {
-      setActionError('삭제하지 못했습니다. Freeter가 실행 중인지 확인해 주세요.');
+      setActionError('삭제하지 못했습니다. Acedeck이 실행 중인지 확인해 주세요.');
       return;
     }
     reload();
@@ -347,7 +347,7 @@ export function AnalyticsPage() {
   return (
     <div className={styles['page']}>
       <header className={styles['header']}>
-        <h1>Freeter Analytics</h1>
+        <h1>Acedeck Analytics</h1>
         <div className={styles['controls']}>
           <div className={styles['quick']} role="group" aria-label="빠른 기간 선택">
             {QUICK_RANGES.map(q => (
@@ -383,12 +383,12 @@ export function AnalyticsPage() {
             <h2>개요 <span className={styles['muted']}>{range.from} ~ {range.to} · 지난 기간 {prev.from} ~ {prev.to}</span></h2>
             <div className={styles['cards']}>
               <Card label="컴퓨터 사용 시간" hint="컴퓨터 전체에서 앱이 앞에 있던 시간. 3분 넘게 입력이 없거나 잠긴 뒤의 시간은 빠지지만, Windows가 Idle·LockApp으로 보고한 구간은 포함" value={formatDuration(f.osMs)} change={delta(f.osMs, pf.osMs)} />
-              <Card label="Freeter 활성 시간" hint="Freeter 창이 앞에 있고 입력이 있던 시간" value={formatDuration(s.totalActiveMs)} change={delta(s.totalActiveMs, ps.totalActiveMs)} />
+              <Card label="Acedeck 활성 시간" hint="Acedeck 창이 앞에 있고 입력이 있던 시간" value={formatDuration(s.totalActiveMs)} change={delta(s.totalActiveMs, ps.totalActiveMs)} />
               <Card label="집중 시간" hint={`${insightParams.focusMinMs / 60_000}분 이상 이어진 작업 블록의 합`} value={formatDuration(f.focusMs)} change={delta(f.focusMs, pf.focusMs)} />
               <Card label="최장 작업 블록" hint="한 앱에서 이어진 가장 긴 작업 블록 (짧은 끼어듦 포함)" value={formatDuration(f.longestBlockMs)} change={delta(f.longestBlockMs, pf.longestBlockMs)} />
               <Card label="시간당 앱 전환" hint="낮을수록 덜 쪼개진 하루" value={perHour(f.switches, f.osMs).toFixed(1)}
                 change={delta(perHour(f.switches, f.osMs), perHour(pf.switches, pf.osMs))} />
-              <Card label="키 입력 (Freeter)" value={s.totalKeystrokes.toLocaleString()} change={delta(s.totalKeystrokes, ps.totalKeystrokes)} />
+              <Card label="키 입력 (Acedeck)" value={s.totalKeystrokes.toLocaleString()} change={delta(s.totalKeystrokes, ps.totalKeystrokes)} />
             </div>
           </section>
 
@@ -396,7 +396,7 @@ export function AnalyticsPage() {
             <h2>일별 <span className={styles['muted']}>날짜를 누르면 아래 하루 회고로 이동</span></h2>
             <div className={styles['legend']}>
               <span><i className={styles['bar-fill']} />컴퓨터 사용</span>
-              <span><i className={`${styles['bar-fill']} ${styles['bar-fill-alt']}`} />Freeter 활성</span>
+              <span><i className={`${styles['bar-fill']} ${styles['bar-fill-alt']}`} />Acedeck 활성</span>
             </div>
             <div className={styles['rows']}>
               {[...view.daily].reverse().map(d => (
@@ -447,7 +447,7 @@ export function AnalyticsPage() {
             <h2>배분</h2>
             <div className={styles['two-col']}>
               <div>
-                <h3>프로젝트·워크플로 <span className={styles['muted']}>Freeter에서 머문 시간, 펼쳐서 워크플로 보기</span></h3>
+                <h3>프로젝트·워크플로 <span className={styles['muted']}>Acedeck에서 머문 시간, 펼쳐서 워크플로 보기</span></h3>
                 <ProjectList projects={view.projects} prev={view.prevProjects} />
               </div>
               <div>
@@ -483,8 +483,8 @@ export function AnalyticsPage() {
       )}
 
       <footer className={styles['muted']}>
-        모든 데이터는 이 컴퓨터에만 있습니다. 새로고침하면 저장된 기록을 다시 읽습니다. Freeter 안의 활동은 최대 15초 늦게 저장되고, 지금 앞에 있는 앱
-        (이 브라우저 포함)의 시간은 다른 앱으로 전환해야 기록됩니다. 프로젝트·워크플로 이름은 Freeter 메뉴에서 다시 열 때 갱신됩니다.
+        모든 데이터는 이 컴퓨터에만 있습니다. 새로고침하면 저장된 기록을 다시 읽습니다. Acedeck 안의 활동은 최대 15초 늦게 저장되고, 지금 앞에 있는 앱
+        (이 브라우저 포함)의 시간은 다른 앱으로 전환해야 기록됩니다. 프로젝트·워크플로 이름은 Acedeck 메뉴에서 다시 열 때 갱신됩니다.
       </footer>
     </div>
   );

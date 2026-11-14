@@ -206,8 +206,8 @@ function reportStorageError(phase: 'load' | 'save', error: unknown) {
   void createOsDialogProvider().showMessageBox({
     type: 'warning',
     message: phase === 'load'
-      ? 'Could not load saved app data. Saving is disabled to protect the original. Check disk access and restart Freeter.'
-      : 'Could not save changes. Freeter will retry twice and keep pending changes in memory. Check disk access before closing Freeter.',
+      ? 'Could not load saved app data. Saving is disabled to protect the original. Check disk access and restart Acedeck.'
+      : 'Could not save changes. Acedeck will retry twice and keep pending changes in memory. Check disk access before closing Acedeck.',
     buttons: ['OK'],
   }).catch(dialogError => console.error('Could not show storage error.', dialogError));
 }

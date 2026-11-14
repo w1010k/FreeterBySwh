@@ -89,14 +89,14 @@ describe('runCli', () => {
     expect(connect).not.toHaveBeenCalled();
   });
 
-  it('mcp starts even when Freeter is not running yet, and connects on the first call', async () => {
+  it('mcp starts even when Acedeck is not running yet, and connects on the first call', async () => {
     const { io, out } = makeIo();
     const connect = jest.fn(async () => {
-      throw new Error('Freeter is not running');
+      throw new Error('Acedeck is not running');
     });
     (io.stdin as PassThrough).end(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) + String.fromCharCode(10));
     await expect(runCli(['mcp'], io, connect)).resolves.toBe(0);
-    expect(JSON.parse(out().trim())).toMatchObject({ id: 1, error: { message: 'Freeter is not running' } });
+    expect(JSON.parse(out().trim())).toMatchObject({ id: 1, error: { message: 'Acedeck is not running' } });
   });
 
   it('run retries once with a fresh endpoint when the token is refused', async () => {
@@ -108,13 +108,13 @@ describe('runCli', () => {
     expect(JSON.parse(out())).toBe(7);
   });
 
-  it('returns 3 with "Freeter is not running" when connect throws', async () => {
+  it('returns 3 with "Acedeck is not running" when connect throws', async () => {
     const { io, err } = makeIo();
     const connect = jest.fn(async () => {
-      throw new Error('Freeter is not running');
+      throw new Error('Acedeck is not running');
     });
     await expect(runCli(['actions'], io, connect)).resolves.toBe(3);
-    expect(err()).toContain('Freeter is not running');
+    expect(err()).toContain('Acedeck is not running');
   });
 
   it('actions prints one line per action, and --json prints the list', async () => {
@@ -130,7 +130,7 @@ describe('runCli', () => {
   it('guide prints usage with the action list', async () => {
     const { io, out } = makeIo();
     await expect(runCli(['guide'], io, fakeConnect({ 'actions.list': list }).connect)).resolves.toBe(0);
-    expect(out()).toContain('freeter run');
+    expect(out()).toContain('acedeck run');
     expect(out()).toContain('app.describe');
   });
 
@@ -172,7 +172,7 @@ describe('createReconnectingAiClient', () => {
     isClosed: () => closed,
   });
 
-  it('reconnects when the current connection is closed (Freeter restarted)', async () => {
+  it('reconnects when the current connection is closed (Acedeck restarted)', async () => {
     const reopen = jest.fn(async () => makeClient(false, 'new'));
     const client = createReconnectingAiClient(makeClient(true, 'old'), reopen);
     await expect(client.call('actions.list', {})).resolves.toEqual({ ok: true, value: 'new' });
@@ -194,7 +194,7 @@ describe('createReconnectingAiClient', () => {
     expect(fresh.close).toHaveBeenCalledTimes(1);
   });
 
-  it('reads the endpoint again once when the token is refused (Freeter restarted, old endpoint.json)', async () => {
+  it('reads the endpoint again once when the token is refused (Acedeck restarted, old endpoint.json)', async () => {
     const stale: AiClient = { call: jest.fn(async () => ({ ok: false, code: 'unauthorized', message: 'Invalid token' }) as AiRpcResult), close: jest.fn(), isClosed: () => false };
     const reopen = jest.fn(async () => makeClient(false, 'fresh'));
     const client = createReconnectingAiClient(stale, reopen);
@@ -229,7 +229,7 @@ describe('createReconnectingAiClient', () => {
     const refused = { ok: false, code: 'unauthorized', message: 'Invalid token' } as AiRpcResult;
     let closed = false;
     const stale: AiClient = {
-      call: jest.fn(async () => (closed ? { ok: false, code: 'failed', message: 'Freeter closed the connection' } as AiRpcResult : refused)),
+      call: jest.fn(async () => (closed ? { ok: false, code: 'failed', message: 'Acedeck closed the connection' } as AiRpcResult : refused)),
       close: jest.fn(() => { closed = true; }),
       isClosed: () => false
     };
@@ -265,7 +265,7 @@ describe('createReconnectingAiClient', () => {
 
   it('a call that failed because another refused call closed the shared connection retries on the new one', async () => {
     const refused = { ok: false, code: 'unauthorized', message: 'Invalid token' } as AiRpcResult;
-    const closedRes = { ok: false, code: 'failed', message: 'Freeter closed the connection' } as AiRpcResult;
+    const closedRes = { ok: false, code: 'failed', message: 'Acedeck closed the connection' } as AiRpcResult;
     const answers: ((r: AiRpcResult) => void)[] = [];
     const stale: AiClient = {
       call: jest.fn(() => new Promise<AiRpcResult>(r => answers.push(r))), close: jest.fn(() => answers[1]?.(closedRes)), isClosed: () => false
@@ -280,7 +280,7 @@ describe('createReconnectingAiClient', () => {
   });
 
   it('a call whose connection closed while another call reconnected (no refusal) is not sent again (it may have run)', async () => {
-    const closedRes = { ok: false, code: 'failed', message: 'Freeter closed the connection' } as AiRpcResult;
+    const closedRes = { ok: false, code: 'failed', message: 'Acedeck closed the connection' } as AiRpcResult;
     let closed = false;
     let answerA: (r: AiRpcResult) => void = () => undefined;
     const first: AiClient = {
@@ -319,11 +319,11 @@ describe('createReconnectingAiClient', () => {
     expect(reopen).not.toHaveBeenCalled();
   });
 
-  it('returns a failure when Freeter is still not running', async () => {
+  it('returns a failure when Acedeck is still not running', async () => {
     const client = createReconnectingAiClient(makeClient(true, 'old'), async () => {
-      throw new Error('Freeter is not running');
+      throw new Error('Acedeck is not running');
     });
-    await expect(client.call('actions.list', {})).resolves.toEqual({ ok: false, code: 'failed', message: 'Freeter is not running' });
+    await expect(client.call('actions.list', {})).resolves.toEqual({ ok: false, code: 'failed', message: 'Acedeck is not running' });
   });
 });
 
@@ -339,7 +339,7 @@ describe('defaultEndpointPath', () => {
 });
 
 describe('connectAiClient', () => {
-  it('fails a call at once after Freeter closed the connection, instead of hanging', async () => {
+  it('fails a call at once after Acedeck closed the connection, instead of hanging', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'freeter-cli-'));
     const pipe = process.platform === 'win32' ? `\\\\.\\pipe\\freeter-close-test-${Date.now()}` : join(dir, 'c.sock');
     const server = createServer(s => s.destroy());
@@ -353,15 +353,15 @@ describe('connectAiClient', () => {
     await new Promise<void>(r => server.close(() => r()));
   });
 
-  it('rejects with "Freeter is not running" when endpoint.json is missing', async () => {
-    await expect(connectAiClient(join(tmpdir(), 'no-such-freeter', 'endpoint.json'), 'cli')).rejects.toThrow('Freeter is not running');
+  it('rejects with "Acedeck is not running" when endpoint.json is missing', async () => {
+    await expect(connectAiClient(join(tmpdir(), 'no-such-freeter', 'endpoint.json'), 'cli')).rejects.toThrow('Acedeck is not running');
   });
 
-  it('rejects with "Freeter is not running" when endpoint.json points to a dead pipe', async () => {
+  it('rejects with "Acedeck is not running" when endpoint.json points to a dead pipe', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'freeter-cli-'));
     const pipe = process.platform === 'win32' ? '\\\\.\\pipe\\freeter-dead-pipe-test' : join(dir, 'dead.sock');
     const file = join(dir, 'endpoint.json');
     await writeFile(file, JSON.stringify({ pipe, token: 't', pid: 1 }));
-    await expect(connectAiClient(file, 'cli')).rejects.toThrow('Freeter is not running');
+    await expect(connectAiClient(file, 'cli')).rejects.toThrow('Acedeck is not running');
   });
 });

@@ -4,8 +4,8 @@
  */
 
 /**
- * The AI control protocol: newline-delimited JSON-RPC 2.0 between the `freeter` CLI
- * (or `freeter mcp`) and the running app's control server.
+ * The AI control protocol: newline-delimited JSON-RPC 2.0 between the `acedeck` CLI
+ * (or `acedeck mcp`) and the running app's control server.
  */
 
 export type AiOrigin = 'cli' | 'mcp' | 'terminal';

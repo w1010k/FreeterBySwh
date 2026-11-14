@@ -117,7 +117,7 @@ describe('createTerminalHost', () => {
     expect(ptys[0].written).toEqual(['claude\r']);
   });
 
-  it('starts a shell with no folder set in the home folder, not in the folder Freeter was started in', () => {
+  it('starts a shell with no folder set in the home folder, not in the folder Acedeck was started in', () => {
     const { host, spawnPty } = setup();
     host.create({ cols: 80, rows: 24 });
     expect(spawnPty).toHaveBeenCalledWith('powershell.exe', expect.objectContaining({ cwd: 'C:/Users/me' }));

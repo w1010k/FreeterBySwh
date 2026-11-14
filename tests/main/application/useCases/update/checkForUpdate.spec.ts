@@ -54,7 +54,7 @@ describe('checkForUpdateUseCase()', () => {
     await checkForUpdateUseCase();
 
     expect(notify).toHaveBeenCalledTimes(1);
-    expect(notify).toHaveBeenCalledWith('Freeter-SWH 2.8.0-swh.30 is available', 'You have 2.8.0-swh.29. Click to open the download page.', expect.any(Function));
+    expect(notify).toHaveBeenCalledWith('Acedeck 2.8.0-swh.30 is available', 'You have 2.8.0-swh.29. Click to open the download page.', expect.any(Function));
     expect(store.get(updateNotifiedKey)).toBe('2.8.0-swh.30');
     notify.mock.calls[0][2]();
     expect(shellProvider.openExternal).toHaveBeenCalledWith('https://example.test/releases/tag/v2.8.0-swh.30');

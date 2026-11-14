@@ -166,6 +166,7 @@ import {createAiControllers} from '@/controllers/ai';
 import {createAiControlServer} from '@/infra/aiControlServer/aiControlServer';
 import {getAiPipePath, removeAiEndpointSync, writeAiEndpoint} from '@/infra/aiControlServer/endpoint';
 import {ipcAiActionRequestChannel, ipcPtyDataChannel, ipcPtyExitChannel, ipcPtyTitleChannel} from '@common/ipc/channels';
+import {userDataDirName} from '@/base/userDataDir';
 
 let appWindow: BrowserWindow | null = null; // ref to the app window
 // Held so the shown notification is not garbage-collected before the user clicks it.
@@ -192,26 +193,21 @@ function sendToAppWindow(channel: string, ...args: unknown[]): boolean {
 }
 
 /**
- * Everything run straight from the repo (`yarn dev`, `yarn prod:run`) is kept
- * fully apart from an installed release: its own data folder, its own session
- * and its own single-instance lock. `app.isPackaged` is the right test — a
- * production build launched from the repo is still not the installed app.
+ * userData is pinned for every run, because Electron derives it from the app name: the installed app keeps the folder
+ * it had before it was renamed to Acedeck (no data is moved), and everything run straight from the repo (`yarn dev`,
+ * `yarn prod:run`) is kept fully apart from an installed release: its own data folder, its own session and its own
+ * single-instance lock. `app.isPackaged` is the right test — a production build launched from the repo is still not
+ * the installed app. See userDataDirName.
  *
- * The suffix is mandatory, not cosmetic: unpackaged Electron derives userData
- * from package.json `name` ("freeter-swh") and the installer from productName
- * ("Freeter-SWH"), and Windows paths are case-insensitive, so without it both
- * land in the same folder and fight over the same lock.
+ * Must run before the lock is requested: the lock lives inside userData, and that is what scopes it per variant (two
+ * dev instances still block each other).
  */
-const dataDirName = app.isPackaged ? 'freeter-swh' : 'freeter-swh-dev';
+const dataDirName = userDataDirName(app.isPackaged);
+app.setPath('userData', join(app.getPath('appData'), dataDirName));
 if (!app.isPackaged) {
-  // Only the repo run is redirected; the installed release keeps whatever
-  // userData Electron already gave it, so no existing install is migrated.
-  // Must run before the lock is requested: the lock lives inside userData, and
-  // that is what scopes it per variant (two dev instances still block each other).
-  app.setPath('userData', join(app.getPath('appData'), dataDirName));
   // Marks the dev window and its taskbar entry so it can't be mistaken for the
   // installed app. After setPath, since setName also feeds the default userData.
-  app.setName('Freeter-SWH (dev)');
+  app.setName('Acedeck (dev)');
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -250,7 +246,7 @@ if (!app.requestSingleInstanceLock()) {
   let stopAnalyticsServer: (() => void) | undefined;
 
   // Set after the AI control server starts; on quit it closes the pipe and
-  // removes ai/endpoint.json so the `freeter` CLI reports "not running".
+  // removes ai/endpoint.json so the `acedeck` CLI reports "not running".
   let stopAiControl: (() => void) | undefined;
 
   // Set after the terminal host is created; on quit it ends the in-app terminals' shells.
@@ -469,7 +465,7 @@ if (!app.requestSingleInstanceLock()) {
       process.env.PATH = mergePath(process.env.PATH ?? '', fromRegistry);
     }
     // In-app terminals (pseudo-terminals). The shell gets the AI control endpoint and, in
-    // an installed app, the `freeter` wrappers on PATH, so agents started in it can use them.
+    // an installed app, the `acedeck` wrappers (and their `freeter` alias) on PATH, so agents started in it can use them.
     const baseEnv: Record<string, string> = {
       ...Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => typeof e[1] === 'string')),
       FREETER_AI_ENDPOINT: join(aiDir, 'endpoint.json'),

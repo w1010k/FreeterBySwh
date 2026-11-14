@@ -1,10 +1,10 @@
-# Freeter 사용자 가이드
+# Acedeck 사용자 가이드
 
-> 처음 오셨나요? 이 문서 하나면 **프리터가 뭔지**, **왜 쓰면 좋은지**, **어떻게 시작하는지**를 5분 안에 파악할 수 있습니다.
+> 처음 오셨나요? 이 문서 하나면 **Acedeck이 뭔지**, **왜 쓰면 좋은지**, **어떻게 시작하는지**를 5분 안에 파악할 수 있습니다.
 
 ## 목차
 
-0. [프리터가 뭔가요?](#0-프리터가-뭔가요)
+0. [Acedeck이 뭔가요?](#0-acedeck이-뭔가요)
 1. [왜 쓰면 좋을까](#1-왜-쓰면-좋을까)
 2. [5분 빠른 시작](#2-5분-빠른-시작)
 3. [핵심 개념 정리](#3-핵심-개념-정리)
@@ -14,9 +14,9 @@
 
 ---
 
-## 0. 프리터가 뭔가요?
+## 0. Acedeck이 뭔가요?
 
-**프리터(Freeter)는 컴퓨터로 일하는 사람을 위한 무료·오픈소스 정리 도구입니다.**
+**Acedeck은 컴퓨터로 일하는 사람을 위한 무료·오픈소스 정리 도구입니다.**
 
 업무에 필요한 모든 것 — 자주 쓰는 웹앱·웹페이지, 메모, 할 일, 파일·폴더, 타이머, 계산기까지 — 을 **위젯**으로 만들어 **프로젝트별 작업판**에 한곳에 모아둡니다. 그리고 단축키(`Ctrl`/`Cmd`+`Shift`+`Space`) 한 번이나 시스템 트레이 아이콘으로 언제든 불러내고, 워크플로우(작업판 탭) 사이를 매끄럽게 전환합니다.
 
@@ -33,7 +33,7 @@
 
 ## 1. 왜 쓰면 좋을까
 
-기능 나열보다, 실제 쓰는 모습으로 보는 게 빠릅니다. 아래 네 가지 흐름이 프리터의 이점을 가장 잘 보여줍니다.
+기능 나열보다, 실제 쓰는 모습으로 보는 게 빠릅니다. 아래 네 가지 흐름이 Acedeck의 이점을 가장 잘 보여줍니다.
 
 ### 시나리오 ① — 프로젝트를 갈아끼우듯 전환
 
@@ -59,7 +59,7 @@
 
 이 포크의 설치 파일은 [GitHub Releases](https://github.com/w1010k/FreeterBySwh/releases)에서 받습니다. Windows는 `msi`(설치형)나 `zip`(압축을 풀어 바로 실행), Linux는 `tar.xz`입니다. macOS용 설치 파일은 없습니다.
 
-새 버전이 나오면 Freeter가 OS 알림으로 알려 줍니다 (시작할 때와 하루 한 번 확인, 버전마다 한 번). 알림을 누르면 다운로드 페이지가 열립니다. 자동으로 설치되지는 않으니 받은 설치 파일을 실행하세요.
+새 버전이 나오면 Acedeck이 OS 알림으로 알려 줍니다 (시작할 때와 하루 한 번 확인, 버전마다 한 번). 알림을 누르면 다운로드 페이지가 열립니다. 자동으로 설치되지는 않으니 받은 설치 파일을 실행하세요.
 
 직접 빌드하려면 [README의 "소스에서 직접 빌드하기"](../README.md#소스에서-직접-빌드하기)를 따르세요. 요약하면 `yarn` → `yarn run prod` → `yarn run package`입니다. 원본 Freeter를 쓰고 싶다면 [원본 다운로드 페이지](https://freeter.io/download)를 참고하세요.
 
@@ -67,7 +67,7 @@
 
 ### 2) 편집 모드 켜기 — 모든 편집의 스위치
 
-프리터는 평소엔 **보기 모드**(깔끔하게 사용만), 무언가를 추가·이동·삭제할 땐 **편집 모드**로 전환해서 씁니다.
+Acedeck은 평소엔 **보기 모드**(깔끔하게 사용만), 무언가를 추가·이동·삭제할 땐 **편집 모드**로 전환해서 씁니다.
 
 - 좌측 상단의 **연필 아이콘**을 클릭하거나, 메뉴 **Edit → Enable Edit Mode** (`Ctrl`/`Cmd`+`E`).
 - 편집 모드에서만 위젯을 추가·이동·리사이즈할 수 있고, 각 위젯에 액션바(설정·삭제 아이콘)가 나타납니다.
@@ -97,7 +97,7 @@
 
 ### 7) 언제든 불러내기
 
-- 글로벌 단축키 **`Ctrl`/`Cmd`+`Shift`+`Space`**(이 포크 기본값)로 어디서든 프리터를 앞으로 불러내고, 다시 누르면 숨깁니다.
+- 글로벌 단축키 **`Ctrl`/`Cmd`+`Shift`+`Space`**(이 포크 기본값)로 어디서든 Acedeck을 앞으로 불러내고, 다시 누르면 숨깁니다.
 - 또는 **시스템 트레이 아이콘** 클릭(우클릭하면 프로젝트 목록에서 바로 전환).
 
 ### 8) 편집 모드 끄고 사용 시작
@@ -171,7 +171,7 @@ Markdown Editor, Pomodoro, Stopwatch, AI Chat, Spreadsheet는 제거되었습니
 | 위젯 | 무엇을 | 언제 쓰나 |
 |---|---|---|
 | **Calculator** | 버튼·키보드 입력 사칙연산 계산기 | 잠깐 계산할 때 |
-| **System Monitor** | 내 컴퓨터의 CPU (코어별 포함)·RAM·시스템 드라이브·Freeter 자체 사용량, 배터리, 가동 시간 실시간 표시 | 무거운 작업 중 자원을 곁눈질할 때 |
+| **System Monitor** | 내 컴퓨터의 CPU (코어별 포함)·RAM·시스템 드라이브·Acedeck 자체 사용량, 배터리, 가동 시간 실시간 표시 | 무거운 작업 중 자원을 곁눈질할 때 |
 | **Terminal** | 위젯 안에서 PowerShell 같은 셸 실행. 헤더의 +로 탭 (셸)을 더 열고 x로 닫음. + 옆 ▾로 PowerShell 7, 명령 프롬프트, Git Bash, WSL 등 이 PC에 있는 셸을 골라 탭을 엶. 출력의 링크는 Ctrl+클릭으로 엶. Ctrl+= / Ctrl+- / Ctrl+휠로 확대·축소, Ctrl+0으로 원래 크기 (설정의 Font Size). 색은 설정의 Theme (Dark, Light, 앱 테마의 밝음/어두움을 따르는 Follow App; 기본 Dark). 그 안에서 Claude Code·Codex를 실행할 수 있음 (설정의 시작 명령에 `claude`를 넣으면 셸과 함께 시작) | 작업판 옆에서 명령을 치거나 AI 에이전트를 돌릴 때 |
 
 > 각 위젯의 포크 추가 기능(자동 아이콘, 동적 타이틀, 단축키 등)의 자세한 내역은 [`docs/CHANGES.md`](CHANGES.md)에 정리돼 있습니다.
@@ -184,7 +184,7 @@ Markdown Editor, Pomodoro, Stopwatch, AI Chat, Spreadsheet는 제거되었습니
 
 | 동작 | Windows / Linux | macOS |
 |---|---|---|
-| 프리터 불러내기/숨기기 (글로벌) | `Ctrl`+`Shift`+`Space` | `Cmd`+`Shift`+`Space` |
+| Acedeck 불러내기/숨기기 (글로벌) | `Ctrl`+`Shift`+`Space` | `Cmd`+`Shift`+`Space` |
 | 편집 모드 켜기/끄기 | `Ctrl`+`E` | `Cmd`+`E` |
 | 다음 워크플로우 | `Ctrl`+`Tab` | `Cmd`+`Tab` |
 | 이전 워크플로우 | `Ctrl`+`Shift`+`Tab` | `Cmd`+`Shift`+`Tab` |
@@ -213,17 +213,17 @@ Markdown Editor, Pomodoro, Stopwatch, AI Chat, Spreadsheet는 제거되었습니
 - **To-Do List**는 설정 없이도 같은 프로젝트 안에서 자동으로 동기화됩니다.
 - **Webpage 번역**: 액션 바의 번역 버튼("文A" 아이콘, 또는 오른쪽 클릭 → **Translate to Korean**)을 누르면 페이지 글자가 그 자리에서 한국어로 바뀝니다. 크롬 번역처럼 Google 번역을 쓰고, 나중에 나타나는 글자도 번역합니다. 번역 중에는 버튼이 눌린 모양으로 보입니다. 버튼을 다시 누르거나 오른쪽 클릭 → **Show original**을 누르면 원문으로 돌아갑니다. 같은 주소(도메인) 안에서는 다른 페이지로 가도 번역이 이어지고, 다른 도메인으로 가면 꺼집니다. `www.`가 붙거나 하위 도메인이 바뀌어도 다른 도메인으로 봅니다. 번역하는 글자는 Google 서버로 가니, 사내 문서에서는 이 점을 알고 쓰세요.
 
-### AI 에이전트로 Freeter 다루기
+### AI 에이전트로 Acedeck 다루기
 
-PC에 설치한 Claude Code나 Codex 같은 AI 에이전트가 실행 중인 Freeter의 프로젝트, 워크플로우, 위젯을 다룰 수 있습니다. Freeter를 켜 둔 상태에서 씁니다.
+PC에 설치한 Claude Code나 Codex 같은 AI 에이전트가 실행 중인 Acedeck의 프로젝트, 워크플로우, 위젯을 다룰 수 있습니다. Acedeck을 켜 둔 상태에서 씁니다.
 
-- **명령 위치**: `<설치 폴더>\resources\bin\freeter.cmd` (Linux는 `resources/bin/freeter`). 자주 쓰면 이 폴더를 PATH에 추가하세요.
-- **주요 명령**: `freeter actions`는 할 수 있는 작업 목록, `freeter run app.describe`는 현재 구조입니다. 입력이 필요한 작업은 JSON을 UTF-8 파일에 저장한 뒤 `freeter run workflow.create --input-file input.json`처럼 실행합니다. PowerShell과 cmd는 명령줄 인자의 따옴표를 지우므로 `--input '<JSON>'`은 bash 같은 셸에서만 씁니다. 에이전트에게는 `freeter guide`의 출력을 읽게 하면 됩니다.
-- **MCP 연결**: Claude Code는 MCP 설정에 `"command": "<경로>\\freeter.cmd", "args": ["mcp"]`를 넣습니다. Codex는 `-c mcp_servers.freeter.command=...`와 함께 `-c mcp_servers.freeter.default_tools_approval_mode="approve"`가 필요합니다 (Codex는 기본으로 MCP 도구 호출을 막습니다).
-- **확인 상자**: 무언가를 바꾸는 작업은 Freeter가 "An AI agent ... wants to: ..." 상자를 띄웁니다. **Allow**를 눌러야 실행되고, 2분 안에 답하지 않으면 거절됩니다.
+- **명령 위치**: `<설치 폴더>\resources\bin\acedeck.cmd` (Linux는 `resources/bin/acedeck`). 옛 이름 `freeter`도 같은 폴더에 있고 똑같이 동작합니다. 자주 쓰면 이 폴더를 PATH에 추가하세요.
+- **주요 명령**: `acedeck actions`는 할 수 있는 작업 목록, `acedeck run app.describe`는 현재 구조입니다. 입력이 필요한 작업은 JSON을 UTF-8 파일에 저장한 뒤 `acedeck run workflow.create --input-file input.json`처럼 실행합니다. PowerShell과 cmd는 명령줄 인자의 따옴표를 지우므로 `--input '<JSON>'`은 bash 같은 셸에서만 씁니다. 에이전트에게는 `acedeck guide`의 출력을 읽게 하면 됩니다.
+- **MCP 연결**: Claude Code는 MCP 설정에 `"command": "<경로>\\acedeck.cmd", "args": ["mcp"]`를 넣습니다. Codex는 `-c mcp_servers.acedeck.command=...`와 함께 `-c mcp_servers.acedeck.default_tools_approval_mode="approve"`가 필요합니다 (Codex는 기본으로 MCP 도구 호출을 막습니다).
+- **확인 상자**: 무언가를 바꾸는 작업은 Acedeck이 "An AI agent ... wants to: ..." 상자를 띄웁니다. **Allow**를 눌러야 실행되고, 2분 안에 답하지 않으면 거절됩니다.
 - **항상 허용**: 앱 설정의 **AI Actions: Always Allow**를 켜면 확인 상자 없이 실행됩니다. 단, PC에서 프로그램이나 명령을 실행할 수 있는 작업 (Commander, File Opener, File Explorer, Terminal, Link Opener, Web Query와 그 설정 변경·추가, 다운로드 폴더 변경, Webpage 이동과 주소·user agent·세션·스크립트·CSS 변경, 다른 컴퓨터를 가리키는 경로)은 계속 묻습니다. AI가 읽은 노트나 웹 페이지의 글이 AI를 엉뚱하게 움직일 수 있으니, 그 위험을 받아들일 때만 켜세요.
 - **보내는 데이터**: 에이전트가 읽은 내용 (프로젝트·워크플로우·위젯 이름, 그리고 에이전트가 읽은 Note 본문, To-Do 항목)은 그 에이전트의 회사 (Anthropic, OpenAI 등)로 전송됩니다.
-- **앱 안에서 쓰기**: **Terminal** 위젯 안에서는 (설치본에서) `freeter` 명령이 PATH에 들어 있으므로, 그 안에서 실행한 Claude Code·Codex에게 `freeter guide`를 읽게 하면 됩니다.
+- **앱 안에서 쓰기**: **Terminal** 위젯 안에서는 (설치본에서) `acedeck` 명령이 PATH에 들어 있으므로, 그 안에서 실행한 Claude Code·Codex에게 `acedeck guide`를 읽게 하면 됩니다.
 - **확인이 거절되는 경우**: 설정 창이 열려 있을 때, 확인 상자에 다 보일 수 없을 만큼 긴 변경일 때, 확인을 기다리는 사이 실행될 내용이 바뀌었을 때는 쓰기가 실행되지 않습니다.
 
 ---
@@ -239,9 +239,9 @@ PC에 설치한 Claude Code나 Codex 같은 AI 에이전트가 실행 중인 Fre
 
 ### 백업하려면?
 
-메뉴 **File → Back Up Data…**에서 저장할 폴더를 고르면, 그 안에 `Freeter-SWH backup <날짜 시각>` 폴더가 생깁니다. 프로젝트, 워크플로, 위젯 배치와 설정, Note·To-Do 같은 위젯 데이터, 창 위치가 들어갑니다. 사용 기록 (Analytics)은 들어가지 않습니다.
+메뉴 **File → Back Up Data…**에서 저장할 폴더를 고르면, 그 안에 `Acedeck backup <날짜 시각>` 폴더가 생깁니다. 프로젝트, 워크플로, 위젯 배치와 설정, Note·To-Do 같은 위젯 데이터, 창 위치가 들어갑니다. 사용 기록 (Analytics)은 들어가지 않습니다.
 
-되돌리려면 **File → Restore Data…**에서 그 백업 폴더를 고르고 **Restore and Restart**를 누르세요. Freeter가 다시 시작하면서 백업 내용으로 바뀝니다. 바뀌기 전 데이터는 데이터 폴더 옆 `freeter-data-before-restore <시각>` 폴더에 남아 있으니, 잘못 복원했을 때 되살릴 수 있습니다.
+되돌리려면 **File → Restore Data…**에서 그 백업 폴더를 고르고 **Restore and Restart**를 누르세요. Acedeck이 다시 시작하면서 백업 내용으로 바뀝니다. 바뀌기 전 데이터는 데이터 폴더 옆 `freeter-data-before-restore <시각>` 폴더에 남아 있으니, 잘못 복원했을 때 되살릴 수 있습니다.
 
 다른 컴퓨터로 옮길 때도 같은 방법을 씁니다. 백업 폴더를 새 컴퓨터로 복사한 뒤 Restore Data…로 고르면 됩니다.
 

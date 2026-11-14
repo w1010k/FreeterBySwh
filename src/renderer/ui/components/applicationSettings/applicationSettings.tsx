@@ -81,7 +81,7 @@ export function createApplicationSettingsComponent({
             <SettingBlock
               titleForId='main-hot-key'
               title='Hotkey Combination'
-              moreInfo='Hotkey enables you to bring Freeter to the front of the screen by pressing the specified key
+              moreInfo='Hotkey enables you to bring Acedeck to the front of the screen by pressing the specified key
                       combination.'
             >
               <select id="main-hot-key" value={appConfig.mainHotkey} onChange={e => updateSettings({
@@ -240,8 +240,8 @@ export function createApplicationSettingsComponent({
 
             <SettingBlock
               title='Memory Saver'
-              moreInfo='Freeter frees up memory from inactive workflows.
-                      This gives active workflows more computer resources and keeps Freeter
+              moreInfo='Acedeck frees up memory from inactive workflows.
+                      This gives active workflows more computer resources and keeps Acedeck
                       fast. Your inactive workflows automatically become active again when
                       you go back to them.'
             >
@@ -287,10 +287,10 @@ export function createApplicationSettingsComponent({
             <SettingBlock
               titleForId='telemetry-enabled'
               title='Usage Analytics (Local Only)'
-              moreInfo='When on, Freeter records how you use it — workflows opened and for how long, app
+              moreInfo='When on, Acedeck records how you use it — workflows opened and for how long, app
                       focus time, keystroke counts (never the keys themselves), and an activity timeline:
                       Web Query searches, visited page titles/URLs, opened files, completed to-dos. While
-                      Freeter is running it also tracks OS-wide activity: the foreground app + window title
+                      Acedeck is running it also tracks OS-wide activity: the foreground app + window title
                       you are in (for per-app time) and system idle/lock. Keystroke contents and note
                       contents are never recorded. Everything stays on this computer; nothing is ever
                       uploaded. View, export, and delete it anytime via View → Analytics (opens in your browser). Off by default.'
@@ -311,7 +311,7 @@ export function createApplicationSettingsComponent({
             <SettingBlock
               titleForId='ai-always-allow'
               title='AI Actions: Always Allow'
-              moreInfo='When on, changes an AI agent makes in Freeter (widgets, notes, to-dos, workflows, projects,
+              moreInfo='When on, changes an AI agent makes in Acedeck (widgets, notes, to-dos, workflows, projects,
                       app settings) run without the confirm box. Actions that can run programs or commands on this
                       computer (Commander, File Opener, File Explorer, Terminal, Link Opener, Web Query: running them, changing
                       their settings or adding them), changing the download folder, Webpage navigation, address, user agent, session and

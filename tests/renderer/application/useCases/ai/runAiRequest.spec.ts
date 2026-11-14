@@ -286,7 +286,7 @@ describe('runAiRequestUseCase()', () => {
     expect(action.run).not.toHaveBeenCalled();
   });
 
-  it('refuses writes while a Freeter settings window is open (its Save would undo them), reads still run', async () => {
+  it('refuses writes while an Acedeck settings window is open (its Save would undo them), reads still run', async () => {
     const state = fixtureAppState({});
     const withModal = { ...state, ui: { ...state.ui, modalScreens: { ...state.ui.modalScreens, order: ['projectManager'] } } };
     const store = { get: () => withModal } as unknown as AppStore;

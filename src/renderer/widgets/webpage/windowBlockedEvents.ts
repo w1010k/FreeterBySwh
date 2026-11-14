@@ -44,5 +44,5 @@ export function describeBlockedWindow({ url, reason }: Pick<WebpageWindowBlocked
   // The scheme is shown as is, so the user sees exactly which kind of app is about to open.
   return parsed && isOpenableAppLink(parsed.href)
     ? { text: `This page wants to open an app (${scheme} link).`, action: { label: `Open ${scheme} link`, url: parsed.href } }
-    : { text: `This page tried to open ${scheme ? `a ${scheme} link` : 'a link'}. Freeter does not open it from a page.` };
+    : { text: `This page tried to open ${scheme ? `a ${scheme} link` : 'a link'}. Acedeck does not open it from a page.` };
 }

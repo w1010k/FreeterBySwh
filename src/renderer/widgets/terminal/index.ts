@@ -16,7 +16,7 @@ const widgetType: WidgetType<Settings> = {
     w: 4,
     h: 3
   },
-  description: 'The Terminal widget runs a shell (PowerShell, cmd, bash...) inside Freeter. Run Claude Code or Codex in it.',
+  description: 'The Terminal widget runs a shell (PowerShell, cmd, bash...) inside Acedeck. Run Claude Code or Codex in it.',
   createSettingsState,
   settingsEditorComp,
   widgetComp,

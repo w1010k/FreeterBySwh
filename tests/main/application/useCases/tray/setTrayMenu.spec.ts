@@ -30,7 +30,7 @@ describe('setTrayMenuUseCase()', () => {
     const actionsTarget = { 'actions': 'target' } as unknown as WebContents;
     const testItems: MenuItems = [];
     const expectItems = [
-      expect.objectContaining({ label: 'Show Freeter' }),
+      expect.objectContaining({ label: 'Show Acedeck' }),
       expect.objectContaining({ type: 'separator' }),
       expect.objectContaining({ role: 'quit' }),
     ]
@@ -47,7 +47,7 @@ describe('setTrayMenuUseCase()', () => {
     const actionsTarget = { 'actions': 'target' } as unknown as WebContents;
     const testItems: MenuItems = [fixtureMenuItemA()];
     const expectItems = [
-      expect.objectContaining({ label: 'Show Freeter' }),
+      expect.objectContaining({ label: 'Show Acedeck' }),
       expect.objectContaining({ type: 'separator' }),
       ...testItems,
       expect.objectContaining({ type: 'separator' }),

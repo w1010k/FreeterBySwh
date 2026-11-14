@@ -1,6 +1,5 @@
 @echo off
-rem `freeter` CLI: runs build/cli.js (in app.asar) on the Freeter executable as plain Node.
-setlocal
-set ELECTRON_RUN_AS_NODE=1
-"%~dp0..\..\Freeter-SWH.exe" "%~dp0..\app.asar\cli.js" %*
+rem `freeter`: the former name of the `acedeck` CLI. Keeps `freeter` working where it is found on PATH (the in-app
+rem terminal). A setup that stored the full path of the old install folder still has to be pointed at the new one.
+call "%~dp0acedeck.cmd" %*
 exit /b %ERRORLEVEL%
