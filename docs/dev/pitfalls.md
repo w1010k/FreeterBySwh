@@ -767,10 +767,10 @@
 - 규칙: saver는 호출마다 호출한 위젯의 writer를 받는다. 2026-10-05 이전에는 스코프에서 처음 렌더링된 위젯의 `doSave`를 계속 썼다. 그 위젯이 삭제되거나 셸프로
   옮겨지면 스코프의 저장이 엉뚱한 버킷 (`widgets/<id>/todo` 또는 `shared/to-do-list/app`)으로 갔다. 저장소 쪽은 위젯 API를 만들 때의 워크플로우로 스코프를
   고정한다 ("widgetApi 메모이제이션").
-- 남은 문제 (잠재, 미수정): `dropOnWorkflowSwitcherUseCase`의 다른 프로젝트 분기는 `projects[*].workflowIds`만 바꾸고 Memory Saver의
-  `activeWorkflows[].prjId`는 그대로 둔다. 위젯의 `env.projectId`는 이 `prjId`에서 오므로 To-Do 화면은 옛 프로젝트 목록을 계속 보이고, 저장소는 새 프로젝트
-  버킷을 가리킨다. 그러면 편집할 때마다 옛 목록이 새 프로젝트 목록을 덮어쓴다. 2026-10-05 이전 `findWidgetProjectId`도 같았다. 탭 바는 현재 프로젝트만 보여 주고
-  drop 대상도 항상 현재 프로젝트라서, 이 분기의 UI 진입 경로는 확인되지 않았다 (features-core.md "워크플로우"). 이 분기를 살리려면 `prjId`도 함께 바꾼다.
+- 규칙: 워크플로우를 다른 프로젝트로 옮기는 코드는 Memory Saver의 `activeWorkflows[].prjId`도 함께 바꾼다. 위젯의 `env.projectId`는 이
+  `prjId`에서 오고 To-Do 저장소는 `projects[*].workflowIds`에서 프로젝트를 찾는다. 둘이 어긋나면 To-Do 화면은 옛 프로젝트 목록을 보이고, 편집할 때마다 그 목록이
+  새 프로젝트 버킷을 덮어쓴다. upstream의 `dropOnWorkflowSwitcherUseCase` 프로젝트 간 분기가 `workflowIds`만 바꿔서 이 상태를 만들 수 있었다. UI 진입 경로가
+  없어서 (탭 바는 현재 프로젝트만 보여 준다) 2026-11-14에 분기를 지웠다. 지금은 워크플로우를 다른 프로젝트로 옮기는 경로가 없다.
 - 근거: CHANGES #10, #26, `src/renderer/widgets/sharedDataSync.ts`, `src/renderer/widgets/to-do-list/todoStore.ts`,
   `src/renderer/widgets/to-do-list/widget.tsx`
 

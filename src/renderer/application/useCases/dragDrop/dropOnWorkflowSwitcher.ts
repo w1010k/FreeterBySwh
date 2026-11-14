@@ -4,7 +4,7 @@
  */
 
 import { EntityId } from '@/base/entity';
-import { moveItemInList, removeItemFromList, addItemToList } from '@/base/list';
+import { moveItemInList } from '@/base/list';
 import { AppStore } from '@/application/interfaces/store';
 import { dragDropStateActions, entityStateActions } from '@/base/state/actions';
 
@@ -19,45 +19,22 @@ export function createDropOnWorkflowSwitcherUseCase({
     const { from: draggingFrom } = state.ui.dragDrop;
     if (draggingFrom?.workflowSwitcher) {
       const { projectId: sourceProjectId, workflowId } = draggingFrom.workflowSwitcher;
-      const [sourceProject, targetProject] = entityStateActions.projects.getMany(state, [sourceProjectId, targetProjectId]);
-
-      if (sourceProject && targetProject) {
-        if (sourceProject === targetProject) {
-          const { workflowIds } = targetProject;
-          const sourceIdx = workflowIds.indexOf(workflowId);
-          const targetIdx = overWorkflowId ? workflowIds.indexOf(overWorkflowId) : undefined;
-          if (sourceIdx !== -1 && targetIdx !== -1) {
-            const newWorkflowIds = moveItemInList(workflowIds, sourceIdx, targetIdx);
-            state = entityStateActions.projects.updateOne(state, {
-              id: targetProjectId,
-              changes: {
-                workflowIds: newWorkflowIds
-              }
-            })
-          }
-        } else {
-          const { workflowIds: sourceWorkflowIds } = sourceProject;
-          const { workflowIds: targetWorkflowIds } = targetProject;
-
-          const sourceIdx = sourceWorkflowIds.indexOf(workflowId);
-          const targetIdx = overWorkflowId ? targetWorkflowIds.indexOf(overWorkflowId) : undefined;
-
-          if (sourceIdx !== -1 && targetIdx !== -1) {
-            state = entityStateActions.projects.updateMany(state, [
-              {
-                id: sourceProjectId,
-                changes: {
-                  workflowIds: removeItemFromList(sourceWorkflowIds, sourceIdx)
-                }
-              },
-              {
-                id: targetProjectId,
-                changes: {
-                  workflowIds: addItemToList(targetWorkflowIds, workflowId, targetIdx)
-                }
-              }
-            ])
-          }
+      // Only a reorder within the tab's own project. The tab bar shows the current project alone, so a drop never
+      // targets another one. Moving a workflow to another project would also have to move its Memory Saver
+      // `activeWorkflows[].prjId`: To-Do widgets read their scope from it, and a stale one makes them save their old
+      // project's list over the new project's.
+      const project = sourceProjectId === targetProjectId ? entityStateActions.projects.getOne(state, targetProjectId) : undefined;
+      if (project) {
+        const { workflowIds } = project;
+        const sourceIdx = workflowIds.indexOf(workflowId);
+        const targetIdx = overWorkflowId ? workflowIds.indexOf(overWorkflowId) : undefined;
+        if (sourceIdx !== -1 && targetIdx !== -1) {
+          state = entityStateActions.projects.updateOne(state, {
+            id: targetProjectId,
+            changes: {
+              workflowIds: moveItemInList(workflowIds, sourceIdx, targetIdx)
+            }
+          })
         }
       }
     }

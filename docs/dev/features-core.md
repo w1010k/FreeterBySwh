@@ -223,8 +223,8 @@
   {x|y|w|h})` (한 칸, 드래그와 같은 `moveLayoutItem`·`resizeLayoutItemByEdges`), Projects·Apps 목록 항목의 위·아래 버튼 → 기존 `update*OrderIn*Manager`.
 - 삭제 (`deleteWorkflowsSubCase`): workflow의 위젯 엔티티 제거 → 현재 workflow였으면 같은 위치의 다음 workflow로 이동 → Memory Saver 비활성화.
 - 붙여넣기: `cloneWorkflowSubCase`가 항목마다 `cloneWidgetSubCase` (위젯 데이터 폴더 복사 포함)를 호출한다. 이름은 `generateCopyName`이 중복을 피한다.
-- 탭 드래그는 편집 모드에서만 시작한다. drop 시 같은 프로젝트면 순서를 바꾼다. `dropOnWorkflowSwitcherUseCase`에 다른 프로젝트로 옮기는 분기도 있으나, 탭 바가 현재 프로젝트만 보여
-  주므로 UI 진입 경로는 확인하지 못했다.
+- 탭 드래그는 편집 모드에서만 시작한다. drop은 같은 프로젝트 안에서 순서만 바꾼다. 탭 바가 현재 프로젝트만 보여 주므로
+  `dropOnWorkflowSwitcherUseCase`는 다른 프로젝트로의 drop을 무시한다 (upstream의 프로젝트 간 이동 분기는 지웠다, pitfalls.md "두 가지 라이브 동기화 방식").
 
 바 안 구성요소 배치 (`createWorkflowSwitcherViewModelHook`):
 

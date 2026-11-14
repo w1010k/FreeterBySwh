@@ -165,7 +165,7 @@ describe('dropOnWorkflowSwitcherUseCase()', () => {
   })
 
   describe('when dragging an item from Workflow Switcher, from one project to another', () => {
-    it('should reset dragDrop state and move item on Projects\' workflow lists', async () => {
+    it('should reset dragDrop state and leave Projects untouched', async () => {
       const projectIdA = 'PROJECT-ID-A';
       const projectIdB = 'PROJECT-ID-B';
       const workflowIdsA = ['WORKFLOW-A', 'WORKFLOW-B', 'WORKFLOW-C']
@@ -196,20 +196,6 @@ describe('dropOnWorkflowSwitcherUseCase()', () => {
 
       const expectState: AppState = {
         ...initState,
-        entities: {
-          ...initState.entities,
-          projects: {
-            ...initState.entities.projects,
-            [projectIdA]: {
-              ...initState.entities.projects[projectIdA]!,
-              workflowIds: [workflowIdsA[1], workflowIdsA[2]]
-            },
-            [projectIdB]: {
-              ...initState.entities.projects[projectIdB]!,
-              workflowIds: [workflowIdsB[0], workflowIdsA[0], workflowIdsB[1]]
-            },
-          }
-        },
         ui: {
           ...initState.ui,
           dragDrop: {}
