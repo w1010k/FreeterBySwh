@@ -4,7 +4,7 @@
  *   yarn electron resources/icon/build-icons.js
  *
  * Electron draws the SVG (no extra dependency). Writes the Linux PNG set, the Windows .ico and the PNGs the running
- * app loads (tray, Linux window). The file and folder names still say "freeter": see docs/dev/decisions.md D86.
+ * app loads (tray at 1x and 2x, Linux window). The file and folder names still say "freeter": see docs/dev/decisions.md D86.
  */
 const { app, BrowserWindow } = require('electron');
 const fs = require('fs');
@@ -16,8 +16,9 @@ const linuxSizes = [16, 32, 48, 64, 128, 256, 512, 1024];
 // As the icon it replaces: small sizes as bitmaps, 256 as PNG.
 const icoSizes = [16, 32, 48, 256];
 
-// Keep this run's Electron profile out of the app's data folders.
-app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'acedeck-icons-')));
+// Keep this run's Electron profile out of the app's data folders. One fixed folder, reused by every run: a new one
+// per run could not be removed at exit (Chromium's child processes still hold it) and would pile up.
+app.setPath('userData', path.join(os.tmpdir(), 'acedeck-icons-profile'));
 
 /** One .ico image: a 32-bit bottom-up bitmap with an (empty) AND mask, or the PNG as is. */
 function icoImage(size, png, rgba) {
@@ -63,7 +64,7 @@ function ico(images) {
   return Buffer.concat([dir, ...images.map(i => i.data)]);
 }
 
-app.whenReady().then(async () => {
+async function build() {
   const win = new BrowserWindow({ show: false });
   await win.loadURL('about:blank');
   const svg = fs.readFileSync(path.join(__dirname, 'acedeck.svg')).toString('base64');
@@ -72,7 +73,11 @@ app.whenReady().then(async () => {
   const drawn = await win.webContents.executeJavaScript(`(async () => {
     const img = new Image();
     img.src = 'data:image/svg+xml;base64,${svg}';
-    await img.decode();
+    try {
+      await img.decode();
+    } catch {
+      throw new Error('acedeck.svg could not be drawn (not a valid SVG?)');
+    }
     const out = {};
     for (const size of ${JSON.stringify(sizes)}) {
       const canvas = document.createElement('canvas');
@@ -81,7 +86,8 @@ app.whenReady().then(async () => {
       ctx.drawImage(img, 0, 0, size, size);
       out[size] = {
         png: canvas.toDataURL('image/png').split(',')[1],
-        rgba: Array.from(ctx.getImageData(0, 0, size, size).data)
+        // Raw pixels only for the sizes stored as bitmaps in the .ico.
+        rgba: ${JSON.stringify(icoSizes.filter(s => s < 256))}.includes(size) ? Array.from(ctx.getImageData(0, 0, size, size).data) : null
       };
     }
     return out;
@@ -92,10 +98,17 @@ app.whenReady().then(async () => {
     fs.writeFileSync(path.join(root, 'resources', 'linux', 'freeter-icons', `${size}x${size}.png`), png(size));
   }
   fs.writeFileSync(path.join(root, 'src', 'assets', 'app-icons', '16.png'), png(16));
+  // Electron's Tray picks this one on displays scaled 150% and up, instead of stretching the 16px image.
+  fs.writeFileSync(path.join(root, 'src', 'assets', 'app-icons', '16@2x.png'), png(32));
   fs.writeFileSync(path.join(root, 'src', 'assets', 'app-icons', '256.png'), png(256));
   fs.writeFileSync(
     path.join(root, 'resources', 'win32', 'freeter.ico'),
     ico(icoSizes.map(size => ({ size, data: icoImage(size, png(size), drawn[size].rgba) })))
   );
-  app.quit();
+}
+
+// A failure (a broken SVG, a locked output file) must end the run: the hidden window would keep the app alive.
+app.whenReady().then(build).then(() => app.quit(), err => {
+  console.error('Icons were not built:', err instanceof Error ? err.message : err);
+  app.exit(1);
 });

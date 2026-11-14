@@ -68,7 +68,7 @@ Freeter는 Electron 데스크톱 앱이다. 프로젝트, 워크플로우 (탭),
 | `src/main/`                                            | main 프로세스 (Node, Electron API)                                                           |
 | `src/renderer/`                                        | renderer (React), preload, Analytics 페이지, 위젯                                            |
 | `src/common/`                                          | 양쪽이 공유하는 타입, store 래퍼, IPC 채널 정의                                              |
-| `src/assets/app-icons/`                                | 트레이 아이콘 (`16.png`)과 리눅스 창 아이콘 (`256.png`). 빌드 때 `build/assets/`로 복사      |
+| `src/assets/app-icons/`                                | 트레이 아이콘 (`16.png`, 2배 `16@2x.png` [fork #112])과 리눅스 창 아이콘 (`256.png`). 빌드 때 `build/assets/`로 복사      |
 | `resources/icon/`                                      | 앱 아이콘의 원본 `acedeck.svg`와 `build-icons.js` [fork #112]. 그림을 바꾸면 `yarn electron resources/icon/build-icons.js`로 Linux PNG 8개, `resources/win32/freeter.ico`, `src/assets/app-icons/`의 PNG를 다시 만든다. About 화면의 단색 로고 (`logo-150.svg`)는 따로 고친다 |
 | `tests/`                                               | jest 프로젝트별 폴더 (`main`, `renderer`, `common`, `utils`)와 `__mocks__`                   |
 | `resources/`                                           | 설치 패키지 아이콘 (`win32`, `linux`)                                                        |
@@ -227,7 +227,7 @@ main은 `did-attach-webview`에서 guest마다 아래를 건다.
 | Analytics 페이지 | main의 루프백 HTTP 서버가 페이지와 데이터를 제공하고, 사용자의 기본 브라우저가 연다                         | `src/main/infra/analyticsServer/analyticsServer.ts`                                 | [fork #87]                |
 | 전경 창 리더     | Windows에서 PowerShell 프로세스 1개가 5초마다 전경 창을 출력. 부모 프로세스가 사라지면 스스로 종료          | `src/main/infra/osActivity/foregroundWindow.ts`                                     | [fork #64]                |
 | 앱, 터미널 실행  | `spawnDetached`로 분리 실행 (OS별 인자 생성)                                                                | `useCases/shell/openApp.ts`, `useCases/terminal/execCmdLinesInTerminal.ts`          | [upstream]                |
-| 트레이           | 아이콘 `assets/app-icons/16.png`. 기본 동작은 창 표시                                                       | `useCases/tray/initTray.ts`, `infra/trayProvider/`                                  | [upstream, fork #1 변경]  |
+| 트레이           | 아이콘 `assets/app-icons/16.png` (배율 150% 이상은 `16@2x.png`를 Electron이 고른다). 기본 동작은 창 표시                                                       | `useCases/tray/initTray.ts`, `infra/trayProvider/`                                  | [upstream, fork #1 변경]  |
 | 전역 단축키      | 창이 포커스 없거나 숨겨져 있으면 표시, 아니면 숨김. 기본값 `CmdOrCtrl+Shift+Space`                          | `infra/globalShortcut/globalShortcutProvider.ts`, 기본값은 renderer `createUiState` | [upstream, fork #20 변경] |
 
 ### IPC

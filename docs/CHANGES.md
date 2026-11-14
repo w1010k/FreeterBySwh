@@ -4144,16 +4144,16 @@ Webpage 위젯 안 페이지가 새 창을 열려고 했는데 열리지 않으�
 - **Analytics**: 페이지 제목과 내보내기 파일 이름 (`acedeck-activity-…json`), 내보내기의 `manifest.app`이 새 이름을 쓴다. 앱별 통계에서 이 앱은 변경일 전후로 `Freeter-SWH`와 `Acedeck` 두 항목으로 나온다 (OS 프로세스 이름을 기록하기 때문이다). 과거 기록은 합치지 않는다.
 - **백업**: 새 백업 폴더 이름은 `Acedeck backup <날짜>`다. Restore Data는 옛 이름으로 만든 백업 (`Freeter-SWH backup …`)도 받는다.
 - **설치본의 창 제목**: 전에는 소문자 `freeter-swh`로 보였다 (`package.json`에 `productName`이 없어 `name`이 쓰였다). 이제 `Acedeck`으로 보인다.
-- **아이콘**: 새 아이콘으로 바꿨다 (실행 파일, 설치 파일, 작업 표시줄, 트레이, 창, About 화면). 원본 로고의 블록 구성 (왼쪽 기둥, 윗막대)을 잇고, 가운데 네모 대신 오른쪽 다리를 둔 형태다. 어두운 둥근 사각형 위에 블록 3개가 밝기 3단계 (흰색, 밝은 회색, 어두운 회색)로 놓여 쌓인 층 (deck)을 나타낸다. Windows는 아이콘을 캐시하므로 설치 뒤에도 작업 표시줄에 옛 아이콘이 한동안 보일 수 있다.
+- **아이콘**: 새 아이콘으로 바꿨다 (실행 파일, 바로 가기, 작업 표시줄, 트레이, 창, About 화면). 내려받은 `msi` 파일 자체는 전처럼 Windows 기본 설치 파일 아이콘으로 보인다. 트레이는 2배 크기 그림 (`16@2x.png`)도 함께 두어 화면 배율이 높을 때 흐려지지 않는다. 원본 로고의 블록 구성 (왼쪽 기둥, 윗막대)을 잇고, 가운데 네모 대신 오른쪽 다리를 둔 형태다. 어두운 둥근 사각형 위에 블록 3개가 밝기 3단계 (흰색, 밝은 회색, 어두운 회색)로 놓여 쌓인 층 (deck)을 나타낸다. Windows는 아이콘을 캐시하므로 설치 뒤에도 작업 표시줄에 옛 아이콘이 한동안 보일 수 있다.
 - 원본 Freeter를 가리키는 곳은 그대로다: Help 메뉴의 Original Freeter 링크, About 화면의 원본 후원자 안내, 파일 머리말의 저작권 표기 (GPL-3.0).
 
 구조:
 
 - `userData`를 모든 실행에서 고정한다 (`src/main/base/userDataDir.ts` `userDataDirName`: 설치본 `freeter-swh`, 저장소 실행 `freeter-swh-dev`). Electron은 `userData`를 앱 이름에서 만들기 때문에, 고정하지 않으면 이름을 바꾼 앱이 빈 폴더에서 시작한다. CLI의 기본 endpoint 경로도 같은 함수를 쓴다.
 - `appId` (`io.freeter.app.swh`)는 그대로다. electron-builder가 MSI 업그레이드 코드를 `appId`에서 만든다.
-- 아이콘의 원본은 `resources/icon/acedeck.svg`다. `resources/icon/build-icons.js` (Electron으로 실행)가 Linux PNG 8개, Windows `.ico` (16, 32, 48은 비트맵, 256은 PNG), 트레이와 창의 PNG를 만든다. 전에는 원본 그림 파일이 저장소에 없었다. 파일과 폴더 이름 (`freeter.ico`, `freeter-icons`)은 그대로다.
+- 아이콘의 원본은 `resources/icon/acedeck.svg`다. `resources/icon/build-icons.js` (Electron으로 실행)가 Linux PNG 8개, Windows `.ico` (16, 32, 48은 비트맵, 256은 PNG), 트레이 (`16.png`, `16@2x.png`)와 창의 PNG를 만든다. 전에는 원본 그림 파일이 저장소에 없었다. 파일과 폴더 이름 (`freeter.ico`, `freeter-icons`)은 그대로다.
 - `resources/bin`: `acedeck`, `acedeck.cmd`가 실행 파일을 부르고, `freeter`, `freeter.cmd`는 그 래퍼를 부른다.
-- 바꾸지 않은 내부 식별자: CSS 변수 `--freeter-*`, IPC 접두어 `freeter:`, 프로토콜 `freeter-file://freeter-app`, 환경 변수 `FREETER_AI_*`, pipe 이름, 데이터 폴더 안의 `freeter-data`, 백업 표식 파일 `freeter-backup.json`, 아이콘 파일. 저장소 이름과 버전 형식 (`2.8.0-swh.N`)도 그대로다. 결정과 버린 대안은 decisions.md D86.
+- 바꾸지 않은 내부 식별자: CSS 변수 `--freeter-*`, IPC 접두어 `freeter:`, 프로토콜 `freeter-file://freeter-app`, 환경 변수 `FREETER_AI_*`, pipe 이름, 데이터 폴더 안의 `freeter-data`, 백업 표식 파일 `freeter-backup.json`, 아이콘 파일과 폴더의 이름. 저장소 이름과 버전 형식 (`2.8.0-swh.N`)도 그대로다. 결정과 버린 대안은 decisions.md D86.
 
 **까다로웠던 포인트**
 
@@ -4167,7 +4167,7 @@ Webpage 위젯 안 페이지가 새 창을 열려고 했는데 열리지 않으�
 **수정 파일**
 
 - **신규**: `src/main/base/userDataDir.ts`, `resources/bin/{acedeck,acedeck.cmd}`, `resources/icon/{acedeck.svg,build-icons.js}`
-- **수정**: `resources/linux/freeter-icons/*.png`, `resources/win32/freeter.ico`, `src/assets/app-icons/{16,256}.png`, `src/renderer/ui/assets/images/appIcons/logo-150.svg`, `package.json`, `electron-builder.config.js`, `webpack.renderer.config.js`, `resources/bin/{freeter,freeter.cmd}`, `.gitattributes`, `src/renderer/analyticsPage/{index.ejs,analyticsPage.tsx}`, `src/main/index.ts`, `src/main/cli/{cli.ts,mcp.ts}`, `src/main/infra/appDataBackup/appDataBackup.ts`, `src/main/application/useCases/appDataBackup/{backUpAppData,restoreAppData}.ts`, `src/renderer/ui/components/about/about.tsx`, 그 밖에 화면 문구가 든 `src` 파일들
+- **수정**: `resources/linux/freeter-icons/*.png`, `resources/win32/freeter.ico`, `src/assets/app-icons/{16,16@2x,256}.png` (`16@2x`는 신규), `src/renderer/ui/assets/images/appIcons/logo-150.svg`, `package.json`, `electron-builder.config.js`, `webpack.renderer.config.js`, `resources/bin/{freeter,freeter.cmd}`, `.gitattributes`, `src/renderer/analyticsPage/{index.ejs,analyticsPage.tsx}`, `src/main/index.ts`, `src/main/cli/{cli.ts,mcp.ts}`, `src/main/infra/appDataBackup/appDataBackup.ts`, `src/main/application/useCases/appDataBackup/{backUpAppData,restoreAppData}.ts`, `src/renderer/ui/components/about/about.tsx`, 그 밖에 화면 문구가 든 `src` 파일들
 - **테스트**: `tests/main/base/userDataDir.spec.ts` (신규), `tests/main/infra/appDataBackup/` (옛 표식 복원), 문구를 기대하는 기존 스펙들
 
 ## 부록: 참고 문서
