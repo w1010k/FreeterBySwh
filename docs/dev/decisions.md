@@ -444,7 +444,7 @@
 - 출처: `[fork #112]`
 - 결정: 제품 이름을 Freeter-SWH에서 Acedeck으로 바꾼다. 바꾸는 것은 화면 문구, productName, `package.json` `name`, 설치 파일과 실행 파일 이름, CLI 명령
   (`acedeck`), MCP 서버 이름 (`serverInfo.name`), 사용 기록 내보내기의 `manifest.app`과 파일 이름, 문서다. 그대로 두는 것은 `appId` (`io.freeter.app.swh`), 데이터 폴더 (`freeter-swh`, `freeter-data`), CSS 변수 `--freeter-*`, IPC
-  접두어 `freeter:`, 프로토콜 `freeter-file://freeter-app`, 환경 변수 `FREETER_AI_*`, pipe 이름, 백업 표식 파일 이름, 아이콘, 저장소 이름, 버전 형식이다.
+  접두어 `freeter:`, 프로토콜 `freeter-file://freeter-app`, 환경 변수 `FREETER_AI_*`, pipe 이름, 백업 표식 파일 이름, 아이콘 파일과 폴더의 이름 (그림은 새 아이콘으로 바꿨다), 저장소 이름, 버전 형식이다.
   옛 경로는 함께 둔다: `freeter` 명령은 `acedeck`을 부르는 래퍼로 남기고, 복원은 옛 표식 (`Freeter-SWH backup`)의 백업도 받는다.
 - 이유: 포크가 원본에서 멀어져 독립 제품이 됐다 (변경 기록 111건). 이름의 뜻은 ace (일당백으로 일하는 사람) + deck (모든 것이 준비된 조종석, 여러 일을 쥔 카드 한 벌)이다.
   `userData`는 Electron이 앱 이름에서 만들므로 이름만 바꾸면 빈 폴더에서 시작한다. 그래서 `userDataDirName`으로 옛 폴더를 고정한다. MSI 업그레이드 코드는 `appId`에서

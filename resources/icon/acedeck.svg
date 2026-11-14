@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- The Acedeck app icon. Run build-icons.js after changing it. The three blocks keep the layout of the Freeter
+       logo this app grew from (pillar, top bar), with a right leg instead of the middle square. -->
+  <defs>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2d34"/>
+      <stop offset="1" stop-color="#17191d"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="976" height="976" rx="220" fill="url(#panel)"/>
+  <rect x="186" y="154" width="192" height="716" rx="24" fill="#ffffff"/>
+  <rect x="448" y="154" width="390" height="192" rx="24" fill="#b9bec8"/>
+  <rect x="646" y="416" width="192" height="454" rx="24" fill="#7b8290"/>
+</svg>

@@ -1,4 +1,4 @@
-<p align="center"><img src="https://raw.githubusercontent.com/FreeterApp/Freeter/master/resources/linux/freeter-icons/256x256.png" style="margin-right: 16px; width: 128px; height: 128px"/></p>
+<p align="center"><img src="resources/linux/freeter-icons/256x256.png" style="margin-right: 16px; width: 128px; height: 128px"/></p>
 
 **Acedeck**은 컴퓨터로 일하는 사람을 위한 무료 오픈소스 정리 도구입니다. 이전 이름은 Freeter-SWH입니다.
 
@@ -209,7 +209,7 @@ Freeter는 자유 소프트웨어이며, [라이선스][license] 조건에 따�
 109. Webpage 새 창 요청 보완 - 빈 창을 먼저 여는 로그인·결제 흐름이 앱 안 팝업으로 동작하고, 열리지 않은 새 창과 앱 링크 (Zoom·Teams 참가 버튼, 팝업 5개 한도)는 위젯 위 알림 바에서 직접 열 수 있음. *(2026-11-13)*
 110. 테마 10개 (Solarized, Catppuccin, One Dark, Nord, Tokyo Night, Dracula 추가)와 OS 밝음/어두움 모드를 따르는 System 설정, `Ctrl`+`Shift`+`L`로 밝은 테마와 어두운 테마 전환, Windows·Linux에서는 제목 표시줄과 메뉴 바도 테마 색. *(2026-11-14)*
 111. 상단 바 병합 - 설정의 Merge Top Bar를 켜면 상단 바의 셸프 위젯이 위쪽 워크플로우 바 안으로 들어가, 워크플로우 탭은 왼쪽·셸프 위젯은 오른쪽인 한 줄이 됨. *(2026-11-14)*
-112. 이름 변경 - 제품 이름을 Freeter-SWH에서 **Acedeck**으로 바꿈. 데이터는 그대로 이어지고 (Windows는 로그인 세션도), 새 설치 파일이 기존 설치본을 교체하며, CLI는 `acedeck` (PATH의 `freeter`도 동작, 절대 경로로 등록한 MCP 설정은 새 설치 폴더로 수정). *(2026-11-15)*
+112. 이름 변경 - 제품 이름을 Freeter-SWH에서 **Acedeck**으로 바꾸고 아이콘도 새로 그림. 데이터는 그대로 이어지고 (Windows는 로그인 세션도), 새 설치 파일이 기존 설치본을 교체하며, CLI는 `acedeck` (PATH의 `freeter`도 동작, 절대 경로로 등록한 MCP 설정은 새 설치 폴더로 수정). *(2026-11-15)*
 
 부가적으로 OS 노출 라벨 (트레이 툴팁, 윈도우 타이틀, 앱 메뉴, About 모달 등)은 **Acedeck**으로 표시해서 원본과 혼동되지 않게 했습니다 (#112 이전에는 Freeter-SWH).
 
