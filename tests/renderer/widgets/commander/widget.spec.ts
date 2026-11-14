@@ -4,13 +4,13 @@
  */
 
 import { Settings } from '@/widgets/commander/settings';
-import { widgetComp } from '@/widgets/commander/widget'
+import widgetType from '@/widgets/commander'
 import { screen } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { fixtureSettings } from './fixtures';
 
 function setupCommanderWidgetSut(settings: Settings, optional?: SetupWidgetSutOptional) {
-  const { comp, ...rest } = setupWidgetSut(widgetComp, settings, optional);
+  const { comp, ...rest } = setupWidgetSut(widgetType, settings, optional);
   return {
     comp,
     ...rest

@@ -4,14 +4,14 @@
  */
 
 import { Settings } from '@/widgets/_template/settings';
-import { widgetComp } from '@/widgets/_template/widget'
+import widgetType from '@/widgets/_template'
 import { screen } from '@testing-library/react';
 import { setupWidgetSut } from '@tests/widgets/setupSut'
 
 describe('Template Widget', () => {
   it('should show text specified in the settings', () => {
     const settings: Settings = { text: 'SOME TEXT VALUE' };
-    setupWidgetSut(widgetComp, settings);
+    setupWidgetSut(widgetType, settings);
 
     expect(screen.getByText(settings.text)).toBeInTheDocument();
   })

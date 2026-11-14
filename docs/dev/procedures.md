@@ -35,7 +35,7 @@ CI (`.github/workflows/ci.yml`)와 같은 순서로 실행한다. 4단계 모두
 5. 위젯 SCSS를 쓴다. `var(--freeter-*)`는 테마 객체에 있는 키만 쓴다.
 6. `tests/renderer/widgets/<id>/`에 테스트를 만든다. 파일 구성은 `fixtures.ts`, `settings.spec.ts`, `widget.spec.ts` 또는
    `widget.spec.tsx`다. 골격은 `tests/renderer/widgets/_template/`이다. 렌더 도우미 `setupWidgetSut`, `setupSettingsSut`과 위젯 API
-   mock은 `tests/renderer/widgets/setupSut.tsx`에 있다.
+   mock은 `tests/renderer/widgets/setupSut.tsx`에 있다. `setupWidgetSut`에는 위젯 타입 (`<id>/index.ts`의 default export)을 넘긴다.
 7. `docs/CHANGES.md`와 `README.md`에 항목을 추가한다 (`CLAUDE.md`의 Change log maintenance 규칙).
 8. [features-widgets.md](features-widgets.md)의 위젯 요약표와 위젯별 상세에 항목을 추가한다.
 

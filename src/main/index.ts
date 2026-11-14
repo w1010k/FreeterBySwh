@@ -120,6 +120,7 @@ import {createChildProcessProvider} from '@/infra/childProcessProvider/childProc
 import {createClipboardProvider} from '@/infra/clipboardProvider/clipboardProvider';
 import {createContextMenuProvider} from '@/infra/contextMenuProvider/contextMenuProvider';
 import {copyFileDataStorage, createFileDataStorage} from '@/infra/dataStorage/fileDataStorage';
+import {sharedDataStoragePath, widgetDataStoragePath} from '@/infra/dataStorage/dataStoragePaths';
 import {createDialogProvider} from '@/infra/dialogProvider/dialogProvider';
 import {createDownloadManager} from '@/infra/downloads/downloadManager';
 import {createFsProvider} from '@/infra/fsProvider/fsProvider';
@@ -141,7 +142,6 @@ import {createReleaseProvider, releaseRepo} from '@/infra/releaseProvider/releas
 import {createCheckForUpdateUseCase} from '@/application/useCases/update/checkForUpdate';
 import {createTrayProvider} from '@/infra/trayProvider/trayProvider';
 import {createObjectManager} from '@common/base/objectManager';
-import {parseSharedStorageId} from '@common/base/sharedStorageId';
 import {setTextOnlyIfChanged} from '@common/infra/dataStorage/setTextOnlyIfChanged';
 import {withJson} from '@common/infra/dataStorage/withJson';
 import {hostFreeterApp, schemeFreeterFile} from '@common/infra/network';
@@ -326,10 +326,12 @@ if (!app.requestSingleInstanceLock()) {
     const getTextFromAppDataStorageUseCase = createGetTextFromAppDataStorageUseCase({appDataStorage});
     const setTextInAppDataStorageUseCase = createSetTextInAppDataStorageUseCase({appDataStorage});
 
-    const getWidgetDataStoragePath = (id: string) => join(appDataDir, 'widgets', id);
+    // The path functions throw on an invalid id. The copiers are `async` so the throw becomes a rejection, as it does
+    // for the factories inside the async `getObject`.
+    const getWidgetDataStoragePath = (id: string) => widgetDataStoragePath(appDataDir, id);
     const widgetDataStorageManager = createObjectManager(
       (id) => createFileDataStorage('string', getWidgetDataStoragePath(id)),
-      (fromId, toId) => copyFileDataStorage(getWidgetDataStoragePath(fromId), getWidgetDataStoragePath(toId))
+      async (fromId, toId) => copyFileDataStorage(getWidgetDataStoragePath(fromId), getWidgetDataStoragePath(toId))
     );
     const getTextFromWidgetDataStorageUseCase = createGetTextFromWidgetDataStorageUseCase({widgetDataStorageManager});
     const setTextInWidgetDataStorageUseCase = createSetTextInWidgetDataStorageUseCase({widgetDataStorageManager});
@@ -338,16 +340,10 @@ if (!app.requestSingleInstanceLock()) {
     const getKeysFromWidgetDataStorageUseCase = createGetKeysFromWidgetDataStorageUseCase({widgetDataStorageManager});
     const copyWidgetDataStorageUseCase = createCopyWidgetDataStorageUseCase({widgetDataStorageManager});
 
-    // Shared storage lives under `shared/<widgetType>/<sharedKeyId>/` so
-    // namespaces are isolated per widget type; ids are composed by
-    // `sharedStorageId` and split back here.
-    const getSharedDataStoragePath = (id: string) => {
-      const {widgetType, sharedKeyId} = parseSharedStorageId(id);
-      return join(appDataDir, 'shared', widgetType, sharedKeyId);
-    };
+    const getSharedDataStoragePath = (id: string) => sharedDataStoragePath(appDataDir, id);
     const sharedDataStorageManager = createObjectManager(
       (id) => createFileDataStorage('string', getSharedDataStoragePath(id)),
-      (fromId, toId) => copyFileDataStorage(getSharedDataStoragePath(fromId), getSharedDataStoragePath(toId))
+      async (fromId, toId) => copyFileDataStorage(getSharedDataStoragePath(fromId), getSharedDataStoragePath(toId))
     );
     const getTextFromSharedDataStorageUseCase = createGetTextFromSharedDataStorageUseCase({sharedDataStorageManager});
     const setTextInSharedDataStorageUseCase = createSetTextInSharedDataStorageUseCase({sharedDataStorageManager});

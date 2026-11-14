@@ -4,13 +4,13 @@
  */
 
 import { Settings } from '@/widgets/timer/settings';
-import { widgetComp } from '@/widgets/timer/widget'
+import widgetType from '@/widgets/timer'
 import { act, screen } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { fixtureSettings } from './fixtures';
 
 function setupTimerWidgetSut(settings: Settings, optional?: SetupWidgetSutOptional) {
-  const { comp, ...rest } = setupWidgetSut(widgetComp, settings, optional);
+  const { comp, ...rest } = setupWidgetSut(widgetType, settings, optional);
   return {
     comp,
     ...rest

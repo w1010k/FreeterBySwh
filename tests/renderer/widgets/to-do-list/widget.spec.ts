@@ -4,7 +4,7 @@
  */
 
 import { Settings } from '@/widgets/to-do-list/settings';
-import { widgetComp } from '@/widgets/to-do-list/widget'
+import widgetType from '@/widgets/to-do-list'
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { fixtureSettings } from '@tests/widgets/to-do-list/fixtures';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
@@ -19,7 +19,7 @@ beforeEach(() => {
 });
 
 function setupToDoListWidgetSut(settings: Settings, optional?: SetupWidgetSutOptional) {
-  return setupWidgetSut(widgetComp, settings, optional);
+  return setupWidgetSut(widgetType, settings, optional);
 }
 
 

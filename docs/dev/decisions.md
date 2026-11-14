@@ -246,7 +246,8 @@
   처리기가 없으면 모든 권한 요청을 자동 승인한다. `mailto:`는 메일 앱만 열고 코드를 실행하지 않으며, 막으면 지금 되는 메일 링크가 사라진다.
 - 버린 대안: `sanitizeUrl`이나 main `openExternalUrlUseCase`에서 제한 (Link Opener의 앱 딥링크처럼 사용자가 등록한 주소까지 막힘). `http`, `https`만 허용 (메일 링크
   회귀). 막는 대신 확인 대화상자 표시 (코드가 늘고 경로마다 정책이 달라짐).
-- 근거: CHANGES #88, `src/common/helpers/isAllowedExternalUrl.ts`, `src/main/infra/permissions/permissionHandler.ts`
+- 근거: CHANGES #88, `src/common/helpers/isAllowedExternalUrl.ts`, `src/main/infra/permissions/permissionHandler.ts`, `Ctrl+T` 분기는
+  `src/main/infra/browserWindow/guestKeyPolicy.ts`
 
 #### D19. 마우스 사이드 버튼의 대상
 
@@ -273,7 +274,7 @@
   `Ctrl+R`)은 main에서 바로 처리한다. DOM API나 renderer 쪽 설정이 필요한 동작 (줌, `Alt+Home`, 워크플로우 전환)은 IPC → `window` CustomEvent → 위젯
   경로로 보낸다.
 - 이유: 게스트에 포커스가 있으면 메뉴 accelerator가 닿지 않는다. 줌은 `webviewEl.setZoomFactor`가 필요하고, 시작 URL은 renderer 위젯 설정에 있다.
-- 근거: CHANGES #6, #24, #25, #27, #29, `src/main/infra/browserWindow/browserWindow.ts`
+- 근거: CHANGES #6, #24, #25, #27, #29, `src/main/infra/browserWindow/guestKeyPolicy.ts` (키 판정), `src/main/infra/browserWindow/browserWindow.ts`
 
 #### D22. 게스트 → 호스트 신호에 console-message 마커
 
@@ -362,6 +363,19 @@
 
 ### 저장과 동기화
 
+#### D84. 저장소 경로의 id는 폴더 이름 하나여야 한다
+
+- 상태: 유효
+- 출처: `[fork]`
+- 결정: main은 renderer가 보낸 `widgetId`, `widgetType`, `sharedKeyId`로 저장소 폴더를 만들 때, 각 id가 폴더 이름 하나인지 검사한다. 빈 id, `.`,
+  `..`, 구분자가 든 이름 (`basename(name) !== name`)이면 throw하고 요청은 reject된다.
+- 이유: 경로 조각이 검사 없이 `join()`에 들어가 `..`가 데이터 폴더 밖을 가리킬 수 있었다. D5가 발신자를 앱 메인 프레임으로 제한하므로 renderer가 오염된
+  경우에만 가능하다 (추정). 빈 id는 `widgets/`나 `shared/<widgetType>/` 폴더 자신을 가리켜, 그 저장소의 `clear()`가 다른 위젯의 데이터까지 지울 수
+  있었다. 2026-11-14 아키텍처 리뷰에서 발견했다.
+- 버린 대안: id 문자 허용 목록 `[A-Za-z0-9_-]` (옛 데이터나 복원한 데이터의 예상 밖 id를 거부할 위험). 결과 경로의 폴더 포함 검사만 하기 (첫 구현.
+  `note/../to-do-list`가 다른 위젯 타입의 저장소에 닿고, `x/y`가 위젯 `x` 아래에 중첩 폴더를 만들었다). 검사 없이 D5에 의존.
+- 근거: `src/main/infra/dataStorage/dataStoragePaths.ts`
+
 #### D31. Note 공유 데이터 키
 
 - 상태: 유효
@@ -386,7 +400,7 @@
 - 결정: 공유 저장소 쓰기 뒤 main이 앱 창에 알리고 (2026-10-05 이전에는 모든 창), renderer가 `window` CustomEvent로 재발행하며, 위젯은 `useSharedDataChangedEffect`로
   구독한다.
 - 이유: memSaver로 위젯이 계속 마운트되어 있어 remount에 기대어 다시 읽을 수 없다. 두 위젯의 같은 구독 코드를 hook 하나로 모았다.
-- 근거: CHANGES #8, #10, `src/renderer/widgets/sharedDataSync.ts`
+- 근거: CHANGES #8, #10, `src/renderer/widgets/sharedDataSync.ts`, 재발행은 `src/renderer/infra/widgetEventRelay/widgetEventRelay.ts`
 
 #### D34. To-Do의 in-memory store
 

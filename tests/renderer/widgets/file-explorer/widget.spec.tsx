@@ -4,7 +4,7 @@
  */
 
 import { Settings } from '@/widgets/file-explorer/settings';
-import { widgetComp } from '@/widgets/file-explorer/widget';
+import widgetType from '@/widgets/file-explorer';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut';
 // moduleNameMapper redirects this to the manual mock; a plain import (not
@@ -28,7 +28,7 @@ const treesMock = pierreTreesReact as unknown as {
 const fixtureSettings = (settings: Partial<Settings>): Settings => ({ paths: [''], showFileSize: true, showHiddenFiles: false, ...settings });
 
 function setupSut(settings: Settings, optional?: SetupWidgetSutOptional) {
-  return setupWidgetSut(widgetComp, settings, optional);
+  return setupWidgetSut(widgetType, settings, optional);
 }
 
 beforeEach(() => {

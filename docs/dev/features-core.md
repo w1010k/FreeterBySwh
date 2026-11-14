@@ -83,14 +83,17 @@
   `initAppMenuUseCase`, `initTrayMenuUseCase`, `initMemSaverUseCase`, `startTelemetry` [fork #62]를 호출한다.
 - 대부분 `appStore.subscribe(selector, listener, { fireImmediately: true })`로 상태를 main에 미러링하고, `isLoading` 동안은 건너뛴다. 구독 비교는
   `shallow`다 (`src/common/data/store.ts`).
-- `init()`은 main→renderer IPC를 use case나 DOM `CustomEvent`로 다시 보낸다.
+- `init()`은 main→renderer IPC를 use case로 보내고, 위젯 알림은 `startWidgetEventRelay`
+  (`src/renderer/infra/widgetEventRelay/widgetEventRelay.ts`)가 DOM `CustomEvent`로 다시 보낸다.
 
-| 채널 상수 (`src/common/ipc/channels.ts`) | 받는 쪽                         | 출처     |
-|------------------------------------------|---------------------------------|----------|
-| `ipcSwitchWorkflowByOffsetChannel`       | `switchWorkflowByOffsetUseCase` | fork #6  |
-| `ipcZoomWebpageChannel`                  | `WEBPAGE_ZOOM_EVENT`            | fork #24 |
-| `ipcGoHomeWebpageChannel`                | `WEBPAGE_GO_HOME_EVENT`         | fork #27 |
-| `ipcSharedDataChangedChannel`            | `SHARED_DATA_CHANGED_EVENT`     | fork #10 |
+| 채널 상수 (`src/common/ipc/channels.ts`) | 받는 쪽                                                | 출처      |
+|------------------------------------------|--------------------------------------------------------|-----------|
+| `ipcSwitchWorkflowByOffsetChannel`       | `init.ts` → `switchWorkflowByOffsetUseCase`            | fork #6   |
+| `ipcAiActionRequestChannel`              | `init.ts` → `runAiRequestUseCase`                      | fork      |
+| `ipcZoomWebpageChannel`                  | `widgetEventRelay.ts` → `WEBPAGE_ZOOM_EVENT`           | fork #24  |
+| `ipcGoHomeWebpageChannel`                | `widgetEventRelay.ts` → `WEBPAGE_GO_HOME_EVENT`        | fork #27  |
+| `ipcWebpageWindowBlockedChannel`         | `widgetEventRelay.ts` → `WEBPAGE_WINDOW_BLOCKED_EVENT` | fork #109 |
+| `ipcSharedDataChangedChannel`            | `widgetEventRelay.ts` → `SHARED_DATA_CHANGED_EVENT`    | fork #10  |
 
 - `window` `beforeunload`에서 `appStore.flush()`로 대기 중인 저장을 즉시 보낸다 [fork #30].
 

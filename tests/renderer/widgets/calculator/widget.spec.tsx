@@ -3,13 +3,13 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { widgetComp } from '@/widgets/calculator/widget';
+import widgetType from '@/widgets/calculator';
 import { Settings } from '@/widgets/calculator/settings';
 import { screen } from '@testing-library/react';
 import { setupWidgetSut } from '@tests/widgets/setupSut';
 
 function setup() {
-  return setupWidgetSut(widgetComp, {} as Settings);
+  return setupWidgetSut(widgetType, {} as Settings);
 }
 
 describe('Calculator Widget', () => {

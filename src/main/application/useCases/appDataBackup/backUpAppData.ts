@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { isAbsolute, join, relative } from 'node:path';
+import { isAbsolute, join, relative, sep } from 'node:path';
 import { AppDataBackup } from '@/application/interfaces/appDataBackup';
 import { BrowserWindow } from '@/application/interfaces/browserWindow';
 import { DialogProvider } from '@/application/interfaces/dialogProvider';
@@ -25,9 +25,11 @@ export function createBackUpAppDataUseCase({ appDataBackup, dialogProvider, shel
     if (canceled || !filePaths[0]) {
       return;
     }
-    // A backup inside the data folder would copy into itself or sit among live data.
+    // A backup inside the data folder would copy into itself or sit among live data. `..` counts only as a whole first
+    // segment: a child folder named `..backup` is inside.
     const rel = relative(appDataDir, filePaths[0]);
-    if (rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))) {
+    const isOutside = rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel);
+    if (!isOutside) {
       await dialogProvider.showMessageBox(win, { type: 'warning', message: 'Choose a folder outside the Freeter data folder.' });
       return;
     }

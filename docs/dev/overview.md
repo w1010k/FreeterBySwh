@@ -202,7 +202,8 @@ main은 `did-attach-webview`에서 guest마다 아래를 건다.
   `shell.openExternal`로 기본 브라우저에 넘긴다 [upstream, fork #3 #13 변경]. 넘기는 URL은 `isAllowedExternalUrl` (http, https, mailto만)을 통과해야 한다 [fork #88].
   이 판정은 `attachWindowOpenHandler`에 있고, 내부 팝업이 여는 창에도 붙는다. 내부 팝업은 게스트마다 동시에 5개까지, 제목은 origin 고정, webPreferences 명시다.
   앱 창 자신은 모든 새 창을 거부한다 [fork #90]
-- `before-input-event` 키 가로채기:
+- `before-input-event` 키 가로채기: 어떤 키가 어떤 동작인지는 순수 함수 `guestKeyPolicy.ts` `decideGuestKey`가 판정하고
+  (`tests/main/infra/browserWindow/guestKeyPolicy.spec.ts`), `browserWindow.ts`는 판정 결과를 실행만 한다 [fork]
 
 | 키                                             | 동작                            | 처리 위치                                                         | 출처       |
 |------------------------------------------------|---------------------------------|-------------------------------------------------------------------|------------|
@@ -236,13 +237,17 @@ main은 `did-attach-webview`에서 guest마다 아래를 건다.
   상수, `Ipc<Name>Args` 튜플 타입, `Ipc<Name>Res` 타입을 둔다 [upstream]
 - renderer → main 요청은 모두 `invoke` ↔ `handle`이다. `registerControllers`는 `ipcMain.handle`만 쓴다 [upstream]
 - main → renderer 알림은 `webContents.send`다. renderer 쪽 리스너는 앱 수명 동안 한 번 등록하고 해제하지 않는다.
+- 위젯이 받는 알림은 `src/renderer/infra/widgetEventRelay/widgetEventRelay.ts` `startWidgetEventRelay`가 인자를 검사한 뒤 window CustomEvent로
+  다시 보낸다. `init.ts`는 이 함수를 한 번 부른다. 검사에 쓰는 값 목록은 `channels.ts`의 상수 배열 (`ipcZoomWebpageDirections`,
+  `ipcWebpageWindowBlockedReasons`)이고 타입도 그 배열에서 만든다. 새 위젯 알림은 이 파일에 리스너를 더한다 [fork]
 
 | 알림 채널                                         | 보내는 곳                                                                    | 받는 곳                                                                             | 출처           |
 |---------------------------------------------------|------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|----------------|
 | `click-app-menu-action`, `click-tray-menu-action` | `infra/appMenuProvider`, `infra/trayProvider`                                | renderer `infra/appMenuProvider`, `infra/trayMenuProvider`                          | [upstream]     |
-| `shared-data-changed`                             | `controllers/sharedDataStorage.ts` (쓰기 성공 후 `sendToAppWindow`로 앱 창에만) | `init.ts` → window 이벤트 `SHARED_DATA_CHANGED_EVENT` → `widgets/sharedDataSync.ts` | [fork #8]      |
+| `shared-data-changed`                             | `controllers/sharedDataStorage.ts` (쓰기 성공 후 `sendToAppWindow`로 앱 창에만) | `widgetEventRelay.ts` → window 이벤트 `SHARED_DATA_CHANGED_EVENT` → `widgets/sharedDataSync.ts` | [fork #8]      |
 | `switch-workflow-by-offset`                       | webview 키 가로채기                                                          | `init.ts` → `switchWorkflowByOffsetUseCase`                                         | [fork #6]      |
-| `zoom-webpage`, `go-home-webpage`                 | webview 키 가로채기                                                          | `init.ts` → window CustomEvent                                                      | [fork #24 #27] |
+| `zoom-webpage`, `go-home-webpage`                 | webview 키 가로채기                                                          | `widgetEventRelay.ts` → window CustomEvent                                          | [fork #24 #27] |
+| `webpage-window-blocked`                          | `browserWindow.ts` `reportBlockedRequest` (모듈 전역 `appPage`로 보냄)        | `widgetEventRelay.ts` → window 이벤트 `WEBPAGE_WINDOW_BLOCKED_EVENT`                | [fork #109]    |
 | `app-focus-changed`                               | main 창 `focus`, `blur`                                                      | `application/telemetry/startTelemetry.ts`                                           | [fork #62]     |
 | `os-activity-event`                               | `osActivityMonitor`의 `emit` (`sendToAppWindow`로 앱 창에만)                 | `startTelemetry.ts`                                                                 | [fork #64]     |
 
@@ -269,7 +274,6 @@ main은 `did-attach-webview`에서 guest마다 아래를 건다.
 - app 데이터 저장소는 main에 `get-text`, `set-text`만 등록돼 있다 (`src/main/controllers/appDataStorage.ts`).
   `app-data-storage-delete`, `-clear`, `-get-keys` 채널 상수와 renderer 어댑터 메서드는 있지만 main 핸들러가 없어 호출하면 reject된다.
   `useCases/appDataStorage/deleteInAppDataStorage.ts`도 연결되지 않았다 [upstream]
-- 위젯 데이터 복사 채널 문자열은 `copt-widget-data-storage`다 (오타, 상수명은 `ipcCopyWidgetDataStorageChannel`) [upstream]
 
 #### 새 IPC 기능 추가 경로
 
@@ -505,7 +509,7 @@ infra 전용 구성: `infra/protocolHandler/` (`freeter-file` 스킴 등록) [up
 | 세션 권한 요청 | `registerPermissionHandler`가 기본 세션과 이후의 모든 세션 (webview 파티션 포함)에 처리기를 건다. `openExternal` (같은 프레임 이동으로 여는 앱 프로토콜)은 `isAllowedExternalUrl`을 통과할 때만 승인한다. 다른 권한 (알림, 카메라, 마이크 등)은 Electron 기본값처럼 모두 승인한다. 상세: [pitfalls.md](pitfalls.md)의 "세션 권한 요청 처리기" | `infra/permissions/permissionHandler.ts` | [fork #88] |
 | HTTP 인증 창      | data: URL, `sandbox: true`, `contextIsolation: true`. realm, host는 `escapeHtml` 처리. 페이지 이동과 proxy 인증에만, webContents마다 하나씩 [fork #90]                                       | `infra/httpAuth/httpAuth.ts`                                                     | [fork #71]                |
 | Analytics 서버    | `127.0.0.1` 랜덤 포트. Host 헤더 정확히 일치 (DNS rebinding 차단), 실행마다 바뀌는 토큰 경로, CORS 없음, 페이지 CSP, `Referrer-Policy: no-referrer`, 정적 파일 이름 정규식. 상세: CHANGES #87 | `infra/analyticsServer/analyticsServer.ts`                                       | [fork #87]                |
-| 파일 시스템 IPC   | `fs-read-dir`, `fs-search` (등록 폴더 아래 이름 검색, 결과 200개와 확인 항목 50,000개 한도), `fs-get-image-data-url`, 공유 저장소 경로 (`widgetType`, `sharedKeyId` 인자로 경로 조립)는 main에서 경로 제한을 두지 않는다. 신뢰 경계는 IPC 발신자 검증이다. Markdown Editor 전용 `fs-read-text-file`, `fs-write-text-file`, `fs-get-mtime`은 #96에서 제거했다 | `infra/fsProvider/fsProvider.ts`, `src/main/index.ts` `getSharedDataStoragePath` | [fork #8 #31 #42 #91]     |
+| 파일 시스템 IPC   | `fs-read-dir`, `fs-search` (등록 폴더 아래 이름 검색, 결과 200개와 확인 항목 50,000개 한도), `fs-get-image-data-url`는 main에서 경로 제한을 두지 않는다. 신뢰 경계는 IPC 발신자 검증이다. 위젯·공유 저장소 경로 (`widgetId`, `widgetType`, `sharedKeyId` 인자로 조립)는 id가 폴더 이름 하나가 아니면 (빈 id, `.`, `..`, 구분자가 든 이름) 거부한다 (`dataStoragePaths.ts`, D84). Markdown Editor 전용 `fs-read-text-file`, `fs-write-text-file`, `fs-get-mtime`은 #96에서 제거했다 | `infra/fsProvider/fsProvider.ts`, `infra/dataStorage/dataStoragePaths.ts` | [fork #8 #31 #42 #91]     |
 | 다운로드          | 저장 대화상자 없이 지정 폴더에 저장 (webview partition 포함 모든 session). 디스크 파일과 활성 다운로드 예약 경로 모두 이름 충돌 검사 (#97)                                                                                                                     | `infra/downloads/downloadManager.ts`                                             | [fork #41]                |
 | AI 제어 서버      | 로컬 pipe/소켓만 연다 (네트워크 포트 없음). 실행마다 바뀌는 토큰을 모든 요청에서 검사한다 (pipe 기본 ACL은 측정하지 못했다). 한 줄 1MiB 초과면 연결 종료. 입력 검증은 renderer 작업의 `parse`. 쓰기는 OS 확인 상자의 Allow 뒤에만 실행. 상세: CHANGES #99 | `infra/aiControlServer/`, `src/renderer/application/useCases/ai/` | [fork #99]                |
 | 번역 요청         | main이 renderer가 보낸 페이지 글자를 `translate.googleapis.com`으로 보낸다 (사용자가 Webpage에서 번역을 켤 때만). IPC 입력은 문자열 배열, 500개, 합계 50000자, 하나 4000자로 제한. 페이지 쪽 스크립트는 `nodeValue`로만 글자를 넣는다 (HTML 아님). 켠 사이트와 다른 origin으로 가면 꺼진다 [fork #104] | `src/main/application/useCases/translate/translateTexts.ts`, `src/renderer/widgets/webpage/translate.ts` |

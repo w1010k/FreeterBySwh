@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { widgetComp } from '@/widgets/clock/widget';
+import widgetType from '@/widgets/clock';
 import { Settings } from '@/widgets/clock/settings';
 import { formatClock } from '@/widgets/clock/clock';
 import { screen } from '@testing-library/react';
@@ -15,7 +15,7 @@ beforeEach(() => jest.setSystemTime(NOW));
 afterAll(() => jest.useRealTimers());
 
 function setup(s: Partial<Settings>) {
-  return setupWidgetSut(widgetComp, { entries: [], hour12: false, showSeconds: false, showDate: false, ...s } as Settings);
+  return setupWidgetSut(widgetType, { entries: [], hour12: false, showSeconds: false, showDate: false, ...s } as Settings);
 }
 
 describe('Clock Widget', () => {

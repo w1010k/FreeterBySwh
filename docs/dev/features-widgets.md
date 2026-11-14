@@ -172,16 +172,17 @@
 
 #### 데이터 저장
 
-**저장 위치** (`src/main/index.ts`, `<appData>/<dataDirName>/freeter-data/` 아래):
+**저장 위치** (`src/main/index.ts`, 경로 조립은 `src/main/infra/dataStorage/dataStoragePaths.ts`, `<appData>/<dataDirName>/freeter-data/` 아래):
 
 | 저장소              | 경로                                          | 만드는 곳                                              | 출처       |
 |---------------------|-----------------------------------------------|--------------------------------------------------------|------------|
-| 위젯별              | `widgets/<widgetId>/<key>`                    | `getWidgetDataStoragePath`, `widgetDataStorageManager` | [upstream] |
-| 공유 키             | `shared/<widgetType>/<sharedKeyId>/<key>`     | `getSharedDataStoragePath`, `sharedDataStorageManager` | [fork #8]  |
+| 위젯별              | `widgets/<widgetId>/<key>`                    | `widgetDataStoragePath`, `widgetDataStorageManager`    | [upstream] |
+| 공유 키             | `shared/<widgetType>/<sharedKeyId>/<key>`     | `sharedDataStoragePath`, `sharedDataStorageManager`    | [fork #8]  |
 | To-Do 프로젝트 공유 | `shared/to-do-list/<projectId 또는 app>/todo` | 같은 공유 관리자                                       | [fork #9]  |
 
 - 키 하나가 파일 하나다. 파일 이름은 키의 `[A-Za-z0-9_\-()\s]` 밖 문자를 `_`로 바꾼 값이다 (`src/main/infra/dataStorage/fileDataStorage.ts`
   `storageKeyToFilePath`). 읽기·쓰기·삭제가 같은 치환 경로를 쓴다 [fork #30 수정]. 같은 파일의 읽기·쓰기·삭제는 main에서 호출 순서대로 실행된다 [fork #30 후속].
+- id가 폴더 이름 하나가 아니면 (빈 id, `.`, `..`, 구분자가 든 이름) 경로 함수가 throw하고, 요청은 reject된다 (D84).
 - 공유 저장소 id는 `"<widgetType>:<sharedKeyId>"` 합성 문자열이다 (`src/common/base/sharedStorageId.ts` `sharedStorageId`,
   `parseSharedStorageId`).
 - renderer 쪽 저장소는 `prepareDataStorageForRenderer`(`src/renderer/init.ts`)가 `withJson`(JSON 헬퍼)과 `setTextOnlyIfChanged`
@@ -292,7 +293,7 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor)은 `widget
    주입한다.
 6. 위젯 `requiresApi`에 이름을 넣는다.
 7. `tests/renderer/widgets/setupSut.tsx`와 `getWidgetApi.spec.ts`의 mock에 모듈을 추가한다. `WidgetApi`의 필수 필드가 되므로 빠지면 타입체크가
-   실패한다.
+   실패한다. `setupWidgetSut`는 위젯 타입의 `requiresApi`에 있는 모듈만 위젯에 넘기므로, 6을 빠뜨리면 위젯 테스트도 실패한다.
 
 ### 위젯 요약표
 
@@ -355,15 +356,15 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor)은 `widget
 - **줌**: 프리셋 사다리 `zoomLevels`(25%~500%)와 `zoomStepIn`/`zoomStepOut`/`zoomReset`. 액션바 RELOAD만 줌을 100%로 되돌린 뒤 새로고침하고,
   F5·Ctrl/Cmd+R·컨텍스트 메뉴 새로고침은 줌을 유지한다 [fork #24 #29].
 - **키보드 단축키** (webview 포커스 시, `src/main/infra/browserWindow/browserWindow.ts`의 `did-attach-webview` →
-  `before-input-event`):
+  `before-input-event`. 키 판정은 `guestKeyPolicy.ts` `decideGuestKey`):
 
 | 키                                             | 처리 위치                                                                                                                             | 출처       |
 |------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------|------------|
 | Ctrl+Tab / Ctrl+Shift+Tab                      | main → IPC → 워크플로우 전환                                                                                                          | [fork #6]  |
 | Alt+← / Alt+→                                  | main에서 `navigationHistory` 직접 처리                                                                                                | [fork #25] |
-| Alt+Home                                       | main → `ipcGoHomeWebpageChannel` → `init.ts`가 `WEBPAGE_GO_HOME_EVENT` 발행 → `webContentsId`가 같은 위젯이 `canGoHome`일 때 `goHome` | [fork #27] |
+| Alt+Home                                       | main → `ipcGoHomeWebpageChannel` → `widgetEventRelay.ts`가 `WEBPAGE_GO_HOME_EVENT` 발행 → `webContentsId`가 같은 위젯이 `canGoHome`일 때 `goHome` | [fork #27] |
 | F5, Ctrl/Cmd+R                                 | main `wc.reload()` (Shift 조합 제외)                                                                                                  | [fork #29] |
-| Ctrl/Cmd+T                                     | main이 현재 URL을 `sanitizeUrl`과 `isAllowedExternalUrl` 검사 후 기본 브라우저로 연다                                                 | [fork #25 #88] |
+| Ctrl/Cmd+T                                     | main이 현재 URL을 `sanitizeUrl`과 `isAllowedExternalUrl` 검사 후 기본 브라우저로 연다. 막힌 URL은 알림 없이 무시한다                 | [fork #25 #88] |
 | Ctrl/Cmd+Shift+= (`+`), Ctrl/Cmd+-, Ctrl/Cmd+0 | main → `ipcZoomWebpageChannel` → `WEBPAGE_ZOOM_EVENT` → 위젯                                                                          | [fork #24] |
 | Ctrl/Cmd+F                                     | guest 주입 스크립트 → `console-message` → 찾기 바                                                                                     | [fork #36] |
 

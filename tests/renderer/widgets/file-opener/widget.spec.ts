@@ -4,7 +4,7 @@
  */
 
 import { Settings } from '@/widgets/file-opener/settings';
-import { widgetComp } from '@/widgets/file-opener/widget'
+import widgetType from '@/widgets/file-opener'
 import { screen } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { fixtureSettings } from './fixtures';
@@ -12,7 +12,7 @@ import { SettingsType } from '@/widgets/file-opener/settingsType';
 import { fixtureAppA } from '@tests/base/fixtures/app';
 
 function setupSut(settings: Settings, optional?: SetupWidgetSutOptional) {
-  const { comp, ...rest } = setupWidgetSut(widgetComp, settings, optional);
+  const { comp, ...rest } = setupWidgetSut(widgetType, settings, optional);
   return {
     comp,
     ...rest

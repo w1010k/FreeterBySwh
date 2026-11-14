@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { widgetComp } from '@/widgets/d-day/widget';
+import widgetType from '@/widgets/d-day';
 import { Settings } from '@/widgets/d-day/settings';
 import { screen } from '@testing-library/react';
 import { setupWidgetSut } from '@tests/widgets/setupSut';
@@ -13,7 +13,7 @@ beforeEach(() => jest.setSystemTime(new Date(2026, 0, 1, 9, 0, 0)));
 afterAll(() => jest.useRealTimers());
 
 function setup(settings: Partial<Settings>) {
-  return setupWidgetSut(widgetComp, { showDate: false, entries: [], ...settings });
+  return setupWidgetSut(widgetType, { showDate: false, entries: [], ...settings });
 }
 
 describe('D-Day Widget', () => {

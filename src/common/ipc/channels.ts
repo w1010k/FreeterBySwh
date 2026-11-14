@@ -52,7 +52,7 @@ export const ipcWidgetDataStorageGetKeysChannel = makeIpcChannelName('widget-dat
 export type IpcWidgetDataStorageGetKeysArgs = [widgetId: string];
 export type IpcWidgetDataStorageGetKeysRes = string[];
 
-export const ipcCopyWidgetDataStorageChannel = makeIpcChannelName('copt-widget-data-storage');
+export const ipcCopyWidgetDataStorageChannel = makeIpcChannelName('copy-widget-data-storage');
 export type IpcCopyWidgetDataStorageArgs = [srcWidgetId: string, toWidgetId: string];
 export type IpcCopyWidgetDataStorageRes = boolean;
 
@@ -133,10 +133,12 @@ export const ipcSwitchWorkflowByOffsetChannel = makeIpcChannelName('switch-workf
 export type IpcSwitchWorkflowByOffsetArgs = [offset: number];
 export type IpcSwitchWorkflowByOffsetRes = void;
 
-export type IpcZoomWebpageDirection = 'in' | 'out' | 'reset';
+export const ipcZoomWebpageDirections = ['in', 'out', 'reset'] as const;
+export type IpcZoomWebpageDirection = typeof ipcZoomWebpageDirections[number];
 /** main → app page: a guest's new-window request was not opened. Args: guest webContentsId, url, reason. */
 export const ipcWebpageWindowBlockedChannel = makeIpcChannelName('webpage-window-blocked');
-export type IpcWebpageWindowBlockedReason = 'popupLimit' | 'scheme';
+export const ipcWebpageWindowBlockedReasons = ['popupLimit', 'scheme'] as const;
+export type IpcWebpageWindowBlockedReason = typeof ipcWebpageWindowBlockedReasons[number];
 /** In-app popups open at once under one Webpage widget webview (main enforces it; the notice names it). */
 export const maxPopupsPerGuest = 5;
 

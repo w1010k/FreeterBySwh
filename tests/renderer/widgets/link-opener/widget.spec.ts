@@ -4,13 +4,13 @@
  */
 
 import { Settings } from '@/widgets/link-opener/settings';
-import { widgetComp } from '@/widgets/link-opener/widget'
+import widgetType from '@/widgets/link-opener'
 import { screen } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { fixtureSettings } from './fixtures';
 
 function setupSut(settings: Settings, optional?: SetupWidgetSutOptional) {
-  const { comp, ...rest } = setupWidgetSut(widgetComp, settings, optional);
+  const { comp, ...rest } = setupWidgetSut(widgetType, settings, optional);
   return {
     comp,
     ...rest

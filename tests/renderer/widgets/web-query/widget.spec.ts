@@ -4,7 +4,7 @@
  */
 
 import { Settings, SettingsMode, defaultEngine, enginePlaceholder, enginesById } from '@/widgets/web-query/settings';
-import { widgetComp } from '@/widgets/web-query/widget'
+import widgetType from '@/widgets/web-query'
 import { act, screen, waitFor } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { fixtureEntry, fixtureSettings1 } from './fixtures';
@@ -13,7 +13,7 @@ import { WidgetApi, WidgetApiWidget, WidgetContextMenuFactory } from '@/widgets/
 import { labelClearHistory } from '@/widgets/web-query/contextMenu';
 
 function setupSut(settings: Settings, optional?: SetupWidgetSutOptional) {
-  const { comp, ...rest } = setupWidgetSut(widgetComp, settings, optional);
+  const { comp, ...rest } = setupWidgetSut(widgetType, settings, optional);
   return {
     comp,
     ...rest

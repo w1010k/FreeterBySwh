@@ -174,11 +174,7 @@ import { createSetWidgetDynamicTitleUseCase } from '@/application/useCases/widge
 import { electronIpcRenderer } from '@/infra/mainApi/mainApi';
 import {
   ipcAiActionRequestChannel,
-  ipcGoHomeWebpageChannel,
-  ipcSharedDataChangedChannel,
-  ipcSwitchWorkflowByOffsetChannel,
-  ipcWebpageWindowBlockedChannel,
-  ipcZoomWebpageChannel
+  ipcSwitchWorkflowByOffsetChannel
 } from '@common/ipc/channels';
 import { createAiControlProvider } from '@/infra/aiControlProvider/aiControlProvider';
 import { createRunAiRequestUseCase } from '@/application/useCases/ai/runAiRequest';
@@ -189,10 +185,7 @@ import { createProjectAiActions } from '@/application/useCases/ai/actions/projec
 import { createSettingsAiActions } from '@/application/useCases/ai/actions/settingsActions';
 import { createWidgetTypeAiActions } from '@/application/useCases/ai/actions/widgetTypeActions';
 import { AiRpcRequest } from '@common/ai/protocol';
-import { WEBPAGE_ZOOM_EVENT, WebpageZoomEventDetail } from '@/widgets/webpage/zoomEvents';
-import { WEBPAGE_GO_HOME_EVENT, WebpageGoHomeEventDetail } from '@/widgets/webpage/homeEvents';
-import { WEBPAGE_WINDOW_BLOCKED_EVENT, WebpageWindowBlockedEventDetail } from '@/widgets/webpage/windowBlockedEvents';
-import { SHARED_DATA_CHANGED_EVENT, SharedDataChangedEventDetail } from '@/base/sharedDataEvents';
+import { startWidgetEventRelay } from '@/infra/widgetEventRelay/widgetEventRelay';
 import { startTelemetry } from '@/application/telemetry/startTelemetry';
 import { createTelemetryCollector } from '@/application/telemetry/telemetryCollector';
 import { createTelemetryBuffer } from '@/infra/telemetry/telemetryBuffer';
@@ -936,46 +929,8 @@ export async function init() {
     }
   });
 
-  // CmdOrCtrl+=/+/-/0 while a webpage widget's <webview> has focus arrives
-  // here after being intercepted in the main process. Re-emit as a window
-  // CustomEvent so the specific webview (matched by webContentsId) can
-  // respond in-place.
-  electronIpcRenderer.on(ipcZoomWebpageChannel, (webContentsId, direction) => {
-    if (typeof webContentsId === 'number'
-      && (direction === 'in' || direction === 'out' || direction === 'reset')) {
-      const detail: WebpageZoomEventDetail = { webContentsId, direction };
-      window.dispatchEvent(new CustomEvent(WEBPAGE_ZOOM_EVENT, { detail }));
-    }
-  });
-
-  // A webview page's request that main did not open (a new window, an app link): the matching Webpage widget shows a
-  // notice.
-  electronIpcRenderer.on(ipcWebpageWindowBlockedChannel, (webContentsId, url, reason) => {
-    if (typeof webContentsId === 'number' && typeof url === 'string' && (reason === 'popupLimit' || reason === 'scheme')) {
-      const detail: WebpageWindowBlockedEventDetail = { webContentsId, url, reason };
-      window.dispatchEvent(new CustomEvent(WEBPAGE_WINDOW_BLOCKED_EVENT, { detail }));
-    }
-  });
-
-  // Alt+Home while a webpage widget's <webview> has focus — re-emit as a
-  // window CustomEvent so the matching webview can load its start page URL
-  // (the URL itself lives in renderer-side widget settings).
-  electronIpcRenderer.on(ipcGoHomeWebpageChannel, (webContentsId) => {
-    if (typeof webContentsId === 'number') {
-      const detail: WebpageGoHomeEventDetail = { webContentsId };
-      window.dispatchEvent(new CustomEvent(WEBPAGE_GO_HOME_EVENT, { detail }));
-    }
-  });
-
-  // Shared-data change notifications are re-emitted as a DOM CustomEvent so
-  // individual widget components can subscribe without needing their own IPC
-  // wiring. `detail` carries `{ widgetType, sharedKeyId }`.
-  electronIpcRenderer.on(ipcSharedDataChangedChannel, (widgetType, sharedKeyId) => {
-    if (typeof widgetType === 'string' && typeof sharedKeyId === 'string') {
-      const detail: SharedDataChangedEventDetail = { widgetType, sharedKeyId };
-      window.dispatchEvent(new CustomEvent(SHARED_DATA_CHANGED_EVENT, { detail }));
-    }
-  });
+  // Widget signals from main (Webpage zoom, home and blocked windows; shared data writes) become window events.
+  startWidgetEventRelay();
 
   // AI control requests (from the `freeter` CLI / MCP via the main process).
   // The main process validated the token; the runner validates the input.

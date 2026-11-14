@@ -6,9 +6,8 @@
 import {BrowserWindow} from '@/application/interfaces/browserWindow'
 import {GetWindowStateUseCase} from '@/application/useCases/browserWindow/getWindowState';
 import {SetWindowStateUseCase} from '@/application/useCases/browserWindow/setWindowState';
-import {sanitizeUrl} from '@common/helpers/sanitizeUrl';
-import {isAllowedExternalUrl} from '@common/helpers/isAllowedExternalUrl';
 import {decideWindowOpen} from '@/infra/browserWindow/windowOpenPolicy';
+import {decideGuestKey} from '@/infra/browserWindow/guestKeyPolicy';
 import {
   ipcAppFocusChangedChannel,
   ipcGoHomeWebpageChannel,
@@ -16,8 +15,7 @@ import {
   ipcWebpageWindowBlockedChannel,
   IpcWebpageWindowBlockedReason,
   maxPopupsPerGuest,
-  ipcZoomWebpageChannel,
-  IpcZoomWebpageDirection
+  ipcZoomWebpageChannel
 } from '@common/ipc/channels';
 import {
   app,
@@ -281,105 +279,42 @@ export function createRendererWindow(
     });
   };
 
-  // Menu accelerators (e.g. Ctrl+Tab for workflow switching) don't reach the
-  // host window when a <webview> has keyboard focus — the webview's guest page
-  // consumes the key first. Mirror the Ctrl+Tab / Ctrl+Shift+Tab shortcuts at
-  // the webview level so workflow switching keeps working while the user is
-  // interacting with a webpage widget.
+  // Widget shortcuts in a <webview>: decideGuestKey tells which one a key is, and this runs it.
   win.webContents.on('did-attach-webview', (_, wc) => {
     wc.on('before-input-event', (event, input) => {
-      if (input.type !== 'keyDown') {
+      const action = decideGuestKey(input, () => wc.getURL());
+      if (!action) {
         return;
       }
-      // Ctrl+Tab / Ctrl+Shift+Tab — workflow switching (Ctrl only, not Cmd
-      // to keep macOS Cmd+Tab as the OS app switcher).
-      if (input.key === 'Tab' && input.control && !input.alt && !input.meta) {
-        event.preventDefault();
-        win.webContents.send(ipcSwitchWorkflowByOffsetChannel, input.shift ? -1 : 1);
-        return;
-      }
-      // Alt+Left / Alt+Right — history back/forward on the widget's webview.
-      // Chromium's default Alt+Arrow → history mapping inside embedded
-      // <webview> is inconsistent (OS / page focus dependent), so we bind it
-      // explicitly. Handled entirely in main — the widget's own `did-navigate`
-      // listener refreshes its action bar when the history moves.
-      // Alt+Home — go to the widget's start page. The home URL lives in
-      // renderer-side widget settings, so main signals over IPC and the
-      // matching webview (by webContentsId) calls loadURL with its own URL.
-      if (input.alt && !input.control && !input.meta && !input.shift) {
-        if (input.key === 'ArrowLeft') {
-          event.preventDefault();
-          navigateHistory(wc, 'back');
-          return;
-        }
-        if (input.key === 'ArrowRight') {
-          event.preventDefault();
-          navigateHistory(wc, 'forward');
-          return;
-        }
-        if (input.key === 'Home') {
-          event.preventDefault();
+      event.preventDefault();
+      switch (action.kind) {
+        case 'switchWorkflow':
+          win.webContents.send(ipcSwitchWorkflowByOffsetChannel, action.offset);
+          break;
+        case 'history':
+          // The widget's own `did-navigate` listener refreshes its action bar when the history moves.
+          navigateHistory(wc, action.dir);
+          break;
+        case 'goHome':
+          // The matching webview (by webContentsId) loads its own start page URL.
           win.webContents.send(ipcGoHomeWebpageChannel, wc.id);
-          return;
+          break;
+        case 'reload':
+          wc.reload();
+          break;
+        case 'openInBrowser':
+          if (action.url) {
+            shell.openExternal(action.url);
+          }
+          break;
+        case 'zoom':
+          win.webContents.send(ipcZoomWebpageChannel, wc.id, action.direction);
+          break;
+        default: {
+          // A new GuestKeyAction kind without a case here fails the type check, instead of swallowing the key.
+          const unhandled: never = action;
+          throw new Error(`Unhandled guest key action: ${JSON.stringify(unhandled)}`);
         }
-      }
-      // F5 — reload the widget's webview. No modifier; handled in main with
-      // wc.reload(), which keeps the current zoom factor (matching real
-      // browsers). Placed before the primaryMod guard below since F5 carries
-      // no Ctrl/Cmd. Note: this keeps zoom, unlike the action bar's Reload
-      // button which intentionally also resets zoom to 100%.
-      if (input.key === 'F5' && !input.control && !input.meta && !input.alt && !input.shift) {
-        event.preventDefault();
-        wc.reload();
-        return;
-      }
-      // CmdOrCtrl+Shift+= (`+`) / CmdOrCtrl+- / CmdOrCtrl+0 — page zoom on
-      // the widget's own webview. Only `+` is accepted for "zoom in" (Shift
-      // is always pressed): Chromium's `before-input-event` doesn't reliably
-      // deliver the bare `=` key to the host (observed on Windows with some
-      // keyboard layouts / IMEs), so binding the shiftless `=` was silently
-      // broken. Requiring Shift matches Chrome's `Cmd+Shift+=` accelerator
-      // and is the form the user confirmed works in practice.
-      const primaryMod = input.control || input.meta;
-      if (!primaryMod || input.alt) {
-        return;
-      }
-      // CmdOrCtrl+T — open the widget's current page in the system's default
-      // browser. Handled in main (no IPC) since it only needs the URL and
-      // `shell.openExternal`. Productivity apps (Notion/Slack/Docs) leave
-      // Ctrl+T unbound because real browsers own it for "new tab", so
-      // hijacking it here doesn't stomp on in-page shortcuts. Use `.code`
-      // instead of `.key` so Caps Lock / non-QWERTY layouts still match.
-      if (input.code === 'KeyT' && !input.shift) {
-        event.preventDefault();
-        const currentUrl = wc.getURL();
-        const safeUrl = currentUrl ? sanitizeUrl(currentUrl) : '';
-        // The guest page controls its own URL, so only web and mail schemes
-        // reach the OS (a file: or app-protocol URL would launch something).
-        if (safeUrl && isAllowedExternalUrl(safeUrl)) {
-          shell.openExternal(safeUrl);
-        }
-        return;
-      }
-      // CmdOrCtrl+R — reload the widget's webview, keeping zoom (like browsers
-      // and the context menu's Reload). Shift excluded so Ctrl+Shift+R stays
-      // free. Handled in main like Ctrl+T; `.code` for layout independence.
-      if (input.code === 'KeyR' && !input.shift) {
-        event.preventDefault();
-        wc.reload();
-        return;
-      }
-      let direction: IpcZoomWebpageDirection | null = null;
-      if (input.key === '+') {
-        direction = 'in';
-      } else if (input.key === '-') {
-        direction = 'out';
-      } else if (input.key === '0') {
-        direction = 'reset';
-      }
-      if (direction) {
-        event.preventDefault();
-        win.webContents.send(ipcZoomWebpageChannel, wc.id, direction);
       }
     });
 

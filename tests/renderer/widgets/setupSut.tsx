@@ -3,7 +3,8 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { ReactComponent, SettingsEditorReactComponentProps, WidgetApi, WidgetReactComponentProps, WidgetEnv, EntityId, WidgetSettingsApi, WidgetSettings, SharedState} from '@/widgets/appModules';
+import { ReactComponent, SettingsEditorReactComponentProps, WidgetApi, WidgetReactComponentProps, WidgetEnv, EntityId, WidgetSettingsApi, WidgetSettings, SharedState, WidgetType} from '@/widgets/appModules';
+import { WidgetApiModuleName } from '@/base/widgetApi';
 import { render, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fixtureProcessInfoLinux } from '@testscommon/base/fixtures/process';
@@ -93,12 +94,12 @@ export interface SetupWidgetSutOptional {
   sharedState?: Partial<SharedState>;
 }
 
-export function setupWidgetSut<T>(reactComp: ReactComponent<WidgetReactComponentProps<T>>, initSettings: T, optional?: SetupWidgetSutOptional) {
+export function setupWidgetSut<T>(widgetType: WidgetType<T>, initSettings: T, optional?: SetupWidgetSutOptional) {
   const env = optional?.env || {area: 'shelf'};
   const widgetId = optional?.widgetId || 'WIDGET-ID';
   const mockWidgetApi = optional?.mockWidgetApi || {};
-  const {Comp} = reactComp;
-  const widgetApi: WidgetApi = {
+  const {Comp} = widgetType.widgetComp as ReactComponent<WidgetReactComponentProps<T>>;
+  const common = {
     updateActionBar: mockWidgetApi.updateActionBar || jest.fn(),
     setHeaderTabs: mockWidgetApi.setHeaderTabs || jest.fn(),
     setContextMenuFactory: mockWidgetApi.setContextMenuFactory || jest.fn(),
@@ -107,6 +108,8 @@ export function setupWidgetSut<T>(reactComp: ReactComponent<WidgetReactComponent
     logActivity: mockWidgetApi.logActivity || jest.fn(),
     confirm: mockWidgetApi.confirm || jest.fn(async () => false),
     revealWidget: mockWidgetApi.revealWidget || jest.fn(),
+  };
+  const modules: Pick<WidgetApi, WidgetApiModuleName> = {
     clipboard: {
       writeBookmark: jest.fn(),
       writeText: jest.fn(),
@@ -173,6 +176,15 @@ export function setupWidgetSut<T>(reactComp: ReactComponent<WidgetReactComponent
       ...mockWidgetApi.pty
     }
   };
+  // Like the app (createWidgetApiFactory), the widget gets only the modules its type declares in `requiresApi`, so a
+  // missing declaration fails the widget's tests too.
+  const allModules = Object.keys(modules) as WidgetApiModuleName[];
+  const declared = widgetType.requiresApi ?? [];
+  const undeclaredMocks = allModules.filter(name => name in mockWidgetApi && !declared.includes(name));
+  if (undeclaredMocks.length > 0) {
+    throw new Error(`mockWidgetApi mocks ${undeclaredMocks.join(', ')}, which the widget type does not declare in requiresApi`);
+  }
+  const widgetApi = { ...common, ...Object.fromEntries(declared.map(name => [name, modules[name]])) } as WidgetApi;
   return {
     ...setupSut(
       (settings, _, sharedState) => (

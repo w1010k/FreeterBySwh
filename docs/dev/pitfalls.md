@@ -556,11 +556,12 @@
 - 출처: `[fork #6 #24 #25 #27 #29]`
 - 증상: webview에 포커스가 있으면 메뉴 accelerator (예: `Ctrl+Tab`)가 닿지 않는다.
 - 원인: 게스트 페이지가 키를 먼저 소비한다.
-- 규칙: 위젯 단축키는 `did-attach-webview`로 받은 게스트 webContents의 `before-input-event`에서 처리한다. 분기 순서를 지킨다: `Ctrl+Tab` → Alt 단독
+- 규칙: 위젯 단축키는 `did-attach-webview`로 받은 게스트 webContents의 `before-input-event`에서 처리한다. 판정은 `guestKeyPolicy.ts`
+  `decideGuestKey`에 있고, 키를 바꾸면 `guestKeyPolicy.spec.ts`의 표도 고친다. 분기 순서를 지킨다: `Ctrl+Tab` → Alt 단독
   (`←`, `→`, `Home`) → `F5` → `primaryMod` 가드 → `Ctrl+T`, `Ctrl+R`, 줌. modifier 없는 키는 `primaryMod` 가드 앞에 둔다. 글자 키는
   `input.code`(`KeyT`, `KeyR`)로 비교한다. 확대는 `input.key === '+'`만 받는다 (Windows 일부 레이아웃에서 `=`가 오지 않음). `Tab` 분기는
   `!input.meta`로 macOS `Cmd+Tab`을 건드리지 않는다.
-- 근거: CHANGES #6, #24, #25, #27, #29, `src/main/infra/browserWindow/browserWindow.ts`
+- 근거: CHANGES #6, #24, #25, #27, #29, `src/main/infra/browserWindow/guestKeyPolicy.ts`, `src/main/infra/browserWindow/browserWindow.ts`
 
 #### 게스트 안의 휠·키 가로채기
 
@@ -591,9 +592,9 @@
 - 출처: `[fork #24 #27]`
 - 증상: (회피) 한 위젯의 단축키가 다른 위젯에 적용된다.
 - 원인: main→renderer 신호는 `window` CustomEvent로 재발행되어 모든 Webpage 위젯이 받는다.
-- 규칙: main은 `wc.id`를 함께 보내고 (`ipcZoomWebpageChannel`, `ipcGoHomeWebpageChannel`), 위젯은 자기 `getWebContentsId()`와 같을 때만
-  처리한다. 이벤트 이름과 detail 타입은 `zoomEvents.ts`, `homeEvents.ts`에 모은다.
-- 근거: CHANGES #24, #27, `src/renderer/init.ts`, `src/renderer/widgets/webpage/zoomEvents.ts`
+- 규칙: main은 `wc.id`를 함께 보내고 (`ipcZoomWebpageChannel`, `ipcGoHomeWebpageChannel`, `ipcWebpageWindowBlockedChannel`), 위젯은 자기
+  `getWebContentsId()`와 같을 때만 처리한다. 이벤트 이름과 detail 타입은 `zoomEvents.ts`, `homeEvents.ts`, `windowBlockedEvents.ts`에 모은다.
+- 근거: CHANGES #24, #27, `src/renderer/infra/widgetEventRelay/widgetEventRelay.ts`, `src/renderer/widgets/webpage/zoomEvents.ts`
 
 #### webview 숨기기
 
@@ -800,6 +801,9 @@
 - 원인: `createWidgetApiFactory`는 `requiresApi`에 적힌 모듈만 만들고 결과를 `as WidgetApi`로 캐스팅한다.
 - 규칙: 새 모듈을 쓰면 위젯 `index.ts`의 `requiresApi`에 넣는다. 새 capability를 추가하면 `tests/renderer/widgets/setupSut.tsx`와
   `getWidgetApi.spec.ts`의 mock에도 넣는다.
+- 테스트: `setupWidgetSut`는 위젯 타입을 받아 `requiresApi`에 있는 모듈만 넘기고, 선언하지 않은 모듈을 `mockWidgetApi`로 mock하면 throw한다
+  [fork]. 그래서 선언 누락은 위젯 테스트에서 드러난다. 위젯 타입을 찾으려고 `@/widgets` 전체를 import하지 않는다: 모든 위젯 spec이 xterm을 불러
+  jsdom의 canvas 오류를 출력한다.
 - 근거: CHANGES #28, #60, `src/renderer/base/widgetApi.ts` `createWidgetApiFactory`
 
 #### 미리보기 분기

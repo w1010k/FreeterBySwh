@@ -4,7 +4,7 @@
  */
 
 import { act, screen, waitFor } from '@testing-library/react';
-import { forgetTerminalSession, widgetComp, resetTerminalSessions } from '@/widgets/terminal/widget';
+import { forgetTerminalSession, resetTerminalSessions } from '@/widgets/terminal/widget';
 import { terminalThemes } from '@/widgets/terminal/theme';
 import { createSettingsState, Settings } from '@/widgets/terminal/settings';
 import { setupWidgetSut } from '@tests/widgets/setupSut';
@@ -124,7 +124,7 @@ beforeEach(() => {
 describe('Terminal widget', () => {
   it('starts a shell with the settings and the view size, and wires input and output', async () => {
     const { pty, data } = setupPty();
-    setupWidgetSut(widgetComp, settings({ shell: 'pwsh.exe', cwd: 'C:/w', startCommand: 'claude' }), { mockWidgetApi: { pty } });
+    setupWidgetSut(terminalType, settings({ shell: 'pwsh.exe', cwd: 'C:/w', startCommand: 'claude' }), { mockWidgetApi: { pty } });
     await waitFor(() => expect(pty.onData).toHaveBeenCalled());
     expect(pty.create).toHaveBeenCalledWith({ cols: 80, rows: 24, shell: 'pwsh.exe', cwd: 'C:/w', command: 'claude' });
     act(() => data.get('T1')?.('hello'));
@@ -135,20 +135,20 @@ describe('Terminal widget', () => {
 
   it('keeps the shell running when the widget unmounts (a workflow unloaded by Memory Saver), and redraws on return', async () => {
     const { pty } = setupPty();
-    const first = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    const first = setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(pty.onData).toHaveBeenCalled());
     first.comp.unmount();
     expect(pty.kill).not.toHaveBeenCalled();
     expect(terms[0].disposed).toBe(true);
     pty.buffer.mockResolvedValueOnce({ screen: 'earlier output', seq: 0 });
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(terms[1].written).toContain('earlier output'));
     expect(pty.create).toHaveBeenCalledTimes(1);
   });
 
   it('does not start or resize a shell in the settings preview (it shares the widget id)', async () => {
     const { pty } = setupPty();
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, env: { area: 'shelf', isPreview: true } });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, env: { area: 'shelf', isPreview: true } });
     expect(screen.getByText(/runs in the widget/)).toBeInTheDocument();
     expect(terms.length).toBe(0);
     expect(pty.create).not.toHaveBeenCalled();
@@ -158,7 +158,7 @@ describe('Terminal widget', () => {
     const { pty } = setupPty();
     let finish: (v: { ok: true; terminalId: string }) => void = () => undefined;
     pty.create.mockImplementationOnce(() => new Promise(r => { finish = r; }));
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(1));
     forgetTerminalSession('W1');
     await act(async () => finish({ ok: true, terminalId: 'ORPHAN' }));
@@ -170,10 +170,10 @@ describe('Terminal widget', () => {
     const { pty } = setupPty();
     let finish: (v: { ok: true; terminalId: string }) => void = () => undefined;
     pty.create.mockImplementationOnce(() => new Promise(r => { finish = r; }));
-    const first = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    const first = setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(1));
     first.comp.unmount();
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(2));
     await act(async () => finish({ ok: true, terminalId: 'LATE' }));
     expect(pty.kill).toHaveBeenCalledWith('LATE');
@@ -183,7 +183,7 @@ describe('Terminal widget', () => {
 
   it('ends the shell when the widget is deleted', async () => {
     const { pty } = setupPty();
-    const sut = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    const sut = setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(pty.onData).toHaveBeenCalled());
     sut.comp.unmount();
     terminalType.onDeleted?.('W1');
@@ -193,11 +193,11 @@ describe('Terminal widget', () => {
   it('after the shell exited, a new view does not start a shell by itself (Restart Shell does)', async () => {
     const { pty, exits } = setupPty();
     let items: ActionBarItems = [];
-    const first = setupWidgetSut(widgetComp, settings({ startCommand: 'claude' }), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    const first = setupWidgetSut(terminalType, settings({ startCommand: 'claude' }), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(pty.onExit).toHaveBeenCalled());
     act(() => exits.get('T1')?.(0));
     first.comp.unmount();
-    setupWidgetSut(widgetComp, settings({ startCommand: 'claude' }), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } }, widgetId: 'W1' });
+    setupWidgetSut(terminalType, settings({ startCommand: 'claude' }), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } }, widgetId: 'W1' });
     await waitFor(() => expect(terms[1].written.join('')).toContain('Restart Shell'));
     expect(pty.create).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(items.length).toBe(1));
@@ -207,48 +207,48 @@ describe('Terminal widget', () => {
 
   it('a shell that ended while the view was away is not started again by the new view', async () => {
     const { pty } = setupPty();
-    const first = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    const first = setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(pty.onData).toHaveBeenCalled());
     first.comp.unmount();
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(terms[1].written.join('')).toContain('Restart Shell'));
     expect(pty.create).toHaveBeenCalledTimes(1);
   });
 
   it('the exit of a deleted widget\'s shell does not mark the deleted widget as exited', async () => {
     const { pty, exits } = setupPty();
-    const first = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    const first = setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(pty.onExit).toHaveBeenCalled());
     terminalType.onDeleted?.('W1');
     act(() => exits.get('T1')?.(0));
     first.comp.unmount();
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(2));
   });
 
   it('a shell that exits while the view mounts again is shown as ended', async () => {
     const { pty, exits } = setupPty();
-    const first = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    const first = setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(pty.onData).toHaveBeenCalled());
     first.comp.unmount();
     pty.buffer.mockImplementationOnce(async () => {
       exits.get('T1')?.(0);
       return { screen: 'earlier', seq: 0 };
     });
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(terms[1].written.join('')).toContain('exited'));
   });
 
   it('says once that the shell ended when it exits while main reads its output (the read finds no shell)', async () => {
     const { pty, exits } = setupPty();
-    const first = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    const first = setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(pty.onData).toHaveBeenCalled());
     first.comp.unmount();
     pty.buffer.mockImplementationOnce(async () => {
       exits.get('T1')?.(0);
       return undefined;
     });
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(terms[1].written.join('')).toContain('exited'));
     await act(async () => undefined);
     expect(terms[1].written.join('').match(/exited/g)).toHaveLength(1);
@@ -256,7 +256,7 @@ describe('Terminal widget', () => {
 
   it('sends the view size again once the shell started (the view may have resized meanwhile)', async () => {
     const { pty } = setupPty();
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty } });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty } });
     await waitFor(() => expect(pty.onData).toHaveBeenCalled());
     expect(pty.resize).toHaveBeenCalledWith('T1', 80, 24);
   });
@@ -271,7 +271,7 @@ describe('Terminal widget', () => {
       disconnect() { return undefined; }
     };
     try {
-      setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty } });
+      setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty } });
       await waitFor(() => expect(pty.onData).toHaveBeenCalled());
       observed();
       observed();
@@ -289,7 +289,7 @@ describe('Terminal widget', () => {
     const { pty } = setupPty();
     markRevealedByAi(['WIDGET-ID']);
     let items: ActionBarItems = [];
-    setupWidgetSut(widgetComp, settings({ startCommand: 'claude' }), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } } });
+    setupWidgetSut(terminalType, settings({ startCommand: 'claude' }), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } } });
     await waitFor(() => expect(terms[0].written.join('')).toContain('Restart Shell'));
     expect(pty.create).not.toHaveBeenCalled();
     await waitFor(() => expect(items.length).toBe(1));
@@ -302,10 +302,10 @@ describe('Terminal widget', () => {
   it('keeps waiting through a second mount of the view (until the user starts the shell)', async () => {
     const { pty } = setupPty();
     markRevealedByAi(['W1']);
-    const first = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    const first = setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(terms[0].written.join('')).toContain('Restart Shell'));
     first.comp.unmount();
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(terms[1].written.join('')).toContain('Restart Shell'));
     expect(pty.create).not.toHaveBeenCalled();
   });
@@ -313,19 +313,19 @@ describe('Terminal widget', () => {
   it('starts its shell as usual when an AI write showed other widgets only', async () => {
     const { pty } = setupPty();
     markRevealedByAi(['SOME-OTHER-WIDGET']);
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty } });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty } });
     await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(1));
   });
 
   it('a mark on a Terminal whose shell runs is used up, so a later Restart Shell starts at once', async () => {
     const { pty } = setupPty();
     let items: ActionBarItems = [];
-    const first = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    const first = setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(pty.onData).toHaveBeenCalled());
     first.comp.unmount();
     markRevealedByAi(['W1']);
     pty.buffer.mockResolvedValueOnce({ screen: 'earlier', seq: 0 });
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } }, widgetId: 'W1' });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } }, widgetId: 'W1' });
     await waitFor(() => expect(items.length).toBe(1));
     await act(async () => { items.find(i => i.id === 'RESTART')?.doAction(); });
     await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(2));
@@ -333,7 +333,7 @@ describe('Terminal widget', () => {
 
   it('shows the exit code when the shell ends', async () => {
     const { pty, exits } = setupPty();
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty } });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty } });
     await waitFor(() => expect(pty.onExit).toHaveBeenCalled());
     act(() => exits.get('T1')?.(3));
     expect(terms[0].written.join('')).toContain('exited with code 3');
@@ -341,14 +341,14 @@ describe('Terminal widget', () => {
 
   it('shows why the shell could not start', async () => {
     const { pty } = setupPty({ ok: false, message: 'File not found' });
-    setupWidgetSut(widgetComp, settings({ shell: 'nope.exe' }), { mockWidgetApi: { pty } });
+    setupWidgetSut(terminalType, settings({ shell: 'nope.exe' }), { mockWidgetApi: { pty } });
     expect(await screen.findByText(/File not found/)).toBeInTheDocument();
   });
 
   it('draws with WebGL once the view is open, and goes back to the DOM renderer when the WebGL context is lost', async () => {
     webgls.length = 0;
     const { pty } = setupPty();
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty } });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty } });
     await waitFor(() => expect(webgls).toHaveLength(1));
     expect(terms[0].addons).toContain(webgls[0]);
     webgls[0].lost?.();
@@ -361,7 +361,7 @@ describe('Terminal widget', () => {
     const getContext = jest.spyOn(HTMLCanvasElement.prototype, 'getContext')
       .mockImplementation(() => ({ getExtension: () => ({ loseContext }) }) as unknown as RenderingContext);
     const { pty } = setupPty();
-    const { comp } = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty } });
+    const { comp } = setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty } });
     await waitFor(() => expect(webgls).toHaveLength(1));
     comp.unmount();
     expect(webgls[0].disposed).toBe(true);
@@ -373,18 +373,18 @@ describe('Terminal widget', () => {
     const { WebglAddon } = jest.requireMock('@xterm/addon-webgl') as { WebglAddon: jest.Mock };
     WebglAddon.mockImplementationOnce(() => { throw new Error('no WebGL'); });
     const { pty } = setupPty();
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty } });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty } });
     await waitFor(() => expect(pty.onData).toHaveBeenCalled());
   });
 
   it('draws a re-attached shell from its screen copy, then only the output the copy does not cover', async () => {
     const { pty, data } = setupPty();
-    const first = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    const first = setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(pty.onData).toHaveBeenCalled());
     first.comp.unmount();
     let answer: (v: { screen: string; seq: number }) => void = () => undefined;
     pty.buffer.mockImplementationOnce(() => new Promise(r => { answer = r; }));
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(pty.buffer).toHaveBeenCalledTimes(1));
     act(() => data.get('T1')?.('old', 1)); // sent while main made the copy: in the copy
     act(() => data.get('T1')?.('new', 3)); // after the copy
@@ -394,7 +394,7 @@ describe('Terminal widget', () => {
 
   it('pastes with Ctrl+V and copies a selection with Ctrl+C, as Windows Terminal does (the keys are not sent to the shell)', async () => {
     const { pty } = setupPty();
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty } });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty } });
     await waitFor(() => expect(terms[0].keyHandler).toBeDefined());
     const key = (k: Partial<KeyboardEvent>) => terms[0].keyHandler?.({ type: 'keydown', ...k } as KeyboardEvent);
     expect(key({ ctrlKey: true, key: 'v' })).toBe(false); // the browser pastes into xterm
@@ -417,7 +417,7 @@ describe('Terminal widget', () => {
         header = t;
         calls++;
       };
-      const view = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty, setHeaderTabs }, widgetId });
+      const view = setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty, setHeaderTabs }, widgetId });
       const tabs = () => header as WidgetHeaderTabs | null;
       return { pty, tabs, view, setHeaderTabs, title, headerCalls: () => calls };
     }
@@ -460,7 +460,7 @@ describe('Terminal widget', () => {
       await act(async () => { tabs()?.onAdd?.(); });
       await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(2));
       view.comp.unmount();
-      setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty, setHeaderTabs }, widgetId: 'W1' });
+      setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty, setHeaderTabs }, widgetId: 'W1' });
       await waitFor(() => expect(tabs()?.tabs.map(t => t.label)).toEqual(['Shell 1', 'Shell 2']));
       expect(pty.create).toHaveBeenCalledTimes(2);
       forgetTerminalSession('W1');
@@ -474,7 +474,7 @@ describe('Terminal widget', () => {
       pty.create.mockImplementation(async () => ({ ok: true as const, terminalId: `T${++n}` }));
       let header: WidgetHeaderTabs | null = null;
       let items: ActionBarItems = [];
-      setupWidgetSut(widgetComp, settings({ shell: 'bash' }), {
+      setupWidgetSut(terminalType, settings({ shell: 'bash' }), {
         mockWidgetApi: { pty, setHeaderTabs: (t: WidgetHeaderTabs | null) => { header = t; }, updateActionBar: (i: ActionBarItems) => { items = i; } }
       });
       const tabs = () => header as WidgetHeaderTabs | null;
@@ -499,11 +499,11 @@ describe('Terminal widget', () => {
         header = t;
       };
       const menu = () => (header as WidgetHeaderTabs | null)?.addMenu;
-      const first = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty, setHeaderTabs }, widgetId: 'W1' });
+      const first = setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty, setHeaderTabs }, widgetId: 'W1' });
       await waitFor(() => expect(menu()).toHaveLength(2));
       first.comp.unmount();
       header = null;
-      setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty, setHeaderTabs }, widgetId: 'W2' });
+      setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty, setHeaderTabs }, widgetId: 'W2' });
       expect(menu()).toHaveLength(2);
       expect(pty.shells).toHaveBeenCalledTimes(1);
     });
@@ -524,7 +524,7 @@ describe('Terminal widget', () => {
   it('opens a link in the browser on Ctrl+click only (a plain click selects text, as in Windows Terminal)', async () => {
     const { pty } = setupPty();
     const openExternalUrl = jest.fn(async () => undefined);
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty, shell: { openExternalUrl } } });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty, shell: { openExternalUrl } } });
     await waitFor(() => expect(linkClicks).toHaveLength(1));
     linkClicks[0](new MouseEvent('click'), 'https://example.com');
     expect(openExternalUrl).not.toHaveBeenCalled();
@@ -534,24 +534,24 @@ describe('Terminal widget', () => {
 
   it('draws in the Theme setting colors: Dark by default, or the app theme with Follow App', async () => {
     const { pty } = setupPty();
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, sharedState: { uiTheme: { themeId: 'light' } } });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, sharedState: { uiTheme: { themeId: 'light' } } });
     await waitFor(() => expect(terms).toHaveLength(1));
     expect(terms[0].options.theme).toBe(terminalThemes.dark);
     resetTerminalSessions();
-    setupWidgetSut(widgetComp, settings({ theme: 'app' }), { mockWidgetApi: { pty }, sharedState: { uiTheme: { themeId: 'light' } }, widgetId: 'W2' });
+    setupWidgetSut(terminalType, settings({ theme: 'app' }), { mockWidgetApi: { pty }, sharedState: { uiTheme: { themeId: 'light' } }, widgetId: 'W2' });
     await waitFor(() => expect(terms).toHaveLength(2));
     expect(terms[1].options.theme).toBe(terminalThemes.light);
 
     // A named theme: the palette of its kind.
     resetTerminalSessions();
-    setupWidgetSut(widgetComp, settings({ theme: 'app' }), { mockWidgetApi: { pty }, sharedState: { uiTheme: { themeId: 'nord' } }, widgetId: 'W3' });
+    setupWidgetSut(terminalType, settings({ theme: 'app' }), { mockWidgetApi: { pty }, sharedState: { uiTheme: { themeId: 'nord' } }, widgetId: 'W3' });
     await waitFor(() => expect(terms).toHaveLength(3));
     expect(terms[2].options.theme).toBe(terminalThemes.dark);
   });
 
   it('applies a Theme change to the open terminal at once (no restart)', async () => {
     const { pty } = setupPty();
-    const { setSettings } = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, sharedState: { uiTheme: { themeId: 'dark' } } });
+    const { setSettings } = setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, sharedState: { uiTheme: { themeId: 'dark' } } });
     await waitFor(() => expect(terms).toHaveLength(1));
     expect(terms[0].options.theme).toBe(terminalThemes.dark);
 
@@ -565,7 +565,7 @@ describe('Terminal widget', () => {
 
   it('zooms with Ctrl+= / Ctrl+- / Ctrl+wheel and goes back to the font size setting with Ctrl+0 (keys not sent to the shell)', async () => {
     const { pty } = setupPty();
-    setupWidgetSut(widgetComp, settings({ fontSize: 14 }), { mockWidgetApi: { pty } });
+    setupWidgetSut(terminalType, settings({ fontSize: 14 }), { mockWidgetApi: { pty } });
     await waitFor(() => expect(terms[0].keyHandler).toBeDefined());
     const term = terms[0];
     expect(term.options.fontSize).toBe(14);
@@ -601,7 +601,7 @@ describe('Terminal widget', () => {
 
   it('zooms out from the size shown when the zoom went past the largest size (one Ctrl+- always shows a change)', async () => {
     const { pty } = setupPty();
-    setupWidgetSut(widgetComp, settings({ fontSize: 46 }), { mockWidgetApi: { pty } });
+    setupWidgetSut(terminalType, settings({ fontSize: 46 }), { mockWidgetApi: { pty } });
     await waitFor(() => expect(terms[0].keyHandler).toBeDefined());
     const key = (k: string) => act(() => { terms[0].keyHandler?.({ type: 'keydown', ctrlKey: true, key: k } as KeyboardEvent); });
     for (let i = 0; i < 5; i++) {
@@ -614,12 +614,12 @@ describe('Terminal widget', () => {
 
   it('forgets the zoom of a deleted widget', async () => {
     const { pty } = setupPty();
-    const first = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    const first = setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(terms[0].keyHandler).toBeDefined());
     act(() => { terms[0].keyHandler?.({ type: 'keydown', ctrlKey: true, key: '=' } as KeyboardEvent); });
     first.comp.unmount();
     forgetTerminalSession('W1');
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(terms).toHaveLength(2));
     expect(terms[1].options.fontSize).toBe(13);
   });
@@ -627,11 +627,11 @@ describe('Terminal widget', () => {
   it('keeps the zoom for the widget when the view mounts again (another tab, Memory Saver)', async () => {
     const { pty } = setupPty();
     pty.buffer.mockResolvedValue({ screen: '', seq: 0 });
-    const first = setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    const first = setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(terms[0].keyHandler).toBeDefined());
     act(() => { terms[0].keyHandler?.({ type: 'keydown', ctrlKey: true, key: '=' } as KeyboardEvent); });
     first.comp.unmount();
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty }, widgetId: 'W1' });
     await waitFor(() => expect(terms).toHaveLength(2));
     expect(terms[1].options.fontSize).toBe(14);
   });
@@ -639,7 +639,7 @@ describe('Terminal widget', () => {
   it('has only Restart Shell in the action bar (no button types commands into the shell)', async () => {
     const { pty } = setupPty();
     let items: ActionBarItems = [];
-    setupWidgetSut(widgetComp, settings(), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } } });
+    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } } });
     await waitFor(() => expect(items.map(i => i.id)).toEqual(['RESTART']));
     expect(pty.write).not.toHaveBeenCalled();
   });

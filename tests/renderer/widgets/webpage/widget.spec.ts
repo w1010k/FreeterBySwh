@@ -4,7 +4,8 @@
  */
 
 import { Settings, SettingsSessionPersist, SettingsSessionScope } from '@/widgets/webpage/settings';
-import { NOTIFICATION_CLICK_MARKER, widgetComp } from '@/widgets/webpage/widget'
+import { NOTIFICATION_CLICK_MARKER } from '@/widgets/webpage/widget'
+import widgetType from '@/widgets/webpage'
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
 import { fixtureSettings } from './fixtures';
@@ -13,7 +14,7 @@ import { TRANSLATE_MUTATION_MARKER, translateApplyJs, translateCollectJs, transl
 import { WEBPAGE_WINDOW_BLOCKED_EVENT } from '@/widgets/webpage/windowBlockedEvents';
 
 function setupWebpageWidgetSut(settings: Settings, optional?: SetupWidgetSutOptional) {
-  const { comp, ...rest } = setupWidgetSut(widgetComp, settings, optional);
+  const { comp, ...rest } = setupWidgetSut(widgetType, settings, optional);
   const webview = comp.container.getElementsByTagName('webview')[0];
   return {
     comp,

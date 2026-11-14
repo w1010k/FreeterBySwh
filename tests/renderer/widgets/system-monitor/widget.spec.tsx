@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { widgetComp } from '@/widgets/system-monitor/widget';
+import widgetType from '@/widgets/system-monitor';
 import { Settings } from '@/widgets/system-monitor/settings';
 import { SystemStats } from '@common/base/systemStats';
 import { act, screen, waitFor } from '@testing-library/react';
@@ -32,7 +32,7 @@ describe('System Monitor Widget', () => {
 
   it('polls system stats and displays CPU, RAM, disk, Freeter usage and uptime', async () => {
     const getStats = jest.fn().mockResolvedValue(stats);
-    setupWidgetSut(widgetComp, {} as Settings, { mockWidgetApi: { systemStats: { getStats } } });
+    setupWidgetSut(widgetType, {} as Settings, { mockWidgetApi: { systemStats: { getStats } } });
 
     await waitFor(() => {
       expect(screen.getByText('42%')).toBeInTheDocument(); // CPU
@@ -51,7 +51,7 @@ describe('System Monitor Widget', () => {
 
   it('hides the disk row when the disk could not be read', async () => {
     const getStats = jest.fn().mockResolvedValue({ ...stats, disk: null });
-    setupWidgetSut(widgetComp, {} as Settings, { mockWidgetApi: { systemStats: { getStats } } });
+    setupWidgetSut(widgetType, {} as Settings, { mockWidgetApi: { systemStats: { getStats } } });
 
     await waitFor(() => expect(screen.getByText('42%')).toBeInTheDocument());
     expect(screen.queryByText('Disk')).not.toBeInTheDocument();
@@ -60,7 +60,7 @@ describe('System Monitor Widget', () => {
   it('shows the battery level and charging state', async () => {
     mockBattery({ level: 0.8, charging: false, chargingTime: Infinity });
     const getStats = jest.fn().mockResolvedValue(stats);
-    setupWidgetSut(widgetComp, {} as Settings, { mockWidgetApi: { systemStats: { getStats } } });
+    setupWidgetSut(widgetType, {} as Settings, { mockWidgetApi: { systemStats: { getStats } } });
 
     expect(await screen.findByText('Battery')).toBeInTheDocument();
     expect(screen.getByText('80%')).toBeInTheDocument();
@@ -70,7 +70,7 @@ describe('System Monitor Widget', () => {
   it('hides the battery row when the API reports no battery', async () => {
     mockBattery({ level: 1, charging: true, chargingTime: 0 });
     const getStats = jest.fn().mockResolvedValue(stats);
-    setupWidgetSut(widgetComp, {} as Settings, { mockWidgetApi: { systemStats: { getStats } } });
+    setupWidgetSut(widgetType, {} as Settings, { mockWidgetApi: { systemStats: { getStats } } });
 
     await waitFor(() => expect(screen.getByText('42%')).toBeInTheDocument());
     await act(async () => { /* let getBattery() resolve before asserting absence */ });

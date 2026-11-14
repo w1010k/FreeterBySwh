@@ -3,7 +3,8 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { computeCounts, widgetComp } from '@/widgets/note/widget'
+import { computeCounts } from '@/widgets/note/widget'
+import widgetType from '@/widgets/note'
 import { Settings } from '@/widgets/note/settings';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { SetupWidgetSutOptional, setupWidgetSut } from '@tests/widgets/setupSut'
@@ -36,7 +37,7 @@ jest.mock('tiny-markdown-editor', () => {
 jest.useFakeTimers();
 
 function setupNoteWidgetSut(optional?: SetupWidgetSutOptional) {
-  return setupWidgetSut<Settings>(widgetComp, { spellCheck: false, markdown: false, sharedKeyId: null }, optional);
+  return setupWidgetSut<Settings>(widgetType, { spellCheck: false, markdown: false, sharedKeyId: null }, optional);
 }
 
 describe('computeCounts()', () => {
@@ -134,7 +135,7 @@ describe('Note Widget', () => {
     expect(values.shared).toBe('shared original');
   });
   it('destroys the markdown editor and its document listeners on unmount', async () => {
-    const { comp } = setupWidgetSut(widgetComp, { spellCheck: false, markdown: true, sharedKeyId: null }, {
+    const { comp } = setupWidgetSut(widgetType, { spellCheck: false, markdown: true, sharedKeyId: null }, {
       mockWidgetApi: { dataStorage: { getText: jest.fn().mockResolvedValue('saved note') } }
     });
     await waitFor(() => expect(document.querySelector('.TinyMDE')).toBeInTheDocument());
@@ -292,7 +293,7 @@ describe('Note Widget', () => {
 
   it('should defer a remote change while the note is focused and apply it on blur', async () => {
     const getText = jest.fn().mockResolvedValue('OLD');
-    setupWidgetSut(widgetComp, { spellCheck: false, markdown: false, sharedKeyId: 'K' }, {
+    setupWidgetSut(widgetType, { spellCheck: false, markdown: false, sharedKeyId: 'K' }, {
       mockWidgetApi: { dataStorage: { getText } }
     });
 
@@ -319,7 +320,7 @@ describe('Note Widget', () => {
       () => new Promise<string>(resolve => { resolveReload = resolve; })
     );
     const setText = jest.fn();
-    setupWidgetSut(widgetComp, { spellCheck: false, markdown: false, sharedKeyId: 'K' }, {
+    setupWidgetSut(widgetType, { spellCheck: false, markdown: false, sharedKeyId: 'K' }, {
       mockWidgetApi: { dataStorage: { getText, setText } }
     });
     await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('OLD'));
@@ -341,7 +342,7 @@ describe('Note Widget', () => {
     const getText = jest.fn().mockResolvedValueOnce('OLD').mockImplementationOnce(
       () => new Promise<string>(resolve => { resolveOlder = resolve; })
     ).mockResolvedValueOnce('NEWEST');
-    setupWidgetSut(widgetComp, { spellCheck: false, markdown: false, sharedKeyId: 'K' }, {
+    setupWidgetSut(widgetType, { spellCheck: false, markdown: false, sharedKeyId: 'K' }, {
       mockWidgetApi: { dataStorage: { getText } }
     });
     await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('OLD'));
@@ -359,7 +360,7 @@ describe('Note Widget', () => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { Editor } = require('tiny-markdown-editor') as { Editor: { last: { getContent(): string } | null } };
     const getText = jest.fn().mockResolvedValue('OLD');
-    setupWidgetSut(widgetComp, { spellCheck: false, markdown: true, sharedKeyId: 'K' }, {
+    setupWidgetSut(widgetType, { spellCheck: false, markdown: true, sharedKeyId: 'K' }, {
       mockWidgetApi: { dataStorage: { getText } }
     });
 

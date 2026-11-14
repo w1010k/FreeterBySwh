@@ -60,6 +60,7 @@ describe('backUpAppDataUseCase()', () => {
   it.each([
     ['the data folder', '/data'],
     ['a folder inside it', join('/data', 'widgets')],
+    ['a folder inside it whose name starts with ..', join('/data', '..backup')],
   ])('refuses %s as the destination', async (_name, dir) => {
     const { useCase, appDataBackup, dialogProvider } = setup(dir);
 
