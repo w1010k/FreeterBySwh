@@ -6,6 +6,8 @@
 import clsx from 'clsx';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { appTitleBarHeight } from '@common/base/titleBar';
+import { logo150Svg } from '@/ui/assets/images/appIcons';
+import { SvgIcon } from '@/ui/components/basic/svgIcon';
 import styles from './titleBar.module.scss';
 import { TitleBarViewModelHook } from './titleBarViewModel';
 
@@ -210,7 +212,10 @@ export function createTitleBarComponent({
             </button>
           ))}
         </div>
-        <div className={styles['title']}>{windowTitle}</div>
+        <div className={styles['title']}>
+          <SvgIcon svg={logo150Svg} className={styles['title-logo']} aria-hidden/>
+          <span className={styles['title-text']}>{windowTitle}</span>
+        </div>
       </div>
     );
   }

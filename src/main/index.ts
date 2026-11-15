@@ -194,7 +194,7 @@ function sendToAppWindow(channel: string, ...args: unknown[]): boolean {
 
 /**
  * userData is pinned for every run, because Electron derives it from the app name: the installed app keeps the folder
- * it had before it was renamed to Acedeck (no data is moved), and everything run straight from the repo (`yarn dev`,
+ * it had before it was renamed to AceDeck (no data is moved), and everything run straight from the repo (`yarn dev`,
  * `yarn prod:run`) is kept fully apart from an installed release: its own data folder, its own session and its own
  * single-instance lock. `app.isPackaged` is the right test — a production build launched from the repo is still not
  * the installed app. See userDataDirName.
@@ -207,7 +207,7 @@ app.setPath('userData', join(app.getPath('appData'), dataDirName));
 if (!app.isPackaged) {
   // Marks the dev window and its taskbar entry so it can't be mistaken for the
   // installed app. After setPath, since setName also feeds the default userData.
-  app.setName('Acedeck (dev)');
+  app.setName('AceDeck (dev)');
 }
 
 if (!app.requestSingleInstanceLock()) {

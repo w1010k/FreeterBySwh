@@ -1,15 +1,15 @@
 <p align="center"><img src="resources/linux/freeter-icons/256x256.png" style="margin-right: 16px; width: 128px; height: 128px"/></p>
 
-**Acedeck**은 컴퓨터로 일하는 사람을 위한 무료 오픈소스 정리 도구입니다. 이전 이름은 Freeter-SWH입니다.
+**AceDeck**은 컴퓨터로 일하는 사람을 위한 무료 오픈소스 정리 도구입니다. 이전 이름은 Freeter-SWH입니다.
 
 업무에 필요한 모든 것을 한 곳에 모아 프로젝트와 워크플로우 단위로 정리할 수 있습니다. `Ctrl` 또는 `Cmd` + `Shift` + `Space` 단축키 (이 포크의 기본값, 변경 가능)나 시스템 트레이
 아이콘으로 언제든지 빠르게 호출할 수 있고, 워크플로우 간 전환도 매끄럽습니다. 컨텍스트 스위칭 비용을 줄이고 지금 해야 할 일에 집중하세요.
 
-처음이라면 [**사용자 가이드**](docs/GUIDE.md)부터 — Acedeck이 뭔지, 왜 쓰면 좋은지, 어떻게 시작하는지 5분 만에 파악할 수 있습니다. 앱의 배경이 궁금하다면 [**소개
+처음이라면 [**사용자 가이드**](docs/GUIDE.md)부터 — AceDeck이 뭔지, 왜 쓰면 좋은지, 어떻게 시작하는지 5분 만에 파악할 수 있습니다. 앱의 배경이 궁금하다면 [**소개
 글**][post-intro]도 참고하세요.
 
-> Acedeck은 원본 [FreeterApp/Freeter][upstream] (Alex Kaul, GPL-3.0)에서 갈라져 나온 제품입니다. 원본의 기능·동작 위에 사용 경험 개선과 신규 기능을 더해 왔고,
-> 2026-11-15에 이름을 Freeter-SWH에서 Acedeck으로 바꿨습니다. 라이선스는 원본과 같은 GPL-3.0이고, 원저작자의 저작권 표기를 유지합니다. 원본과 다른 점
+> AceDeck은 원본 [FreeterApp/Freeter][upstream] (Alex Kaul, GPL-3.0)에서 갈라져 나온 제품입니다. 원본의 기능·동작 위에 사용 경험 개선과 신규 기능을 더해 왔고,
+> 2026-11-15에 이름을 Freeter-SWH에서 AceDeck으로 바꿨습니다. 라이선스는 원본과 같은 GPL-3.0이고, 원저작자의 저작권 표기를 유지합니다. 원본과 다른 점
 > 전체는 [`docs/CHANGES.md`](docs/CHANGES.md)에서 확인할 수 있고, 이 README 하단에 요약이 있습니다.
 
 ---
@@ -209,9 +209,9 @@ Freeter는 자유 소프트웨어이며, [라이선스][license] 조건에 따�
 109. Webpage 새 창 요청 보완 - 빈 창을 먼저 여는 로그인·결제 흐름이 앱 안 팝업으로 동작하고, 열리지 않은 새 창과 앱 링크 (Zoom·Teams 참가 버튼, 팝업 5개 한도)는 위젯 위 알림 바에서 직접 열 수 있음. *(2026-11-13)*
 110. 테마 10개 (Solarized, Catppuccin, One Dark, Nord, Tokyo Night, Dracula 추가)와 OS 밝음/어두움 모드를 따르는 System 설정, `Ctrl`+`Shift`+`L`로 밝은 테마와 어두운 테마 전환, Windows·Linux에서는 제목 표시줄과 메뉴 바도 테마 색. *(2026-11-14)*
 111. 상단 바 병합 - 설정의 Merge Top Bar를 켜면 상단 바의 셸프 위젯이 위쪽 워크플로우 바 안으로 들어가, 워크플로우 탭은 왼쪽·셸프 위젯은 오른쪽인 한 줄이 됨. *(2026-11-14)*
-112. 이름 변경 - 제품 이름을 Freeter-SWH에서 **Acedeck**으로 바꾸고 아이콘도 새로 그림. 데이터는 그대로 이어지고 (Windows는 로그인 세션도), 새 설치 파일이 기존 설치본을 교체하며, CLI는 `acedeck` (PATH의 `freeter`도 동작, 절대 경로로 등록한 MCP 설정은 새 설치 폴더로 수정). *(2026-11-15)*
+112. 이름 변경 - 제품 이름을 Freeter-SWH에서 **AceDeck**으로 바꾸고 아이콘도 새로 그림 (제목 표시줄 가운데에도 앱 마크). 데이터는 그대로 이어지고 (Windows는 로그인 세션도), 새 설치 파일이 기존 설치본을 교체하며, CLI는 `acedeck` (PATH의 `freeter`도 동작, 절대 경로로 등록한 MCP 설정은 새 설치 폴더로 수정). *(2026-11-15)*
 
-부가적으로 OS 노출 라벨 (트레이 툴팁, 윈도우 타이틀, 앱 메뉴, About 모달 등)은 **Acedeck**으로 표시해서 원본과 혼동되지 않게 했습니다 (#112 이전에는 Freeter-SWH).
+부가적으로 OS 노출 라벨 (트레이 툴팁, 윈도우 타이틀, 앱 메뉴, About 모달 등)은 **AceDeck**으로 표시해서 원본과 혼동되지 않게 했습니다 (#112 이전에는 Freeter-SWH).
 
 [home]: https://freeter.io/
 [download]: https://freeter.io/download

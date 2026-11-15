@@ -1,8 +1,8 @@
 module.exports = {
-  // Kept from before the rename to Acedeck: the MSI upgrade code is derived from it, so a new installer replaces
+  // Kept from before the rename to AceDeck: the MSI upgrade code is derived from it, so a new installer replaces
   // an installed Freeter-SWH instead of installing next to it.
   appId: 'io.freeter.app.swh',
-  productName: 'Acedeck',
+  productName: 'AceDeck',
   artifactName: '${productName}-${version}-${os}-${arch}.${ext}',
   files: [{
     from: './build',

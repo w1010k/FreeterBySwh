@@ -21,7 +21,7 @@ Freeter는 Electron 데스크톱 앱이다. 프로젝트, 워크플로우 (탭),
 | 현재 버전         | `2.8.0-swh.17`                                                                                | `package.json` `version`                          |
 | 버전 형식         | `<upstream 기준>-swh.N`. 2.8 병합 때 `2.8.0-swh.1`부터 시작                                   | 병합 커밋 메시지                                  |
 | 포크 저장소       | `w1010k/FreeterBySwh`                                                                         | `package.json` `repository`                       |
-| 앱 식별자         | appId `io.freeter.app.swh` [fork #1], productName `Acedeck`, package `name` `acedeck` [fork #112] | `electron-builder.config.js`, `package.json`      |
+| 앱 식별자         | appId `io.freeter.app.swh` [fork #1], productName `AceDeck`, package `name` `acedeck` [fork #112] | `electron-builder.config.js`, `package.json`      |
 | 배포 | GitHub Releases. Windows `msi`, `zip` (x64), Linux `tar.xz` (x64). macOS `dmg`는 `2.8.0-swh.17`까지만 있다 [fork #89] | `electron-builder.config.js`, `.github/workflows/cd.yml` |
 
 #### upstream 2.8과 병합 방침
@@ -146,7 +146,7 @@ main과 renderer는 같은 레이어 규칙을 따른다 [upstream].
 
 `src/main/index.ts` 실행 순서:
 
-1. `dataDirName` 결정 (`userDataDirName`). 모든 실행에서 `app.setPath('userData', ...)` [fork #112], 저장소 실행이면 `app.setName('Acedeck (dev)')` [fork #80]
+1. `dataDirName` 결정 (`userDataDirName`). 모든 실행에서 `app.setPath('userData', ...)` [fork #112], 저장소 실행이면 `app.setName('AceDeck (dev)')` [fork #80]
 2. `app.requestSingleInstanceLock()`. 실패하면 종료. `second-instance`에서 기존 창을 표시, 복원, 포커스 [upstream]
 3. `registerAppFileProtocol(isDevMode)` (app ready 전에 호출해야 한다) [upstream]
 4. `app.userAgentFallback`을 Chrome UA로 재작성 [fork #7]
@@ -187,7 +187,7 @@ renderer 기능을 추가할 때: use case 파일 작성 → `createUseCases`에
 - `will-navigate`를 막아 앱 페이지를 벗어나지 않게 한다 (이미지 드래그 등) [upstream]
 - 창 이동, 크기, 상태 변경마다 `setWindowStateUseCase` 호출 (5초 debounce 저장) [upstream]
 - `focus`, `blur` 때 `app-focus-changed` 전송 [fork #62]
-- 저장소 실행에서는 `page-title-updated`를 막아 제목 `Acedeck (dev)`를 고정 [fork #80]
+- 저장소 실행에서는 `page-title-updated`를 막아 제목 `AceDeck (dev)`를 고정 [fork #80]
 - 개발 빌드 (`isDevMode`)면 DevTools를 연다 [upstream]
 - macOS가 아니면 `titleBarStyle: 'hidden'`, `titleBarOverlay` (높이 `appTitleBarHeight`, 판단은 `infra/browserWindow/appTitleBar.ts`): OS 제목 표시줄 대신 renderer `TitleBar`가 그린다.
   창 버튼만 OS가 그 위에 그린다 [fork #110]

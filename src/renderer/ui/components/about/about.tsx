@@ -28,14 +28,14 @@ export function createAboutComponent({
         buttons={[
           {id: 'close', caption: 'Close', primary: true, onClick: onCloseClick},
         ]}
-        title="About Acedeck"
+        title="About AceDeck"
         onEscape={onCloseClick}
       >
         <div className={styles['about-left']}>
           <div className={styles['app-logo']}>
             <SvgIcon svg={logo150Svg} className={styles['app-logo-svg']}></SvgIcon>
           </div>
-          <div className={styles['app-name']}>Acedeck</div>
+          <div className={styles['app-name']}>AceDeck</div>
           <div className={styles['app-about']}>
             <span><b>Version:</b> {aboutInfo.productInfo.version}</span>
             <span><b>Date:</b> {aboutInfo.productInfo.builtAt}</span>
@@ -44,9 +44,9 @@ export function createAboutComponent({
           </div>
         </div>
         <div className={styles['about-right']}>
-          <h2>Acedeck 정보</h2>
+          <h2>AceDeck 정보</h2>
           <p>
-            <b>Acedeck</b>은 <b>swh</b>가 만들고 유지관리하는 앱입니다. 원본 Freeter(Alex Kaul, GPL-3.0)에서 갈라져 나왔고,
+            <b>AceDeck</b>은 <b>swh</b>가 만들고 유지관리하는 앱입니다. 원본 Freeter(Alex Kaul, GPL-3.0)에서 갈라져 나왔고,
             이전 이름은 Freeter-SWH입니다. 원본에서 추가·변경된 내역은 저장소의 <code>docs/CHANGES.md</code>
             또는 <code>README.md</code>에 정리되어 있습니다.
           </p>

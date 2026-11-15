@@ -73,13 +73,13 @@ describe('appDataBackup', () => {
     await expect(createAppDataBackup().readInfo(dir)).resolves.toBeNull();
   });
 
-  it('reads a backup made under the former app name (Freeter-SWH), and writes the new name', async () => {
+  it.each(['Freeter-SWH backup', 'Acedeck backup'])('reads a backup made under a former app name (%s), and writes the new name', async kind => {
     const backup = createAppDataBackup();
     const target = join(root, 'backup');
     await backup.write(dataDir, target, info);
-    expect(JSON.parse(await read(target, backupMarkerFile)).kind).toBe('Acedeck backup');
+    expect(JSON.parse(await read(target, backupMarkerFile)).kind).toBe('AceDeck backup');
 
-    await writeFile(join(target, backupMarkerFile), JSON.stringify({ kind: 'Freeter-SWH backup', ...info }));
+    await writeFile(join(target, backupMarkerFile), JSON.stringify({ kind, ...info }));
 
     await expect(backup.readInfo(target)).resolves.toEqual(info);
   });

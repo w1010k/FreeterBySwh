@@ -59,13 +59,28 @@
   text-decoration: underline;
 }
 
+// The app mark and the window title, side by side in the middle. The mark takes the title's color, so it suits every
+// theme; the title is cut with an ellipsis when the window is narrow, the mark stays.
 .title {
   flex: 1;
   min-width: 0;
   padding: 0 8px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--freeter-textSecondary);
+}
+
+.title-logo {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.title-text {
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: var(--freeter-textSecondary);
 }

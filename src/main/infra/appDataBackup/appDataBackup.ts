@@ -10,9 +10,10 @@ import { tmpSuffix } from '@/infra/utils/atomicFile';
 
 /** Written into every backup folder; a folder without it is not offered for restore. */
 export const backupMarkerFile = 'freeter-backup.json';
-const backupKind = 'Acedeck backup';
-// Backups made before the app was renamed (up to 2.8.0-swh.32). Same contents, so they restore as well.
-const oldBackupKind = 'Freeter-SWH backup';
+const backupKind = 'AceDeck backup';
+// The kinds a backup may have: this one, and those written under the app's former names, Freeter-SWH (up to
+// 2.8.0-swh.32) and the spelling Acedeck (2.8.0-swh.33). Same contents, so they all restore.
+const readableBackupKinds: readonly string[] = [backupKind, 'Freeter-SWH backup', 'Acedeck backup'];
 
 // What a backup holds: projects, workflows and widgets (`app`), widget data (`widgets`, `shared`), and the window
 // position (`window`). Not the usage history (`telemetry`, tens of MB, stays on this PC) and not the AI control
@@ -97,7 +98,7 @@ export function createAppDataBackup(): AppDataBackup {
           return null;
         }
         const { kind, version, createdAt } = data as Record<string, unknown>;
-        return (kind === backupKind || kind === oldBackupKind) && typeof version === 'string' && typeof createdAt === 'string'
+        return typeof kind === 'string' && readableBackupKinds.includes(kind) && typeof version === 'string' && typeof createdAt === 'string'
           ? { version, createdAt } satisfies BackupInfo
           : null;
       } catch {

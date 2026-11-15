@@ -104,7 +104,7 @@ export function createInitAppMenuUseCase({
   };
 
   const itemAbout: MenuItem = {
-    label: 'About Acedeck',
+    label: 'About AceDeck',
     doAction: async () => openAboutUseCase()
   }
 
@@ -118,7 +118,7 @@ export function createInitAppMenuUseCase({
   }
 
   const menuApp: MenuItem = {
-    label: 'Acedeck',
+    label: 'AceDeck',
     submenu: [
       itemAbout,
       itemSeparator,

@@ -7,7 +7,7 @@
  * The folder (under the OS app-data folder) that holds the app's userData: projects, widget data, the sessions of
  * Webpage widgets, the single-instance lock.
  *
- * The names are the app's former name on purpose. The app was renamed to Acedeck, but the data stays where every
+ * The names are the app's former name on purpose. The app was renamed to AceDeck, but the data stays where every
  * existing install has it. Electron would otherwise derive the folder from the app name and start empty. Do not make
  * these follow the product name.
  *

@@ -5,7 +5,7 @@
 
 /**
  * The `acedeck` CLI (`freeter` is its former name, kept as an alias): lets AI agents (and people) drive a running app through
- * its AI control pipe. Runs on plain Node or on the Freeter executable with
+ * its AI control pipe. Runs on plain Node or on the AceDeck executable with
  * ELECTRON_RUN_AS_NODE=1, so it must not import 'electron'.
  */
 
@@ -26,14 +26,14 @@ export interface CliIo {
 export interface AiClient {
   call(method: AiRpcMethod, params: { actionId?: string; input?: unknown }): Promise<AiRpcResult>;
   close(): void;
-  /** True once Freeter closed the connection (it quit or restarted). */
+  /** True once AceDeck closed the connection (it quit or restarted). */
   isClosed(): boolean;
 }
 
 export type ConnectAiClient = (endpointPath: string, origin: AiOrigin) => Promise<AiClient>;
 
-const notRunning = () => new Error('Acedeck is not running');
-const CLOSED = 'Acedeck closed the connection';
+const notRunning = () => new Error('AceDeck is not running');
+const CLOSED = 'AceDeck closed the connection';
 
 async function readAll(stream: NodeJS.ReadableStream): Promise<string> {
   const chunks: Buffer[] = [];
@@ -94,7 +94,7 @@ export async function connectAiClient(endpointPath: string, origin: AiOrigin): P
     pending.delete(msg.id);
     resolve?.(msg.error ? { ok: false, code: msg.error.data?.code ?? 'failed', message: msg.error.message } : { ok: true, value: msg.result ?? null });
   }, () => socket.destroy()));
-  socket.on('error', () => failAll('Connection to Acedeck failed'));
+  socket.on('error', () => failAll('Connection to AceDeck failed'));
   socket.on('close', () => failAll(CLOSED));
 
   return {
@@ -116,19 +116,19 @@ export async function connectAiClient(endpointPath: string, origin: AiOrigin): P
 
 /** Stands in until the first connection: every call reconnects. */
 const closedClient: AiClient = {
-  call: async () => ({ ok: false, code: 'failed', message: 'Acedeck is not running' }),
+  call: async () => ({ ok: false, code: 'failed', message: 'AceDeck is not running' }),
   close: () => undefined,
   isClosed: () => true,
 };
 
 /**
- * For the long-lived `acedeck mcp`: when Freeter restarts (new pipe, new token),
+ * For the long-lived `acedeck mcp`: when AceDeck restarts (new pipe, new token),
  * the next call reads endpoint.json again and reconnects.
  */
 export function createReconnectingAiClient(first: AiClient, reopen: () => Promise<AiClient>): AiClient {
   let current = first;
   /**
-   * The connection Freeter refused for its old token. Calls on it never ran (Freeter checks the token first),
+   * The connection AceDeck refused for its old token. Calls on it never ran (AceDeck checks the token first),
    * so a call that saw it close may be sent again. A connection that closed for another reason gets no retry.
    */
   let refused: AiClient | undefined;
@@ -159,7 +159,7 @@ export function createReconnectingAiClient(first: AiClient, reopen: () => Promis
       }
       const used = current;
       const res = await used.call(method, params);
-      // A call on a connection another refused call replaced also failed for the old token (Freeter refuses before
+      // A call on a connection another refused call replaced also failed for the old token (AceDeck refuses before
       // it runs anything), even when it saw only the connection close: it retries too.
       if (res.ok) {
         return res;
@@ -169,7 +169,7 @@ export function createReconnectingAiClient(first: AiClient, reopen: () => Promis
       if (res.code !== 'unauthorized' && !replaced) {
         return res;
       }
-      // A refused token means endpoint.json was older than the running Freeter (it was restarting):
+      // A refused token means endpoint.json was older than the running AceDeck (it was restarting):
       // read it again once. Another call may have done it already; then only retry.
       if (current === used) {
         // Calls that come in meanwhile see a closed client and wait for the same reconnect.
@@ -195,7 +195,7 @@ export function createReconnectingAiClient(first: AiClient, reopen: () => Promis
 }
 
 const usage = `Usage:
-  acedeck actions [--json]              List what an agent can do in Acedeck
+  acedeck actions [--json]              List what an agent can do in AceDeck
   acedeck run <action> [--input <JSON> | --input - | --input-file <path>]
                                         Run an action (write actions ask the user first,
                                         unless the user turned on "always allow");
@@ -205,10 +205,10 @@ const usage = `Usage:
 `;
 
 export function guideText(actions: AiActionInfo[]): string {
-  return `# Acedeck CLI guide for AI agents
+  return `# AceDeck CLI guide for AI agents
 
-Acedeck is a desktop organizer: projects contain workflows, workflows contain widgets.
-This CLI drives the running Acedeck app.
+AceDeck is a desktop organizer: projects contain workflows, workflows contain widgets.
+This CLI drives the running AceDeck app.
 
 ## Commands
 
@@ -224,7 +224,7 @@ Start with \`acedeck run app.describe\` to get the ids of projects, workflows, w
 
 ## Confirmation
 
-A "write" action shows the user an Allow/Deny dialog in Acedeck. A denial or no answer
+A "write" action shows the user an Allow/Deny dialog in AceDeck. A denial or no answer
 within 2 minutes fails with "denied". Tell the user; do not retry without asking.
 If the user turned on "AI actions: always allow", most writes (deletes too) run at once with no
 dialog; only actions that can run programs or send data off the PC still ask. So make only the
@@ -232,7 +232,7 @@ changes the user asked for, and ask in the chat before deleting anything.
 
 ## Exit codes
 
-0 success, 1 action failed (stderr: "<code>: <message>"), 2 usage error, 3 Acedeck not running.
+0 success, 1 action failed (stderr: "<code>: <message>"), 2 usage error, 3 AceDeck not running.
 
 ## Actions
 
@@ -279,7 +279,7 @@ export async function runCli(argv: string[], io: CliIo, connect: ConnectAiClient
   const origin: AiOrigin = envOrigin ?? (command === 'mcp' ? 'mcp' : 'cli');
   const endpointPath = defaultEndpointPath(io.env, process.platform, io.env.USERPROFILE ?? io.env.HOME ?? '');
   if (!request) {
-    // An MCP host may start before Freeter (e.g. at login): connect on the first call, and again after a restart.
+    // An MCP host may start before AceDeck (e.g. at login): connect on the first call, and again after a restart.
     const client = createReconnectingAiClient(closedClient, () => connect(endpointPath, origin));
     try {
       await runMcpServer(io, client, version);

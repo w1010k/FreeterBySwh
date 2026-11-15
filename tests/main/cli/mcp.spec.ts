@@ -42,9 +42,9 @@ describe('runMcpServer', () => {
     expect(responses[0].result.tools).toEqual([{ name: 'workflow_create', description: 'Create', inputSchema: { type: 'object' } }]);
   });
 
-  it('tools/list answers an error when Acedeck cannot be reached, instead of an empty list', async () => {
-    const { responses } = await exchange([{ jsonrpc: '2.0', id: 2, method: 'tools/list' }], undefined, { ok: false, code: 'failed', message: 'Acedeck is not running' });
-    expect(responses[0]).toMatchObject({ id: 2, error: { message: 'Acedeck is not running' } });
+  it('tools/list answers an error when AceDeck cannot be reached, instead of an empty list', async () => {
+    const { responses } = await exchange([{ jsonrpc: '2.0', id: 2, method: 'tools/list' }], undefined, { ok: false, code: 'failed', message: 'AceDeck is not running' });
+    expect(responses[0]).toMatchObject({ id: 2, error: { message: 'AceDeck is not running' } });
   });
 
   it('tools/call runs the action and returns its value as text', async () => {

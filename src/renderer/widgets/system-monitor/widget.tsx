@@ -116,7 +116,7 @@ function WidgetComp({widgetApi}: WidgetReactComponentProps<Settings>) {
         </Metric>
       )}
       {stats && (
-        <Metric label='Acedeck' percent={toPercent(stats.appCpuPercent)}>
+        <Metric label='AceDeck' percent={toPercent(stats.appCpuPercent)}>
           <div className={styles['detail']}>{formatBytes(stats.appMemBytes)}</div>
         </Metric>
       )}

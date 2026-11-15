@@ -501,14 +501,14 @@
 | `src/renderer/infra/appMenuProvider/`, `trayMenuProvider/`, `contextMenuProvider/` | IPC 래퍼 (공통 패턴의 메뉴 IPC 왕복)     |
 | `src/renderer/ui/components/titleBar/`                                             | 앱이 그리는 제목 표시줄과 메뉴 바 (Windows, Linux) [fork #110] |
 
-앱 메뉴 (Windows/Linux 기준. macOS는 첫 메뉴가 `Acedeck` 앱 메뉴):
+앱 메뉴 (Windows/Linux 기준. macOS는 첫 메뉴가 `AceDeck` 앱 메뉴):
 
 | 메뉴 | 항목                                                                                                                                                                                                                                    |
 |------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | File | Settings (`CmdOrCtrl+,`), Open Data Folder [fork #5], Back Up Data…, Restore Data… [fork #108], Quit                                                                                                                                                                              |
 | Edit | Enable/Disable Edit Mode (`CmdOrCtrl+E`), undo, redo, cut, copy, paste, selectAll                                                                                                                                                       |
 | View | Appearance (전체 화면, 메뉴 바, 상단 바, 밝게/어둡게 전환 `CmdOrCtrl+Shift+L` [fork #110], 프로젝트 전환기 위치, 편집 토글 위치), Next/Previous Workflow (`CmdOrCtrl+Tab`, `CmdOrCtrl+Shift+Tab`) [fork #6], Analytics (`CmdOrCtrl+Shift+A`) [fork #62 #87], Manage Projects, Manage Apps |
-| Help | Original Freeter on Twitter·Community·Feature Requests·Bug Reports·Downloads, About Acedeck [fork #1, #103, #112]                                                                                                                                     |
+| Help | Original Freeter on Twitter·Community·Feature Requests·Bug Reports·Downloads, About AceDeck [fork #1, #103, #112]                                                                                                                                     |
 | Dev  | dev 모드 (`isDevMode`)에서만: reload, forceReload, toggleDevTools                                                                                                                                                                       |
 
 - 메뉴는 로딩이 끝난 뒤 `editMode`, `menuBar`, `topBar`, `projectSwitcher.pos`, `editTogglePos`가 바뀔 때마다 다시 만든다.
@@ -518,7 +518,7 @@
   (바탕 `topBarBackground`, 기호 `componentColor`). `menuBar`가 false면 메뉴 이름을 숨기고 포커스가 있을 때만 보인다. macOS는 TitleBar를 그리지
   않는다 (`hasAppTitleBar`). 앱 화면, 전체 화면 모달, 셸프 위젯 상자는 `--app-title-bar-height`만큼 내린다. Alt+글자는 bubble 단계에서
   `defaultPrevented`가 아닐 때만 받고 `e.code`로 맞춘다. Alt 단독 판단은 capture 단계 keydown, mousedown으로 지운다. 플랫폼 판단은
-  `ProcessInfo.hasAppTitleBar` (main `infra/browserWindow/appTitleBar.ts`). 창 제목은 `ProcessInfo.appName` (main `app.getName()`).
+  `ProcessInfo.hasAppTitleBar` (main `infra/browserWindow/appTitleBar.ts`). 창 제목은 `ProcessInfo.appName` (main `app.getName()`)이고, 그 왼쪽에 앱 마크 (`logo-150.svg`, 16px, 제목 글자 색)를 둔다 [fork #112].
 - Help의 외부 링크와 Downloads (`https://freeter.io/v2/download`)는 upstream 주소 그대로라서, 이름에 "Original Freeter"를 붙인다 (이전 "Check for updates"는 이 포크의 업데이트를 확인하는 것처럼 읽혔다) [fork #103].
 - 트레이 메뉴: 프로젝트마다 항목 하나 (현재 프로젝트는 radio). 클릭 → `showBrowserWindowUseCase()` → `switchProjectUseCase(id)`.
 

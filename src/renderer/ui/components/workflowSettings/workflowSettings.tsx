@@ -46,8 +46,8 @@ export function createWorkflowSettingsComponent({
 
           <SettingBlock
             title='Memory Saver'
-            moreInfo='Acedeck frees up memory from inactive workflows.
-                      This gives active workflows more computer resources and keeps Acedeck
+            moreInfo='AceDeck frees up memory from inactive workflows.
+                      This gives active workflows more computer resources and keeps AceDeck
                       fast. Your inactive workflows automatically become active again when
                       you go back to them.'
           >

@@ -86,7 +86,7 @@ pattern — add a use case, thread it through `init.ts`, inject it into the view
     a *subset* of runtime state.
   - Auto-save via `stateStorage.saveState` on every `set`.
 - Entity collections/lists live in `src/renderer/base/state/entities.ts` with typed actions in `base/state/actions/`.
-- The product is named **Acedeck** (formerly Freeter-SWH, forked from Freeter). Internal identifiers keep the old name
+- The product is named **AceDeck** (formerly Freeter-SWH, forked from Freeter). Internal identifiers keep the old name
   on purpose (`freeter-swh` data folder, `--freeter-*` CSS variables, `freeter:` IPC prefix, `appId`): see
   `docs/dev/decisions.md` D86 before renaming any of them.
 - App data is persisted under `<appData>/freeter-swh/freeter-data` for the installed app and

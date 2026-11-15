@@ -23,7 +23,7 @@ async function setup(opts: { visible?: boolean; ui?: Partial<AppState['ui']> } =
       popupAppMenuUseCase,
       setTitleBarColorsUseCase,
       hasAppTitleBar: opts.visible ?? true,
-      windowTitle: 'Acedeck (dev)',
+      windowTitle: 'AceDeck (dev)',
     })
   });
   const comp = render(<><input aria-label="note"/><TitleBar/></>);
@@ -108,7 +108,14 @@ describe('TitleBar', () => {
 
   it('shows the window title', async () => {
     await setup();
-    expect(screen.getByText('Acedeck (dev)')).toBeInTheDocument();
+    expect(screen.getByText('AceDeck (dev)')).toBeInTheDocument();
+  });
+
+  it('shows the app mark next to the window title', async () => {
+    await setup();
+    const title = screen.getByText('AceDeck (dev)').parentElement;
+    expect(title?.querySelector('svg use')).toHaveAttribute('href', 'test-file-stub');
+    expect(title?.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('does not take the release of Alt after a key a focused element stopped (Alt+F in the Terminal)', async () => {
