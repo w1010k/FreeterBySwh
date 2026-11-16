@@ -232,9 +232,9 @@
 
 | 요소                                   | 표시 조건                                                                                  |
 |----------------------------------------|--------------------------------------------------------------------------------------------|
-| 프로젝트 전환기 + Manage Projects 버튼 | `ui.projectSwitcher.pos`가 `TabBarLeft` 또는 `TabBarRight`. 병합 상태에서는 `TopBar`도 오른쪽으로 취급 [fork #111] |
-| 편집 토글                              | `ui.editTogglePos`가 `TabBarLeft` 또는 `TabBarRight`. 병합 상태에서는 `TopBar`도 오른쪽으로 취급 [fork #111]       |
-| 셸프 (`<Shelf compact/>`)              | 병합 상태 (`isTopBarMerged`)이고, 셸프에 항목이 있거나 편집 모드. 탭 목록 바로 뒤, 오른쪽 요소들 앞. `mergedTopBarSide`가 `'left'`면 왼쪽 요소들 뒤, 탭 목록 바로 앞 [fork #111] |
+| 프로젝트 전환기 + Manage Projects 버튼 | `ui.projectSwitcher.pos`가 `TabBarLeft` 또는 `TabBarRight`. 병합 상태에서는 `TopBar`도 셸프 쪽 (기본 오른쪽, `mergedTopBarSide: 'left'`면 왼쪽)으로 취급 [fork #111] |
+| 편집 토글                              | `ui.editTogglePos`가 `TabBarLeft` 또는 `TabBarRight`. 병합 상태에서는 `TopBar`도 셸프 쪽으로 취급 (프로젝트 전환기와 같음) [fork #111] |
+| 셸프 (`<Shelf compact/>`)              | 병합 상태 (`isTopBarMerged`)이고, 셸프에 항목이 있거나 편집 모드. 탭 목록 바로 뒤, 오른쪽 요소들 앞. `mergedTopBarSide`가 `'left'`면 왼쪽 요소들 뒤, 탭 목록 앞이고 탭은 바 오른쪽 끝으로 간다 (`is-shelf-left`, 탭 목록 `::before`의 `margin-left: auto`). 이때 탭 목록의 빈 곳 (탭들 앞)에 놓은 탭은 맨 앞으로 간다 (`onDrop`) [fork #111] |
 | 팔레트 (왼쪽)                          | 편집 모드, 현재 workflow 있음, 편집 토글이 왼쪽                                            |
 | 팔레트 (오른쪽)                        | 편집 모드, 현재 workflow 있음, 왼쪽 팔레트 아님, 편집 토글이 오른쪽이거나 상단 바가 숨겨짐 |
 | 팔레트 `dropUp`                        | 바가 아래이거나, 세로 바에서 팔레트가 탭 목록 뒤에 있음 [fork #45 후속]                    |
@@ -242,7 +242,7 @@
 - 병합 상태는 팔레트 규칙에서 "상단 바가 숨겨짐"과 같다 (둘 다 `topBarHasOwnRow`가 false). 그래서 편집 토글이 `TopBar`나 `Hidden`이어도 팔레트가 바 오른쪽에 나온다.
 - 빈 셸프는 보기 모드에서 그리지 않는다 (폭 0인 구역이 구분선만 남긴다). 편집 모드에서는 drop 영역으로 그린다.
 - 병합 여부가 바뀌면 (`mergeTopBar`, `ui.topBar`, `workflowBarPos` 중 하나의 변경) `Shelf`가 다른 부모 아래에서 다시 만들어진다. 좌우 (`mergedTopBarSide`)를 바꿀 때도 다시 만들어진다. 셸프의 webview 위젯은 그때 새로고침된다 (decisions.md D85).
-- 가로 바에서 탭 목록 앞에 구역이 있으면 첫 탭을 1px 왼쪽으로 겹친다 (`margin-left: -1px`, 목록이 잘라 냄). 앞 구역의 구분선과 첫 탭의 왼쪽 테두리가 2px 선이 되지 않게 한다 [fork #111].
+- 가로 바에서 탭 목록 앞에 구역이 있으면 첫 탭을 1px 왼쪽으로 겹친다 (`margin-left: -1px`, 목록이 잘라 냄). 셸프가 왼쪽인 바에서도 같다. 오른쪽 끝으로 미는 여백은 첫 탭이 아닌 `::before` 빈 항목에 있어서, 탭이 넘쳐 첫 탭이 앞 구역에 붙을 때도 이 규칙이 적용된다. 앞 구역의 구분선과 첫 탭의 왼쪽 테두리가 2px 선이 되지 않게 한다 [fork #111].
 - 병합 상태의 가로 배분 (`workflowSwitcher.module.scss`): 탭 목록이 남는 폭을 쓰고, 셸프 구역 (`.workflow-switcher-bar-shelf-section`)은 항목 폭만큼만 쓴다.
   셸프 구역은 바의 50%를 넘지 않고, 넘으면 셸프가 가로로 스크롤한다. 편집 모드에서는 빈 셸프도 drop을 받도록 최소 폭 96px를 둔다.
 
@@ -509,7 +509,7 @@
 | File | Settings (`CmdOrCtrl+,`), Open Data Folder [fork #5], Back Up Data…, Restore Data… [fork #108], Quit                                                                                                                                                                              |
 | Edit | Enable/Disable Edit Mode (`CmdOrCtrl+E`), undo, redo, cut, copy, paste, selectAll                                                                                                                                                       |
 | View | Appearance (전체 화면, 메뉴 바, 상단 바, 밝게/어둡게 전환 `CmdOrCtrl+Shift+L` [fork #110], 프로젝트 전환기 위치, 편집 토글 위치), Next/Previous Workflow (`CmdOrCtrl+Tab`, `CmdOrCtrl+Shift+Tab`) [fork #6], Analytics (`CmdOrCtrl+Shift+A`) [fork #62 #87], Manage Projects, Manage Apps |
-| Help | Original Freeter on Twitter·Community·Feature Requests·Bug Reports·Downloads, About AceDeck [fork #1, #103, #112]                                                                                                                                     |
+| Help | AceDeck Releases (이 앱의 GitHub 릴리스 페이지, 맨 위), 구분선, Original Freeter on Twitter·Community·Feature Requests·Bug Reports·Downloads, About AceDeck [fork #1, #103, #112]                                                                                                                                     |
 | Dev  | dev 모드 (`isDevMode`)에서만: reload, forceReload, toggleDevTools                                                                                                                                                                       |
 
 - 메뉴는 로딩이 끝난 뒤 `editMode`, `menuBar`, `topBar`, `projectSwitcher.pos`, `editTogglePos`가 바뀔 때마다 다시 만든다.
@@ -554,7 +554,7 @@
 | `src/renderer/base/appConfig.ts`                         | `AppConfig` 타입                                                                           |
 | `src/renderer/base/state/ui.ts`                          | `createUiState().appConfig` 기본값                                                         |
 | `src/renderer/application/useCases/applicationSettings/` | open, update (초안), save, close, `getMainHotkeyOptions`, `setWorkflowBarWidth` [fork #45] |
-| `src/renderer/ui/components/applicationSettings/`        | 설정 모달, `WorkflowBarWidthInput` [fork #45 후속]                                         |
+| `src/renderer/ui/components/applicationSettings/`        | 설정 모달, `WorkflowBarWidthInput` [fork #45 후속], 구역과 행 (`Section`, `Row`) [fork #113] |
 
 | 필드                                             | 기본값                       | 소비처                        | 출처                    |
 |--------------------------------------------------|------------------------------|-------------------------------|-------------------------|
@@ -569,6 +569,7 @@
 | `mergedTopBarSide`                               | `'right'`                    | `workflowSwitcherViewModel`   | fork #111               |
 | `telemetry.enabled`, `telemetry.idleTimeoutMs`   | `false`, `300000`            | `telemetryCollector`          | fork #62                |
 
+- 화면 배치 [fork #113]: 최대 760px 가운데 열, 구역 3개 (Appearance, General, Privacy & AI). 한 설정은 `Row` (왼쪽 이름과 설명, 오른쪽 260px 컨트롤 칸)이고, 설명은 늘 보이며 `aria-describedby`로 컨트롤에 이어진다. `wide`는 경로 입력칸처럼 컨트롤을 행 전체 폭에, `sub`는 부모 설정의 옵션을 들여 쓴다. 공통 `SettingBlock`은 쓰지 않는다 (다른 설정 화면은 그대로).
 - 모달 안의 변경은 초안에만 들어가고, OK (`saveApplicationSettingsUseCase`)에서 `ui.appConfig`로 반영된다. Cancel은 초안을 버린다.
 - 사이드 바 너비를 바꾸는 경로: 모달 입력칸 (초안, OK 때 적용, 입력 중 문자열은 로컬 state로 들고 blur 때 클램프), 편집 모드 리사이저 드래그
   (`setWorkflowBarWidthUseCase`, `ui.appConfig`에 바로 반영).

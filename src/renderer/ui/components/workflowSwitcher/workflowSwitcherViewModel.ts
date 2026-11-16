@@ -304,6 +304,9 @@ export function createWorkflowSwitcherViewModelHook({
         workflowBarWidth,
       }
     })
+    // The merged Top Bar on the left: its shelf (and its Project Switcher and Edit Toggle) go left, the tabs to the
+    // right end of the bar.
+    const topBarOnLeft = topBarIsMerged && shelfOnLeft;
 
     // Memoize like the sibling view models (palette/projectManager/appManager):
     // mapIdListToEntityList allocates a new array, and copiedWorkflows is a dep of
@@ -382,9 +385,13 @@ export function createWorkflowSwitcherViewModelHook({
       doDragOver(evt, null);
     }, [doDragOver])
 
-    const onDrop = useCallback((_evt: DragEvent<HTMLElement>) => {
-      dropOnWorkflowSwitcherUseCase(currentProjectId, null);
-    }, [currentProjectId])
+    const onDrop = useCallback((evt: DragEvent<HTMLElement>) => {
+      // With the tabs at the right end, the free part of the list is before them: a drop there puts the tab first.
+      // Elsewhere (after the tabs) it goes last.
+      const firstTab = topBarOnLeft ? evt.currentTarget.querySelector('[role="tab"]') : null;
+      const beforeTabs = !!firstTab && evt.clientX < firstTab.getBoundingClientRect().left;
+      dropOnWorkflowSwitcherUseCase(currentProjectId, beforeTabs ? workflowIds?.[0] ?? null : null);
+    }, [currentProjectId, topBarOnLeft, workflowIds])
 
     const onItemRename = useCallback((itemId: EntityId, newName: string) => {
       renameWorkflowUseCase(itemId, newName);
@@ -428,13 +435,16 @@ export function createWorkflowSwitcherViewModelHook({
       showContextMenuUseCase(contextMenuItems);
     }, [copiedWorkflows, isEditMode, currentProjectId, workflowIds, workflowBarPos])
 
-    const showPrjSwitcherLeft = prjSwitcherPos === ProjectSwitcherPos.TabBarLeft;
-    // The Top Bar positions land on the right end of the bar when the Top Bar is merged into it.
+    // The Top Bar positions land on the side of the bar the merged Top Bar takes: the right end, or the left with the
+    // shelf.
+    const showPrjSwitcherLeft = prjSwitcherPos === ProjectSwitcherPos.TabBarLeft
+      || (topBarOnLeft && prjSwitcherPos === ProjectSwitcherPos.TopBar);
     const showPrjSwitcherRight = prjSwitcherPos === ProjectSwitcherPos.TabBarRight
-      || (topBarIsMerged && prjSwitcherPos === ProjectSwitcherPos.TopBar);
-    const showEditToggleLeft = editTogglePos === EditTogglePos.TabBarLeft;
+      || (topBarIsMerged && !topBarOnLeft && prjSwitcherPos === ProjectSwitcherPos.TopBar);
+    const showEditToggleLeft = editTogglePos === EditTogglePos.TabBarLeft
+      || (topBarOnLeft && editTogglePos === EditTogglePos.TopBar);
     const showEditToggleRight = editTogglePos === EditTogglePos.TabBarRight
-      || (topBarIsMerged && editTogglePos === EditTogglePos.TopBar);
+      || (topBarIsMerged && !topBarOnLeft && editTogglePos === EditTogglePos.TopBar);
     const showPalette = isEditMode && hasCurrentWorkflow;
     const showPaletteLeft = showPalette && showEditToggleLeft;
     const showPaletteRight = showPalette && !showPaletteLeft && (showEditToggleRight || !topBarHasOwnRow);
@@ -471,7 +481,8 @@ export function createWorkflowSwitcherViewModelHook({
       showEditToggleRight,
       // An empty shelf is drawn only in Edit Mode (as a drop area): otherwise its zero-width section leaves a stray divider.
       showShelf: topBarIsMerged && (shelfHasItems || isEditMode),
-      shelfOnLeft,
+      // Also while an empty shelf is hidden: the tabs then keep their place at the right end.
+      shelfOnLeft: topBarOnLeft,
       workflowBarPos,
       workflowBarWidth,
     }

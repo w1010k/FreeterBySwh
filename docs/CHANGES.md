@@ -4105,11 +4105,11 @@ Webpage 위젯 안 페이지가 새 창을 열려고 했는데 열리지 않으�
 상단 바 (Top Bar)의 셸프 위젯을 워크플로우 바 안에 넣어 두 줄을 한 줄로 쓴다. 기본은 워크플로우 탭이 왼쪽, 셸프 탭이 오른쪽이고, 설정으로 좌우를 바꿀 수 있다.
 
 - **켜는 곳**: 설정 > Workflow Bar Position이 Top일 때 나오는 **Merge Top Bar into it** (기본 Off). 선택지는 `Off`, `On, widgets on the right`, `On, widgets on the left`다.
-- **좌우 선택** *(2026-11-16 추가)*: `On, widgets on the left`를 고르면 셸프가 워크플로우 탭 앞에 놓이고, 탭은 셸프 바로 뒤에서 시작한다. Off로 바꿔도 고른 쪽은 남아서, 다시 켜면 그쪽으로 돌아간다.
+- **좌우 선택** *(2026-11-16 추가)*: `On, widgets on the left`를 고르면 셸프가 바 왼쪽에 놓이고, 워크플로우 탭과 Add 버튼은 바 오른쪽 끝에 붙는다 (`[셸프] (빈 공간) [탭…][+]`). 셸프가 비어 숨겨져도 탭은 오른쪽 끝에 남는다. 편집 모드에서 탭을 탭들 앞의 빈 공간에 놓으면 맨 앞으로, 탭들 뒤에 놓으면 맨 뒤로 간다. Off로 바꿔도 고른 쪽은 남아서, 다시 켜면 그쪽으로 돌아간다.
 - **동작 조건**: 이 설정이 On이고, 상단 바가 보이는 상태 (View > Appearance > Show Top Bar)이고, 워크플로우 바가 Top일 때. 하나라도 아니면 전처럼 따로 그린다. 셸프 팝업은 아래로 열리는 가로 목록이라서 Bottom, Left, Right 바에는 넣지 않는다.
-- **병합된 바의 순서**: 왼쪽 요소, 워크플로우 탭 (남는 폭), 셸프, 오른쪽 요소. 셸프를 왼쪽에 두면 왼쪽 요소, 셸프, 워크플로우 탭, 오른쪽 요소다. 셸프는 항목 폭만큼만 쓰고 바의 절반을 넘으면 가로로 스크롤한다. 빈 셸프는 편집 모드에서만 보인다 (위젯을 놓을 자리).
+- **병합된 바의 순서**: 왼쪽 요소, 워크플로우 탭 (남는 폭), 셸프, 오른쪽 요소. 셸프를 왼쪽에 두면 왼쪽 요소, 셸프, 빈 공간, 워크플로우 탭, 오른쪽 요소다. 셸프는 항목 폭만큼만 쓰고 바의 절반을 넘으면 가로로 스크롤한다. 빈 셸프는 편집 모드에서만 보인다 (위젯을 놓을 자리).
 - 설정 칸 옆에 "상단 바가 보일 때 적용된다"는 안내를 둔다. 상단 바가 숨겨져 있으면 On이어도 화면은 그대로다.
-- **위치 설정**: 프로젝트 전환기와 편집 토글의 위치가 Top Bar이면 병합된 바의 오른쪽 끝에 나온다. 편집 모드의 팔레트도 바 오른쪽에 나온다.
+- **위치 설정**: 프로젝트 전환기와 편집 토글의 위치가 Top Bar이면 병합된 상단 바가 있는 쪽에 나온다. 셸프가 오른쪽이면 바의 오른쪽 끝, 셸프가 왼쪽이면 바의 왼쪽 (셸프 앞)이다. 편집 모드의 팔레트는 편집 토글과 같은 쪽에 나온다.
 - 셸프 탭 높이는 워크플로우 바에 맞춰 36px (상단 바에서는 48px), 글자는 14px다. 팝업 크기와 hover/focus 동작은 그대로다.
 - AI 작업 `app.getSettings`, `app.updateSettings`가 `mergeTopBar`와 `mergedTopBarSide` (`right`|`left`)를 받는다.
 
@@ -4119,7 +4119,8 @@ Webpage 위젯 안 페이지가 새 창을 열려고 했는데 열리지 않으�
 - `app.tsx`의 `.body-layout` 슬롯 순서는 그대로다. 그래서 병합을 켜고 꺼도 `Worktable`이 다시 만들어지지 않는다.
 - 같은 `Shelf` 컴포넌트를 `compact` prop으로 다시 쓴다. 셸프 탭 높이는 CSS 변수 `--shelf-bar-height`에서 나오고, 이 변수는 셸프가 놓인 바 (`.top-bar` 48px, `.workflow-switcher-bar` 36px)가 정의한다.
 - 셸프 팝업의 `top`을 고정값 (`46px` + 제목 표시줄 높이)에서 탭 캡션의 실측 rect (아래쪽 좌표 - 4px)로 바꿨다. 상단 바에서의 위치는 전과 같다. 쓰는 곳이 없어진 `appTitleBarOffsetPx`는 지웠다.
-- 좌우는 별도 필드 `appConfig.mergedTopBarSide` (`'right'` 기본, `'left'`)다. `mergeTopBar`를 값 3개로 바꾸지 않은 것은 저장된 `true`를 변환하지 않기 위해서다. `WorkflowSwitcher`는 같은 셸프 구역 요소를 탭 목록의 앞이나 뒤에 그린다.
+- 좌우는 별도 필드 `appConfig.mergedTopBarSide` (`'right'` 기본, `'left'`)다. `mergeTopBar`를 값 3개로 바꾸지 않은 것은 저장된 `true`를 변환하지 않기 위해서다. `WorkflowSwitcher`는 같은 셸프 구역 요소를 탭 목록의 앞이나 뒤에 그린다. 왼쪽 배치에서는 바에 `is-shelf-left` 클래스를 붙이고, 탭 목록의 `::before` 빈 항목에 `margin-left: auto`를 준다. `justify-content: flex-end`를 쓰지 않은 것은 탭이 넘칠 때 왼쪽으로 넘친 탭에 스크롤이 닿지 않기 때문이다 (auto 여백은 넘칠 때 0이 되어 평소처럼 스크롤된다). 여백을 첫 탭이 아닌 빈 항목에 두는 것은 첫 탭의 1px 겹침 규칙 (`margin-left: -1px`)과 부딪히지 않게 하기 위해서다. 탭이 넘쳐 첫 탭이 앞 구역에 붙어도 구분선은 1px이다.
+- 탭 목록의 빈 곳에 놓은 탭은 원래 맨 뒤로 간다 (`dropOnWorkflowSwitcherUseCase(프로젝트, null)`). 왼쪽 배치에서는 빈 곳이 탭들 앞에 있으므로, view model의 `onDrop`이 놓은 x 좌표를 첫 탭의 왼쪽 끝과 비교해 앞이면 첫 워크플로우를 대상으로 넘긴다 (그 자리로 이동, 즉 맨 앞).
 - `AppConfig` 최상위 필드라서 마이그레이션은 없다 (decisions.md의 선례). 설계 선택과 버린 대안은 decisions.md D85.
 
 **까다로웠던 포인트**
@@ -4129,7 +4130,7 @@ Webpage 위젯 안 페이지가 새 창을 열려고 했는데 열리지 않으�
 - 편집 모드를 켜서 팔레트 구역이 생기면 병합된 셸프의 탭이 옆으로 밀린다. 오른쪽 셸프는 오른쪽 팔레트에, 왼쪽 셸프는 왼쪽 팔레트에 밀린다. 그래서 편집 모드가 바뀔 때 탭 위치를 다시 잰다 (코드 리뷰에서 발견).
 - 탭 목록 앞에 구역이 있으면 (왼쪽 셸프, 왼쪽의 프로젝트 전환기, 편집 토글, 팔레트) 그 구역의 오른쪽 구분선과 첫 탭의 왼쪽 테두리가 나란히 그려져 2px 선이 됐다. 가로 바에서는 첫 탭을 1px 왼쪽으로 겹쳐서 선 하나로 만든다 (코드 리뷰에서 발견, 왼쪽 셸프 이전부터 있던 겹침도 함께 고침).
 - 상단 바의 셸프는 `position: absolute`로 구역을 채운다. 이 상태로는 구역이 항목 폭을 알 수 없어서, 병합 상태 (`.is-compact`)에서는 `position: static`으로 둔다.
-- 프로젝트 전환기와 편집 토글의 Top Bar 위치는 병합 상태에서 갈 곳이 없다. 저장 값은 바꾸지 않고 view model에서 오른쪽으로 취급한다. 병합을 끄면 원래 위치로 돌아간다.
+- 프로젝트 전환기와 편집 토글의 Top Bar 위치는 병합 상태에서 갈 곳이 없다. 저장 값은 바꾸지 않고 view model에서 셸프가 있는 쪽 (오른쪽, 또는 셸프가 왼쪽이면 왼쪽)으로 취급한다. 병합을 끄면 원래 위치로 돌아간다.
 
 **수정 파일**
 
@@ -4150,6 +4151,7 @@ Webpage 위젯 안 페이지가 새 창을 열려고 했는데 열리지 않으�
 - **백업**: 새 백업 폴더 이름은 `AceDeck backup <날짜>`다. Restore Data는 옛 이름으로 만든 백업 (`Freeter-SWH backup …`, 2.8.0-swh.33의 `Acedeck backup …`)도 받는다.
 - **설치본의 창 제목**: 전에는 소문자 `freeter-swh`로 보였다 (`package.json`에 `productName`이 없어 `name`이 쓰였다). 이제 `AceDeck`으로 보인다.
 - **아이콘**: 새 아이콘으로 바꿨다 (실행 파일, 바로 가기, 작업 표시줄, 트레이, 창, About 화면). 내려받은 `msi` 파일 자체는 전처럼 Windows 기본 설치 파일 아이콘으로 보인다. 트레이는 2배 크기 그림 (`16@2x.png`)도 함께 두어 화면 배율이 높을 때 흐려지지 않는다. 원본 로고의 블록 구성 (왼쪽 기둥, 윗막대)을 잇고, 가운데 네모 대신 오른쪽 다리를 둔 형태다. 어두운 둥근 사각형 위에 블록 3개가 밝기 3단계 (흰색, 밝은 회색, 어두운 회색)로 놓여 쌓인 층 (deck)을 나타낸다. Windows는 아이콘을 캐시하므로 설치 뒤에도 작업 표시줄에 옛 아이콘이 한동안 보일 수 있다.
+- **Help 메뉴** *(2026-11-16 추가)*: 맨 위에 **AceDeck Releases**가 있다. 이 앱의 GitHub 릴리스 페이지 (`https://github.com/w1010k/FreeterBySwh/releases`, 버전별 설치 파일과 변경 내용)를 기본 브라우저로 연다. 그 아래 구분선 뒤에 원본 Freeter 링크가 이어진다.
 - 원본 Freeter를 가리키는 곳은 그대로다: Help 메뉴의 Original Freeter 링크, About 화면의 원본 후원자 안내, 파일 머리말의 저작권 표기 (GPL-3.0).
 
 구조:
@@ -4172,8 +4174,36 @@ Webpage 위젯 안 페이지가 새 창을 열려고 했는데 열리지 않으�
 **수정 파일**
 
 - **신규**: `src/main/base/userDataDir.ts`, `resources/bin/{acedeck,acedeck.cmd}`, `resources/icon/{acedeck.svg,build-icons.js}`
-- **수정**: `resources/linux/freeter-icons/*.png`, `resources/win32/freeter.ico`, `src/assets/app-icons/{16,16@2x,256}.png` (`16@2x`는 신규), `src/renderer/ui/assets/images/appIcons/logo-150.svg`, `package.json`, `electron-builder.config.js`, `webpack.renderer.config.js`, `resources/bin/{freeter,freeter.cmd}`, `.gitattributes`, `src/renderer/analyticsPage/{index.ejs,analyticsPage.tsx}`, `src/main/index.ts`, `src/main/cli/{cli.ts,mcp.ts}`, `src/main/infra/appDataBackup/appDataBackup.ts`, `src/main/application/useCases/appDataBackup/{backUpAppData,restoreAppData}.ts`, `src/renderer/ui/components/about/about.tsx`, `src/renderer/ui/components/titleBar/{titleBar.tsx,titleBar.module.scss}`, 그 밖에 화면 문구가 든 `src` 파일들
-- **테스트**: `tests/main/base/userDataDir.spec.ts` (신규), `tests/main/infra/appDataBackup/` (옛 표식 복원), `tests/renderer/ui/components/titleBar.spec.tsx` (앱 마크), 문구를 기대하는 기존 스펙들
+- **수정**: `resources/linux/freeter-icons/*.png`, `resources/win32/freeter.ico`, `src/assets/app-icons/{16,16@2x,256}.png` (`16@2x`는 신규), `src/renderer/ui/assets/images/appIcons/logo-150.svg`, `package.json`, `electron-builder.config.js`, `webpack.renderer.config.js`, `resources/bin/{freeter,freeter.cmd}`, `.gitattributes`, `src/renderer/analyticsPage/{index.ejs,analyticsPage.tsx}`, `src/main/index.ts`, `src/main/cli/{cli.ts,mcp.ts}`, `src/main/infra/appDataBackup/appDataBackup.ts`, `src/main/application/useCases/appDataBackup/{backUpAppData,restoreAppData}.ts`, `src/renderer/ui/components/about/about.tsx`, `src/renderer/ui/components/titleBar/{titleBar.tsx,titleBar.module.scss}`, `src/renderer/application/useCases/appMenu/initAppMenu.ts` (Help 메뉴), 그 밖에 화면 문구가 든 `src` 파일들
+- **테스트**: `tests/main/base/userDataDir.spec.ts` (신규), `tests/main/infra/appDataBackup/` (옛 표식 복원), `tests/renderer/ui/components/titleBar.spec.tsx` (앱 마크), `tests/renderer/application/useCases/appMenu/initAppMenu.spec.ts` (AceDeck Releases), 문구를 기대하는 기존 스펙들
+
+## 113. Application Settings 화면 정리 *(2026-11-16)*
+
+Application Settings 화면의 배치를 새로 짰다. 설정 값과 저장 방식은 그대로다.
+
+- **가운데 열**: 내용이 화면 가운데의 최대 760px 열에 놓인다. 전에는 선택 상자와 입력칸이 창 전체 폭으로 늘어나, `Off`/`On`뿐인 선택 상자도 창만큼 길었다.
+- **구역**: 설정을 Appearance (테마, 워크플로우 바 위치, 배경), General (단축키, 다운로드 폴더, Memory Saver), Privacy & AI (Usage Analytics, AI Actions) 세 구역으로 묶었다.
+- **설명이 보임**: 각 설정의 설명이 `?` 툴팁 대신 이름 아래에 보조 색으로 늘 보인다. 문구는 그대로다 (Workflow Bar Position만 #111의 좌우 선택에 맞게 고쳤다).
+- **행 배치**: 이름과 설명은 왼쪽, 컨트롤은 오른쪽의 260px 열이다. 경로 입력칸 (배경 이미지, 다운로드 폴더)은 버튼과 함께 행 전체 폭을 쓴다. 창이 좁으면 (열이 560px 이하) 컨트롤이 설명 아래로 간다.
+- **하위 옵션**: 바 너비, Merge Top Bar, 배경 이미지 맞춤, Memory Saver의 두 설정이 부모 설정 아래에 들여 쓴 같은 모양의 행으로 놓인다. 배경 이미지 맞춤에도 보이는 이름 (Background Image Fit)이 생겼다.
+- **버튼**: Browse…, Use default, Clear가 입력칸과 같은 테두리와 높이 (28px)의 버튼으로 보인다. 전에는 테두리 없는 회색 글자처럼 보였다.
+- **배경색**: 사용자 색이 없으면 색 칸 옆에 "Theme default"가 보인다 (색 칸은 흰색으로 그려져 흰색이 골라진 것처럼 보였다).
+
+구조:
+
+- `applicationSettings.tsx` 안의 `Section` (`<section>` + `h3`, 제목이 영역 이름), `Row` (`label`, 설명, 컨트롤 칸)로 그린다. 설명은 `aria-describedby`로 컨트롤에 이어진다. Memory Saver는 `role="group"`이다.
+- 공통 `SettingBlock`과 `settingsScreen.module.scss`는 바꾸지 않았다. 위젯 설정, 워크플로우 설정, 프로젝트 관리 화면은 그대로다.
+
+**까다로웠던 포인트**
+
+- 공통 패널 규칙 `.settings-screen-panel input[type=text]` (전체 폭)와 이 화면의 규칙은 선택자 강도가 같아서, 두 CSS 모듈이 불러지는 순서에 따라 결과가 바뀐다. 이 화면의 입력칸 규칙은 `.settings-content` 아래에 두어 한 단계 강하게 했다.
+- 숫자 입력칸 (바 너비)은 공통 패널 규칙에 들어 있지 않아 다른 칸보다 높았다. 이 화면에서 28px로 맞춘다.
+- 화면 확인은 저장소 실행 (`electron ./build/main.js`, `freeter-swh-dev` 데이터)에 main inspector를 붙여 File > Settings 메뉴 항목을 누르는 방식으로 했다. 렌더러에 보낸 Ctrl+, 키 입력은 메뉴 단축키를 부르지 않았다. 다시 빌드한 렌더러는 `reloadIgnoringCache`로만 읽혔다.
+
+**수정 파일**
+
+- **수정**: `src/renderer/ui/components/applicationSettings/{applicationSettings.tsx,applicationSettings.module.scss}`
+- **테스트**: `tests/renderer/ui/components/applicationSettings.spec.tsx` (구역, 설명 연결, Memory Saver 그룹)
 
 ## 부록: 참고 문서
 

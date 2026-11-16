@@ -270,6 +270,18 @@ describe('initAppMenuUseCase()', () => {
     expect(appDataBackupProvider.restore).toHaveBeenCalledTimes(1);
   });
 
+  it('Help menu starts with AceDeck Releases, which opens the releases page of this app', async () => {
+    const { initAppMenuUseCase, appMenuProviderMock, shellProviderMock } = await setup(fixtureAppState({}));
+    initAppMenuUseCase();
+
+    const menus = (appMenuProviderMock.setMenu as jest.Mock).mock.calls[0][0] as MenuItem[];
+    const help = menus.find(m => m.label === '&Help')!.submenu!;
+    expect(help[0].label).toBe('AceDeck Releases');
+    expect(help[1].type).toBe('separator');
+    await help[0].doAction!();
+    expect(shellProviderMock.openExternal).toHaveBeenCalledWith('https://github.com/w1010k/FreeterBySwh/releases');
+  });
+
   it('puts the top-level menu names in the state, for the app\'s own menu bar', async () => {
     const { initAppMenuUseCase, appStore } = await setup(fixtureAppState({}));
     initAppMenuUseCase();

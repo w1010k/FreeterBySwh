@@ -239,6 +239,18 @@ describe('<ApplicationSettings />', () => {
       expect(updateApplicationSettingsUseCase).toHaveBeenCalledWith({...appConfig, mergeTopBar: true, mergedTopBarSide: 'right'});
     })
 
+    it('groups the settings into sections and shows each description, linked to its control', async () => {
+      const appConfig = fixtureAppConfig({workflowBarPos: 'top'});
+      await setup(fixtureAppState({
+        ui: { modalScreens: fixtureModalScreens({ data: fixtureModalScreensData({ applicationSettings: fixtureApplicationSettings({ appConfig }) }) }) }
+      }));
+      expect(screen.getAllByRole('heading', {level: 3}).map(h => h.textContent)).toEqual(['Appearance', 'General', 'Privacy & AI']);
+      expect(screen.getByRole('region', {name: 'General'})).toContainElement(screen.getByRole('combobox', {name: /^Hotkey Combination$/i}));
+      expect(screen.getByRole('combobox', {name: /^Hotkey Combination$/i}))
+        .toHaveAccessibleDescription('Hotkey enables you to bring AceDeck to the front of the screen by pressing the specified key combination.');
+      expect(screen.getByRole('group', {name: 'Memory Saver'})).toContainElement(screen.getByRole('combobox', {name: /^Workflow Becomes Inactive After$/i}));
+    })
+
     it('shows an unknown saved side as "right", the side the bar draws', async () => {
       const appConfig = fixtureAppConfig({workflowBarPos: 'top', mergeTopBar: true, mergedTopBarSide: 'top' as unknown as 'right'});
       await setup(fixtureAppState({

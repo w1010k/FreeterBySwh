@@ -89,7 +89,7 @@ export function createWorkflowSwitcherComponent({
       </div>
 
     // The Top Bar merged into this bar: its shelf sits next to the tabs, after them (right) or before them (left, where
-    // the tabs start right after it).
+    // the tabs move to the right end of the bar).
     const compShelf =
       <div className={clsx(
         styles['workflow-switcher-bar-section'],
@@ -105,7 +105,8 @@ export function createWorkflowSwitcherComponent({
           styles['workflow-switcher-bar'],
           isVertical && styles['is-vertical'],
           workflowBarPos === 'bottom' && styles['is-bottom'],
-          workflowBarPos === 'right' && styles['is-right']
+          workflowBarPos === 'right' && styles['is-right'],
+          shelfOnLeft && styles['is-shelf-left']
         )}
         style={isVertical ? {width: workflowBarWidth} : undefined}
       >

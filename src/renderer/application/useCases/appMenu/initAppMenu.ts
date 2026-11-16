@@ -28,6 +28,8 @@ const urlTwitter = 'https://twitter.com/FreeterApp';
 const urlCommunity = 'https://community.freeter.io';
 const urlFeatureRequests = 'https://community.freeter.io/category/6/feature-requests';
 const urlBugReports = 'https://community.freeter.io/category/7/bug-reports';
+// This app's own releases: downloads and what changed in each version.
+const urlReleases = 'https://github.com/w1010k/FreeterBySwh/releases';
 
 type Deps = {
   appStore: AppStore;
@@ -294,6 +296,10 @@ export function createInitAppMenuUseCase({
     ]
   })
 
+  const itemReleases: MenuItem = {
+    doAction: async () => shellProvider.openExternal(urlReleases),
+    label: 'AceDeck Releases'
+  };
   const itemTwitter: MenuItem = {
     doAction: async () => shellProvider.openExternal(urlTwitter),
     label: 'Original Freeter on Twitter'
@@ -314,6 +320,9 @@ export function createInitAppMenuUseCase({
   const menuHelp: MenuItem = {
     label: '&Help',
     submenu: [
+      // This app first, then the links that go to the original Freeter.
+      itemReleases,
+      itemSeparator,
       itemTwitter,
       itemCommunity,
       itemFeatureRequests,

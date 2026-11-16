@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, createEvent } from '@testing-library/react';
 import { createWorkflowSwitcherComponent, createWorkflowSwitcherViewModelHook } from '@/ui/components/workflowSwitcher'
 import { createAppStateHook } from '@/ui/hooks/appState';
 import { fixtureAppState } from '@tests/base/state/fixtures/appState';
@@ -160,9 +160,9 @@ describe('<WorkflowSwitcher />', () => {
       expect(screen.getByText(`${strShelf} compact`)).toBeInTheDocument();
     });
     it.each([
-      ['right', Node.DOCUMENT_POSITION_PRECEDING],
-      ['left', Node.DOCUMENT_POSITION_FOLLOWING],
-    ] as const)('should place Shelf on the %s of the tabs', async (mergedTopBarSide, tabsFromShelf) => {
+      ['right', Node.DOCUMENT_POSITION_PRECEDING, false],
+      ['left', Node.DOCUMENT_POSITION_FOLLOWING, true],
+    ] as const)('should place Shelf on the %s of the tabs', async (mergedTopBarSide, tabsFromShelf, tabsAtRightEnd) => {
       const workflowId = 'workflow-id';
       const projectId = 'project-id';
       await setup(fixtureAppState({
@@ -179,6 +179,72 @@ describe('<WorkflowSwitcher />', () => {
       }));
       const shelfEl = screen.getByText(`${strShelf} compact`);
       expect(shelfEl.compareDocumentPosition(screen.getByRole('tablist')) & tabsFromShelf).toBeTruthy();
+      // The class that moves the tabs to the right end of the bar.
+      expect(screen.getByRole('tablist').closest('.workflow-switcher-bar')?.classList.contains('is-shelf-left')).toBe(tabsAtRightEnd);
+    });
+    it('should put the Top Bar positions of ProjectSwitcher and EditModeToggle on the side of the shelf', async () => {
+      const posOf = async (mergedTopBarSide: 'right' | 'left') => {
+        const {comp} = await setup(fixtureAppState({
+          ui: {
+            topBar: true,
+            appConfig: fixtureAppConfig({workflowBarPos: 'top', mergeTopBar: true, mergedTopBarSide}),
+            editTogglePos: EditTogglePos.TopBar,
+            projectSwitcher: fixtureProjectSwitcher({pos: ProjectSwitcherPos.TopBar})
+          }
+        }));
+        const tabs = comp.container.querySelector('.workflow-switcher')!;
+        const res = [strProjectSwitcher, strEditModeToggle].map(s => screen.getByText(s).compareDocumentPosition(tabs));
+        comp.unmount();
+        return res;
+      };
+      expect(await posOf('right')).toEqual([Node.DOCUMENT_POSITION_PRECEDING, Node.DOCUMENT_POSITION_PRECEDING]);
+      expect(await posOf('left')).toEqual([Node.DOCUMENT_POSITION_FOLLOWING, Node.DOCUMENT_POSITION_FOLLOWING]);
+    });
+    describe('a drop on the free part of the list, with the shelf on the left', () => {
+      const idP = 'P';
+      const idWA = 'W-A';
+      const idWB = 'W-B';
+      const dropAt = async (mergedTopBarSide: 'right' | 'left', clientX: number) => {
+        const {dropOnWorkflowSwitcherUseCase} = await setup(fixtureAppState({
+          entities: {
+            projects: {...fixtureProjectAInColl({id: idP, workflowIds: [idWA, idWB]})},
+            workflows: {...fixtureWorkflowAInColl({id: idWA}), ...fixtureWorkflowBInColl({id: idWB})}
+          },
+          ui: {
+            topBar: true,
+            appConfig: fixtureAppConfig({workflowBarPos: 'top', mergeTopBar: true, mergedTopBarSide}),
+            projectSwitcher: fixtureProjectSwitcher({projectIds: [idP], currentProjectId: idP})
+          }
+        }));
+        const tablist = screen.getByRole('tablist');
+        jest.spyOn(screen.getAllByRole('tab')[0], 'getBoundingClientRect').mockReturnValue({left: 500} as DOMRect);
+        const evt = createEvent.drop(tablist);
+        Object.defineProperty(evt, 'clientX', {value: clientX});
+        fireEvent(tablist, evt);
+        return dropOnWorkflowSwitcherUseCase;
+      };
+      it('puts the tab first, when dropped before the tabs', async () => {
+        expect(await dropAt('left', 100)).toHaveBeenCalledWith(idP, idWA);
+      });
+      it('puts the tab last, when dropped after the tabs', async () => {
+        expect(await dropAt('left', 900)).toHaveBeenCalledWith(idP, null);
+      });
+      it('puts the tab last with the shelf on the right, wherever it is dropped', async () => {
+        expect(await dropAt('right', 100)).toHaveBeenCalledWith(idP, null);
+      });
+    });
+    it('should keep the tabs at the right end while an empty shelf on the left is hidden', async () => {
+      await setup(fixtureAppState({
+        ui: {topBar: true, appConfig: fixtureAppConfig({workflowBarPos: 'top', mergeTopBar: true, mergedTopBarSide: 'left'}), shelf: emptyShelf, editMode: false}
+      }));
+      expect(screen.queryByText(strShelf, {exact: false})).not.toBeInTheDocument();
+      expect(document.querySelector('.is-shelf-left')).toBeInTheDocument();
+    });
+    it('should not move the tabs, when the side is left but the Top Bar is not merged', async () => {
+      await setup(fixtureAppState({
+        ui: {topBar: false, appConfig: fixtureAppConfig({workflowBarPos: 'top', mergeTopBar: true, mergedTopBarSide: 'left'}), shelf}
+      }));
+      expect(document.querySelector('.is-shelf-left')).not.toBeInTheDocument();
     });
     it('should display EditModeToggle and ProjectSwitcher set to the Top Bar position', async () => {
       await setup(fixtureAppState({

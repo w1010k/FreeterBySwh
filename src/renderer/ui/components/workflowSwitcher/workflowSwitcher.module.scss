@@ -253,6 +253,15 @@
   margin-left: -1px;
 }
 
+// The merged Top Bar's widgets on the left: the tabs (and Add after them) move to the right end of the list. An empty
+// item with an auto margin takes the free space before them. Not justify-content: flex-end, which would put tabs that
+// overflow out of reach on the left: the auto margin becomes 0 then, the list scrolls as usual, and the first tab
+// meets the section before the list as above.
+.workflow-switcher-bar.is-shelf-left > .workflow-switcher::before {
+  content: '';
+  margin-left: auto;
+}
+
 .workflow-switcher-item-button,
 .workflow-switcher-item-name-editor {
   outline-offset: -2px;

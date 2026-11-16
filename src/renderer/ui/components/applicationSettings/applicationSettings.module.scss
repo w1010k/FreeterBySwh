@@ -10,20 +10,158 @@
   left:0;
   right:0;
 }
-.download-dir-row {
+
+// One column in the middle of the screen: a wide window does not stretch the controls across it.
+.settings-content {
+  max-width: 760px;
+  margin-inline: auto;
+  container-type: inline-size;
+}
+
+.section:not(:first-child) {
+  margin-block-start: 40px;
+}
+
+.section-title {
+  margin: 0 0 4px;
+  padding-block-end: 8px;
+  border-block-end: 1px solid var(--freeter-componentBorder);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--freeter-textSecondary);
+}
+
+// A setting: name and description on the left, its control in a fixed-width column on the right.
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  column-gap: 32px;
+  row-gap: 8px;
+  align-items: start;
+  padding-block: 14px;
+
+  // Path fields with buttons: the control goes under the text and takes the whole row.
+  &.is-wide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  // An option of the setting above it: indented and close to it.
+  &.is-sub {
+    padding-block-start: 0;
+    padding-inline-start: 20px;
+
+    .row-label {
+      font-weight: 400;
+    }
+  }
+}
+
+// A setting that only holds options (Memory Saver): its text, then its rows.
+.group {
+  padding-block-start: 14px;
+
+  > .row-text {
+    padding-block-end: 14px;
+  }
+}
+
+.row-text {
+  min-width: 0;
+}
+// Beside a control, the name sits on the control's middle (a 20px line next to a 28px field).
+.row:not(.is-wide) > .row-text {
+  padding-block-start: 4px;
+}
+
+.row-label {
+  display: block;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.row-desc {
+  margin-block-start: 4px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--freeter-textSecondary);
+}
+
+// The panel's base rules make selects and text fields block-level and full width: here that is the control column.
+.row-control {
+  min-width: 0;
+}
+
+// Controls side by side in one line: a field with its buttons, a slider with its value. Under .settings-content: one
+// class more than the panel's `.settings-screen-panel input[type=text]` (full width), whatever order the styles load in.
+.settings-content .control-line {
   display: flex;
   align-items: center;
-  gap: 6px;
-  // Keep these rows compact instead of stretching across the whole panel.
-  max-width: 480px;
+  gap: 8px;
 
-  // Only free-text fields (paths) should grow to use the row; color/number/
-  // range inputs keep their natural small size.
   input[type=text] {
     flex: 1 1 auto;
     min-width: 0;
+    width: auto;
   }
-  button {
-    flex: 0 0 auto;
+  // The same height as the other fields (the panel's rules leave number fields out).
+  input[type=number] {
+    width: 96px;
+    height: 28px;
+    padding: 2px 6px;
+    line-height: 22px;
+    box-sizing: border-box;
+  }
+  input[type=range] {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  input[type=color] {
+    width: 48px;
+    height: 28px;
+    padding: 2px;
+    box-sizing: border-box;
+    cursor: pointer;
+  }
+}
+
+.unit, .hint {
+  flex: none;
+  color: var(--freeter-textSecondary);
+}
+.unit {
+  min-width: 36px;
+  font-variant-numeric: tabular-nums;
+}
+
+// Buttons in the settings read as buttons: the field's edge and height, so a field and its buttons line up.
+.row-control button {
+  flex: none;
+  height: 28px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--freeter-inputBorder);
+  border-radius: 2px;
+  background-color: var(--freeter-inputBackground);
+  color: var(--freeter-inputColor);
+  cursor: pointer;
+  transition: background-color 150ms ease-out;
+
+  @media (hover: hover) {
+    &:hover {
+      background-color: var(--freeter-buttonHoverBackground);
+    }
+  }
+  &:focus-visible {
+    outline: 2px solid var(--freeter-outline);
+    outline-offset: 1px;
+  }
+}
+
+// A narrow window: the control goes under its text, as on a wide row.
+@container (max-width: 560px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
