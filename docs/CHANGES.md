@@ -4102,9 +4102,9 @@ Webpage 위젯 안 페이지가 새 창을 열려고 했는데 열리지 않으�
 
 ## 111. 상단 바를 워크플로우 바에 병합 *(2026-11-14)*
 
-상단 바 (Top Bar)의 셸프 위젯을 워크플로우 바 안에 넣어 두 줄을 한 줄로 쓴다. 기본은 워크플로우 탭이 왼쪽, 셸프 탭이 오른쪽이고, 설정으로 좌우를 바꿀 수 있다.
+상단 바 (Top Bar)의 셸프 위젯을 워크플로우 바 안에 넣어 두 줄을 한 줄로 쓴다. 셸프를 탭의 오른쪽에 둘지, 왼쪽에 두고 탭을 오른쪽 끝에 붙일지 고를 수 있다. 처음 만들 때의 기본은 셸프 오른쪽이었고, #114부터 새 설치는 셸프 왼쪽으로 시작한다.
 
-- **켜는 곳**: 설정 > Workflow Bar Position이 Top일 때 나오는 **Merge Top Bar into it** (기본 Off). 선택지는 `Off`, `On, widgets on the right`, `On, widgets on the left`다.
+- **켜는 곳**: 설정 > Workflow Bar Position이 Top일 때 나오는 **Merge Top Bar into it** (기본 Off, #114부터 새 설치는 On, widgets on the left). 선택지는 `Off`, `On, widgets on the right`, `On, widgets on the left`다.
 - **좌우 선택** *(2026-11-16 추가)*: `On, widgets on the left`를 고르면 셸프가 바 왼쪽에 놓이고, 워크플로우 탭과 Add 버튼은 바 오른쪽 끝에 붙는다 (`[셸프] (빈 공간) [탭…][+]`). 셸프가 비어 숨겨져도 탭은 오른쪽 끝에 남는다. 편집 모드에서 탭을 탭들 앞의 빈 공간에 놓으면 맨 앞으로, 탭들 뒤에 놓으면 맨 뒤로 간다. Off로 바꿔도 고른 쪽은 남아서, 다시 켜면 그쪽으로 돌아간다.
 - **동작 조건**: 이 설정이 On이고, 상단 바가 보이는 상태 (View > Appearance > Show Top Bar)이고, 워크플로우 바가 Top일 때. 하나라도 아니면 전처럼 따로 그린다. 셸프 팝업은 아래로 열리는 가로 목록이라서 Bottom, Left, Right 바에는 넣지 않는다.
 - **병합된 바의 순서**: 왼쪽 요소, 워크플로우 탭 (남는 폭), 셸프, 오른쪽 요소. 셸프를 왼쪽에 두면 왼쪽 요소, 셸프, 빈 공간, 워크플로우 탭, 오른쪽 요소다. 셸프는 항목 폭만큼만 쓰고 바의 절반을 넘으면 가로로 스크롤한다. 빈 셸프는 편집 모드에서만 보인다 (위젯을 놓을 자리).
@@ -4205,7 +4205,37 @@ Application Settings 화면의 배치를 새로 짰다. 설정 값과 저장 방
 - **수정**: `src/renderer/ui/components/applicationSettings/{applicationSettings.tsx,applicationSettings.module.scss}`
 - **테스트**: `tests/renderer/ui/components/applicationSettings.spec.tsx` (구역, 설명 연결, Memory Saver 그룹)
 
+## 114. 새 설치의 기본 배치: 위쪽 바 하나 *(2026-11-16)*
+
+새로 설치한 앱은 위쪽에 바 하나로 시작한다. 상단 바가 워크플로우 바에 병합되어 있고, 셸프 위젯은 왼쪽에, 워크플로우 탭과 Edit Mode 버튼은 오른쪽 끝에 놓인다. 전의 기본은 왼쪽 세로 워크플로우 바였고 상단 바는 숨겨져 있었다.
+
+| 설정 | 전 기본값 | 새 기본값 |
+|------|-----------|-----------|
+| 상단 바 표시 (`ui.topBar`, View > Appearance) | 숨김 (`false`) | 보임 (`true`) |
+| Workflow Bar Position (`workflowBarPos`) | Left | Top |
+| Merge Top Bar into it (`mergeTopBar`, `mergedTopBarSide`) | Off (`false`, `'right'`) | On, widgets on the left (`true`, `'left'`) |
+| Edit Mode Toggle Position (`editTogglePos`) | On Tab Bar (Right) | 그대로 |
+
+- 이미 쓰던 설치본은 업데이트해도 화면이 그대로다. 저장된 값은 기본값보다 우선하고, 저장 데이터에 없는 배치 값은 옛 기본값으로 채운다 (아래 구조).
+- Edit Mode 버튼은 기본값 `TabBarRight` 그대로다. 이 값은 병합 여부와 상관없이 버튼을 바의 오른쪽 끝에 둔다 (`TopBar` 위치는 병합을 끄면 상단 바로 옮겨 간다).
+- 처음에는 셸프가 비어 있어서, 편집 모드가 아니면 바의 왼쪽이 빈 공간으로 보인다 (빈 셸프는 편집 모드에서만 위젯을 놓을 자리로 그린다, #111).
+
+구조:
+
+- 저장 상태의 버전을 3으로 올렸다 (`currentAppStateVersion`). `migrateAppState`는 버전 2 이하 데이터에서 빠진 필드만 옛 기본값으로 채운다: `ui.topBar` `false`, `workflowBarPos` `'left'`, `mergeTopBar` `false`, `mergedTopBarSide` `'right'`. 저장된 값은 바꾸지 않는다.
+- 이전 버전으로 되돌려도 된다. 옛 앱의 `migrateAppState`는 버전 3 데이터를 그대로 쓴다 (`fromVer < 2` 단계만 있다).
+
+**까다로웠던 포인트**
+
+- `createUiState()`의 기본값은 새 설치의 초기값이면서, 저장 데이터에 없는 필드를 채우는 값이다 (`mergeAppStateWithPersistentAppState`는 저장 값을 기본값 위에 덮어쓴다). 기본값만 바꾸면 기존 데이터에도 퍼진다. 2.8.0-swh.32~34는 `mergedTopBarSide`를 저장한 적이 없어서 (이 필드는 swh.34 뒤에 생겼다), 병합을 켠 사용자의 셸프가 업데이트 뒤 왼쪽으로 옮겨 갈 뻔했다. 2.8.0-swh.31 이하는 `mergeTopBar`가 없어서 병합이 저절로 켜질 뻔했다 (코드 리뷰에서 발견). pitfalls.md에 규칙으로 남겼다.
+- 저장 파일을 읽지 못해 기본값으로 시작하는 경우 (`store.ts`의 읽기 실패)에는 기존 사용자에게도 새 배치가 보인다. 그때 저장은 막히므로 데이터는 그대로다.
+
+**수정 파일**
+
+- **수정**: `src/renderer/base/state/ui.ts` (`createUiState`), `src/renderer/base/state/app.ts` (`currentAppStateVersion`, `migrateAppState`)
+- **테스트**: `tests/renderer/base/state/ui.spec.ts` (신규: 새 기본값, 저장 값 우선, 버전 3 마이그레이션)
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)
-- `README.md` — 원본 Freeter README (fork 관련 설명은 아직 추가 X)
+- `README.md` — 영어 README (소개, 주요 기능, 설치, 빌드). `README.ko.md` — 한국어 README와 이 문서의 섹션별 한 줄 요약

@@ -8,7 +8,8 @@ import { createEntitiesState, EntitiesState } from '@/base/state/entities';
 import { createUiState, UiState } from '@/base/state/ui';
 import { MigrateVersionedObject } from '@common/base/versionedObject';
 
-export const currentAppStateVersion = 2;
+// 3: the layout defaults changed for new installs (CHANGES #114); data saved before keeps the old layout (migrateAppState).
+export const currentAppStateVersion = 3;
 
 export interface AppState {
   entities: EntitiesState;
@@ -140,6 +141,26 @@ export const migrateAppState: MigrateVersionedObject<object, PersistentAppState>
             activateWorkflowsOnProjectSwitch: true,
             workflowInactiveAfter: -1
           }
+        }
+      }
+    }
+  }
+  if (fromVer < 3 && toData.ui?.appConfig) {
+    // New installs start with the merged Top Bar on the left (createUiState, CHANGES #114). Data saved before has the
+    // layout fields it was saved with; a field it lacks (an older build did not have it) takes the default of that
+    // time, not the new one, so an update does not change the layout the user had. Saved values stay as they are.
+    const { ui } = toData;
+    const appConfig = ui.appConfig;
+    toData = {
+      ...toData,
+      ui: {
+        ...ui,
+        topBar: ui.topBar ?? false,
+        appConfig: {
+          ...appConfig,
+          workflowBarPos: appConfig.workflowBarPos ?? 'left',
+          mergeTopBar: appConfig.mergeTopBar ?? false,
+          mergedTopBarSide: appConfig.mergedTopBarSide ?? 'right',
         }
       }
     }

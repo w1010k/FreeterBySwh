@@ -15,7 +15,7 @@
 - 원인: 저장된 레이아웃은 격자 단위 정수를 그대로 들고 있고, 칸 픽셀 크기는 `뷰포트 ÷ 칸 수`로 매번 다시 계산한다. 상수를 바꾸면 저장 좌표의 의미가 바뀐다. 이 변경은 마이그레이션 없이 들어갔다 (사용자
   요청).
 - 규칙: `widgetLayoutVisibleCols`/`widgetLayoutVisibleRows`를 바꾸기 전에 저장 좌표 마이그레이션 여부를 먼저 정한다. 마이그레이션은 `migrateAppState`와
-  `currentAppStateVersion`(현재 2)으로 한다.
+  `currentAppStateVersion`(현재 3)으로 한다.
 - 근거: CHANGES #34, `src/renderer/base/widgetLayout.ts` `widgetLayoutVisibleCols`,
   `src/renderer/ui/components/worktable/widgetLayout/calcs.ts`
 
@@ -223,7 +223,9 @@
   `appConfig` 최상위의 새 필드는 기본값이 채워지지만 (#41, #42), 중첩 객체 안의 새 필드 (예: `appConfig.memSaver.x`)와 엔티티의 새 필드는 저장본이 통째로 덮는다.
 - 규칙: 중첩 필드나 엔티티 필드를 추가하면 읽는 쪽에서 `undefined`를 허용하거나 `migrateAppState`에 단계를 추가하고 `currentAppStateVersion`을 올린다. 선례는 v2의
   `memSaver` 마이그레이션이다.
-- 근거: `src/renderer/base/state/app.ts` `mergeAppStateWithPersistentAppState`, `migrateAppState`, CHANGES #41, #42
+- 기본값을 바꿀 때도 같다: `createUiState()`의 기본값은 저장 데이터에 없는 필드도 채운다. 새 설치에만 적용하려면 버전을 올리고, 옛 데이터에서 빠진 필드를
+  옛 기본값으로 채운다. 선례는 v3 (#114, 배치 기본값)이다. 그 필드가 언제 처음 저장됐는지 (어느 릴리스부터인지) 커밋과 태그로 확인한다.
+- 근거: `src/renderer/base/state/app.ts` `mergeAppStateWithPersistentAppState`, `migrateAppState`, CHANGES #41, #42, #114
 
 #### 영속 상태 검증 실패의 결과
 

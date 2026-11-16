@@ -332,7 +332,7 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 
 `src/renderer/base/state/app.ts`:
 
-- `currentAppStateVersion = 2`. `migrateAppState`는 버전 1 데이터에 memSaver 설정을 추가한다 [upstream]
+- `currentAppStateVersion = 3`. `migrateAppState`는 버전 1 데이터에 memSaver 설정을 추가한다 [upstream]. 버전 2 이하 데이터에서 빠진 배치 값 (`topBar`, `workflowBarPos`, `mergeTopBar`, `mergedTopBarSide`)은 옛 기본값으로 채운다 [fork #114]
 - `createPersistentAppState`가 저장에서 빼는 것: `ui`의 `copy`, `dragDrop`, `editMode`, `palette`, `memSaver`, `modalScreens`,
   `worktable`, `entities.widgetTypes`, 위젯의 `exposedApi` [upstream]. `ui.widgetDynamicTitles` (위젯 동적 제목) [fork #11],
   `ui.systemThemeKind` (OS 밝음/어두움), `ui.appMenuLabels` (메뉴 바 이름) [fork #110]
@@ -355,9 +355,9 @@ System Monitor (#60)의 `get-system-stats`를 예로 든 파일 순서:
 | `uiTheme`                                        | `defaultUiThemeId` (테마 id나 `'system'`)                             | [upstream, fork #110]     |
 | `downloadDir`                                    | `''` (OS Downloads)                                                   | [fork #41]                |
 | `bgColor`, `bgImage`, `bgImageMode`, `bgOpacity` | `''`, `''`, `'cover'`, `100`                                          | [fork #42]                |
-| `workflowBarPos`, `workflowBarWidth`             | `'left'`, `200`                                                       | [fork #45]                |
-| `mergeTopBar`                                    | `false`                                                               | [fork #111]               |
-| `mergedTopBarSide`                               | `'right'`                                                             | [fork #111]               |
+| `workflowBarPos`, `workflowBarWidth`             | `'top'`, `200`                                                        | [fork #45, #114]          |
+| `mergeTopBar`                                    | `true`                                                                | [fork #111, #114]         |
+| `mergedTopBarSide`                               | `'left'`                                                              | [fork #111, #114]         |
 | `telemetry`                                      | `{enabled: false, idleTimeoutMs: 300000}`                             | [fork #62]                |
 
 #### 저장소 계층

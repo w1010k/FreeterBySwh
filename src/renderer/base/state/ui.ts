@@ -251,7 +251,9 @@ export function createUiState(): UiState {
     dragDrop: {},
     editMode: false,
     menuBar: true,
-    topBar: false,
+    // A new install starts with one bar at the top: the Top Bar merged into the workflow bar, its widgets on the left,
+    // the tabs and the Edit Mode toggle at the right end (CHANGES #114). Saved settings win over these.
+    topBar: true,
     editTogglePos: EditTogglePos.TabBarRight,
     appConfig: {
       mainHotkey: 'CmdOrCtrl+Shift+Space',
@@ -265,10 +267,10 @@ export function createUiState(): UiState {
       bgImage: '',
       bgImageMode: 'cover',
       bgOpacity: 100,
-      workflowBarPos: 'left',
+      workflowBarPos: 'top',
       workflowBarWidth: 200,
-      mergeTopBar: false,
-      mergedTopBarSide: 'right',
+      mergeTopBar: true,
+      mergedTopBarSide: 'left',
       aiAlwaysAllow: false,
       telemetry: {
         enabled: false,

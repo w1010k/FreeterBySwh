@@ -72,7 +72,7 @@
   병합한다.
 - 결과: `appConfig.memSaver`, `appConfig.telemetry` 같은 중첩 객체는 저장된 값이 기본값을 통째로 덮는다. 중첩 객체에 새 필드를 추가하면 기존 설치에서 그 필드는
   `undefined`다 (추정, 병합 코드에서 도출). (pitfalls: 영속 상태 병합의 깊이)
-- 상태 버전: `currentAppStateVersion = 2`, 마이그레이션 `migrateAppState`. 손상 상태 검증 `isPersistentAppState` [fork #49].
+- 상태 버전: `currentAppStateVersion = 3`, 마이그레이션 `migrateAppState` (v2: memSaver, v3: 빠진 배치 값을 옛 기본값으로 [fork #114]). 손상 상태 검증 `isPersistentAppState` [fork #49].
 - 앱은 항상 편집 모드가 꺼진 상태로 시작한다 (`editMode` 비저장). 위젯·워크플로우 복사 목록도 재시작하면 비워진다.
 
 #### 구독형 초기화
@@ -138,7 +138,7 @@
 
 구조:
 
-- `TopBar`는 `ui.topBar`가 true일 때만 렌더한다 (기본 false). 상단 바가 워크플로우 바에 병합된 상태 (`isTopBarMerged`,
+- `TopBar`는 `ui.topBar`가 true일 때만 렌더한다 (기본 true, #114 전에는 false). 상단 바가 워크플로우 바에 병합된 상태 (`isTopBarMerged`,
   `src/renderer/base/state/ui.ts`: `ui.topBar`, `appConfig.mergeTopBar`, `workflowBarPos === 'top'`이 모두 참)이면 `TopBar`를 렌더하지 않고
   `WorkflowSwitcher`가 셸프를 그린다 [fork #111]. 셸프는 탭 목록 뒤에 놓이고, `appConfig.mergedTopBarSide`가 `'left'`면 탭 목록 앞에 놓인다.
 - `.body-layout` 하나에 `[WorkflowSwitcher, 리사이저 자리, 본문]`을 고정 순서로 둔다. `appConfig.workflowBarPos`는 CSS 클래스
@@ -150,7 +150,7 @@
   `mousemove`에서 종료. 리스너는 `AbortController` 하나로 해제한다. 드래그 중에는 `.resize-overlay`가 창 전체를 덮는다.
 - `input`과 `textarea` 우클릭은 `contextMenuForTextInput` (`src/renderer/base/contextMenu.ts`)을 띄운다.
 
-상태: `ui.topBar`, `ui.appConfig.workflowBarPos` (기본 `'left'`), `ui.appConfig.workflowBarWidth` (기본 200, 범위 120~600:
+상태: `ui.topBar` (기본 true), `ui.appConfig.workflowBarPos` (기본 `'top'`, #114 전에는 `'left'`), `ui.appConfig.workflowBarWidth` (기본 200, 범위 120~600:
 `workflowBarMinWidth`, `workflowBarMaxWidth`), `ui.modalScreens.order`.
 
 주의점:
@@ -480,7 +480,7 @@
 |-------------------------------------------------|-------------------------------------------------------------|-----------------------------------------------------------------|
 | `toggleEditMode.ts`                             | `ui.editMode` (false, 비영속)                               | Edit → Enable/Disable Edit Mode (`CmdOrCtrl+E`), 편집 토글 버튼 |
 | `toggleMenuBar.ts`                              | `ui.menuBar` (true)                                         | View → Appearance (mac 제외). main에 `setAutoHide(!menuBar)`    |
-| `toggleTopBar.ts`                               | `ui.topBar` (false)                                         | View → Appearance → Show/Hide Top Bar                           |
+| `toggleTopBar.ts`                               | `ui.topBar` (true, #114)                                    | View → Appearance → Show/Hide Top Bar                           |
 | `projectSwitcher/setProjectSwitcherPosition.ts` | `ui.projectSwitcher.pos` (`ProjectSwitcherPos.TabBarRight`) | View → Appearance → Project Switcher Position                   |
 | `setEditTogglePosition.ts`                      | `ui.editTogglePos` (`EditTogglePos.TabBarRight`)            | View → Appearance → Edit Mode Toggle Position                   |
 | `uiTheme/toggleUiTheme.ts` [fork #110]          | `ui.appConfig.uiTheme`                                      | View → Appearance → Switch Light/Dark Theme (`CmdOrCtrl+Shift+L`) |
@@ -564,9 +564,9 @@
 | `memSaver.activateWorkflowsOnProjectSwitch`      | `true`                       | Memory Saver                  | upstream                |
 | `downloadDir`                                    | `''` (OS 기본 Downloads)     | `initDownloadDirUseCase`      | fork #41                |
 | `bgColor`, `bgImage`, `bgImageMode`, `bgOpacity` | `''`, `''`, `'cover'`, `100` | `worktableViewModel`          | fork #42                |
-| `workflowBarPos`, `workflowBarWidth`             | `'left'`, `200`              | `app.tsx`, `workflowSwitcher` | fork #45                |
-| `mergeTopBar`                                    | `false`                      | `isTopBarMerged`              | fork #111               |
-| `mergedTopBarSide`                               | `'right'`                    | `workflowSwitcherViewModel`   | fork #111               |
+| `workflowBarPos`, `workflowBarWidth`             | `'top'`, `200`               | `app.tsx`, `workflowSwitcher` | fork #45, #114 기본값   |
+| `mergeTopBar`                                    | `true`                       | `isTopBarMerged`              | fork #111, #114 기본값  |
+| `mergedTopBarSide`                               | `'left'`                     | `workflowSwitcherViewModel`   | fork #111, #114 기본값  |
 | `telemetry.enabled`, `telemetry.idleTimeoutMs`   | `false`, `300000`            | `telemetryCollector`          | fork #62                |
 
 - 화면 배치 [fork #113]: 최대 760px 가운데 열, 구역 3개 (Appearance, General, Privacy & AI). 한 설정은 `Row` (왼쪽 이름과 설명, 오른쪽 260px 컨트롤 칸)이고, 설명은 늘 보이며 `aria-describedby`로 컨트롤에 이어진다. `wide`는 경로 입력칸처럼 컨트롤을 행 전체 폭에, `sub`는 부모 설정의 옵션을 들여 쓴다. 공통 `SettingBlock`은 쓰지 않는다 (다른 설정 화면은 그대로).
