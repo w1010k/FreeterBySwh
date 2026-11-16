@@ -4,6 +4,7 @@
  */
 
 import {workflowBarMaxWidth, workflowBarMinWidth} from '@/application/useCases/applicationSettings/setWorkflowBarWidth';
+import {MergedTopBarSide} from '@/base/appConfig';
 import {convertBoolToStr, convertStrToBool} from '@/base/convTypes';
 import {ApplicationSettingsViewModelHook} from '@/ui/components/applicationSettings/applicationSettingsViewModel';
 import {SettingsScreen} from '@/ui/components/basic/settingsScreen/settingsScreen';
@@ -138,13 +139,15 @@ export function createApplicationSettingsComponent({
               {appConfig.workflowBarPos === 'top' &&
                 <div className={styles['download-dir-row']}>
                   <label htmlFor="merge-top-bar">Merge Top Bar into it</label>
-                  <select id="merge-top-bar" value={convertBoolToStr(appConfig.mergeTopBar)}
-                          onChange={e => updateSettings({
-                            ...appConfig,
-                            mergeTopBar: convertStrToBool(e.target.value)
-                          })}>
-                    <option value={convertBoolToStr(false)}>Off</option>
-                    <option value={convertBoolToStr(true)}>On</option>
+                  {/* One choice for two settings: Off keeps the side, so turning the merge back on restores it. A side
+                      other than 'left' shows as 'right', as the bar draws it (a hand-edited or unknown saved value). */}
+                  <select id="merge-top-bar" value={appConfig.mergeTopBar ? (appConfig.mergedTopBarSide === 'left' ? 'left' : 'right') : 'off'}
+                          onChange={e => updateSettings(e.target.value === 'off'
+                            ? {...appConfig, mergeTopBar: false}
+                            : {...appConfig, mergeTopBar: true, mergedTopBarSide: e.target.value as MergedTopBarSide})}>
+                    <option value="off">Off</option>
+                    <option value="right">On, widgets on the right</option>
+                    <option value="left">On, widgets on the left</option>
                   </select>
                   <span>Applies while the Top Bar is shown (View &gt; Appearance).</span>
                 </div>}

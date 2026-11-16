@@ -257,6 +257,7 @@ export function createWorkflowSwitcherViewModelHook({
       topBarHasOwnRow,
       topBarIsMerged,
       shelfHasItems,
+      shelfOnLeft,
       editTogglePos,
       prjSwitcherPos,
       workflowBarPos,
@@ -278,6 +279,7 @@ export function createWorkflowSwitcherViewModelHook({
       // Without a Top Bar row (hidden, or merged into this bar), this bar takes what that row would show.
       const topBarHasOwnRow = state.ui.topBar && !topBarIsMerged;
       const shelfHasItems = state.ui.shelf.widgetList.length > 0;
+      const shelfOnLeft = state.ui.appConfig.mergedTopBarSide === 'left';
       const editTogglePos = state.ui.editTogglePos;
       const prjSwitcherPos = state.ui.projectSwitcher.pos;
       const workflowBarPos = state.ui.appConfig.workflowBarPos;
@@ -295,6 +297,7 @@ export function createWorkflowSwitcherViewModelHook({
         topBarHasOwnRow,
         topBarIsMerged,
         shelfHasItems,
+        shelfOnLeft,
         editTogglePos,
         prjSwitcherPos,
         workflowBarPos,
@@ -468,6 +471,7 @@ export function createWorkflowSwitcherViewModelHook({
       showEditToggleRight,
       // An empty shelf is drawn only in Edit Mode (as a drop area): otherwise its zero-width section leaves a stray divider.
       showShelf: topBarIsMerged && (shelfHasItems || isEditMode),
+      shelfOnLeft,
       workflowBarPos,
       workflowBarWidth,
     }

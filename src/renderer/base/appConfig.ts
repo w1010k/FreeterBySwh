@@ -9,6 +9,9 @@ export type WorktableBgImageMode = 'cover' | 'contain' | 'center' | 'tile';
 
 export type WorkflowBarPos = 'top' | 'bottom' | 'left' | 'right';
 
+/** The side of the workflow tabs that the merged Top Bar's widgets sit on. */
+export type MergedTopBarSide = 'right' | 'left';
+
 export interface TelemetryConfig {
   /** Master opt-in. When false, nothing is ever collected. Default false. */
   enabled: boolean;
@@ -36,6 +39,8 @@ export interface AppConfig {
   workflowBarWidth: number;
   /** Put the Top Bar's shelf into the workflow bar (one bar instead of two). Applies only while the Top Bar is shown and the workflow bar is at the top. */
   mergeTopBar: boolean;
+  /** Where the merged Top Bar's widgets sit: after the workflow tabs (right, the default) or before them (left). */
+  mergedTopBarSide: MergedTopBarSide;
   /** Local usage-analytics collection settings. */
   telemetry: TelemetryConfig;
   /**

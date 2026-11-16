@@ -140,7 +140,7 @@
 
 - `TopBar`는 `ui.topBar`가 true일 때만 렌더한다 (기본 false). 상단 바가 워크플로우 바에 병합된 상태 (`isTopBarMerged`,
   `src/renderer/base/state/ui.ts`: `ui.topBar`, `appConfig.mergeTopBar`, `workflowBarPos === 'top'`이 모두 참)이면 `TopBar`를 렌더하지 않고
-  `WorkflowSwitcher`가 셸프를 그린다 [fork #111].
+  `WorkflowSwitcher`가 셸프를 그린다 [fork #111]. 셸프는 탭 목록 뒤에 놓이고, `appConfig.mergedTopBarSide`가 `'left'`면 탭 목록 앞에 놓인다.
 - `.body-layout` 하나에 `[WorkflowSwitcher, 리사이저 자리, 본문]`을 고정 순서로 둔다. `appConfig.workflowBarPos`는 CSS 클래스
   `is-top/is-bottom/is-left/is-right`로 `flex-direction`만 바꾼다 (`column`, `column-reverse`, `row`,
   `row-reverse`) [fork #45].
@@ -234,14 +234,15 @@
 |----------------------------------------|--------------------------------------------------------------------------------------------|
 | 프로젝트 전환기 + Manage Projects 버튼 | `ui.projectSwitcher.pos`가 `TabBarLeft` 또는 `TabBarRight`. 병합 상태에서는 `TopBar`도 오른쪽으로 취급 [fork #111] |
 | 편집 토글                              | `ui.editTogglePos`가 `TabBarLeft` 또는 `TabBarRight`. 병합 상태에서는 `TopBar`도 오른쪽으로 취급 [fork #111]       |
-| 셸프 (`<Shelf compact/>`)              | 병합 상태 (`isTopBarMerged`)이고, 셸프에 항목이 있거나 편집 모드. 탭 목록 바로 뒤, 오른쪽 요소들 앞 [fork #111] |
+| 셸프 (`<Shelf compact/>`)              | 병합 상태 (`isTopBarMerged`)이고, 셸프에 항목이 있거나 편집 모드. 탭 목록 바로 뒤, 오른쪽 요소들 앞. `mergedTopBarSide`가 `'left'`면 왼쪽 요소들 뒤, 탭 목록 바로 앞 [fork #111] |
 | 팔레트 (왼쪽)                          | 편집 모드, 현재 workflow 있음, 편집 토글이 왼쪽                                            |
 | 팔레트 (오른쪽)                        | 편집 모드, 현재 workflow 있음, 왼쪽 팔레트 아님, 편집 토글이 오른쪽이거나 상단 바가 숨겨짐 |
 | 팔레트 `dropUp`                        | 바가 아래이거나, 세로 바에서 팔레트가 탭 목록 뒤에 있음 [fork #45 후속]                    |
 
 - 병합 상태는 팔레트 규칙에서 "상단 바가 숨겨짐"과 같다 (둘 다 `topBarHasOwnRow`가 false). 그래서 편집 토글이 `TopBar`나 `Hidden`이어도 팔레트가 바 오른쪽에 나온다.
 - 빈 셸프는 보기 모드에서 그리지 않는다 (폭 0인 구역이 구분선만 남긴다). 편집 모드에서는 drop 영역으로 그린다.
-- 병합 여부가 바뀌면 (`mergeTopBar`, `ui.topBar`, `workflowBarPos` 중 하나의 변경) `Shelf`가 다른 부모 아래에서 다시 만들어진다. 셸프의 webview 위젯은 그때 새로고침된다 (decisions.md D85).
+- 병합 여부가 바뀌면 (`mergeTopBar`, `ui.topBar`, `workflowBarPos` 중 하나의 변경) `Shelf`가 다른 부모 아래에서 다시 만들어진다. 좌우 (`mergedTopBarSide`)를 바꿀 때도 다시 만들어진다. 셸프의 webview 위젯은 그때 새로고침된다 (decisions.md D85).
+- 가로 바에서 탭 목록 앞에 구역이 있으면 첫 탭을 1px 왼쪽으로 겹친다 (`margin-left: -1px`, 목록이 잘라 냄). 앞 구역의 구분선과 첫 탭의 왼쪽 테두리가 2px 선이 되지 않게 한다 [fork #111].
 - 병합 상태의 가로 배분 (`workflowSwitcher.module.scss`): 탭 목록이 남는 폭을 쓰고, 셸프 구역 (`.workflow-switcher-bar-shelf-section`)은 항목 폭만큼만 쓴다.
   셸프 구역은 바의 50%를 넘지 않고, 넘으면 셸프가 가로로 스크롤한다. 편집 모드에서는 빈 셸프도 drop을 받도록 최소 폭 96px를 둔다.
 
@@ -565,12 +566,14 @@
 | `bgColor`, `bgImage`, `bgImageMode`, `bgOpacity` | `''`, `''`, `'cover'`, `100` | `worktableViewModel`          | fork #42                |
 | `workflowBarPos`, `workflowBarWidth`             | `'left'`, `200`              | `app.tsx`, `workflowSwitcher` | fork #45                |
 | `mergeTopBar`                                    | `false`                      | `isTopBarMerged`              | fork #111               |
+| `mergedTopBarSide`                               | `'right'`                    | `workflowSwitcherViewModel`   | fork #111               |
 | `telemetry.enabled`, `telemetry.idleTimeoutMs`   | `false`, `300000`            | `telemetryCollector`          | fork #62                |
 
 - 모달 안의 변경은 초안에만 들어가고, OK (`saveApplicationSettingsUseCase`)에서 `ui.appConfig`로 반영된다. Cancel은 초안을 버린다.
 - 사이드 바 너비를 바꾸는 경로: 모달 입력칸 (초안, OK 때 적용, 입력 중 문자열은 로컬 state로 들고 blur 때 클램프), 편집 모드 리사이저 드래그
   (`setWorkflowBarWidthUseCase`, `ui.appConfig`에 바로 반영).
 - `mergeTopBar` 입력칸 (Merge Top Bar into it)은 Workflow Bar Position이 Top일 때만 보인다. 값은 위치를 바꿔도 남고, 위치가 Top이 아니면 효과가 없다.
+  선택 상자 하나가 `mergeTopBar`와 `mergedTopBarSide`를 함께 정한다 (`Off`, `On, widgets on the right`, `On, widgets on the left`). Off는 `mergedTopBarSide`를 바꾸지 않는다.
 - `telemetry.idleTimeoutMs`는 설정 UI가 없다.
 - 설정 화면 공통 폼 컨트롤은 `width: 100%`다 [fork #68]
   (`src/renderer/ui/components/basic/settingsScreen/settingsScreen.module.scss`).

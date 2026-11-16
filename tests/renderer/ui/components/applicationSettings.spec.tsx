@@ -234,9 +234,28 @@ describe('<ApplicationSettings />', () => {
         ui: { modalScreens: fixtureModalScreens({ data: fixtureModalScreensData({ applicationSettings: fixtureApplicationSettings({ appConfig }) }) }) }
       }));
       const select = screen.getByRole('combobox', {name: /^Merge Top Bar into it$/i});
-      expect(select).toHaveValue('0');
-      await userEvent.selectOptions(select, 'On');
-      expect(updateApplicationSettingsUseCase).toHaveBeenCalledWith({...appConfig, mergeTopBar: true});
+      expect(select).toHaveValue('off');
+      await userEvent.selectOptions(select, 'On, widgets on the right');
+      expect(updateApplicationSettingsUseCase).toHaveBeenCalledWith({...appConfig, mergeTopBar: true, mergedTopBarSide: 'right'});
+    })
+
+    it('shows an unknown saved side as "right", the side the bar draws', async () => {
+      const appConfig = fixtureAppConfig({workflowBarPos: 'top', mergeTopBar: true, mergedTopBarSide: 'top' as unknown as 'right'});
+      await setup(fixtureAppState({
+        ui: { modalScreens: fixtureModalScreens({ data: fixtureModalScreensData({ applicationSettings: fixtureApplicationSettings({ appConfig }) }) }) }
+      }));
+      expect(screen.getByRole('combobox', {name: /^Merge Top Bar into it$/i})).toHaveValue('right');
+    })
+
+    it('puts the merged Top Bar widgets on the left, and turning the merge off keeps the side', async () => {
+      const appConfig = fixtureAppConfig({workflowBarPos: 'top', mergeTopBar: true, mergedTopBarSide: 'left'});
+      const {updateApplicationSettingsUseCase} = await setup(fixtureAppState({
+        ui: { modalScreens: fixtureModalScreens({ data: fixtureModalScreensData({ applicationSettings: fixtureApplicationSettings({ appConfig }) }) }) }
+      }));
+      const select = screen.getByRole('combobox', {name: /^Merge Top Bar into it$/i});
+      expect(select).toHaveValue('left');
+      await userEvent.selectOptions(select, 'Off');
+      expect(updateApplicationSettingsUseCase).toHaveBeenCalledWith({...appConfig, mergeTopBar: false});
     })
 
     it('does not offer "Merge Top Bar" for a side workflow bar', async () => {

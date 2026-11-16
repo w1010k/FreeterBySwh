@@ -21,6 +21,7 @@ const appConfig: AppConfig = {
   workflowBarPos: 'top',
   workflowBarWidth: 200,
   mergeTopBar: false,
+  mergedTopBarSide: 'right',
   aiAlwaysAllow: false,
   telemetry: {
     enabled: false,

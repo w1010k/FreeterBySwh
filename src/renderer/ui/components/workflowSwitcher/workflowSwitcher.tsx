@@ -62,6 +62,7 @@ export function createWorkflowSwitcherComponent({
       showPrjSwitcherRight,
       showEditToggleRight,
       showShelf,
+      shelfOnLeft,
       workflowBarPos,
       workflowBarWidth,
     } = useWorkflowSwitcherViewModel();
@@ -87,6 +88,17 @@ export function createWorkflowSwitcherComponent({
         <Palette pos={PalettePropsPos.TabBar} dropUp={workflowBarPos === 'bottom' || (isVertical && showPaletteRight)}/>
       </div>
 
+    // The Top Bar merged into this bar: its shelf sits next to the tabs, after them (right) or before them (left, where
+    // the tabs start right after it).
+    const compShelf =
+      <div className={clsx(
+        styles['workflow-switcher-bar-section'],
+        styles['workflow-switcher-bar-shelf-section'],
+        isEditMode && styles['is-edit-mode']
+      )}>
+        <Shelf compact/>
+      </div>
+
     return (
       <div
         className={clsx(
@@ -100,6 +112,7 @@ export function createWorkflowSwitcherComponent({
         {showPrjSwitcherLeft && compPrjSwitcher}
         {showEditToggleLeft && compEditToggle}
         {showPaletteLeft && compPalette}
+        {showShelf && shelfOnLeft && compShelf}
         {workflows ? <div
             role="tablist"
             className={clsx(
@@ -149,16 +162,7 @@ export function createWorkflowSwitcherComponent({
           ></div>
         }
 
-        {/* The Top Bar merged into this bar: its shelf sits after the tabs, at the right. */}
-        {showShelf &&
-          <div className={clsx(
-            styles['workflow-switcher-bar-section'],
-            styles['workflow-switcher-bar-shelf-section'],
-            isEditMode && styles['is-edit-mode']
-          )}>
-            <Shelf compact/>
-          </div>
-        }
+        {showShelf && !shelfOnLeft && compShelf}
         {showPrjSwitcherRight && compPrjSwitcher}
         {showPaletteRight && compPalette}
         {showEditToggleRight && compEditToggle}

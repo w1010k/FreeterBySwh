@@ -159,6 +159,27 @@ describe('<WorkflowSwitcher />', () => {
       await setup(fixtureAppState({ui: {topBar: true, appConfig: merged(), shelf: emptyShelf, editMode: true}}));
       expect(screen.getByText(`${strShelf} compact`)).toBeInTheDocument();
     });
+    it.each([
+      ['right', Node.DOCUMENT_POSITION_PRECEDING],
+      ['left', Node.DOCUMENT_POSITION_FOLLOWING],
+    ] as const)('should place Shelf on the %s of the tabs', async (mergedTopBarSide, tabsFromShelf) => {
+      const workflowId = 'workflow-id';
+      const projectId = 'project-id';
+      await setup(fixtureAppState({
+        entities: {
+          projects: fixtureProjectAInColl({id: projectId, workflowIds: [workflowId], currentWorkflowId: workflowId}),
+          workflows: fixtureWorkflowAInColl({id: workflowId})
+        },
+        ui: {
+          topBar: true,
+          appConfig: fixtureAppConfig({workflowBarPos: 'top', mergeTopBar: true, mergedTopBarSide}),
+          shelf,
+          projectSwitcher: fixtureProjectSwitcher({projectIds: [projectId], currentProjectId: projectId})
+        }
+      }));
+      const shelfEl = screen.getByText(`${strShelf} compact`);
+      expect(shelfEl.compareDocumentPosition(screen.getByRole('tablist')) & tabsFromShelf).toBeTruthy();
+    });
     it('should display EditModeToggle and ProjectSwitcher set to the Top Bar position', async () => {
       await setup(fixtureAppState({
         ui: {

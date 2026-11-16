@@ -107,8 +107,9 @@ export function useShelfItemViewModel(props: ShelfItemProps) {
 
   const [itemElRef, itemElRect, measureItemElRect] = useElementRect({ useViewportRect: true });
 
-  // Edit Mode adds and removes sections of the bar (the palette), which moves the tabs of a shelf at the right end
-  // of the workflow bar without resizing them. A popup that stays open through the switch (focus inside) follows.
+  // Edit Mode adds and removes sections of the bar (the palette), which moves the tabs of a shelf merged into the
+  // workflow bar without resizing them: the right palette moves a shelf on the right, the left palette one on the
+  // left. A popup that stays open through the switch (focus inside) follows.
   useLayoutEffect(() => {
     measureItemElRect();
   }, [isEditMode, measureItemElRect]);
