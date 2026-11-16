@@ -233,7 +233,7 @@
 | 요소                                   | 표시 조건                                                                                  |
 |----------------------------------------|--------------------------------------------------------------------------------------------|
 | 프로젝트 전환기 + Manage Projects 버튼 | `ui.projectSwitcher.pos`가 `TabBarLeft` 또는 `TabBarRight`. 병합 상태에서는 `TopBar`도 셸프 쪽 (기본 오른쪽, `mergedTopBarSide: 'left'`면 왼쪽)으로 취급 [fork #111] |
-| 편집 토글                              | `ui.editTogglePos`가 `TabBarLeft` 또는 `TabBarRight`. 병합 상태에서는 `TopBar`도 셸프 쪽으로 취급 (프로젝트 전환기와 같음) [fork #111] |
+| 편집 토글                              | `ui.editTogglePos`가 `TabBarLeft` 또는 `TabBarRight`. 병합 상태에서는 `TopBar`도 오른쪽으로 취급 (셸프가 왼쪽이어도 오른쪽) [fork #111] |
 | 셸프 (`<Shelf compact/>`)              | 병합 상태 (`isTopBarMerged`)이고, 셸프에 항목이 있거나 편집 모드. 탭 목록 바로 뒤, 오른쪽 요소들 앞. `mergedTopBarSide`가 `'left'`면 왼쪽 요소들 뒤, 탭 목록 앞이고 탭은 바 오른쪽 끝으로 간다 (`is-shelf-left`, 탭 목록 `::before`의 `margin-left: auto`). 이때 탭 목록의 빈 곳 (탭들 앞)에 놓은 탭은 맨 앞으로 간다 (`onDrop`) [fork #111] |
 | 팔레트 (왼쪽)                          | 편집 모드, 현재 workflow 있음, 편집 토글이 왼쪽                                            |
 | 팔레트 (오른쪽)                        | 편집 모드, 현재 workflow 있음, 왼쪽 팔레트 아님, 편집 토글이 오른쪽이거나 상단 바가 숨겨짐 |

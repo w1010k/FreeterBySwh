@@ -182,7 +182,7 @@ describe('<WorkflowSwitcher />', () => {
       // The class that moves the tabs to the right end of the bar.
       expect(screen.getByRole('tablist').closest('.workflow-switcher-bar')?.classList.contains('is-shelf-left')).toBe(tabsAtRightEnd);
     });
-    it('should put the Top Bar positions of ProjectSwitcher and EditModeToggle on the side of the shelf', async () => {
+    it('should put the Top Bar position of ProjectSwitcher on the side of the shelf, and keep EditModeToggle at the right end', async () => {
       const posOf = async (mergedTopBarSide: 'right' | 'left') => {
         const {comp} = await setup(fixtureAppState({
           ui: {
@@ -198,7 +198,7 @@ describe('<WorkflowSwitcher />', () => {
         return res;
       };
       expect(await posOf('right')).toEqual([Node.DOCUMENT_POSITION_PRECEDING, Node.DOCUMENT_POSITION_PRECEDING]);
-      expect(await posOf('left')).toEqual([Node.DOCUMENT_POSITION_FOLLOWING, Node.DOCUMENT_POSITION_FOLLOWING]);
+      expect(await posOf('left')).toEqual([Node.DOCUMENT_POSITION_FOLLOWING, Node.DOCUMENT_POSITION_PRECEDING]);
     });
     describe('a drop on the free part of the list, with the shelf on the left', () => {
       const idP = 'P';

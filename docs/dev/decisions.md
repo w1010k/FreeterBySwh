@@ -512,7 +512,7 @@
 - 출처: `[fork #111]`
 - 결정: `appConfig.mergeTopBar`가 켜져 있고 상단 바가 보이고 워크플로우 바가 Top일 때만 병합한다 (`isTopBarMerged`). 병합 상태에서는 `TopBar`를 렌더하지 않고
   `WorkflowSwitcher`가 같은 `Shelf` 컴포넌트를 탭 목록 뒤 (기본) 또는 앞 (`mergedTopBarSide: 'left'`, 이때 탭은 바 오른쪽 끝)에 그린다. 프로젝트 전환기와 편집 토글의 `TopBar` 위치는 저장 값을 바꾸지 않고 view model에서
-  `TabBarRight`처럼 (셸프가 왼쪽이면 `TabBarLeft`처럼) 취급한다. 병합 여부나 좌우가 바뀔 때 (`mergeTopBar`, `mergedTopBarSide`, `ui.topBar`, `workflowBarPos`의 변경) 셸프가 다시 만들어지는 것은 받아들인다.
+  `TabBarRight`처럼 취급한다. 셸프가 왼쪽이면 프로젝트 전환기만 `TabBarLeft`처럼 취급하고, 편집 토글은 오른쪽에 남는다. 병합 여부나 좌우가 바뀔 때 (`mergeTopBar`, `mergedTopBarSide`, `ui.topBar`, `workflowBarPos`의 변경) 셸프가 다시 만들어지는 것은 받아들인다.
   좌우는 `mergeTopBar`와 별도의 필드로 둔다.
 - 이유: 셸프는 팝업이 아래로 열리는 가로 목록이다. Bottom 바에서는 팝업이 위로 열려야 하고, Left/Right 바는 세로 목록이라 셸프의 배치와 맞지 않는다. 위치 설정의
   저장 값을 그대로 두면 병합을 껐을 때 원래 배치로 돌아간다. 셸프 재생성은 설정을 바꿀 때만 일어나고, `.body-layout`은 그대로라 worktable 위젯은 영향이 없다.

@@ -435,16 +435,16 @@ export function createWorkflowSwitcherViewModelHook({
       showContextMenuUseCase(contextMenuItems);
     }, [copiedWorkflows, isEditMode, currentProjectId, workflowIds, workflowBarPos])
 
-    // The Top Bar positions land on the side of the bar the merged Top Bar takes: the right end, or the left with the
-    // shelf.
+    // The Top Bar positions when the Top Bar is merged into this bar: the Project Switcher goes to the side of the
+    // shelf (the right end, or the left with the shelf); the Edit Toggle (and the palette with it) stays at the right
+    // end either way.
     const showPrjSwitcherLeft = prjSwitcherPos === ProjectSwitcherPos.TabBarLeft
       || (topBarOnLeft && prjSwitcherPos === ProjectSwitcherPos.TopBar);
     const showPrjSwitcherRight = prjSwitcherPos === ProjectSwitcherPos.TabBarRight
       || (topBarIsMerged && !topBarOnLeft && prjSwitcherPos === ProjectSwitcherPos.TopBar);
-    const showEditToggleLeft = editTogglePos === EditTogglePos.TabBarLeft
-      || (topBarOnLeft && editTogglePos === EditTogglePos.TopBar);
+    const showEditToggleLeft = editTogglePos === EditTogglePos.TabBarLeft;
     const showEditToggleRight = editTogglePos === EditTogglePos.TabBarRight
-      || (topBarIsMerged && !topBarOnLeft && editTogglePos === EditTogglePos.TopBar);
+      || (topBarIsMerged && editTogglePos === EditTogglePos.TopBar);
     const showPalette = isEditMode && hasCurrentWorkflow;
     const showPaletteLeft = showPalette && showEditToggleLeft;
     const showPaletteRight = showPalette && !showPaletteLeft && (showEditToggleRight || !topBarHasOwnRow);
