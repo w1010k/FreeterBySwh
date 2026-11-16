@@ -140,8 +140,9 @@ args must start with `_`. Run `yarn lint:<surface>:fix` before committing.
 ## Change log maintenance
 
 This fork tracks user-visible changes (features, behavior shifts, UX-affecting refactors) in `docs/CHANGES.md` — it's
-the single source of truth for "what differs from upstream". `README.md` carries a **one-liner mirror** of the same list
-so visitors see the fork's value at a glance.
+the single source of truth for "what differs from upstream". `README.ko.md` (the Korean README) carries a **one-liner
+mirror** of the same list so visitors see the fork's value at a glance. `README.md` is the English README that GitHub
+shows first; its "Highlights" list groups the main features and is not a per-entry mirror.
 
 **When a feature addition or behavior change completes**, update **both** files before reporting the task done:
 
@@ -161,10 +162,16 @@ Append a new numbered section. Follow the existing style:
 Small tweaks to an existing entry's feature (e.g. format adjustments, follow-up fixes) can be merged into that section
 rather than creating a new one.
 
-### `README.md` — one-liner in "이 포크에서 추가한 기능"
+### `README.ko.md` — one-liner in "이 포크에서 추가한 기능"
 
 Append a single numbered line that matches the CHANGES.md section number 1:1. Keep it to one sentence that lands the
 user-visible value, ending with ` *(YYYY-MM-DD)*` to mirror the CHANGES.md date. If you merged into an existing
-CHANGES.md entry (follow-up tweak), also update that entry's line in README.md instead of adding a new one (don't bump
+CHANGES.md entry (follow-up tweak), also update that entry's line in README.ko.md instead of adding a new one (don't bump
 the date). If the change is purely internal (like a refactor that still got a CHANGES.md entry for tracking), mark it "
 (내부 리팩토링)" so readers can skim past.
+
+### `README.md` — English "Highlights"
+
+Update the English README only when a change adds or removes something a Highlights bullet names, or a new major
+feature deserves its own bullet. Keep the other English sections (OS, installers, build, license) in step with the
+Korean README.

@@ -48,7 +48,7 @@ export function createAboutComponent({
           <p>
             <b>AceDeck</b>은 <b>swh</b>가 만들고 유지관리하는 앱입니다. 원본 Freeter(Alex Kaul, GPL-3.0)에서 갈라져 나왔고,
             이전 이름은 Freeter-SWH입니다. 원본에서 추가·변경된 내역은 저장소의 <code>docs/CHANGES.md</code>
-            또는 <code>README.md</code>에 정리되어 있습니다.
+            또는 <code>README.ko.md</code>에 정리되어 있습니다.
           </p>
 
           <h3>원본 Freeter 후원자</h3>

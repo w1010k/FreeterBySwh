@@ -61,7 +61,7 @@
 
 새 버전이 나오면 AceDeck이 OS 알림으로 알려 줍니다 (시작할 때와 하루 한 번 확인, 버전마다 한 번). 알림을 누르면 다운로드 페이지가 열립니다. 자동으로 설치되지는 않으니 받은 설치 파일을 실행하세요.
 
-직접 빌드하려면 [README의 "소스에서 직접 빌드하기"](../README.md#소스에서-직접-빌드하기)를 따르세요. 요약하면 `yarn` → `yarn run prod` → `yarn run package`입니다. 원본 Freeter를 쓰고 싶다면 [원본 다운로드 페이지](https://freeter.io/download)를 참고하세요.
+직접 빌드하려면 [README의 "소스에서 직접 빌드하기"](../README.ko.md#소스에서-직접-빌드하기)를 따르세요. 요약하면 `yarn` → `yarn run prod` → `yarn run package`입니다. 원본 Freeter를 쓰고 싶다면 [원본 다운로드 페이지](https://freeter.io/download)를 참고하세요.
 
 처음 실행하면 비어 있는 작업판이 나타납니다. 여기서부터 시작합니다.
 
