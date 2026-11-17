@@ -5,12 +5,15 @@
 
 import { createSettingsState, settingsEditorComp } from '@/widgets/terminal/settings';
 import { screen, waitFor } from '@testing-library/react';
+import { inputPresets } from '@/widgets/terminal/actions';
 import { setupSettingsSut } from '@tests/widgets/setupSut'
 
 describe('Terminal Widget Settings', () => {
   it('fills missing or wrong-typed values with empty strings (the defaults)', () => {
-    expect(createSettingsState({})).toEqual({ shell: '', cwd: '', startCommand: '', fontSize: 13, theme: 'dark' });
-    expect(createSettingsState({ shell: 3, cwd: 'C:/w', startCommand: null } as never)).toEqual({ shell: '', cwd: 'C:/w', startCommand: '', fontSize: 13, theme: 'dark' });
+    const noActions = { customActions: [], actionBar: { hidden: ['RUN-START'], order: [] } };
+    expect(createSettingsState({})).toEqual({ shell: '', cwd: '', startCommand: '', fontSize: 13, theme: 'dark', ...noActions });
+    expect(createSettingsState({ shell: 3, cwd: 'C:/w', startCommand: null } as never))
+      .toEqual({ shell: '', cwd: 'C:/w', startCommand: '', fontSize: 13, theme: 'dark', ...noActions });
   });
 
   it('keeps the font size a whole number from 6 to 48', () => {
@@ -53,5 +56,42 @@ describe('Terminal Widget Settings', () => {
     userEvent.type(input, 'claude');
     await waitFor(() => expect(input).toHaveValue('claude'));
     expect(getSettings()).toMatchObject({ startCommand: 'claude' });
+  });
+
+  it('keeps custom actions with an id each, and drops the ids of removed ones from the layout', () => {
+    const state = createSettingsState({
+      customActions: [{ name: 'Status', input: 'git status\\r' }, { id: 'a2', name: 'X', input: 3 }],
+      actionBar: { hidden: ['CUSTOM-ACTION-gone', 'RESTART'], order: ['CUSTOM-ACTION-a2', 'CUSTOM-ACTION-gone'] }
+    } as never);
+    expect(state.customActions).toEqual([{ id: expect.any(String), name: 'Status', input: 'git status\\r' }, { id: 'a2', name: 'X', input: '' }]);
+    expect(state.actionBar).toEqual({ hidden: ['RESTART'], order: ['CUSTOM-ACTION-a2'] });
+  });
+
+  it('lists the action bar buttons, and adds a custom action from a preset', async () => {
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, createSettingsState({}));
+    const user = userEvent.setup({ delay: null });
+    const names = screen.getAllByRole('checkbox').map(box => box.parentElement!.textContent!.trim());
+    expect(names).toEqual([
+      'Run Start Command (shown when Start Command is set)', 'Copy Output', 'Read-Only (block typing)', 'Open Start Folder', 'Restart Shell'
+    ]);
+
+    await user.selectOptions(screen.getByRole('combobox', { name: /^preset$/i }), 'Send Ctrl+C');
+    await user.click(screen.getByRole('button', { name: /add preset/i }));
+    const preset = inputPresets.find(p => p.name === 'Send Ctrl+C')!;
+    expect(getSettings().customActions).toEqual([{ id: expect.any(String), name: preset.name, input: preset.input }]);
+    expect(screen.getByRole('textbox', { name: 'Action Input 1' })).toHaveValue('\\x03');
+  });
+
+  it('hides a button with its checkbox', async () => {
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, createSettingsState({}));
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByRole('checkbox', { name: 'Copy Output' }));
+    expect(getSettings().actionBar).toEqual({ hidden: ['RUN-START', 'COPY-OUTPUT'], order: [] });
+  });
+
+  it('hides Run Start Command until the user turns it on (a stray click would type the command into Claude Code)', () => {
+    expect(createSettingsState({}).actionBar.hidden).toEqual(['RUN-START']);
+    // A saved layout is the user's: an empty one shows the button.
+    expect(createSettingsState({ actionBar: { hidden: [], order: [] } }).actionBar.hidden).toEqual([]);
   });
 });

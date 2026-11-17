@@ -4277,9 +4277,55 @@ Webpage 위젯 설정의 Custom Actions 섹션을 **Actions** 섹션으로 바�
 
 **수정 파일**
 
-- **신규**: `src/renderer/widgets/webpage/actionLayout.ts`, `src/renderer/widgets/webpage/actionPresets.ts`, `src/renderer/widgets/webpage/settings.module.scss`
+- **신규**: `src/renderer/widgets/webpage/actionLayout.ts`, `src/renderer/widgets/webpage/actionPresets.ts`, `src/renderer/widgets/webpage/settings.module.scss` (#116에서 `actionLayout.ts`와 스타일은 `src/renderer/widgets/`로 옮겼고, 목록 화면은 `actionsSetting.tsx`로 뺐다)
 - **수정**: `src/renderer/widgets/webpage/settings.tsx`, `src/renderer/widgets/webpage/actionBar.ts`, `src/renderer/widgets/webpage/widget.tsx`
 - **테스트**: `tests/renderer/widgets/webpage/actionLayout.spec.ts`, `actionPresets.spec.ts` (신규), `actionBar.spec.ts`, `settings.spec.ts`, `fixtures.ts`
+
+## 116. Terminal 액션 버튼: 입력 버튼, 출력 복사, 입력 잠금, 시작 폴더 열기 *(2026-11-17)*
+
+Terminal 위젯의 액션 바에는 Restart Shell 하나만 있었다. Windows Terminal의 액션 목록에서 위젯에 맞고 의존성 추가 없이 만들 수 있는 것을 골라 버튼을 더했다. Webpage (#115)와 같은 **Actions** 목록이 설정에 생겨서, 버튼을 숨기거나 순서를 바꿀 수 있다.
+
+기본 순서:
+
+| 버튼 | 동작 |
+|------|------|
+| Run Start Command | 설정의 Start Command와 Enter를 입력한다. Start Command가 있을 때만 있고, 처음에는 숨겨져 있다 (아래) |
+| 커스텀 입력 버튼 | 등록한 문자열을 보이는 탭의 셸에 입력한다 (Windows Terminal의 `sendInput`) |
+| Copy Output | 화면과 스크롤백의 글자를 클립보드에 복사한다. 터미널이 줄바꿈한 줄은 한 줄로 합친다. 글자가 없으면 클립보드를 건드리지 않는다 |
+| Read-Only (block typing) | 키 입력, 한글 등 IME 입력, 붙여넣기를 셸에 보내지 않는다. 버튼의 눌림 상태로 보이고, 켜진 동안 입력 버튼은 꺼진다. 위젯의 모든 탭에 적용되고 앱을 끌 때까지 유지된다 (확대·축소와 같다) |
+| Open Start Folder | 시작 폴더를 연다. 비어 있으면 셸이 시작하는 홈 폴더를 연다. 열지 못하면 터미널 위에 5초 동안 이유를 보여 준다 |
+| Restart Shell | 전과 같다 |
+
+- 입력 문자열의 이스케이프는 Windows Terminal과 같다: `\r` (Enter), `\n`, `\t`, `\e` (Esc), `\xHH` (ASCII 키 코드 `00`~`7F`, `\x03`은 Ctrl+C), `\\` (역슬래시). 그 밖의 역슬래시는 그대로 입력된다 (`decodeInput`). `\x80` 이상은 셸에 UTF-8 두 바이트로 가서 뜻한 한 바이트가 되지 않으므로 해석하지 않는다.
+- 입력 버튼을 누르면 키보드 포커스가 터미널로 돌아간다. 버튼에 포커스가 남으면 다음 Enter가 버튼을 다시 눌러 같은 입력이 한 번 더 간다.
+- 프리셋 6개: Send Ctrl+C, Send Esc, Claude Code: /clear, Claude Code: /compact, Continue Claude Code (`claude --continue`), Git Status.
+- 입력 버튼은 그때 보이는 탭에서 실행 중인 프로그램에 그대로 입력된다. Claude Code가 실행 중일 때 Git Status를 누르면 Claude Code 입력창에 들어간다. 설정 도움말에 적었다.
+
+구조:
+
+- Webpage와 공유하도록 `src/renderer/widgets/`에 공통 코드를 두었다: `actionLayout.ts` (숨김·순서, #115에서 옮김), `customActions.ts` (커스텀 액션의 `id`, 값 정리, 없는 `id` 지우기), `actionsSetting.tsx`와 `.module.scss` (Actions 목록 화면). 각 위젯은 기본 버튼 목록, 실행하는 필드 이름 (Webpage `js`, Terminal `input`), 프리셋만 넘긴다. Webpage의 동작은 바뀌지 않았다 (기존 테스트가 그대로 통과).
+- Terminal 설정에 `customActions: {id, name, input}[]`와 `actionBar: {hidden, order}`를 추가했다. 두 값은 바로 적용된다 (셸 재시작 불필요).
+- `requiresApi`에 `clipboard` (Copy Output)와 `fs` (홈 폴더 경로, `getHomeDir`)를 추가했다. Terminal은 이미 프로그램을 실행하는 위젯 (`runsPrograms`)이라 권한 범위는 사실상 그대로다. AI 에이전트의 Terminal 설정 변경은 전처럼 늘 확인을 받는다.
+- Read-Only는 모듈 수준 `readOnlyWidgets`에 위젯 id로 둔다. 입력이 들어오는 길 세 곳을 막는다: 키 처리기 (`attachCustomKeyEventHandler`)가 키를 xterm에 넘기지 않고, xterm 입력창 (`term.textarea`)을 `readOnly`로 해서 글자와 IME 입력을 막고, 화면 상자의 capture `paste` 리스너가 붙여넣기를 xterm보다 먼저 막는다. 확대·축소와 선택 복사는 그대로 된다. 모든 버튼 입력이 지나는 `typeIntoShell`도 잠금을 검사한다. 위젯을 지우면 지운다.
+- Run Start Command는 처음에 숨긴다 (`createSettingsState`가 저장된 `actionBar`가 없으면 `hidden: ['RUN-START']`). Start Command가 `claude`이면 셸이 시작될 때 Claude Code가 이미 실행 중이라, 잘못 누르면 `claude⏎`가 Claude Code에 메시지로 간다 (#100에서 지운 버튼과 같은 사고). 원하는 사용자가 Actions 목록에서 켠다.
+- 커스텀 액션을 액션 바 버튼으로 바꾸는 코드는 공통 `customActionBarItems`다. Webpage는 공백뿐인 코드를 거르고, Terminal은 빈 입력만 거른다 (공백 하나도 입력이다).
+
+**까다로웠던 포인트**
+
+- #100에서 Start Claude Code·Start Codex 버튼을 지운 결정과 겹친다. 그때의 문제는 앱이 출력으로 셸 프롬프트를 추측해서 입력한 것이었다 (추측이 틀리면 실행 중인 Claude Code에 `claude`가 입력됐다). 이번 입력 버튼은 추측하지 않고, 사용자가 누른 버튼의 문자열만 입력한다. 결정은 "앱이 추측해서 입력하는 버튼은 만들지 않는다"로 좁혔고, "셸에 아무것도 저절로 입력하지 않는다"는 테스트로 남겼다.
+- `C:\temp` 같은 경로는 `\t`가 Tab이 된다. 이스케이프 표기의 대가라서 도움말에 "역슬래시는 `\\`"를 적었다 (테스트 작성 중 발견).
+- Claude Code에 `/clear\r`을 한 번에 보내면 붙여넣기로 보고 Enter를 무시할 수 있다고 생각했다 (추정). 실제 앱에서 확인하니 실행됐다 (입력 기록에 `/clear`, 입력창은 빔). Enter를 따로 보내지 않는다.
+- 실제 앱 확인 중 Send Ctrl+C 두 번으로 Claude Code가 끝나지 않은 적이 한 번 있었다. 다시 띄워서 시험했을 때는 끝났고, 원인은 확인하지 못했다.
+- Read-Only는 처음에 `term.onData`를 버리는 방식이었다. xterm은 프로그램에 보내는 자동 응답 (커서 위치, 포커스 보고)도 같은 `onData`로 보내서, 잠금 중에 TUI가 터미널에 물으면 응답을 받지 못해 멈출 수 있었다 (코드 리뷰에서 발견). xterm의 `disableStdin` 옵션도 자동 응답까지 막는다 (xterm 소스 `triggerDataEvent`). 그래서 입력 길만 막는다. 실제 앱에서 잠금 중의 키, `Input.insertText` (IME 확정과 같은 텍스트 삽입), 붙여넣기가 셸에 가지 않았고, 잠금을 풀자 모두 갔다.
+- Copy Output은 다음 줄로 이어지는 줄의 끝 공백을 남긴다. 줄바꿈 자리의 공백도 글자이기 때문이다 (`bufferText`).
+- 이 실행 환경에서는 OS 클립보드를 읽을 수 없어서 (PowerShell `Get-Clipboard`도 실패), main의 `clipboard.writeText`에 들어가는 값을 가로채 Copy Output을 확인했다. Open Start Folder는 실제 앱에서 누르지 않았다 (탐색기 창이 열린다). 단위 테스트로만 확인했다.
+
+**수정 파일**
+
+- **신규**: `src/renderer/widgets/customActions.ts`, `src/renderer/widgets/actionsSetting.tsx`, `src/renderer/widgets/terminal/actions.ts`, `src/renderer/widgets/terminal/icons/{copy-output,open-folder,read-only,run-start,send-input}.svg`
+- **이동**: `src/renderer/widgets/webpage/actionLayout.ts` → `src/renderer/widgets/actionLayout.ts`, `src/renderer/widgets/webpage/settings.module.scss` → `src/renderer/widgets/actionsSetting.module.scss`
+- **수정**: `src/renderer/widgets/terminal/{widget.tsx,settings.tsx,index.ts,icons/index.ts}`, `src/renderer/widgets/webpage/{settings.tsx,actionBar.ts}`
+- **테스트**: `tests/renderer/widgets/terminal/actions.spec.ts` (신규), `tests/renderer/widgets/terminal/{widget,settings}.spec.ts`, `tests/renderer/widgets/actionLayout.spec.ts` (이동)
 
 ## 부록: 참고 문서
 

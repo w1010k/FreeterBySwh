@@ -26,7 +26,8 @@ Original Freeter: [**Home**][home] | [**Download**][download] | [**Community**][
   image copy, downloads to a folder you choose, HTTP authentication, and action bar buttons you can hide and reorder,
   including your own JavaScript actions or ready-made presets (dark filter, allow text selection, 2x video speed).
 - **Terminal widget**: PowerShell, Command Prompt, Git Bash or WSL inside a widget, with tabs. Run Claude Code or Codex
-  in it.
+  in it. Action bar buttons type your own input (presets such as Ctrl+C or Claude Code's /clear), copy the output, lock
+  typing, and open the start folder.
 - **AI agent control**: AI agents such as Claude Code and Codex work with projects, workflows and widgets through the
   `acedeck` CLI or as an MCP server (`acedeck mcp`). Write actions wait for your OK.
 - **New widgets**: File Explorer (favorite folders as a tree, with subfolder search), D-Day, Clock (world time zones),

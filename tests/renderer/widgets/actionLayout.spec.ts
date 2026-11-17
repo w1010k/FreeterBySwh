@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { applyActionBarLayout, arrangeActions, sanitizeActionBarLayout } from '@/widgets/webpage/actionLayout';
+import { applyActionBarLayout, arrangeActions, sanitizeActionBarLayout } from '@/widgets/actionLayout';
 
 const items = ['A', 'B', 'C', 'D'].map(id => ({ id }));
 const ids = (list: { id: string }[]) => list.map(item => item.id);

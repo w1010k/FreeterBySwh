@@ -13,7 +13,10 @@ import { ActionBarItems, ReactComponent, WidgetReactComponentProps } from '@/wid
 import { clampFontSize, Settings } from './settings';
 import { terminalThemes } from './theme';
 import { uiThemeDataById } from '@/base/uiTheme';
-import { restartSvg } from './icons';
+import { copyOutputSvg, openFolderSvg, readOnlySvg, restartSvg, runStartSvg, sendInputSvg } from './icons';
+import { bufferText, decodeInput, labelCopyOutput, labelOpenStartFolder, labelReadOnly, labelRestartShell, labelRunStartCommand } from './actions';
+import { applyActionBarLayout } from '@/widgets/actionLayout';
+import { customActionBarItems } from '@/widgets/customActions';
 import styles from './widget.module.scss';
 import { takeRevealedByAi } from '@/base/ai/aiActivity';
 import { ShellOption } from '@common/ipc/channels';
@@ -47,6 +50,8 @@ const titleByKey = new Map<string, string>();
 const shellByKey = new Map<string, string>();
 /** Each widget's zoom (Ctrl+= / Ctrl+- / Ctrl+wheel) from the Font Size setting, for all its tabs; kept for the app session. */
 const zoomByWidget = new Map<string, number>();
+/** Widgets whose tabs take no typing (Read-Only in the action bar), like the zoom: all tabs, for the app session. */
+const readOnlyWidgets = new Set<string>();
 /** Wheel distance (pixels) for one font size step: one mouse wheel notch. A touchpad pinch adds up small steps. */
 const WHEEL_STEP = 100;
 /** The shells main found (they do not change while the app runs): asked once, shown at once by later views. */
@@ -85,6 +90,7 @@ export function forgetTerminalSession(widgetId: string): void {
   const keys = tabsByWidget.get(widgetId)?.keys ?? [widgetId];
   tabsByWidget.delete(widgetId);
   zoomByWidget.delete(widgetId);
+  readOnlyWidgets.delete(widgetId);
   for (const key of keys) {
     deletedWidgets.add(key);
     shellByKey.delete(key);
@@ -100,6 +106,7 @@ export function resetTerminalSessions(): void {
   titleByKey.clear();
   shellByKey.clear();
   zoomByWidget.clear();
+  readOnlyWidgets.clear();
   shellsAsked = undefined;
   shellsKnown = [];
   deletedWidgets.clear();
@@ -117,7 +124,7 @@ interface LiveTerminalProps {
 }
 
 function LiveTerminal({widgetId, theme, sessionKey, settings, widgetApi}: LiveTerminalProps) {
-  const {pty, updateActionBar, shell} = widgetApi;
+  const {pty, updateActionBar, shell, clipboard, fs} = widgetApi;
   const hostRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   // Bumped to start a fresh shell.
@@ -127,6 +134,7 @@ function LiveTerminal({widgetId, theme, sessionKey, settings, widgetApi}: LiveTe
     settingsRef.current = settings;
   }, [settings]);
   const [zoom, setZoom] = useState(() => zoomByWidget.get(widgetId) ?? 0);
+  const [readOnly, setReadOnly] = useState(() => readOnlyWidgets.has(widgetId));
   const fontSize = clampFontSize(settings.fontSize + zoom);
   /** Read when the view is made; later sizes go through the effect below. */
   const fontSizeRef = useRef(fontSize);
@@ -181,17 +189,31 @@ function LiveTerminal({widgetId, theme, sessionKey, settings, widgetApi}: LiveTe
     // ^V / ^C, and PowerShell cannot read the clipboard from a pseudo-terminal. Left to the browser, the paste goes
     // through xterm's paste handling (bracketed paste) and the copy takes xterm's selection.
     // Ctrl+= / Ctrl+- / Ctrl+0 zoom, as in Windows Terminal.
+    // Read-Only: xterm drops every other key (zoom and copying a selection still work). Typed text and the IME stop at
+    // the read-only textarea, and a paste at the capture listener below. Blocking onData instead would also drop the
+    // replies xterm sends for the program (cursor position, focus reports), and a TUI that asks would hang.
     term.attachCustomKeyEventHandler(e => {
+      const readOnlyNow = readOnlyWidgets.has(widgetId);
       if (e.type !== 'keydown' || !e.ctrlKey || e.altKey || e.metaKey) {
-        return true;
+        return !readOnlyNow;
       }
       const key = e.key.toLowerCase();
       if (key === '=' || key === '+' || key === '-' || key === '0') {
         zoomBy(key === '0' ? null : (key === '-' ? -1 : 1));
         return false;
       }
-      return !(key === 'v' || (key === 'c' && term.hasSelection()));
+      return !(readOnlyNow || key === 'v' || (key === 'c' && term.hasSelection()));
     });
+    if (term.textarea) {
+      term.textarea.readOnly = readOnlyWidgets.has(widgetId);
+    }
+    const onPaste = (e: Event) => {
+      if (readOnlyWidgets.has(widgetId)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    el.addEventListener('paste', onPaste, { capture: true });
     // Ctrl+wheel zooms the terminal; caught before xterm scrolls, and not left to the page.
     let wheelDistance = 0;
     const onWheel = (e: WheelEvent) => {
@@ -214,7 +236,10 @@ function LiveTerminal({widgetId, theme, sessionKey, settings, widgetApi}: LiveTe
     } catch { /* not laid out yet */ }
 
     let disposed = false;
-    const offs: (() => void)[] = [() => el.removeEventListener('wheel', onWheel, { capture: true })];
+    const offs: (() => void)[] = [
+      () => el.removeEventListener('wheel', onWheel, { capture: true }),
+      () => el.removeEventListener('paste', onPaste, { capture: true }),
+    ];
     // WebGL draws a busy TUI (Claude Code) much faster than the DOM renderer; loaded after the view opens, like Paseo.
     // Without WebGL, or once its context is lost, xterm draws with the DOM again.
     const webglFrame = requestAnimationFrame(() => {
@@ -392,15 +417,99 @@ function LiveTerminal({widgetId, theme, sessionKey, settings, widgetApi}: LiveTe
 
 
   useEffect(() => {
+    if (termRef.current?.textarea) {
+      termRef.current.textarea.readOnly = readOnly;
+    }
+  }, [readOnly]);
+  /** A short note over the view (Open Start Folder failed); not written into the terminal, where a TUI draws. */
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (notice === null) {
+      return undefined;
+    }
+    const t = setTimeout(() => setNotice(null), 5000);
+    return () => clearTimeout(t);
+  }, [notice]);
+
+  const { startCommand, customActions, actionBar } = settings;
+  useEffect(() => {
+    /**
+     * Typed into the shown tab's shell as is: whatever runs there gets it (no guess of what that is). Every button
+     * that types goes through here, so Read-Only stops them all. The keys then go to the terminal again: a focused
+     * button would take the next Enter and type its input once more.
+     */
+    const typeIntoShell = (text: string) => {
+      const terminalId = sessionByWidget.get(sessionKey);
+      if (terminalId && !readOnlyWidgets.has(widgetId)) {
+        pty.write(terminalId, text);
+        termRef.current?.focus();
+      }
+    };
     const items: ActionBarItems = [
-      { id: 'RESTART', icon: restartSvg, title: 'Restart Shell', doAction: async () => restart() },
+      ...(startCommand ? [{
+        id: 'RUN-START',
+        icon: runStartSvg,
+        title: `${labelRunStartCommand} (${startCommand})`,
+        enabled: !readOnly,
+        doAction: async () => typeIntoShell(`${startCommand}\r`)
+      }] : []),
+      // A space alone is input too, so only an empty one has no button.
+      ...customActionBarItems(customActions, 'input', {
+        icon: sendInputSvg,
+        enabled: !readOnly,
+        skip: input => input === '',
+        run: input => typeIntoShell(decodeInput(input))
+      }),
+      {
+        id: 'COPY-OUTPUT',
+        icon: copyOutputSvg,
+        title: labelCopyOutput,
+        // Nothing to copy (no shell yet, a cleared screen) leaves the clipboard as it is.
+        doAction: async () => {
+          const term = termRef.current;
+          const text = term ? bufferText(term.buffer.active) : '';
+          if (text !== '') {
+            await clipboard.writeText(text);
+          }
+        }
+      },
+      {
+        id: 'READ-ONLY',
+        icon: readOnlySvg,
+        // A toggle: the pressed style shows the state, so the name stays the same.
+        title: labelReadOnly,
+        pressed: readOnly,
+        doAction: async () => {
+          if (readOnlyWidgets.has(widgetId)) {
+            readOnlyWidgets.delete(widgetId);
+          } else {
+            readOnlyWidgets.add(widgetId);
+          }
+          setReadOnly(readOnlyWidgets.has(widgetId));
+        }
+      },
+      {
+        id: 'OPEN-FOLDER',
+        icon: openFolderSvg,
+        title: labelOpenStartFolder,
+        // The shell starts in the home folder when Start Folder is empty.
+        doAction: async () => {
+          const dir = settingsRef.current.cwd || await fs.getHomeDir();
+          const failure = await shell.openPath(dir);
+          if (failure) {
+            setNotice(`Could not open ${dir}: ${failure}`);
+          }
+        }
+      },
+      { id: 'RESTART', icon: restartSvg, title: labelRestartShell, doAction: async () => restart() },
     ];
-    updateActionBar(items);
-  }, [updateActionBar, restart]);
+    updateActionBar(applyActionBarLayout(items, actionBar));
+  }, [updateActionBar, restart, startCommand, customActions, actionBar, readOnly, sessionKey, pty, clipboard, fs, shell, widgetId]);
 
   return (
     <div className={styles['terminal']} style={{ background: theme.background }}>
       {error && <div role="alert" className={styles['error']} style={{ color: theme.red }}>The shell could not start: {error}</div>}
+      {notice && <div role="alert" className={styles['error']} style={{ color: theme.red }}>{notice}</div>}
       <div ref={hostRef} className={styles['host']}/>
     </div>
   );

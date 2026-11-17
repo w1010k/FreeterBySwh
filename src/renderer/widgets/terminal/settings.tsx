@@ -6,6 +6,10 @@
 import { useState } from 'react';
 import type { UiThemeKind } from '@/base/uiTheme';
 import { CreateSettingsState, ReactComponent, SettingsEditorReactComponentProps, SettingBlock } from '@/widgets/appModules';
+import { ActionBarLayout } from '@/widgets/actionLayout';
+import { CustomAction, sanitizeActionBarLayoutFor, sanitizeCustomActions } from '@/widgets/customActions';
+import { ActionsSetting } from '@/widgets/actionsSetting';
+import { builtinActionsAfterCustom, builtinActionsBeforeCustom, inputPresets } from './actions';
 
 export interface Settings {
   /** Shell program; empty = the platform default (PowerShell 7 if found, else Windows PowerShell, on Windows; $SHELL elsewhere). */
@@ -18,6 +22,10 @@ export interface Settings {
   fontSize: number;
   /** The terminal's colors: the app theme's, or always light or dark. */
   theme: TerminalThemeSetting;
+  /** Action bar buttons that type their input into the shown tab's shell (escapes: see decodeInput). */
+  customActions: CustomAction<'input'>[];
+  /** The action bar buttons the user hid and their order. */
+  actionBar: ActionBarLayout;
 }
 
 /** A fixed palette (a key of terminalThemes: light or dark) or 'app' (the app theme's kind). */
@@ -36,13 +44,22 @@ export const clampFontSize = (n: number) => Math.min(FONT_SIZE_MAX, Math.max(FON
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
-export const createSettingsState: CreateSettingsState<Settings> = (settings) => ({
-  shell: str(settings.shell),
-  cwd: str(settings.cwd),
-  startCommand: str(settings.startCommand),
-  fontSize: typeof settings.fontSize === 'number' && Number.isFinite(settings.fontSize) ? clampFontSize(settings.fontSize) : FONT_SIZE_DEFAULT,
-  theme: isTerminalThemeSetting(settings.theme) ? settings.theme : THEME_DEFAULT,
-})
+export const createSettingsState: CreateSettingsState<Settings> = (settings) => {
+  const customActions = sanitizeCustomActions(settings.customActions, 'input');
+  return {
+    shell: str(settings.shell),
+    cwd: str(settings.cwd),
+    startCommand: str(settings.startCommand),
+    fontSize: typeof settings.fontSize === 'number' && Number.isFinite(settings.fontSize) ? clampFontSize(settings.fontSize) : FONT_SIZE_DEFAULT,
+    theme: isTerminalThemeSetting(settings.theme) ? settings.theme : THEME_DEFAULT,
+    customActions,
+    // Run Start Command starts hidden: with "claude" as the Start Command, Claude Code already runs when the shell
+    // starts, and a stray click would send "claude" to it as a message. Who wants the button turns it on.
+    actionBar: settings.actionBar === undefined
+      ? { hidden: ['RUN-START'], order: [] }
+      : sanitizeActionBarLayoutFor(settings.actionBar, customActions),
+  };
+}
 
 function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponentProps<Settings>) {
   const {updateSettings} = settingsApi;
@@ -89,7 +106,24 @@ function SettingsEditorComp({settings, settingsApi}: SettingsEditorReactComponen
           {terminalThemeSettings.map(id => <option key={id} value={id}>{terminalThemeNames[id]}</option>)}
         </select>
       </SettingBlock>
-      <p>The font size and the theme apply at once. Other changes apply when the shell restarts (Restart Shell in the action bar).</p>
+      <ActionsSetting
+        idPrefix='terminal-action'
+        moreInfo='The buttons in the widget action bar. Clear a checkbox to hide a button, and use the arrows to change
+                  the order. A custom action types its input into the shell of the shown tab, into whatever runs there
+                  (a running Claude Code gets it too). Write \r for Enter, \e for Esc, \t for Tab and \xHH for another
+                  ASCII key code, 00 to 7F (\x03 is Ctrl+C), as in Windows Terminal, and \\ for a backslash (a path such as
+                  C:\\temp needs it). Add an empty one, or choose a preset and add it.'
+        builtinsBefore={builtinActionsBeforeCustom}
+        builtinsAfter={builtinActionsAfterCustom}
+        field='input'
+        fieldLabel='Action Input'
+        fieldPlaceholder='Text to type, e.g. git status\r'
+        presets={inputPresets}
+        customActions={settings.customActions}
+        layout={settings.actionBar}
+        onChange={(customActions, actionBar) => updateSettings({ ...settings, customActions, actionBar })}
+      />
+      <p>The font size, the theme and the actions apply at once. Other changes apply when the shell restarts (Restart Shell in the action bar).</p>
     </>
   )
 }

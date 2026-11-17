@@ -3,9 +3,8 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-// Which action bar buttons the user hid, and the order they put them in. Both lists hold
-// action bar item ids. The code knows nothing about the Webpage widget, so another widget
-// can use it as is.
+// Which action bar buttons the user hid, and the order they put them in (the Actions setting of
+// the Webpage and Terminal widgets). Both lists hold action bar item ids.
 export interface ActionBarLayout {
   hidden: string[];
   order: string[];

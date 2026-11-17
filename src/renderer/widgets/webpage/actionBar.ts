@@ -8,15 +8,11 @@ import { canGoBack, canGoForward, canGoHome, canReload, copyCurrentAddress, goBa
 import { backSvg, copyUrlSvg, forwardSvg, homeSvg, openInBrowserSvg, reloadSvg, reloadStartSvg, reloadStopSvg, runScriptSvg, searchSvg, translateSvg, volumeOffSvg, volumeOnSvg, zoomInSvg, zoomOutSvg } from './icons';
 import { WidgetApi } from '@/base/widgetApi';
 import type { CustomActionSettings } from './settings';
-import { ActionBarLayout, applyActionBarLayout } from './actionLayout';
+import { ActionBarLayout, applyActionBarLayout } from '@/widgets/actionLayout';
+import { BuiltinActionInfo, customActionBarItems } from '@/widgets/customActions';
 
 // The buttons the Actions setting lists, in the action bar's default order. Custom actions go
 // between the two lists. Keep the ids in step with createActionBarItems (a test checks it).
-export interface BuiltinActionInfo {
-  id: string;
-  label: string;
-  note?: string;
-}
 export const builtinActionsBeforeCustom: readonly BuiltinActionInfo[] = [
   { id: 'HOME', label: labelGoHome },
   { id: 'BACK', label: labelGoBack },
@@ -33,13 +29,6 @@ export const builtinActionsAfterCustom: readonly BuiltinActionInfo[] = [
   { id: 'COPY-URL', label: labelCopyCurrentAddress },
   { id: 'OPEN-IN-BROWSER', label: labelOpenInBrowser },
 ];
-
-// A custom action's id in the action bar and in ActionBarLayout. The action's own id is fixed,
-// so the button keeps its place and hidden state when rows above it are deleted.
-export const customActionItemIdPrefix = 'CUSTOM-ACTION-';
-export function customActionItemId(action: CustomActionSettings): string {
-  return customActionItemIdPrefix + action.id;
-}
 
 export function createActionBarItems(
   elWebview: Electron.WebviewTag | null,
@@ -152,16 +141,11 @@ export function createActionBarItems(
       doAction: async () => onToggleTranslate()
     }] : []),
     // Bookmarklet-style user actions: run a JS snippet on the current page.
-    ...customActions
-      .map((action, i) => ({action, i}))
-      .filter(({action}) => action.js.trim() !== '')
-      .map(({action, i}) => ({
-        enabled: true,
-        icon: runScriptSvg,
-        id: customActionItemId(action),
-        title: action.name.trim() !== '' ? action.name : `Custom action ${i + 1}`,
-        doAction: async () => { elWebview.executeJavaScript(action.js).catch(() => undefined); }
-      })),
+    ...customActionBarItems(customActions, 'js', {
+      icon: runScriptSvg,
+      skip: js => js.trim() === '',
+      run: js => { elWebview.executeJavaScript(js).catch(() => undefined); }
+    }),
     ...(onToggleMute ? [{
       enabled: true,
       icon: audioMuted ? volumeOffSvg : volumeOnSvg,

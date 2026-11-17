@@ -12,6 +12,7 @@ import { ActionBarItems } from '@/widgets/appModules';
 import { WidgetHeaderTabs } from '@/base/widgetApi';
 import terminalType from '@/widgets/terminal';
 import { markRevealedByAi, resetAiActivity } from '@/base/ai/aiActivity';
+import { builtinActionsAfterCustom, builtinActionsBeforeCustom } from '@/widgets/terminal/actions';
 
 // xterm needs a real canvas/DOM layout; the widget is tested against a stand-in.
 const terms: FakeTerminal[] = [];
@@ -30,8 +31,14 @@ class FakeTerminal {
   loadAddon(a: unknown) {
     this.addons.push(a);
   }
+  textarea?: HTMLTextAreaElement;
+  /** Pastes xterm would have sent to the shell. */
+  pasted = 0;
   open(el: HTMLElement) {
     el.appendChild(document.createElement('canvas')); // where WebGL draws
+    this.textarea = document.createElement('textarea'); // where keys, the IME and pastes go
+    this.textarea.addEventListener('paste', () => { this.pasted++; });
+    el.appendChild(this.textarea);
   }
   write(d: string) {
     this.written.push(d);
@@ -46,6 +53,20 @@ class FakeTerminal {
   keyHandler?: (e: KeyboardEvent) => boolean;
   attachCustomKeyEventHandler(fn: (e: KeyboardEvent) => boolean) {
     this.keyHandler = fn;
+  }
+  /** What the view shows, for Copy Output. */
+  bufferLines: { text: string; wrapped?: boolean }[] = [];
+  get buffer() {
+    const lines = this.bufferLines;
+    return {
+      active: {
+        length: lines.length,
+        getLine: (i: number) => lines[i] && {
+          isWrapped: !!lines[i].wrapped,
+          translateToString: (trimRight?: boolean) => (trimRight ? lines[i].text.trimEnd() : lines[i].text)
+        }
+      }
+    };
   }
   selection = false;
   hasSelection() {
@@ -200,7 +221,7 @@ describe('Terminal widget', () => {
     setupWidgetSut(terminalType, settings({ startCommand: 'claude' }), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } }, widgetId: 'W1' });
     await waitFor(() => expect(terms[1].written.join('')).toContain('Restart Shell'));
     expect(pty.create).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(items.length).toBe(1));
+    await waitFor(() => expect(items.find(i => i.id === 'RESTART')).toBeDefined());
     await act(async () => { items.find(i => i.id === 'RESTART')?.doAction(); });
     await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(2));
   });
@@ -292,7 +313,7 @@ describe('Terminal widget', () => {
     setupWidgetSut(terminalType, settings({ startCommand: 'claude' }), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } } });
     await waitFor(() => expect(terms[0].written.join('')).toContain('Restart Shell'));
     expect(pty.create).not.toHaveBeenCalled();
-    await waitFor(() => expect(items.length).toBe(1));
+    await waitFor(() => expect(items.find(i => i.id === 'RESTART')).toBeDefined());
     await act(async () => { items.find(i => i.id === 'RESTART')?.doAction(); });
     await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(pty.onData).toHaveBeenCalledWith('T1', expect.any(Function))); // the shell is shown
@@ -326,7 +347,7 @@ describe('Terminal widget', () => {
     markRevealedByAi(['W1']);
     pty.buffer.mockResolvedValueOnce({ screen: 'earlier', seq: 0 });
     setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } }, widgetId: 'W1' });
-    await waitFor(() => expect(items.length).toBe(1));
+    await waitFor(() => expect(items.find(i => i.id === 'RESTART')).toBeDefined());
     await act(async () => { items.find(i => i.id === 'RESTART')?.doAction(); });
     await waitFor(() => expect(pty.create).toHaveBeenCalledTimes(2));
   });
@@ -636,12 +657,154 @@ describe('Terminal widget', () => {
     expect(terms[1].options.fontSize).toBe(14);
   });
 
-  it('has only Restart Shell in the action bar (no button types commands into the shell)', async () => {
-    const { pty } = setupPty();
-    let items: ActionBarItems = [];
-    setupWidgetSut(terminalType, settings(), { mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { items = i; } } });
-    await waitFor(() => expect(items.map(i => i.id)).toEqual(['RESTART']));
-    expect(pty.write).not.toHaveBeenCalled();
+  describe('action bar', () => {
+    const setup = (s: Partial<Settings> = {}, { widgetId, ...api }: Record<string, unknown> & { widgetId?: string } = {}) => {
+      const { pty } = setupPty();
+      const bar: { items: ActionBarItems } = { items: [] };
+      const sut = setupWidgetSut(terminalType, settings(s), {
+        mockWidgetApi: { pty, updateActionBar: (i: ActionBarItems) => { bar.items = i; }, ...api },
+        ...(widgetId ? { widgetId } : {})
+      });
+      const item = (id: string) => bar.items.find(i => i.id === id)!;
+      return { pty, bar, item, sut };
+    };
+
+    const allShown = { hidden: [], order: [] };
+
+    it('lists the buttons of the Actions setting in its default order, the custom actions between them', async () => {
+      const { bar } = setup({ startCommand: 'claude', customActions: [{ id: 'a1', name: 'Status', input: 'git status\\r' }], actionBar: allShown });
+      await waitFor(() => expect(bar.items.map(i => i.id)).toEqual([
+        ...builtinActionsBeforeCustom.map(i => i.id), 'CUSTOM-ACTION-a1', ...builtinActionsAfterCustom.map(i => i.id)
+      ]));
+    });
+
+    it('has no Run Start Command without a Start Command, and no button for a custom action without input', async () => {
+      const { bar } = setup({ customActions: [{ id: 'a1', name: 'Empty', input: '' }] });
+      await waitFor(() => expect(bar.items.map(i => i.id)).toEqual(['COPY-OUTPUT', 'READ-ONLY', 'OPEN-FOLDER', 'RESTART']));
+    });
+
+    it('hides Run Start Command until it is turned on in the Actions setting', async () => {
+      const { bar } = setup({ startCommand: 'claude' });
+      await waitFor(() => expect(bar.items.map(i => i.id)).toEqual(['COPY-OUTPUT', 'READ-ONLY', 'OPEN-FOLDER', 'RESTART']));
+    });
+
+    it('types nothing into the shell by itself: only a click types (no guess of what runs there)', async () => {
+      const { pty, item } = setup({ startCommand: 'claude', customActions: [{ id: 'a1', name: 'Status', input: 'git status\\r' }], actionBar: allShown });
+      await waitFor(() => expect(item('CUSTOM-ACTION-a1')).toBeDefined());
+      await waitFor(() => expect(pty.onData).toHaveBeenCalled());
+      expect(pty.write).not.toHaveBeenCalled();
+
+      await act(() => item('CUSTOM-ACTION-a1').doAction());
+      expect(pty.write).toHaveBeenLastCalledWith('T1', 'git status\r');
+      await act(() => item('RUN-START').doAction());
+      expect(pty.write).toHaveBeenLastCalledWith('T1', 'claude\r');
+    });
+
+    it('hides and orders the buttons per the saved layout', async () => {
+      const { bar } = setup({ actionBar: { hidden: ['COPY-OUTPUT'], order: ['RESTART'] } });
+      await waitFor(() => expect(bar.items.map(i => i.id)).toEqual(['RESTART', 'READ-ONLY', 'OPEN-FOLDER']));
+    });
+
+    it('Read-Only stops keys, the IME and pastes, and every typing button, until it is pressed again', async () => {
+      const { pty, item, sut } = setup({ startCommand: 'claude', customActions: [{ id: 'a1', name: 'Status', input: 'x' }], actionBar: allShown });
+      await waitFor(() => expect(pty.onData).toHaveBeenCalled());
+      const key = (k: string, ctrlKey = false) => terms[0].keyHandler!({ type: 'keydown', key: k, ctrlKey } as KeyboardEvent);
+      expect(key('a')).toBe(true);
+      expect(terms[0].textarea!.readOnly).toBe(false);
+
+      await act(() => item('READ-ONLY').doAction());
+      expect(item('READ-ONLY').pressed).toBe(true);
+      expect(item('CUSTOM-ACTION-a1').enabled).toBe(false);
+      expect(item('RUN-START').enabled).toBe(false);
+      // xterm drops the keys; text and the IME stop at the read-only textarea; a paste stops before xterm sees it.
+      expect(key('a')).toBe(false);
+      expect(key('Enter')).toBe(false);
+      expect(key('v', true)).toBe(false);
+      expect(terms[0].textarea!.readOnly).toBe(true);
+      terms[0].textarea!.dispatchEvent(new Event('paste', { bubbles: true, cancelable: true }));
+      expect(terms[0].pasted).toBe(0);
+      // A button called some other way (not through its enabled state) does not type either.
+      await act(() => item('CUSTOM-ACTION-a1').doAction());
+      expect(pty.write).not.toHaveBeenCalled();
+      // Zoom still works, and xterm's own replies to the program (cursor position, focus) still reach the shell.
+      act(() => { expect(key('=', true)).toBe(false); });
+      await waitFor(() => expect(terms[0].options.fontSize).toBe(14));
+      terms[0].type('\x1b[I');
+      expect(pty.write).toHaveBeenCalledWith('T1', '\x1b[I');
+
+      await act(() => item('READ-ONLY').doAction());
+      expect(item('READ-ONLY').pressed).toBe(false);
+      expect(key('a')).toBe(true);
+      expect(terms[0].textarea!.readOnly).toBe(false);
+      terms[0].textarea!.dispatchEvent(new Event('paste', { bubbles: true, cancelable: true }));
+      expect(terms[0].pasted).toBe(1);
+      sut.comp.unmount();
+    });
+
+    it('gives the keys back to the terminal after a typing button (a focused button would take the next Enter)', async () => {
+      const { pty, item } = setup({ customActions: [{ id: 'a1', name: 'Status', input: 'git status\\r' }] });
+      await waitFor(() => expect(pty.onData).toHaveBeenCalled());
+      const focus = jest.spyOn(terms[0], 'focus');
+      await act(() => item('CUSTOM-ACTION-a1').doAction());
+      expect(focus).toHaveBeenCalled();
+    });
+
+    it('Copy Output leaves the clipboard as it is when there is no text', async () => {
+      const writeText = jest.fn(async () => undefined);
+      const { item } = setup({}, { clipboard: { writeText } });
+      await waitFor(() => expect(item('COPY-OUTPUT')).toBeDefined());
+      terms[0].bufferLines = [{ text: '' }, { text: '   ' }];
+      await act(() => item('COPY-OUTPUT').doAction());
+      expect(writeText).not.toHaveBeenCalled();
+    });
+
+    it('Open Start Folder says so when the folder cannot be opened', async () => {
+      const openPath = jest.fn(async () => 'Failed to open path');
+      const { item } = setup({ cwd: 'C:/nope' }, { shell: { openPath } });
+      await waitFor(() => expect(item('OPEN-FOLDER')).toBeDefined());
+      await act(() => item('OPEN-FOLDER').doAction());
+      expect(screen.getByRole('alert')).toHaveTextContent('Could not open C:/nope: Failed to open path');
+    });
+
+    it('Copy Output copies the text of the screen and the scrollback', async () => {
+      const writeText = jest.fn(async () => undefined);
+      const { item } = setup({}, { clipboard: { writeText } });
+      await waitFor(() => expect(item('COPY-OUTPUT')).toBeDefined());
+      terms[0].bufferLines = [{ text: 'PS> ls  ' }, { text: 'a.txt' }, { text: '' }];
+      await act(() => item('COPY-OUTPUT').doAction());
+      expect(writeText).toHaveBeenCalledWith('PS> ls\na.txt');
+    });
+
+    it('Open Start Folder opens the Start Folder', async () => {
+      const openPath = jest.fn(async () => '');
+      const getHomeDir = jest.fn(async () => 'C:/Users/me');
+      const first = setup({ cwd: 'C:/work' }, { shell: { openPath }, fs: { getHomeDir } });
+      await waitFor(() => expect(first.item('OPEN-FOLDER')).toBeDefined());
+      await act(() => first.item('OPEN-FOLDER').doAction());
+      expect(openPath).toHaveBeenLastCalledWith('C:/work');
+    });
+
+    it('Open Start Folder opens the home folder when Start Folder is empty', async () => {
+      const openPath = jest.fn(async () => '');
+      const getHomeDir = jest.fn(async () => 'C:/Users/me');
+      const { item } = setup({}, { shell: { openPath }, fs: { getHomeDir } });
+      await waitFor(() => expect(item('OPEN-FOLDER')).toBeDefined());
+      await act(() => item('OPEN-FOLDER').doAction());
+      expect(openPath).toHaveBeenLastCalledWith('C:/Users/me');
+    });
+
+    it('keeps Read-Only when the view mounts again, and forgets it when the widget is deleted', async () => {
+      const first = setup({}, { widgetId: 'W1' });
+      await waitFor(() => expect(first.item('READ-ONLY')).toBeDefined());
+      await act(() => first.item('READ-ONLY').doAction());
+      first.sut.comp.unmount();
+      const again = setup({}, { widgetId: 'W1' });
+      await waitFor(() => expect(again.item('READ-ONLY')?.pressed).toBe(true));
+      again.sut.comp.unmount();
+      forgetTerminalSession('W1');
+      const fresh = setup({}, { widgetId: 'W1' });
+      await waitFor(() => expect(fresh.item('READ-ONLY')?.pressed).toBe(false));
+    });
   });
 
 });

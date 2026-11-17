@@ -387,7 +387,7 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor)은 `widget
 - **기타 동작**: 페이지 제목과 URL을 이은 동적 타이틀 [fork #11], 로드 실패 오버레이 (메인 프레임이고 code ≠ -3일 때만) [fork #38], 자동 새로고침은 webview에 포커스가
   있으면 멈추고 blur부터 다시 센다 [fork #53], 음소거는 세션 한정 [fork #35], 커스텀 액션은 활성 탭에서 `executeJavaScript` [fork #70], 이동 시
   `page_visit` 기록 [fork #63], `exposeApi`로 `{ openUrl, getUrl }` 공개 [upstream].
-- **Actions 설정** [fork #115]: 기본 버튼과 커스텀 액션을 한 목록으로 그린다. 숨김과 순서는 `actionBar`에 항목 `id`로 저장하고, 설정 목록과
+- **Actions 설정** [fork #115]: 공통 `ActionsSetting` (`widgets/actionsSetting.tsx`, Terminal과 공유 [fork #116])이 기본 버튼과 커스텀 액션을 한 목록으로 그린다. 숨김과 순서는 `actionBar`에 항목 `id`로 저장하고, 설정 목록과
   액션 바가 같은 `arrangeActions`를 쓴다. 순서 목록에 없는 항목은 뒤에 기본 순서대로 붙는다. 커스텀 액션의 항목 `id`는 `CUSTOM-ACTION-<id>`다 (행 번호가 아님).
   `createActionBarItems`에 버튼을 추가하면 `builtinActionsBeforeCustom`/`builtinActionsAfterCustom`에도 추가한다 (테스트가 검사한다).
   `createSettingsState`는 없는 커스텀 액션의 `id`를 두 목록에서 지운다. 프리셋은 선택 상자로 고르고 "Add Preset" 버튼으로 추가한다 (Windows의 닫힌
@@ -529,13 +529,19 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor)은 `widget
   `requiresState: ['uiTheme']`로 받은 앱 테마의 `kind` (light·dark)를 따른다 [fork #110]. `dark`가 기본인 이유: 이 설정 전의 위젯은 늘 어두웠다. `theme.ts`의 light·dark 팔레트를
   `term.options.theme`에 넣고, 테마가 바뀌면 바로 바꾼다. `minimumContrastRatio: 4.5`로 프로그램이 정한 배경 위의 글자도 읽힌다. 팔레트의 글자색도 기본 배경 대비 4.5:1 이상이다 (`tests/renderer/widgets/terminal/theme.spec.ts`) [fork #103].
 - **역할**: 위젯 안의 셸 [fork #100]. xterm.js로 그리고 (화면이 열린 다음 프레임에 `@xterm/addon-webgl`; 실패하거나 WebGL 컨텍스트를 잃으면 DOM 렌더러. 뷰가 닫힐 때 `WEBGL_lose_context`로 컨텍스트를 돌려준다: 애드온은 돌려주지 않고, Chromium은 몇 개만 두고 가장 오래된 것을 잃게 한다) main의 node-pty 셸과 `pty` 모듈로 주고받는다. 키 입력은 `pty.write`가 응답 없는 `send`로 보낸다.
-- **설정**: `shell` (빈 값은 플랫폼 기본: Windows는 PowerShell 7이 있으면 pwsh, 없으면 Windows PowerShell), `cwd` (빈 값은 사용자 홈, main `terminalHost`의 `defaultCwd`), `startCommand` (셸 시작 뒤 입력), `fontSize` (기본 13, 6~48, `clampFontSize`), `theme` (아래 **색**). `fontSize`와 `theme`은 바로 적용되고, 나머지는 Restart Shell 뒤 적용된다.
+- **설정**: `shell` (빈 값은 플랫폼 기본: Windows는 PowerShell 7이 있으면 pwsh, 없으면 Windows PowerShell), `cwd` (빈 값은 사용자 홈, main `terminalHost`의 `defaultCwd`), `startCommand` (셸 시작 뒤 입력), `fontSize` (기본 13, 6~48, `clampFontSize`), `theme` (아래 **색**), `customActions: {id, name, input}[]`, `actionBar: {hidden, order}` [fork #116]. `fontSize`, `theme`, 액션은 바로 적용되고, 나머지는 Restart Shell 뒤 적용된다.
 - **탭**: 헤더 탭으로 셸을 여러 개 연다 (+로 추가, x로 닫기; 마지막 탭에는 x가 없다). 모듈 수준 `tabsByWidget`이 위젯별 탭 (세션 키: 첫 탭은 위젯 id, 나머지는 `<위젯 id>#<n>`)과 선택한 탭을 가져, 다시 마운트해도 탭이 그대로다. 화면은 선택한 탭만 그리고 (`LiveTerminal`을 세션 키로 다시 마운트), 다른 탭의 셸은 main에서 계속 돈다. 탭 이름은 셸이 정한 제목 (main의 화면 사본이 받는 OSC 제목, `pty.onTitle`; 보이지 않는 탭도 바뀐다), 없으면 `Shell <n>`. 탭 x는 보조 기술에서 숨긴 마우스용이고, 탭 자체가 Delete로 닫힌다 (탭 목록에는 탭만 둔다). 위젯 삭제는 모든 탭의 셸을 끝낸다. "항상 허용" 작업이 띄운 Terminal의 대기는 첫 탭에만 적용한다. 탭 목록은 앱을 다시 시작하면 하나로 돌아간다.
 - **셸 선택**: + 옆 ▾ 메뉴는 `pty.shells()` (main이 처음 필요할 때 한 번 찾은 목록: PowerShell 7, Windows PowerShell, 명령 프롬프트, Git Bash, 배포판이 있을 때의 WSL; 그 밖의 OS는 `$SHELL`과 `/etc/shells`를 이름마다 하나, 셸 아닌 항목 제외)를 보여 주고 (renderer는 모듈 수준 `shellsAsked`로 한 번만 묻는다), 고른 셸로 탭을 연다. 모듈 수준 `shellByKey`가 그 탭의 셸을 기억해 Restart Shell도 같은 셸로 시작한다. +와 메뉴 밖의 탭은 설정의 `shell`을 쓴다. Git Bash는 인자 없이 띄운다 (로그인 셸 아님) [fork #102].
 - **링크**: `@xterm/addon-web-links`. 출력의 URL은 Ctrl+클릭 (Mac은 Cmd+클릭)일 때만 `shell.openExternalUrl`로 연다. 그냥 클릭은 글 선택이다 (Windows Terminal과 같다) [fork #102].
 - **확대·축소**: Ctrl+= / Ctrl++ / Ctrl+- / Ctrl+휠 (휠 거리 `WHEEL_STEP` 100px마다 한 단계, 가로 휠 무시), Ctrl+0은 `fontSize`로 복귀. 한 단계는 지금 보이는 크기에서 움직인다. `^_`는 Ctrl+Shift+-로 셸에 간다. 위젯을 지우면 `zoomByWidget` 항목도 지운다. 위젯은 자기 설정을 바꾸지 못하므로 확대 정도는 모듈 수준 `zoomByWidget` (설정 크기와의 차이)에 앱 세션 동안만 둔다. 모든 탭에 적용되고, 다시 마운트해도 유지된다. 휠은 화면 상자의 capture 리스너가 xterm 스크롤과 페이지 확대보다 먼저 막는다. 크기가 바뀌면 `term.options.fontSize`를 바꾸고 `fit` 뒤 셸에 크기를 보낸다 [fork #102].
 - **수명**: 모듈 수준 `sessionByWidget` (세션 키 → 터미널 id) 때문에 셸은 언마운트 뒤에도 돈다. 다시 마운트하면 먼저 구독하고 `pty.buffer`로 main의 화면 사본 (headless xterm을 직렬화한 ANSI와 담은 마지막 출력 번호)을 그린 뒤, 기다리는 동안 온 출력 중 번호가 더 큰 것만 그린다. Ctrl+V는 붙여넣기, 선택이 있을 때의 Ctrl+C는 복사로 브라우저에 넘긴다 (`attachCustomKeyEventHandler`). 위젯을 지우면 `onDeleted` (`forgetTerminalSession`)가 셸을 끝낸다.
-- **액션 바**: `RESTART`만 있다. 셸에 명령을 입력하는 버튼 (Start Claude Code, Start Codex)은 지웠다: node-pty는 Windows에서 앞에 있는 프로그램을 알려 주지 않아, 출력으로 셸 프롬프트를 추측하면 실행 중인 Claude Code에 입력될 수 있었다 (2026-11-09).
+- **액션 바** [fork #116]: 기본 순서는 `RUN-START` (Start Command가 있을 때만, 저장된 `actionBar`가 없으면 숨김), 커스텀 입력 버튼, `COPY-OUTPUT`, `READ-ONLY`, `OPEN-FOLDER`, `RESTART`다 (`actions.ts`의 `builtinActionsBeforeCustom`/`builtinActionsAfterCustom`, 테스트가 액션 바와 같은지 검사). 숨김과 순서는 Webpage와 같은 `actionBar` 설정과 공통 `ActionsSetting`이다.
+  - 입력 버튼은 보이는 탭의 셸에 `decodeInput` (이스케이프 `\r \n \t \e \\`, `\xHH`는 `00`~`7F`만)한 문자열을 `typeIntoShell`로 `pty.write`한다. 그때 실행 중인 프로그램이 받는다. 보낸 뒤 `term.focus()`로 키를 터미널에 돌린다. 버튼은 공통 `customActionBarItems`가 만든다.
+  - 규칙: 앱이 상태를 추측해서 셸에 입력하는 버튼은 만들지 않는다. 처음 있던 Start Claude Code·Start Codex 버튼은 출력으로 셸 프롬프트를 추측했고, 추측이 틀리면 실행 중인 Claude Code에 입력됐다 (2026-11-09에 지움). 입력은 사용자가 누른 버튼으로만 한다 (테스트 "types nothing into the shell by itself").
+  - `READ-ONLY`: 모듈 수준 `readOnlyWidgets`. 키 처리기가 키를 버리고, `term.textarea.readOnly`가 글자와 IME를, 화면 상자의 capture `paste` 리스너가 붙여넣기를 막는다. `typeIntoShell`도 검사한다. 모든 탭, 앱 세션 동안. 켜지면 입력 버튼은 `enabled: false`.
+  - 함정: `term.onData`를 막으면 안 된다. xterm의 자동 응답 (커서 위치, 포커스 보고)도 `onData`로 나가서 TUI가 멈출 수 있다. `disableStdin` 옵션도 자동 응답까지 막는다.
+  - `COPY-OUTPUT`: `bufferText`가 `term.buffer.active`를 글자로 바꾼다 (줄바꿈된 줄은 앞 줄에 합침). 빈 글자면 클립보드를 쓰지 않는다. `requiresApi`의 `clipboard`.
+  - `OPEN-FOLDER`: `cwd`, 비어 있으면 `fs.getHomeDir()`을 `shell.openPath`로 연다. 실패 문자열은 `notice`로 화면 위에 5초 보여 준다 (터미널에 쓰지 않는다: TUI 화면이 깨진다). `requiresApi`의 `fs`.
 - **끝난 셸**: `exitedWidgets`에 남아, 화면이 다시 붙어도 새 셸을 띄우지 않는다 (Restart Shell만).
 - **미리보기**: `env.isPreview`면 안내 문구만 그린다 (설정 화면이 같은 위젯 id로 그리므로 셸에 붙으면 셸 크기가 바뀐다).
 - **테스트**: xterm은 jsdom에서 그릴 수 없어 `FakeTerminal`로 바꾼다 (`tests/renderer/widgets/terminal/widget.spec.ts`).
