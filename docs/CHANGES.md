@@ -4235,6 +4235,52 @@ Application Settings 화면의 배치를 새로 짰다. 설정 값과 저장 방
 - **수정**: `src/renderer/base/state/ui.ts` (`createUiState`), `src/renderer/base/state/app.ts` (`currentAppStateVersion`, `migrateAppState`)
 - **테스트**: `tests/renderer/base/state/ui.spec.ts` (신규: 새 기본값, 저장 값 우선, 버전 3 마이그레이션)
 
+## 115. Webpage 액션 버튼 관리와 커스텀 액션 프리셋 *(2026-11-17)*
+
+Webpage 위젯 설정의 Custom Actions 섹션을 **Actions** 섹션으로 바꿨다. 액션 바의 기본 버튼 12개와 커스텀 액션이 한 목록에 나온다. 전에는 기본 버튼이 늘 모두 보였고, 커스텀 액션은 JavaScript를 직접 써야 만들 수 있었다.
+
+- 행마다 체크박스가 있다. 체크를 끄면 그 버튼이 액션 바에서 사라진다. 기본 버튼은 끄고 켤 수만 있고, 커스텀 액션은 지울 수도 있다.
+- 위/아래 버튼으로 순서를 바꾼다. 액션 바도 그 순서를 따른다. 최대화 버튼은 앱 공통 버튼이라 목록에 없고 늘 맨 끝이다.
+- 프리셋 선택 상자에서 프리셋을 고르고 "Add Preset"을 누르면 이름과 코드가 채워진 커스텀 액션 행이 추가된다. 그 행은 다른 커스텀 액션처럼 고칠 수 있다. 프리셋 7개:
+
+| 프리셋 | 동작 |
+|--------|------|
+| Scroll to Top / Scroll to Bottom | 페이지와 스크롤되는 안쪽 상자 (Slack, Notion 같은 웹 앱)를 맨 위나 맨 아래로 |
+| Toggle Dark Filter | 페이지 색을 반전하고 이미지·영상은 원래 색으로. 한 번 더 누르면 원래대로 (페이지의 스타일은 건드리지 않음) |
+| Hide Sticky Elements | `position: fixed`/`sticky` 요소 (고정 헤더, 쿠키 배너) 숨기기. 새로고침하면 돌아옴 |
+| Allow Text Selection | `user-select: none`을 풀고, 선택·복사·잘라내기·우클릭을 막는 페이지 핸들러를 멈춤 |
+| Video Speed 1x/2x | 페이지의 모든 영상을 2배속과 1배속으로 전환 |
+| Expand All Sections | 접힌 `<details>`를 모두 펼침 |
+
+- 숨긴 버튼 중 이동, 새로고침, 줌, 번역, 주소 복사, 브라우저로 열기는 우클릭 메뉴에서 계속 쓸 수 있고, 찾기는 `Ctrl`/`Cmd`+`F`로 쓸 수 있다. 음소거와 커스텀 액션은 버튼으로만 쓸 수 있다.
+- 이미 쓰던 위젯은 업데이트 뒤에도 버튼 순서가 그대로다. 설정이 비어 있으면 기존 순서를 쓴다.
+
+구조:
+
+- 설정에 `actionBar: { hidden: string[]; order: string[] }`를 추가했다. 두 목록 모두 액션 바 항목 `id`를 담는다. `actionLayout.ts`의 `arrangeActions`가 순서를 적용한다. 순서 목록에 없는 항목 (업데이트로 생긴 버튼, 새 커스텀 액션)은 이름이 있는 항목 뒤에 기본 순서대로 붙는다. 그래서 업데이트로 버튼이 늘어도 사라지지 않는다. `applyActionBarLayout`은 여기에 숨김을 더한다. 설정 목록과 액션 바가 같은 함수를 쓴다.
+- 커스텀 액션에 고정 `id`를 추가했다 (`crypto.randomUUID`). 액션 바 `id`는 `CUSTOM-ACTION-<id>`다. 전에는 행 번호 (`CUSTOM-ACTION-0`)라서, 위 행을 지우면 아래 행의 순서와 숨김 상태가 다른 액션으로 옮겨 갔을 것이다. `id`가 없는 기존 액션은 `createSettingsState`가 처음 읽을 때 받고, 다음 저장 때 함께 저장된다. 같은 `id`가 두 번 나오면 두 번째에 새 `id`를 준다.
+- 설정 화면의 기본 버튼 목록은 `actionBar.ts`의 `builtinActionsBeforeCustom`, `builtinActionsAfterCustom`이다. 커스텀 액션의 기본 자리는 두 목록 사이 (번역과 음소거 사이)로, 전과 같다. 테스트가 이 목록과 `createActionBarItems`의 `id`가 같은지 검사한다.
+- 순서를 한 번 바꾸면 목록 전체의 순서를 저장한다. 그 뒤에 추가한 커스텀 액션은 마지막 커스텀 액션 바로 뒤에 넣는다 (커스텀 액션이 없으면 음소거 앞). 순서를 저장하지 않았을 때의 기본 자리와 같다.
+- 커스텀 액션을 지우면 그 `id`를 숨김·순서 목록에서도 지운다. `createSettingsState`도 없는 커스텀 액션의 `id`를 두 목록에서 지운다. AI 에이전트가 `id` 없이 `customActions`를 다시 쓰면 액션이 새 `id`를 받기 때문이다. 이때 그 액션의 숨김과 순서는 초기화된다.
+- 숨김과 순서는 코드를 실행하지 않으므로 AI 에이전트 확인 목록 (`confirmSettings`)에 넣지 않았다. `customActions`는 전처럼 확인 대상이다.
+- `actionLayout.ts`는 Webpage 위젯 코드에 의존하지 않는다. 다른 위젯에 같은 기능이 필요해지면 그대로 쓸 수 있다.
+
+**까다로웠던 포인트**
+
+- 프리셋 코드는 `executeJavaScript`로 페이지 안에서 실행된다. 스타일은 `<style>` 요소 대신 CSSOM (`element.style`, 생성한 스타일시트)으로 바꾼다. 페이지 CSP의 `style-src`는 `<style>` 삽입을 막지만 CSSOM 변경은 막지 않는다. `default-src 'self'; style-src 'self'; script-src 'self'` CSP를 건 테스트 페이지에서 6개 프리셋이 동작했다 (Video Speed는 jsdom 테스트로만 확인했다).
+- Toggle Dark Filter는 처음에 `html`과 미디어의 inline `filter`, `background-color`를 덮어썼다. 그래서 끌 때 페이지가 직접 준 inline 값까지 지웠고, `<picture>`와 그 안의 `<img>`를 둘 다 다시 반전해서 그 이미지는 반전된 채로 보였다 (코드 리뷰에서 발견). 지금은 프리셋 전용 스타일시트를 `document.adoptedStyleSheets`에 붙였다 떼고, 다시 반전하는 대상은 `img, video, canvas, iframe`뿐이다. 나중에 로드되는 이미지에도 규칙이 적용된다.
+- Toggle Dark Filter는 배경색이 없는 페이지에 흰 배경을 먼저 준다. 없으면 반전된 페이지가 흰 바탕 위에 그려진다 (추정, 실제 화면에서는 흰 배경을 준 상태로만 확인했다).
+- 프리셋 선택 상자는 고르기만 하고 추가는 버튼이 한다. Windows에서는 닫힌 `<select>`에서 화살표 키를 누를 때마다 `change`가 발생한다. 처음처럼 `change`에서 바로 추가하면 목록을 둘러보기만 해도 프리셋이 추가된다 (코드 리뷰에서 발견, 실제 앱에서 재현).
+- 섹션 제목의 `label`은 프리셋 선택 상자를 가리킨다. 처음에는 첫 행 체크박스를 가리켜서, 제목을 클릭하면 첫 버튼이 숨겨졌다 (코드 리뷰에서 발견).
+- 기본 버튼 행에는 삭제 버튼이 없다. 버튼 한 칸 너비 (26px)의 여백을 행에 주어 위/아래 화살표 열을 커스텀 행과 맞췄다. 여백을 액션 바 요소에 주면 액션 바 자체 규칙 (`margin: 0`)이 덮어쓴다.
+- 이전 버전으로 되돌리면 옛 앱이 `actionBar` 필드와 커스텀 `id`를 버린다. 커스텀 액션은 남고 순서와 숨김만 초기화된다.
+
+**수정 파일**
+
+- **신규**: `src/renderer/widgets/webpage/actionLayout.ts`, `src/renderer/widgets/webpage/actionPresets.ts`, `src/renderer/widgets/webpage/settings.module.scss`
+- **수정**: `src/renderer/widgets/webpage/settings.tsx`, `src/renderer/widgets/webpage/actionBar.ts`, `src/renderer/widgets/webpage/widget.tsx`
+- **테스트**: `tests/renderer/widgets/webpage/actionLayout.spec.ts`, `actionPresets.spec.ts` (신규), `actionBar.spec.ts`, `settings.spec.ts`, `fixtures.ts`
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

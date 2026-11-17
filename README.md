@@ -23,7 +23,8 @@ Original Freeter: [**Home**][home] | [**Download**][download] | [**Community**][
 - **One bar at the top**: the Top Bar's widgets merge into the workflow tab bar (widgets on the left, tabs on the
   right). The workflow bar can also sit at the bottom, or on the left or right as a side panel.
 - **Webpage widget that works like a browser**: tabs, find in page, zoom, mute, keyboard shortcuts, page translation,
-  image copy, downloads to a folder you choose, custom JavaScript action buttons and HTTP authentication.
+  image copy, downloads to a folder you choose, HTTP authentication, and action bar buttons you can hide and reorder,
+  including your own JavaScript actions or ready-made presets (dark filter, allow text selection, 2x video speed).
 - **Terminal widget**: PowerShell, Command Prompt, Git Bash or WSL inside a widget, with tabs. Run Claude Code or Codex
   in it.
 - **AI agent control**: AI agents such as Claude Code and Codex work with projects, workflows and widgets through the

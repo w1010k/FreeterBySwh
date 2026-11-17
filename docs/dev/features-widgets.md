@@ -323,10 +323,11 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor)은 `widget
 #### Webpage (`webpage`)
 
 - **역할**: `<webview>`로 웹 페이지를 위젯 안에 띄운다. 포크 변경이 가장 많은 위젯이다.
-- **파일**: `widget.tsx`(`Webview` 컴포넌트, 멀티탭 래퍼 `WidgetComp`), `settings.tsx`, `actionBar.ts`(`createActionBarItems`),
+- **파일**: `widget.tsx`(`Webview` 컴포넌트, 멀티탭 래퍼 `WidgetComp`), `settings.tsx`, `actionBar.ts`(`createActionBarItems`, 기본 버튼 목록),
+  `actionLayout.ts`(숨김·순서 적용), `actionPresets.ts`(커스텀 액션 프리셋),
   `contextMenu.ts`(`createContextMenuFactory`), `actions.ts`(라벨 상수와 동작 함수), `partition.ts`(`createPartition`),
   `zoomEvents.ts`, `homeEvents.ts`, `translate.ts`(번역 페이지 스크립트).
-- **설정**: `url`, `urlName`, `tabs: {url, name}[]`, `customActions: {name, js}[]`, `sessionScope`(`app`/`prj`/`wfl`/
+- **설정**: `url`, `urlName`, `tabs: {url, name}[]`, `customActions: {id, name, js}[]`, `actionBar: {hidden, order}`, `sessionScope`(`app`/`prj`/`wfl`/
   `wgt`, 기본 `prj`), `sessionPersist`(`persist`/`temp`, 기본 `persist`), `autoReload`(초, 0이면 끔), `injectedCSS`,
   `injectedJS`, `userAgent`.
 - **세션 파티션**: `createPartition`이 `persist:` 접두사 + 범위 + id로 만든다. 셸프에서는 `prj`/`wfl`이 `shlf`로 합쳐진다 [upstream]. 멀티탭에서 같은
@@ -386,6 +387,11 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor)은 `widget
 - **기타 동작**: 페이지 제목과 URL을 이은 동적 타이틀 [fork #11], 로드 실패 오버레이 (메인 프레임이고 code ≠ -3일 때만) [fork #38], 자동 새로고침은 webview에 포커스가
   있으면 멈추고 blur부터 다시 센다 [fork #53], 음소거는 세션 한정 [fork #35], 커스텀 액션은 활성 탭에서 `executeJavaScript` [fork #70], 이동 시
   `page_visit` 기록 [fork #63], `exposeApi`로 `{ openUrl, getUrl }` 공개 [upstream].
+- **Actions 설정** [fork #115]: 기본 버튼과 커스텀 액션을 한 목록으로 그린다. 숨김과 순서는 `actionBar`에 항목 `id`로 저장하고, 설정 목록과
+  액션 바가 같은 `arrangeActions`를 쓴다. 순서 목록에 없는 항목은 뒤에 기본 순서대로 붙는다. 커스텀 액션의 항목 `id`는 `CUSTOM-ACTION-<id>`다 (행 번호가 아님).
+  `createActionBarItems`에 버튼을 추가하면 `builtinActionsBeforeCustom`/`builtinActionsAfterCustom`에도 추가한다 (테스트가 검사한다).
+  `createSettingsState`는 없는 커스텀 액션의 `id`를 두 목록에서 지운다. 프리셋은 선택 상자로 고르고 "Add Preset" 버튼으로 추가한다 (Windows의 닫힌
+  `<select>`는 화살표 키마다 `change`를 보낸다). 프리셋 스타일은 `<style>` 대신 CSSOM으로 바꾼다 (페이지 CSP의 `style-src`).
 - **컨텍스트 메뉴** (`contextMenu.ts`): 새로고침, 강제 새로고침, 자동 새로고침 토글, 줌 배율 하위 메뉴, 시작 페이지·뒤로·앞으로, 브라우저로 열기, 다른 이름으로 저장, 주소 복사, 인쇄,
   개발자 도구. 링크·이미지·편집 가능 영역 위에서는 해당 항목 (링크 열기·저장·주소 복사, 이미지 저장·주소 복사, 실행 취소·잘라내기·붙여넣기 등)이 추가된다 [upstream]. "Copy image"는
   `<webview>`에 `copyImageAt`이 없어서 `clipboard.copyImageAt(getWebContentsId(), x, y)`로 main의 `WebContents`가 복사한다 [fork #107].

@@ -7,7 +7,39 @@ import { ActionBarItem, ActionBarItems } from '@/base/actionBar';
 import { canGoBack, canGoForward, canGoHome, canReload, copyCurrentAddress, goBack, goForward, goHome, labelAutoReloadStart, labelAutoReloadStop, labelCopyCurrentAddress, labelFindInPage, labelGoBack, labelGoForward, labelGoHome, labelMuteAudio, labelOpenInBrowser, labelReload, labelTranslatePage, labelUnmuteAudio, labelZoomIn, labelZoomOut, openCurrentInBrowser, reload, zoomReset, zoomStepIn, zoomStepOut } from './actions';
 import { backSvg, copyUrlSvg, forwardSvg, homeSvg, openInBrowserSvg, reloadSvg, reloadStartSvg, reloadStopSvg, runScriptSvg, searchSvg, translateSvg, volumeOffSvg, volumeOnSvg, zoomInSvg, zoomOutSvg } from './icons';
 import { WidgetApi } from '@/base/widgetApi';
-import { CustomActionSettings } from './settings';
+import type { CustomActionSettings } from './settings';
+import { ActionBarLayout, applyActionBarLayout } from './actionLayout';
+
+// The buttons the Actions setting lists, in the action bar's default order. Custom actions go
+// between the two lists. Keep the ids in step with createActionBarItems (a test checks it).
+export interface BuiltinActionInfo {
+  id: string;
+  label: string;
+  note?: string;
+}
+export const builtinActionsBeforeCustom: readonly BuiltinActionInfo[] = [
+  { id: 'HOME', label: labelGoHome },
+  { id: 'BACK', label: labelGoBack },
+  { id: 'FORWARD', label: labelGoForward },
+  { id: 'AUTO-RELOAD', label: 'Start or stop auto-reload', note: 'shown when Auto-Reload is set' },
+  { id: 'RELOAD', label: labelReload },
+  { id: 'ZOOM-OUT', label: labelZoomOut },
+  { id: 'ZOOM-IN', label: labelZoomIn },
+  { id: 'FIND', label: labelFindInPage },
+  { id: 'TRANSLATE', label: labelTranslatePage },
+];
+export const builtinActionsAfterCustom: readonly BuiltinActionInfo[] = [
+  { id: 'MUTE', label: 'Mute or unmute audio' },
+  { id: 'COPY-URL', label: labelCopyCurrentAddress },
+  { id: 'OPEN-IN-BROWSER', label: labelOpenInBrowser },
+];
+
+// A custom action's id in the action bar and in ActionBarLayout. The action's own id is fixed,
+// so the button keeps its place and hidden state when rows above it are deleted.
+export const customActionItemIdPrefix = 'CUSTOM-ACTION-';
+export function customActionItemId(action: CustomActionSettings): string {
+  return customActionItemIdPrefix + action.id;
+}
 
 export function createActionBarItems(
   elWebview: Electron.WebviewTag | null,
@@ -23,7 +55,8 @@ export function createActionBarItems(
   onFind?: () => void,
   customActions: CustomActionSettings[] = [],
   translated = false,
-  onToggleTranslate?: () => void
+  onToggleTranslate?: () => void,
+  layout: ActionBarLayout = { hidden: [], order: [] }
 ): ActionBarItems {
   if (!elWebview || !homeUrl) {
     return []
@@ -64,7 +97,7 @@ export function createActionBarItems(
     }, ...reloadItems]
   }
 
-  return [
+  return applyActionBarLayout([
     {
       enabled: canGoHome(elWebview, homeUrl),
       icon: homeSvg,
@@ -125,7 +158,7 @@ export function createActionBarItems(
       .map(({action, i}) => ({
         enabled: true,
         icon: runScriptSvg,
-        id: `CUSTOM-ACTION-${i}`,
+        id: customActionItemId(action),
         title: action.name.trim() !== '' ? action.name : `Custom action ${i + 1}`,
         doAction: async () => { elWebview.executeJavaScript(action.js).catch(() => undefined); }
       })),
@@ -150,5 +183,5 @@ export function createActionBarItems(
       title: withKeys(labelOpenInBrowser, `${mod}+T`),
       doAction: async () => openCurrentInBrowser(elWebview, widgetApi)
     }
-  ];
+  ], layout);
 }

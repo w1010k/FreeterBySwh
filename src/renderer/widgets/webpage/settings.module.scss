@@ -1,0 +1,27 @@
+/*
+ * Copyright: (c) 2024, Alex Kaul
+ * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+ */
+
+// Actions setting rows: the label takes the free width, so the arrows line up on the right.
+.action-label {
+  flex: 1;
+}
+
+// A built-in row has no Delete button. The gap of one size-S button (14px icon + 2 x 6px
+// padding) keeps its arrows in the same column as the custom rows' arrows. It goes on the row:
+// the action bar's own rule sets its margin and padding.
+.builtin-row {
+  padding-inline-end: 26px;
+}
+
+.action-note {
+  color: var(--freeter-textSecondary);
+}
+
+// Two classes beat the settings panel rule (select -> display:block; width:100%), so the
+// preset select sits inline next to the Add Action button.
+.preset-row .preset-select {
+  display: inline-block;
+  width: auto;
+}

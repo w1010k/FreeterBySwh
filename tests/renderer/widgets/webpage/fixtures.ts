@@ -13,6 +13,7 @@ export function fixtureSettings(settings: Partial<Settings>): Settings {
     urlName: '',
     tabs: [],
     customActions: [],
+    actionBar: { hidden: [], order: [] },
     autoReload: 0,
     injectedCSS: '',
     injectedJS: '',

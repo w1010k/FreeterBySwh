@@ -146,7 +146,7 @@ function createExposedApi(ref: { current: Electron.WebviewTag | null }, url: str
 }
 
 function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuffix, onSelectTab, tabIdx, env, id}: WebviewProps) {
-  const {url, sessionScope, sessionPersist, autoReload, injectedCSS, injectedJS, userAgent, customActions} = settings;
+  const {url, sessionScope, sessionPersist, autoReload, injectedCSS, injectedJS, userAgent, customActions, actionBar} = settings;
 
   const partition = useMemo(() => createPartition(sessionPersist, sessionScope, env, id) + (partitionSuffix ?? ''), [
     env, id, sessionScope, sessionPersist, partitionSuffix
@@ -372,11 +372,12 @@ function Webview({settings, widgetApi, onRequireRestart, onTabInfo, partitionSuf
         openFind,
         customActions,
         translated,
-        toggleTranslate
+        toggleTranslate,
+        actionBar
       )
     ),
     [autoReload, autoReloadStopped, updateActionBar, url, webviewIsReady, widgetApi, audioMuted, toggleMute, openFind, customActions,
-      translated, toggleTranslate]
+      translated, toggleTranslate, actionBar]
   );
 
   const injectCSSInDOM = useCallback(

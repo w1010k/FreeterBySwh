@@ -3,7 +3,7 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { createActionBarItems } from '@/widgets/webpage/actionBar';
+import { builtinActionsAfterCustom, builtinActionsBeforeCustom, createActionBarItems } from '@/widgets/webpage/actionBar';
 import { WidgetApi } from '@/base/widgetApi';
 
 function setupMocks(currentUrl = 'https://example.com/path?q=1', initialZoom = 1, isMac = false) {
@@ -58,18 +58,65 @@ describe('Webpage action bar', () => {
     (elWebview as unknown as { executeJavaScript: jest.Mock }).executeJavaScript = executeJavaScript;
 
     const items = createActionBarItems(elWebview, widgetApi, 'https://example.com', 0, false, () => undefined, false, undefined, undefined, [
-      { name: 'Mark all read', js: 'markAllRead()' },
-      { name: 'Empty js is skipped', js: '  ' },
-      { name: '', js: 'doStuff()' }
+      { id: 'a1', name: 'Mark all read', js: 'markAllRead()' },
+      { id: 'a2', name: 'Empty js is skipped', js: '  ' },
+      { id: 'a3', name: '', js: 'doStuff()' }
     ]);
 
     const customItems = items.filter(item => item.id.startsWith('CUSTOM-ACTION-'));
-    expect(customItems.length).toBe(2);
+    expect(customItems.map(item => item.id)).toEqual(['CUSTOM-ACTION-a1', 'CUSTOM-ACTION-a3']);
     expect(customItems[0].title).toBe('Mark all read');
     expect(customItems[1].title).toBe('Custom action 3');
 
     await customItems[0].doAction();
     expect(executeJavaScript).toHaveBeenCalledWith('markAllRead()');
+  })
+
+  it('should list every built-in button in the Actions setting, in the default order around the custom actions', () => {
+    const { elWebview, widgetApi } = setupMocks();
+    const items = createActionBarItems(
+      elWebview,
+      widgetApi,
+      'https://example.com',
+      30,
+      false,
+      () => undefined,
+      false,
+      () => undefined,
+      () => undefined,
+      [{ id: 'a1', name: 'A', js: 'a()' }],
+      false,
+      () => undefined
+    );
+
+    expect(items.map(item => item.id)).toEqual([
+      ...builtinActionsBeforeCustom.map(info => info.id),
+      'CUSTOM-ACTION-a1',
+      ...builtinActionsAfterCustom.map(info => info.id)
+    ]);
+  })
+
+  it('should hide and reorder the buttons per the saved layout', () => {
+    const { elWebview, widgetApi } = setupMocks();
+    const items = createActionBarItems(
+      elWebview,
+      widgetApi,
+      'https://example.com',
+      0,
+      false,
+      () => undefined,
+      false,
+      undefined,
+      undefined,
+      [{ id: 'a1', name: 'A', js: 'a()' }],
+      false,
+      undefined,
+      { hidden: ['HOME', 'ZOOM-OUT'], order: ['CUSTOM-ACTION-a1', 'OPEN-IN-BROWSER'] }
+    );
+
+    expect(items.map(item => item.id)).toEqual([
+      'CUSTOM-ACTION-a1', 'OPEN-IN-BROWSER', 'BACK', 'FORWARD', 'RELOAD', 'ZOOM-IN', 'COPY-URL'
+    ]);
   })
 
   it('should return an empty array when the webview is null', () => {

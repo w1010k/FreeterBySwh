@@ -3,7 +3,8 @@
  * GNU General Public License v3.0 or later (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
  */
 
-import { settingsEditorComp } from '@/widgets/webpage/settings';
+import { createSettingsState, settingsEditorComp } from '@/widgets/webpage/settings';
+import { actionPresets } from '@/widgets/webpage/actionPresets';
 import { act, screen } from '@testing-library/react';
 import { setupSettingsSut } from '@tests/widgets/setupSut'
 import { fixtureSettings } from './fixtures';
@@ -194,15 +195,117 @@ describe('Webpage Widget Settings', () => {
     const user = userEvent.setup({ delay: null });
 
     await user.click(screen.getByRole('button', { name: /add action/i }));
-    expect(getSettings()).toEqual({ ...settings, customActions: [{ name: '', js: '' }] });
+    expect(getSettings()).toEqual({ ...settings, customActions: [{ id: expect.any(String), name: '', js: '' }] });
+    const { id } = getSettings().customActions[0];
 
     const jsInput = screen.getByRole('textbox', { name: /action js 1/i });
     await user.type(jsInput, 'doStuff()');
     fireEvent.blur(jsInput);
-    expect(getSettings()).toEqual({ ...settings, customActions: [{ name: '', js: 'doStuff()' }] });
+    expect(getSettings()).toEqual({ ...settings, customActions: [{ id, name: '', js: 'doStuff()' }] });
 
     await user.click(screen.getByRole('button', { name: /delete action/i }));
     expect(getSettings()).toEqual({ ...settings, customActions: [] });
+  })
+
+  it('should list the built-in actions with custom actions between Translate and Mute', () => {
+    const settings = fixtureSettings({ customActions: [{ id: 'a1', name: 'Mine', js: 'x()' }] });
+    setupSettingsSut(settingsEditorComp, settings);
+
+    const showBoxes = screen.getAllByRole('checkbox');
+    expect(showBoxes).toHaveLength(13);
+    expect(showBoxes.every(box => (box as HTMLInputElement).checked)).toBe(true);
+    const names = showBoxes.map(box => box.getAttribute('aria-label') ?? box.parentElement!.textContent!.trim());
+    expect(names.indexOf('Show Action 1')).toBe(names.indexOf('Translate to Korean') + 1);
+    expect(names.indexOf('Mute or unmute audio')).toBe(names.indexOf('Show Action 1') + 1);
+  })
+
+  it('should hide and show a button with its checkbox', async () => {
+    const settings = fixtureSettings({});
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+    const user = userEvent.setup({ delay: null });
+
+    await user.click(screen.getByRole('checkbox', { name: /go back/i }));
+    expect(getSettings().actionBar).toEqual({ hidden: ['BACK'], order: [] });
+
+    await user.click(screen.getByRole('checkbox', { name: /go back/i }));
+    expect(getSettings().actionBar).toEqual({ hidden: [], order: [] });
+  })
+
+  it('should move a row and save the order of the whole list', async () => {
+    const settings = fixtureSettings({});
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+    const user = userEvent.setup({ delay: null });
+
+    // The first row has no Move Up, so the first Move Down belongs to Home.
+    await user.click(screen.getAllByRole('button', { name: /move down/i })[0]);
+    expect(getSettings().actionBar.order.slice(0, 3)).toEqual(['BACK', 'HOME', 'FORWARD']);
+    expect(getSettings().actionBar.order).toHaveLength(12);
+    const names = screen.getAllByRole('checkbox').map(box => box.parentElement!.textContent!.trim());
+    expect(names.slice(0, 2)).toEqual(['Go Back', 'Go to start page']);
+  })
+
+  it('should add a custom action from a preset', async () => {
+    const settings = fixtureSettings({});
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+    const user = userEvent.setup({ delay: null });
+
+    const addPreset = screen.getByRole('button', { name: /add preset/i });
+    expect(addPreset).toBeDisabled();
+
+    // Choosing only picks the preset: on Windows a closed select fires change on each arrow key.
+    await user.selectOptions(screen.getByRole('combobox', { name: /^preset$/i }), 'Expand All Sections');
+    expect(getSettings().customActions).toEqual([]);
+
+    await user.click(addPreset);
+    const preset = actionPresets.find(p => p.name === 'Expand All Sections')!;
+    expect(getSettings().customActions).toEqual([{ id: expect.any(String), name: preset.name, js: preset.js }]);
+    expect(screen.getByRole('combobox', { name: /^preset$/i })).toHaveValue('');
+    expect(addPreset).toBeDisabled();
+  })
+
+  it('should not toggle a button when the section title is clicked', async () => {
+    const settings = fixtureSettings({});
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+    const user = userEvent.setup({ delay: null });
+
+    await user.click(screen.getByText('Actions'));
+    expect(getSettings()).toEqual(settings);
+    expect(screen.getByRole('checkbox', { name: 'Go to start page' })).toBeChecked();
+  })
+
+  it('should add a custom action after the last custom action when an order is saved', async () => {
+    const settings = fixtureSettings({
+      customActions: [{ id: 'a1', name: 'Mine', js: 'x()' }],
+      actionBar: { hidden: [], order: ['CUSTOM-ACTION-a1', 'HOME'] }
+    });
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+    const user = userEvent.setup({ delay: null });
+
+    await user.click(screen.getByRole('button', { name: /add action/i }));
+    const newId = 'CUSTOM-ACTION-' + getSettings().customActions[1].id;
+    expect(getSettings().actionBar.order.slice(0, 3)).toEqual(['CUSTOM-ACTION-a1', newId, 'HOME']);
+  })
+
+  it('should add a custom action before Mute when an order is saved and there is no custom action', async () => {
+    const settings = fixtureSettings({ actionBar: { hidden: [], order: ['BACK', 'HOME'] } });
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+    const user = userEvent.setup({ delay: null });
+
+    await user.click(screen.getByRole('button', { name: /add action/i }));
+    const { order } = getSettings().actionBar;
+    expect(order.indexOf('MUTE')).toBe(order.indexOf('CUSTOM-ACTION-' + getSettings().customActions[0].id) + 1);
+  })
+
+  it('should drop a deleted custom action from the saved layout', async () => {
+    const settings = fixtureSettings({
+      customActions: [{ id: 'a1', name: 'Mine', js: 'x()' }],
+      actionBar: { hidden: ['CUSTOM-ACTION-a1', 'HOME'], order: ['CUSTOM-ACTION-a1', 'BACK'] }
+    });
+    const { userEvent, getSettings } = setupSettingsSut(settingsEditorComp, settings);
+    const user = userEvent.setup({ delay: null });
+
+    await user.click(screen.getByRole('button', { name: /delete action/i }));
+    expect(getSettings().actionBar).toEqual({ hidden: ['HOME'], order: ['BACK'] });
   })
 
   it('should immediately update "injected css" setting on input type', async () => {
@@ -305,5 +408,29 @@ describe('Webpage Widget Settings', () => {
       ...settings,
       userAgent: ua
     });
+  })
+
+  describe('createSettingsState()', () => {
+    it('gives custom actions saved without an id (before the Actions list) a unique id', () => {
+      const state = createSettingsState({
+        customActions: [{ name: 'A', js: 'a()' }, { id: 'same', name: 'B', js: 'b()' }, { id: 'same', name: 'C', js: 'c()' }]
+      } as never);
+      const ids = state.customActions.map(a => a.id);
+      expect(ids[1]).toBe('same');
+      expect(new Set(ids).size).toBe(3);
+      expect(ids.every(id => id !== '')).toBe(true);
+    })
+
+    it('starts with an empty layout', () => {
+      expect(createSettingsState({}).actionBar).toEqual({ hidden: [], order: [] });
+    })
+
+    it('drops the ids of custom actions that no longer exist from the layout', () => {
+      const state = createSettingsState({
+        customActions: [{ id: 'a1', name: 'A', js: 'a()' }],
+        actionBar: { hidden: ['CUSTOM-ACTION-gone', 'CUSTOM-ACTION-a1', 'HOME'], order: ['CUSTOM-ACTION-gone', 'BACK', 'CUSTOM-ACTION-a1'] }
+      } as never);
+      expect(state.actionBar).toEqual({ hidden: ['CUSTOM-ACTION-a1', 'HOME'], order: ['BACK', 'CUSTOM-ACTION-a1'] });
+    })
   })
 })
