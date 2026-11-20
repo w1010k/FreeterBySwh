@@ -4327,6 +4327,50 @@ Terminal 위젯의 액션 바에는 Restart Shell 하나만 있었다. Windows T
 - **수정**: `src/renderer/widgets/terminal/{widget.tsx,settings.tsx,index.ts,icons/index.ts}`, `src/renderer/widgets/webpage/{settings.tsx,actionBar.ts}`
 - **테스트**: `tests/renderer/widgets/terminal/actions.spec.ts` (신규), `tests/renderer/widgets/terminal/{widget,settings}.spec.ts`, `tests/renderer/widgets/actionLayout.spec.ts` (이동)
 
+## 117. Electron 42 → 45 업그레이드 *(2026-11-20)*
+
+| 구성 요소     | Before   | After      |
+|---------------|----------|------------|
+| Electron      | 42.11.18 | **45.4.1** |
+| 내장 Chromium | 148      | **156**    |
+| 내장 Node     | 24.15    | 24.22      |
+
+**왜**: Electron은 최신 안정 메이저 3개만 보안 패치를 낸다. 42는 2026-10-20에 지원이 끝났다. Webpage 위젯이 내장 Chromium으로 외부 사이트를 열기 때문에, 지원이 끝난 Chromium을 계속 쓰면 보안 패치를 받지 못한다. 지원 중인 메이저 (43, 44, 45) 중 가장 늦게 끝나는 45를 골랐다.
+
+**사용자가 보는 변화**
+
+- Webpage 위젯의 UA가 `Chrome/156.0.0.0`이 된다. UA는 실행 중인 Chromium 메이저로 만들므로 코드는 그대로다.
+- 시작 폴더 없이 여는 열기·저장 대화상자 (Application Settings의 폴더 선택 등)는 다운로드 폴더에서 시작한다. 전에는 OS가 마지막 폴더를 기억했다 (Electron 43 변경).
+- Linux에서 프레임 없는 창의 모서리가 둥글게 바뀔 수 있다 (Electron 43 변경, Linux에서 확인하지 않음).
+
+**코드 변경**
+
+- `clipboard.writeBookmark`가 Electron 44에서 없어졌다. main의 `writeBookmark`는 모든 OS에서 URL을 텍스트로 쓴다 (Linux는 원래 이렇게 동작). 위젯 API에 `writeBookmark`가 남아 있지만 지금 부르는 위젯은 없다. Webpage의 주소 복사는 원래 `writeText`를 쓴다.
+- `clipboard.writeText`가 Promise를 돌려주게 되어, main의 clipboard use case가 쓰기를 기다린다.
+- Electron 45 타입 정의에서 `app`의 `login` 이벤트의 `webContents`가 `null`일 수 있게 되었다 (타입 검사에서 드러남). 문서는 "webContents or Utility process"의 인증 요청이라고만 적고, 실제로 어떤 요청이 `null`로 오는지는 확인하지 않았다. HTTP 인증 처리기는 `null`이면 바로 반환해서 Electron 기본 동작 (취소)을 따른다. 물어볼 페이지가 없기 때문이다. 이 앱은 utility process를 쓰지 않는다.
+- HTTP 인증 창의 결과를 받는 `console-message`가 위치 인자 `(event, level, message)`를 썼다. 이 인자는 Electron 45에서 deprecated이고 47에서 제거 예정이라, details 객체의 `message`로 바꿨다 (코드 리뷰에서 발견).
+
+**검증**
+
+- 타입 검사 통과, 전체 Jest 362 suites / 2,715 tests 통과 (1 skipped), ESLint 오류 0개 (기존 경고 6개). 프로덕션 빌드 경고 수는 42와 같다.
+- 실제 앱 (프로덕션 빌드, 임시 appData)에서 42와 45를 같은 절차로 비교했다. 루프백 페이지의 Webpage 위젯에서 `window.open(..., 'popup')`으로 연 팝업이 `window.opener.postMessage`로 응답하는 것을 두 버전 모두 확인했다. OAuth 팝업이 쓰는 경로다. Electron 45는 sandbox가 아닌 창의 `window.open()` 자식을 별도 sandbox 프로세스로 여는데, 이 앱의 팝업은 원래 `sandbox: true`를 지정해서 영향이 없었다.
+- 같은 화면 (Webpage 위젯 1개)의 유휴 메모리: Working Set 449 → 461MB, Private 241 → 235MB (Electron 프로세스 5개 합계).
+- HTTP 인증 창 (`console-message`를 details 객체로 바꾼 뒤): Basic 인증 루프백 서버를 Webpage 위젯으로 열자 인증 창이 떴다. 아이디와 비밀번호를 넣고 Sign in을 누르자 창이 닫히고 페이지가 열렸다.
+- System Monitor 위젯의 AceDeck 사용량 (`workingSetSize`를 KB로 보고 계산)이 475MB로, OS의 Working Set 합계 476MB와 맞았다. 단위는 바뀌지 않았다.
+- Terminal 위젯에서 PowerShell이 시작되고, Copy Output과 Webpage의 주소 복사가 OS 클립보드에 들어가는 것을 `Get-Clipboard`로 확인했다.
+- 패키지: MSI와 zip 빌드 성공. Electron 45의 ASAR 파일 fd 제한 때문에 패키지 실행 파일을 `ELECTRON_RUN_AS_NODE`로 띄워 `app.asar`의 node-pty를 로드하고 셸 출력을 받았다. 패키지 CLI (`app.asar/cli.js`)도 동작했다. 패키지 앱 자체는 띄우지 않았다. 설치판 데이터 폴더를 쓰게 되어, 설치판 프로필이 Chromium 156으로 바뀌기 때문이다.
+
+**까다로웠던 포인트**
+
+- 42 → 45 사이의 깨지는 변경은 27개였고, 이 코드에 닿은 것은 위의 두 개뿐이었다. 나머지는 macOS, 32비트, `contentTracing`, `safeStorage`, sandbox preload의 Node 심 (`Buffer`, `require('events')`) 등이다. preload는 `contextBridge`와 `ipcRenderer`만 쓴다. 권한 처리기는 화면 캡처의 새 권한 이름 `display-capture`도 승인한다.
+- Electron 공식 깨지는 변경 목록에서 `webContents`가 `null`일 수 있다고 적은 이벤트는 `select-client-certificate`뿐이다. `login`은 타입 정의 (`webContents: WebContents | null`)로 알았다. 처음에는 "main의 `net` 요청에도 온다"고 적었으나, 근거 없는 추론이라 코드 리뷰 뒤에 고쳤다.
+
+**수정 파일**
+
+- **수정**: `package.json`, `yarn.lock`, `src/main/infra/clipboardProvider/clipboardProvider.ts`, `src/main/application/interfaces/clipboardProvider.ts`, `src/main/application/useCases/clipboard/{writeBookmarkIntoClipboard,writeTextIntoClipboard}.ts`, `src/main/infra/httpAuth/httpAuth.ts`
+- **수정 (주석)**: `src/renderer/base/widgetApi.ts` (`writeBookmark`는 URL만 쓴다)
+- **테스트**: `tests/main/infra/httpAuth/httpAuth.spec.ts` (`webContents` 없는 요청), `tests/main/application/useCases/clipboard/{writeBookmarkIntoClipboard,writeTextIntoClipboard}.spec.ts` (쓰기 실패 전달)
+
 ## 부록: 참고 문서
 
 - `CLAUDE.md` — 이 저장소 구조·명령 가이드 (Claude Code용이지만 일반 참고용으로도 OK)

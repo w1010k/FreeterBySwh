@@ -11,7 +11,7 @@ interface Deps {
 
 export function createWriteBookmarkIntoClipboardUseCase({ clipboardProvider }: Deps) {
   return async function writeBookmarkIntoClipboardUseCase(title: string, url: string) {
-    clipboardProvider.writeBookmark(title, url);
+    await clipboardProvider.writeBookmark(title, url);
   }
 }
 

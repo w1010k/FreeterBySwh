@@ -95,6 +95,7 @@ export interface WidgetApiPty {
 
 interface WidgetApiModules {
   readonly clipboard: {
+    /** Writes only `url`, as text: Electron 44 removed the bookmark format, so `title` is not used. */
     writeBookmark: (title: string, url: string) => Promise<void>;
     writeText: (text: string) => Promise<void>;
     /** Copy the image at (x, y) of a <webview> page (its `getWebContentsId()`), e.g. from its context-menu event. */

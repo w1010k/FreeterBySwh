@@ -8,7 +8,8 @@ import { ClipboardProvider } from '@/application/interfaces/clipboardProvider';
 
 export function createClipboardProvider(): ClipboardProvider {
   return {
-    writeBookmark: (title, url) => (process.platform === 'darwin' || process.platform === 'win32') ? Electron.clipboard.writeBookmark(title, url) : Electron.clipboard.writeText(url),
+    // Electron 44 removed clipboard.writeBookmark, so the URL goes in as text on every platform (as on Linux before).
+    writeBookmark: (_title, url) => Electron.clipboard.writeText(url),
     writeText: (text) => Electron.clipboard.writeText(text),
     copyImageAt: (webContentsId, x, y) => {
       // `copyImageAt` exists on WebContents only, not on the <webview> tag, so the renderer passes the guest's id.

@@ -122,7 +122,7 @@
 
 | 모듈          | 함수                                                                     | 구현 경로                                                                   | 출처                        |
 |---------------|--------------------------------------------------------------------------|-----------------------------------------------------------------------------|-----------------------------|
-| `clipboard`   | `writeText`, `writeBookmark`, `copyImageAt(webContentsId, x, y)` (webview guest만) | renderer `clipboardProvider` → IPC → main                                   | [upstream, fork #107]       |
+| `clipboard`   | `writeText`, `writeBookmark` (URL만 텍스트로 쓰고 title은 버린다 [fork #117]), `copyImageAt(webContentsId, x, y)` (webview guest만) | renderer `clipboardProvider` → IPC → main                                   | [upstream, fork #107, #117] |
 | `dataStorage` | `getText`, `setText`, `getJson`, `setJson`, `remove`, `clear`, `getKeys` | 아래 "데이터 저장" 참조                                                     | [upstream, fork #8 #9 변경] |
 | `process`     | `getProcessInfo()` (동기, `isMac` 등)                                    | 시작 시 1회 로드한 값                                                       | [upstream]                  |
 | `shell`       | `openApp`, `openExternalUrl`, `openPath`                                 | main `shell`                                                                | [upstream]                  |
@@ -598,7 +598,7 @@ AI 작업이 없는 위젯 (Clock, Calculator, D-Day, System Monitor)은 `widget
 - **main 쪽**: `src/main/infra/systemStatsProvider/systemStatsProvider.ts`가 계산한다. CPU%(전체·코어별)는 `cpus()` 누적 시간의 직전 호출 이후 차이다.
   RAM은 `totalmem`·`freemem`, 가동 시간은 `uptime`, 디스크는 시스템 드라이브 (Windows `SystemDrive`, 그 외 `/`) 하나의 `statfsSync`이고 실패하면 `null`이다.
   Freeter 사용량은 `index.ts`가 주입한 `app.getAppMetrics()`의 합이다. `percentCPUUsage`는 이미 전체 코어 기준 비율이라 코어 수로 나누지 않고,
-  `workingSetSize`는 KB라서 1024를 곱한다 (Electron 42에서 실측) [fork #98].
+  `workingSetSize`는 KB라서 1024를 곱한다 (Electron 42에서 실측, Electron 45에서 OS 측정값과 다시 비교 [fork #117]) [fork #98].
 
 #### 템플릿 (`_template`)
 

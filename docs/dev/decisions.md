@@ -135,13 +135,24 @@
 
 #### D15. upstream 2.8 병합 방식
 
-- 상태: 유효
+- 상태: 일부 대체: D87 (Electron 버전)
 - 출처: `[fork]`
 - 결정: upstream의 의존성 버전 업 (Electron 42, React 19.2, Zustand 5, Jest 30, TypeScript 6 등)과 코드 규약 (SCSS default import)은 받고,
   npm 전환 (`package-lock.json`, npm 스크립트·CI)은 받지 않는다. `react-hooks/set-state-in-effect`, `react-hooks/refs` 규칙은 warn으로
   낮춘다.
 - 이유: lint 규칙 완화는 코드 주석 기록. "새로 켜진 두 규칙이 포크 위젯의 의도된 패턴을 잡아서, 병합이 막히지 않도록 경고로 낮춘다. 나중에 재검토한다."
 - 근거: 커밋 0ebf9ac 메시지, `src/renderer/eslint.config.mjs`
+
+#### D87. Electron 42 → 45 업그레이드
+
+- 상태: 유효
+- 출처: `[fork #117]`
+- 결정: Electron을 42.11.18에서 45.4.1로 올렸다 (Chromium 148 → 156, Node 24.15 → 24.22). 지원 중인 메이저 중 최신을 고르고, 중간 메이저 (43, 44)에는 머무르지 않는다.
+- 이유: Electron은 최신 안정 메이저 3개만 지원한다. 42는 2026-10-20에 지원이 끝났다 (releases.electronjs.org/schedule). Webpage 위젯이 내장 Chromium을 쓰므로 보안 패치를 받으려면 메이저 업이 필요하다 (D14와 같은 이유).
+- 코드 영향: 43~45의 깨지는 변경 중 이 코드에 닿은 것은 두 개다. `clipboard.writeBookmark` 제거 (44, 모든 OS에서 `writeText(url)`로 대체, 위젯이 쓰지 않는 API)와 `app`의 `login` 이벤트의 `webContents`가 `null`일 수 있게 된 타입 (45 타입 정의. 문서는 utility process 요청을 든다. 실제로 어떤 요청이 이렇게 오는지는 확인하지 않았다. 처리기가 바로 반환해 기본값인 취소를 따른다). 45에서 deprecated된 `console-message`의 위치 인자 (47에서 제거 예정)도 details 객체로 바꿨다.
+- 확인한 것: 팝업의 `window.opener` 유지 (45의 `window.open()` 자식 sandbox 변경. 팝업은 원래 `sandbox: true`를 지정한다), 패키지의 node-pty 로드 (45의 ASAR fd 제한), 유휴 메모리.
+- 버린 대안: 43이나 44로 한 단계씩 올리기 (43은 2027-01-05에 지원이 끝나 곧 다시 올려야 하고, 깨지는 변경 목록은 같다).
+- 근거: CHANGES #117, `package.json`, `src/main/infra/clipboardProvider/clipboardProvider.ts`, `src/main/infra/httpAuth/httpAuth.ts`
 
 #### D16. 기본 글로벌 단축키 변경
 
@@ -752,7 +763,7 @@
 - 상태: 유효
 - 출처: `[fork #99]`
 - 결정: 앱 안 터미널을 위해 `node-pty`를 쓴다. main 번들에서 externals로 두고, 시작 때 지연 로딩한다 (실패하면 터미널만 쓸 수 없다). electron-builder의 네이티브 재빌드는 끈다 (`npmRebuild: false`).
-- 이유: Claude Code 같은 대화형 TUI는 pipe로는 동작하지 않고 pty가 필요하다. node-pty는 N-API 모듈이라 `yarn install`의 바이너리가 Electron에서 그대로 로드된다 (Electron 42에서 실측). D55 등의 "네이티브 의존성 0" 방침을 이 기능에 한해 바꾼다.
+- 이유: Claude Code 같은 대화형 TUI는 pipe로는 동작하지 않고 pty가 필요하다. node-pty는 N-API 모듈이라 `yarn install`의 바이너리가 Electron에서 그대로 로드된다 (Electron 42에서 실측, Electron 45에서 패키지의 `app.asar` 경로로 다시 확인 [fork #117]). D55 등의 "네이티브 의존성 0" 방침을 이 기능에 한해 바꾼다.
 - 버린 대안: `child_process` pipe (대화형 TUI가 동작하지 않음), 외부 터미널만 쓰기 (앱 안에 둘 수 없음), electron-builder 재빌드 (Windows에서 winpty 빌드 단계가 실패).
 - 한계: Linux용 prebuild가 없어 Linux CI는 설치 때 소스 빌드한다 (검증하지 않음). 패키지에 darwin, arm64 prebuild도 들어간다.
 - 근거: `package.json`, `webpack.main.config.js` externals, `electron-builder.config.js`, `src/main/index.ts`

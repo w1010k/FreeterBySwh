@@ -11,7 +11,7 @@ interface Deps {
 
 export function createWriteTextIntoClipboardUseCase({ clipboardProvider }: Deps) {
   return async function writeTextIntoClipboardUseCase(text: string) {
-    clipboardProvider.writeText(text);
+    await clipboardProvider.writeText(text);
   }
 }
 

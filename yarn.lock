@@ -3949,10 +3949,10 @@ electron@^23.1.2:
     "@types/node" "^16.11.26"
     extract-zip "^2.0.1"
 
-electron@^42.1.0:
-  version "42.11.18"
-  resolved "https://registry.yarnpkg.com/electron/-/electron-42.11.18.tgz#2785cfd76815006df8ab2f392da9daa8f0dfc09b"
-  integrity sha512-hbzodG06x/l7uq+oeyob5ugv6qZBmJRWC7Uto5QEE99xSHUARz6d+++Rz+79T/ssTYTQkONW4ciTTcJuAbXKIQ==
+electron@^45.4.1:
+  version "45.4.1"
+  resolved "https://registry.yarnpkg.com/electron/-/electron-45.4.1.tgz#88f4dd2a9856cccb344e2100da1f92a308fee2a0"
+  integrity sha512-DjsJ/eQhovkjf1vYFFyh5GB8NMx+L5bdYaonvGOlWselg3DQ0fwIF0N/+2hrPsoS4whmmNswh21ym/8dgt1y5Q==
   dependencies:
     "@electron-internal/extract-zip" "^1.0.1"
     "@electron/get" "^5.0.0"

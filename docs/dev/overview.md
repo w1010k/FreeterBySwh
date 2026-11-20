@@ -36,13 +36,13 @@ Freeter는 Electron 데스크톱 앱이다. 프로젝트, 워크플로우 (탭),
   - jest 30에서 사라진 `toBeCalled*` 별칭을 `toHaveBeenCalled*`로 바꿨다.
   - react-hooks@7의 새 규칙 `react-hooks/set-state-in-effect`, `react-hooks/refs`를 `warn`으로 낮췄다
     (`src/renderer/eslint.config.mjs`). 커밋 메시지는 후속 정리 대상이라고 적는다.
-- CHANGES #2의 "Electron 36 → 41"은 2.8 병합 전 기록이다. 현재 Electron은 2.8을 따른 `^42.1.0`이다.
+- CHANGES #2의 "Electron 36 → 41"은 2.8 병합 전 기록이다. 2.8 병합으로 `^42.1.0`이 되었고, 이후 포크가 `^45.4.1`로 올렸다 [fork #117].
 
 ### 기술 스택
 
 | 구성 요소                             | 버전 (`package.json`) | 용도와 비고                                                                                        |
 |---------------------------------------|-----------------------|----------------------------------------------------------------------------------------------------|
-| Electron                              | ^42.1.0               | upstream 2.8에서 36 → 42                                                                           |
+| Electron                              | ^45.4.1               | upstream 2.8에서 36 → 42, 포크에서 42 → 45 [fork #117]                                             |
 | React, react-dom                      | ^19.2.6               | renderer UI, Analytics 페이지                                                                      |
 | TypeScript                            | ^6.0.3                | 루트 `tsconfig.json`: `moduleResolution: bundler`, `strict`                                        |
 | Zustand                               | ^5.0.13               | `zustand/vanilla` store, UI 훅은 `zustand/traditional` `useStoreWithEqualityFn`                    |
@@ -223,7 +223,7 @@ main은 `did-attach-webview`에서 guest마다 아래를 건다.
 | 대상             | 내용                                                                                                        | 위치                                                                                | 출처                      |
 |------------------|-------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|---------------------------|
 | 자식 창 메뉴     | `browser-window-created`에서 main 창이 아니면 `removeMenu()`                                                | `src/main/index.ts`                                                                 | [upstream]                |
-| HTTP 인증 창     | `app.on('login')` → data: URL 모달 창 (`sandbox`, `contextIsolation`). 결과는 console-message 마커로 받는다 | `src/main/infra/httpAuth/httpAuth.ts` `registerHttpAuthHandler`                     | [fork #71]                |
+| HTTP 인증 창     | `app.on('login')` → data: URL 모달 창 (`sandbox`, `contextIsolation`). 결과는 console-message 마커로 받는다. `webContents`가 없는 요청 (Electron 45 타입에서 가능)은 처리하지 않는다 [fork #117] | `src/main/infra/httpAuth/httpAuth.ts` `registerHttpAuthHandler`                     | [fork #71]                |
 | Analytics 페이지 | main의 루프백 HTTP 서버가 페이지와 데이터를 제공하고, 사용자의 기본 브라우저가 연다                         | `src/main/infra/analyticsServer/analyticsServer.ts`                                 | [fork #87]                |
 | 전경 창 리더     | Windows에서 PowerShell 프로세스 1개가 5초마다 전경 창을 출력. 부모 프로세스가 사라지면 스스로 종료          | `src/main/infra/osActivity/foregroundWindow.ts`                                     | [fork #64]                |
 | 앱, 터미널 실행  | `spawnDetached`로 분리 실행 (OS별 인자 생성)                                                                | `useCases/shell/openApp.ts`, `useCases/terminal/execCmdLinesInTerminal.ts`          | [upstream]                |

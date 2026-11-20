@@ -31,4 +31,11 @@ describe('writeTextIntoClipboardUseCase()', () => {
     expect(clipboardProviderMock.writeText).toHaveBeenCalledTimes(1);
     expect(clipboardProviderMock.writeText).toHaveBeenCalledWith(testText);
   });
+
+  it('should wait for the write and pass its failure on', async () => {
+    const { useCase, clipboardProviderMock } = setup();
+    jest.mocked(clipboardProviderMock.writeText).mockRejectedValue(new Error('clipboard busy'));
+
+    await expect(useCase('text')).rejects.toThrow('clipboard busy');
+  });
 })

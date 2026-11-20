@@ -78,7 +78,9 @@ function promptForCredentials(wc: WebContents, authInfo: AuthInfo): Promise<Http
       }
     };
 
-    win.webContents.on('console-message', (_e, _level, message) => {
+    // The details object, not the positional (level, message) arguments: those are deprecated in Electron 45 and
+    // listed for removal in Electron 47.
+    win.webContents.on('console-message', ({ message }) => {
       if (typeof message !== 'string' || !message.startsWith(RESULT_MARKER)) {
         return;
       }
@@ -120,21 +122,22 @@ export function createLoginHandler(
   prompt: (wc: WebContents, authInfo: AuthInfo) => Promise<HttpAuthCredentials | null>
 ) {
   const inFlight = new WeakSet<WebContents>();
-  return (event: LoginEvent, wc: WebContents, details: LoginDetails, authInfo: AuthInfo, callback: LoginCallback) => {
+  return (event: LoginEvent, wc: WebContents | null, details: LoginDetails, authInfo: AuthInfo, callback: LoginCallback) => {
+    // The Electron 45 typings allow no webContents here (the docs name utility-process requests; which requests
+    // actually come this way was not verified). There is no page to ask over, so those keep Electron's default (cancel).
+    if (!wc) {
+      return;
+    }
     if (!details?.isRequestForNavigation && !authInfo.isProxy) {
       return;
     }
-    if (wc && inFlight.has(wc)) {
+    if (inFlight.has(wc)) {
       return;
     }
     event.preventDefault();
-    if (wc) {
-      inFlight.add(wc);
-    }
+    inFlight.add(wc);
     const done = () => {
-      if (wc) {
-        inFlight.delete(wc);
-      }
+      inFlight.delete(wc);
     };
     prompt(wc, authInfo).then(
       cred => { done(); return cred ? callback(cred.username, cred.password) : callback(); },

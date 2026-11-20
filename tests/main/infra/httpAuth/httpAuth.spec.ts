@@ -94,6 +94,16 @@ describe('createLoginHandler()', () => {
     expect(prompt).toHaveBeenCalledTimes(1);
   });
 
+  it('should leave a challenge without webContents (main-process net request) to the default cancel', () => {
+    const prompt = jest.fn(async () => null);
+    const handler = createLoginHandler(prompt);
+    const event = { preventDefault: jest.fn() };
+
+    handler(event, null, nav, authInfo({ isProxy: true }), jest.fn());
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(prompt).not.toHaveBeenCalled();
+  });
+
   it('should open one prompt at a time per webContents', async () => {
     let answer: (cred: null) => void = () => undefined;
     const prompt = jest.fn(() => new Promise<null>(resolve => { answer = resolve; }));

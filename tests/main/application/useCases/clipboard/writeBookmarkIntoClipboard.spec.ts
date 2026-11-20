@@ -32,4 +32,11 @@ describe('writeBookmarkIntoClipboardUseCase()', () => {
     expect(clipboardProviderMock.writeBookmark).toHaveBeenCalledTimes(1);
     expect(clipboardProviderMock.writeBookmark).toHaveBeenCalledWith(testTitle, testUrl);
   });
+
+  it('should wait for the write and pass its failure on', async () => {
+    const { useCase, clipboardProviderMock } = setup();
+    jest.mocked(clipboardProviderMock.writeBookmark).mockRejectedValue(new Error('clipboard busy'));
+
+    await expect(useCase('title', 'test://url')).rejects.toThrow('clipboard busy');
+  });
 })
